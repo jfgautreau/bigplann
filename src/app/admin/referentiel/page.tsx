@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
@@ -26,10 +27,17 @@ type Poste = {
 type Ligne = { id: string; nom: string; actif: boolean; poste: Poste[] };
 type Atelier = { id: string; nom: string; actif: boolean; ligne: Ligne[] };
 
-export default async function ReferentielPage() {
+export default async function ReferentielPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ edit?: string }>;
+}) {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (profile.role !== "admin") redirect("/");
+
+  const sp = await searchParams;
+  const isEditing = (type: string, id: string) => sp.edit === `${type}:${id}`;
 
   const supabase = await getServerClient();
   const { data } = await supabase
@@ -50,14 +58,19 @@ export default async function ReferentielPage() {
       })),
   }));
 
+  const StatutTag = ({ actif, on = "Actif" }: { actif: boolean; on?: string }) => (
+    <span className={actif ? "tag" : "tag tag-off"}>{actif ? on : "Desactive"}</span>
+  );
+
   return (
     <>
       <AppHeader role={profile.role} active="/admin/referentiel" />
       <div className="container">
         <h1>Referentiel : ateliers, lignes, postes</h1>
         <p className="muted" style={{ marginBottom: 16 }}>
-          L&apos;effectif requis par poste constitue l&apos;abaque (ex. 1 conducteur
-          + 3 operateurs). La desactivation conserve l&apos;historique.
+          Affichage en lecture seule. Cliquez sur « Modifier » pour editer un
+          element. L&apos;effectif requis par poste constitue l&apos;abaque
+          (ex. 1 conducteur + 3 operateurs).
         </p>
 
         <div className="card" style={{ marginBottom: 24 }}>
@@ -76,25 +89,33 @@ export default async function ReferentielPage() {
 
         {ateliers.map((a) => (
           <div key={a.id} className="card section">
-            <div className="toolbar">
+            {/* En-tete atelier */}
+            {isEditing("atelier", a.id) ? (
               <form action={renameAtelier} className="inline-form">
                 <input type="hidden" name="id" value={a.id} />
-                <input name="nom" defaultValue={a.nom} />
-                <button type="submit" className="btn-sm btn-ghost">
-                  Renommer
-                </button>
+                <div className="field">
+                  <span>Nom de l&apos;atelier</span>
+                  <input name="nom" defaultValue={a.nom} autoFocus required />
+                </div>
+                <button type="submit" className="btn-sm">Enregistrer</button>
+                <Link href="/admin/referentiel" className="navlink">Annuler</Link>
               </form>
-              <span className={a.actif ? "tag" : "tag tag-off"}>
-                {a.actif ? "Actif" : "Desactive"}
-              </span>
-              <form action={toggleAtelier}>
-                <input type="hidden" name="id" value={a.id} />
-                <input type="hidden" name="actif" value={(!a.actif).toString()} />
-                <button type="submit" className="btn-sm btn-ghost">
-                  {a.actif ? "Desactiver" : "Reactiver"}
-                </button>
-              </form>
-            </div>
+            ) : (
+              <div className="toolbar">
+                <strong style={{ fontSize: 16 }}>{a.nom}</strong>
+                <StatutTag actif={a.actif} />
+                <Link href={`/admin/referentiel?edit=atelier:${a.id}`} className="navlink">
+                  Modifier
+                </Link>
+                <form action={toggleAtelier}>
+                  <input type="hidden" name="id" value={a.id} />
+                  <input type="hidden" name="actif" value={(!a.actif).toString()} />
+                  <button type="submit" className="btn-sm btn-ghost">
+                    {a.actif ? "Desactiver" : "Reactiver"}
+                  </button>
+                </form>
+              </div>
+            )}
 
             {/* Lignes */}
             {a.ligne.map((l) => (
@@ -103,99 +124,121 @@ export default async function ReferentielPage() {
                 className="section"
                 style={{ marginLeft: 16, borderLeft: "2px solid #eee", paddingLeft: 16 }}
               >
-                <div className="toolbar">
+                {isEditing("ligne", l.id) ? (
                   <form action={renameLigne} className="inline-form">
                     <input type="hidden" name="id" value={l.id} />
-                    <input name="nom" defaultValue={l.nom} />
-                    <button type="submit" className="btn-sm btn-ghost">
-                      Renommer ligne
-                    </button>
+                    <div className="field">
+                      <span>Nom de la ligne</span>
+                      <input name="nom" defaultValue={l.nom} autoFocus required />
+                    </div>
+                    <button type="submit" className="btn-sm">Enregistrer</button>
+                    <Link href="/admin/referentiel" className="navlink">Annuler</Link>
                   </form>
-                  <span className={l.actif ? "tag" : "tag tag-off"}>
-                    {l.actif ? "Actif" : "Desactive"}
-                  </span>
-                  <form action={toggleLigne}>
-                    <input type="hidden" name="id" value={l.id} />
-                    <input type="hidden" name="actif" value={(!l.actif).toString()} />
-                    <button type="submit" className="btn-sm btn-ghost">
-                      {l.actif ? "Desactiver" : "Reactiver"}
-                    </button>
-                  </form>
-                </div>
-
-                {/* Postes */}
-                {l.poste.map((p) => (
-                  <div
-                    key={p.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-end",
-                      gap: 8,
-                      flexWrap: "wrap",
-                      marginBottom: 6,
-                    }}
-                  >
-                    <form action={updatePoste} className="inline-form">
-                      <input type="hidden" name="id" value={p.id} />
-                      <div className="field">
-                        <span>Poste</span>
-                        <input name="nom" defaultValue={p.nom} />
-                      </div>
-                      <div className="field">
-                        <span>Effectif</span>
-                        <input
-                          name="effectif_requis"
-                          type="number"
-                          min={0}
-                          defaultValue={p.effectif_requis}
-                          style={{ width: 70 }}
-                        />
-                      </div>
-                      <div className="field">
-                        <span>Conducteur</span>
-                        <select name="est_conducteur" defaultValue={p.est_conducteur ? "true" : "false"}>
-                          <option value="false">Non</option>
-                          <option value="true">Oui</option>
-                        </select>
-                      </div>
-                      <div className="field">
-                        <span>Difficulte</span>
-                        <select
-                          name="difficulte_formation"
-                          defaultValue={p.difficulte_formation?.toString() ?? ""}
-                        >
-                          <option value="">-</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
-                        </select>
-                      </div>
-                      <div className="field">
-                        <span>Niv. min</span>
-                        <select name="niveau_min_requis" defaultValue={p.niveau_min_requis.toString()}>
-                          {[0, 1, 2, 3, 4].map((n) => (
-                            <option key={n} value={n}>
-                              {n}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                ) : (
+                  <div className="toolbar">
+                    <strong>{l.nom}</strong>
+                    <StatutTag actif={l.actif} />
+                    <Link href={`/admin/referentiel?edit=ligne:${l.id}`} className="navlink">
+                      Modifier
+                    </Link>
+                    <form action={toggleLigne}>
+                      <input type="hidden" name="id" value={l.id} />
+                      <input type="hidden" name="actif" value={(!l.actif).toString()} />
                       <button type="submit" className="btn-sm btn-ghost">
-                        Enregistrer
-                      </button>
-                    </form>
-                    <span className={p.actif ? "tag" : "tag tag-off"}>
-                      {p.actif ? "Actif" : "Off"}
-                    </span>
-                    <form action={togglePoste}>
-                      <input type="hidden" name="id" value={p.id} />
-                      <input type="hidden" name="actif" value={(!p.actif).toString()} />
-                      <button type="submit" className="btn-sm btn-ghost">
-                        {p.actif ? "Desactiver" : "Reactiver"}
+                        {l.actif ? "Desactiver" : "Reactiver"}
                       </button>
                     </form>
                   </div>
-                ))}
+                )}
+
+                {/* Postes */}
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Poste</th>
+                      <th>Effectif</th>
+                      <th>Conducteur</th>
+                      <th>Difficulte</th>
+                      <th>Niv. min</th>
+                      <th>Statut</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {l.poste.map((p) =>
+                      isEditing("poste", p.id) ? (
+                        <tr key={p.id}>
+                          <td colSpan={7}>
+                            <form action={updatePoste} className="inline-form">
+                              <input type="hidden" name="id" value={p.id} />
+                              <div className="field">
+                                <span>Nom</span>
+                                <input name="nom" defaultValue={p.nom} autoFocus required />
+                              </div>
+                              <div className="field">
+                                <span>Effectif</span>
+                                <input name="effectif_requis" type="number" min={0} defaultValue={p.effectif_requis} style={{ width: 70 }} />
+                              </div>
+                              <div className="field">
+                                <span>Conducteur</span>
+                                <select name="est_conducteur" defaultValue={p.est_conducteur ? "true" : "false"}>
+                                  <option value="false">Non</option>
+                                  <option value="true">Oui</option>
+                                </select>
+                              </div>
+                              <div className="field">
+                                <span>Difficulte</span>
+                                <select name="difficulte_formation" defaultValue={p.difficulte_formation?.toString() ?? ""}>
+                                  <option value="">-</option>
+                                  <option value="1">1</option>
+                                  <option value="2">2</option>
+                                  <option value="3">3</option>
+                                </select>
+                              </div>
+                              <div className="field">
+                                <span>Niv. min</span>
+                                <select name="niveau_min_requis" defaultValue={p.niveau_min_requis.toString()}>
+                                  {[0, 1, 2, 3, 4].map((n) => (
+                                    <option key={n} value={n}>{n}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <button type="submit" className="btn-sm">Enregistrer</button>
+                              <Link href="/admin/referentiel" className="navlink">Annuler</Link>
+                            </form>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={p.id}>
+                          <td>{p.nom}</td>
+                          <td>{p.effectif_requis}</td>
+                          <td>{p.est_conducteur ? "Oui" : "-"}</td>
+                          <td>{p.difficulte_formation ?? "-"}</td>
+                          <td>{p.niveau_min_requis}</td>
+                          <td><StatutTag actif={p.actif} on="Actif" /></td>
+                          <td style={{ whiteSpace: "nowrap" }}>
+                            <Link href={`/admin/referentiel?edit=poste:${p.id}`} className="navlink">
+                              Modifier
+                            </Link>
+                            {"  "}
+                            <form action={togglePoste} style={{ display: "inline", margin: 0 }}>
+                              <input type="hidden" name="id" value={p.id} />
+                              <input type="hidden" name="actif" value={(!p.actif).toString()} />
+                              <button type="submit" className="btn-sm btn-ghost">
+                                {p.actif ? "Desactiver" : "Reactiver"}
+                              </button>
+                            </form>
+                          </td>
+                        </tr>
+                      )
+                    )}
+                    {l.poste.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="muted">Aucun poste sur cette ligne.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
 
                 {/* Ajout poste */}
                 <form action={createPoste} className="inline-form" style={{ marginTop: 8 }}>
@@ -228,15 +271,11 @@ export default async function ReferentielPage() {
                     <span>Niv. min</span>
                     <select name="niveau_min_requis" defaultValue="0">
                       {[0, 1, 2, 3, 4].map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
+                        <option key={n} value={n}>{n}</option>
                       ))}
                     </select>
                   </div>
-                  <button type="submit" className="btn-sm">
-                    Ajouter poste
-                  </button>
+                  <button type="submit" className="btn-sm">Ajouter poste</button>
                 </form>
               </div>
             ))}
@@ -248,9 +287,7 @@ export default async function ReferentielPage() {
                 <span>Nouvelle ligne</span>
                 <input name="nom" placeholder="Nom de la ligne" required />
               </div>
-              <button type="submit" className="btn-sm">
-                Ajouter ligne
-              </button>
+              <button type="submit" className="btn-sm">Ajouter ligne</button>
             </form>
           </div>
         ))}
