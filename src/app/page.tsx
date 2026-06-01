@@ -1,50 +1,37 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getServerClient } from "@/lib/supabase-server";
+import { getCurrentProfile } from "@/lib/current-user";
 import { roleLabel } from "@/lib/roles";
+import AppHeader from "@/components/AppHeader";
 
 export default async function DashboardPage() {
-  const supabase = await getServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("app_user")
-    .select("name, role, email")
-    .eq("user_id", user.id)
-    .single<{ name: string; role: string; email: string }>();
-
-  const name = profile?.name || profile?.email || user.email;
-  const role = profile?.role ?? "direction";
+  const profile = await getCurrentProfile();
+  if (!profile) redirect("/login");
 
   return (
-    <div className="container">
-      <div className="topbar">
-        <strong>Planning Usine</strong>
-        <form action="/logout" method="post">
-          <button type="submit">Se deconnecter</button>
-        </form>
-      </div>
-
-      <div className="card">
-        <h1>Bienvenue, {name}</h1>
-        <p className="muted">
-          Connecte en tant que <strong>{roleLabel(role)}</strong> ({user.email}).
-        </p>
-
-        {role === "admin" && (
-          <p style={{ marginTop: 16 }}>
-            <Link href="/admin/users">Gestion des utilisateurs &rarr;</Link>
+    <>
+      <AppHeader role={profile.role} active="/" />
+      <div className="container">
+        <div className="card">
+          <h1>Bienvenue, {profile.name || profile.email}</h1>
+          <p className="muted">
+            Connecte en tant que <strong>{roleLabel(profile.role)}</strong> (
+            {profile.email}).
           </p>
-        )}
 
-        <p className="muted" style={{ marginTop: 24 }}>
-          Socle Supabase + Vercel. Les modules metier seront ajoutes apres
-          validation de ce socle.
-        </p>
+          {profile.role === "admin" && (
+            <p style={{ marginTop: 16 }}>
+              <Link href="/admin/referentiel">Referentiel</Link>
+              {"  ·  "}
+              <Link href="/admin/equipes">Equipes</Link>
+              {"  ·  "}
+              <Link href="/personnel">Personnel</Link>
+              {"  ·  "}
+              <Link href="/admin/users">Utilisateurs</Link>
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

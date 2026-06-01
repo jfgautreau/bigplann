@@ -34,10 +34,26 @@
 - [ ] Bloque : creation compte Vercel indisponible cote utilisateur
 - [ ] (Supabase ne necessite PAS GitHub ; deploiement non requis pour dev local)
 
-## Suite (apres validation du socle)
-- [ ] Modele de donnees complet + sitemap a valider
-- [ ] Modules metier : referentiel, matrice, habilitations, planning, absences,
-      affichage couloir, bilans, journal d'audit
+## Lot 0 - validation modele + sitemap
+- [x] docs/LOT0-CADRAGE.md valide (ajustements: conducteur=poste, abaque,
+      equipe/jour, conge reporte, sitemap provisoire)
+
+## Lot 2 - Referentiel - EN COURS
+- [x] Migration 0002 : atelier/ligne/poste (+abaque), equipe/equipe_chef,
+      personne, audit_log + triggers audit + updated_at + RLS
+- [x] Helpers : getCurrentProfile, requireAdmin ; AppHeader (nav par role)
+- [x] Ecran /admin/referentiel (CRUD atelier/ligne/poste + effectif abaque + desactivation)
+- [x] Ecran /admin/equipes (CRUD equipes + designation des chefs)
+- [x] Ecran /personnel (liste+filtres) + /personnel/[id] (fiche) + matricule auto interim
+- [x] Ecran /journal (audit, admin + resp_prod)
+- [x] npm run build + TypeScript OK
+- [ ] Import/export Excel : RETIRE du perimetre (demande utilisateur)
+- [ ] Utilisateur : executer supabase/migrations/0002_referentiel.sql
+- [ ] Verif sur Supabase reel (insert -> audit_log capture) puis demo
+
+## Suite
+- [ ] Lot 3 Matrice, Lot 4 Habilitations, Lot 5 Planning, Lot 6 Absences,
+      Lot 7 Affichage couloir, Lot 8 Bilans, Lot 9 RGPD/doc/tests
 
 ## Revue
 (a remplir en fin de tache)
