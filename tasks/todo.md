@@ -52,8 +52,21 @@
 - [x] Verif Supabase reel : audit_log capture les INSERT/UPDATE avec l'auteur
 - [x] Fix : bouton desactiver poste (name+formAction interdit par React)
 
+## Lot 3 - Matrice de polyvalence - EN COURS
+- [x] Migration 0004 : matrice, competence_niveau_libelle (seed echelle),
+      competence, personne_competence + RLS (perimetre chef) + audit
+- [x] Helpers is_chef_of_equipe / can_edit_personne
+- [x] /admin/competences : echelle parametrable + competences transverses (CRUD)
+- [x] /matrice : grille personne x poste (niveau actuel/cible), edition admin+chef
+- [x] /matrice/bilan : Existant/Besoin/Ecart par poste et par seuil de niveau
+- [x] Menu : Matrice (tous) + Competences (admin)
+- [x] npm run build + TypeScript OK
+- [ ] Saisie transverses/habilitations par personne -> Lot 4 (recyclage)
+- [ ] Utilisateur : executer supabase/migrations/0004_matrice.sql
+- [ ] Verif reel + demo (chef modifie un niveau, bilan a jour, audit)
+
 ## Suite
-- [ ] Lot 3 Matrice, Lot 4 Habilitations, Lot 5 Planning, Lot 6 Absences,
+- [ ] Lot 4 Habilitations, Lot 5 Planning, Lot 6 Absences,
       Lot 7 Affichage couloir, Lot 8 Bilans, Lot 9 RGPD/doc/tests
 
 ## Revue

@@ -14,8 +14,10 @@ export default function AppHeader({
   const links: { href: string; label: string; show: boolean }[] = [
     { href: "/", label: "Accueil", show: true },
     { href: "/personnel", label: "Personnel", show: true },
+    { href: "/matrice", label: "Matrice", show: true },
     { href: "/admin/referentiel", label: "Referentiel", show: isAdmin },
     { href: "/admin/equipes", label: "Equipes", show: isAdmin },
+    { href: "/admin/competences", label: "Competences", show: isAdmin },
     { href: "/admin/users", label: "Utilisateurs", show: isAdmin },
     { href: "/journal", label: "Journal", show: canAudit },
   ];
