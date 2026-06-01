@@ -47,13 +47,20 @@
 - [x] Ecran /personnel (liste+filtres) + /personnel/[id] (fiche) + matricule auto interim
 - [x] Ecran /journal (audit, admin + resp_prod)
 - [x] npm run build + TypeScript OK
-- [ ] Import/export Excel : RETIRE du perimetre (demande utilisateur)
-- [ ] Utilisateur : executer supabase/migrations/0002_referentiel.sql
-- [ ] Verif sur Supabase reel (insert -> audit_log capture) puis demo
+- [x] Import/export Excel : RETIRE du perimetre (demande utilisateur)
+- [x] Utilisateur : 0002 executee (3 ateliers, 5 lignes, 5 postes saisis)
+- [x] Verif Supabase reel : audit_log capture les INSERT/UPDATE avec l'auteur
+- [x] Fix : bouton desactiver poste (name+formAction interdit par React)
 
 ## Suite
 - [ ] Lot 3 Matrice, Lot 4 Habilitations, Lot 5 Planning, Lot 6 Absences,
       Lot 7 Affichage couloir, Lot 8 Bilans, Lot 9 RGPD/doc/tests
 
 ## Revue
-(a remplir en fin de tache)
+- Lot 2 termine et valide en reel. Referentiel (atelier/ligne/poste+abaque),
+  equipes/chefs, personnel (CRUD), journal d'audit operationnels.
+- Audit par triggers Postgres : capture auth.uid() (verifie en reel).
+- Ecriture admin-only pour l'instant ; acces RH au personnel + perimetre chef
+  d'equipe reportes au lot Planning (RLS a affiner avec has_role/is_chef).
+- Excel import/export retire (demande utilisateur).
+- Deploiement Vercel toujours en attente (compte bloque) ; dev 100% local.
