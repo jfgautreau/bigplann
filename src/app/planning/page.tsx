@@ -37,6 +37,7 @@ export default async function PlanningPage({
   // 3 semaines : passee, centrale, a venir
   const weekMondays = [addDays(center, -7), center, addDays(center, 7)];
   const todayMonday = isoDate(mondayOf());
+  const todayIso = isoDate(new Date());
   const days = weekMondays.flatMap((wm, wi) =>
     weekDays(wm).map((d, di) => ({ ...d, firstOfWeek: di === 0, _wi: wi }))
   );
@@ -154,7 +155,7 @@ export default async function PlanningPage({
     ligneNom: g.ligneNom,
     postes: g.postes.map((p) => ({
       id: p.id,
-      nom: p.nom_court || p.nom,
+      nom: (p.nom_court || p.nom).slice(0, 6),
       niveauMin: p.niveau_min_requis,
       effectif: p.effectif_requis,
     })),
@@ -195,6 +196,7 @@ export default async function PlanningPage({
         <PlanningGrid
           days={days}
           weeks={weeks}
+          todayIso={todayIso}
           personnes={gridPersonnes}
           groups={gridGroups}
           besoin={besoin}

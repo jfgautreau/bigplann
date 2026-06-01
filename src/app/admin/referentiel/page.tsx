@@ -99,13 +99,13 @@ export default async function ReferentielPage({
                   <input name="nom" defaultValue={a.nom} autoFocus required />
                 </div>
                 <button type="submit" className="btn-sm">Enregistrer</button>
-                <Link href="/admin/referentiel" className="navlink">Annuler</Link>
+                <Link href="/admin/referentiel" className="navlink" scroll={false}>Annuler</Link>
               </form>
             ) : (
               <div className="toolbar">
                 <strong style={{ fontSize: 16 }}>{a.nom}</strong>
                 <StatutTag actif={a.actif} />
-                <Link href={`/admin/referentiel?edit=atelier:${a.id}`} className="navlink">
+                <Link href={`/admin/referentiel?edit=atelier:${a.id}`} className="navlink" scroll={false}>
                   Modifier
                 </Link>
                 <form action={toggleAtelier}>
@@ -133,13 +133,13 @@ export default async function ReferentielPage({
                       <input name="nom" defaultValue={l.nom} autoFocus required />
                     </div>
                     <button type="submit" className="btn-sm">Enregistrer</button>
-                    <Link href="/admin/referentiel" className="navlink">Annuler</Link>
+                    <Link href="/admin/referentiel" className="navlink" scroll={false}>Annuler</Link>
                   </form>
                 ) : (
                   <div className="toolbar">
                     <strong>{l.nom}</strong>
                     <StatutTag actif={l.actif} />
-                    <Link href={`/admin/referentiel?edit=ligne:${l.id}`} className="navlink">
+                    <Link href={`/admin/referentiel?edit=ligne:${l.id}`} className="navlink" scroll={false}>
                       Modifier
                     </Link>
                     <form action={toggleLigne}>
@@ -179,7 +179,7 @@ export default async function ReferentielPage({
                               </div>
                               <div className="field">
                                 <span>Code (abrege)</span>
-                                <input name="nom_court" defaultValue={p.nom_court ?? ""} style={{ width: 90 }} />
+                                <input name="nom_court" defaultValue={p.nom_court ?? ""} maxLength={6} style={{ width: 90 }} />
                               </div>
                               <div className="field">
                                 <span>Effectif</span>
@@ -210,7 +210,7 @@ export default async function ReferentielPage({
                                 </select>
                               </div>
                               <button type="submit" className="btn-sm">Enregistrer</button>
-                              <Link href="/admin/referentiel" className="navlink">Annuler</Link>
+                              <Link href="/admin/referentiel" className="navlink" scroll={false}>Annuler</Link>
                             </form>
                           </td>
                         </tr>
@@ -224,7 +224,7 @@ export default async function ReferentielPage({
                           <td>{p.niveau_min_requis}</td>
                           <td><StatutTag actif={p.actif} on="Actif" /></td>
                           <td style={{ whiteSpace: "nowrap" }}>
-                            <Link href={`/admin/referentiel?edit=poste:${p.id}`} className="navlink">
+                            <Link href={`/admin/referentiel?edit=poste:${p.id}`} className="navlink" scroll={false}>
                               Modifier
                             </Link>
                             {"  "}
@@ -256,7 +256,7 @@ export default async function ReferentielPage({
                   </div>
                   <div className="field">
                     <span>Code</span>
-                    <input name="nom_court" placeholder="abrege" style={{ width: 80 }} />
+                    <input name="nom_court" placeholder="6 car. max" maxLength={6} style={{ width: 80 }} />
                   </div>
                   <div className="field">
                     <span>Effectif</span>

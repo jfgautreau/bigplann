@@ -11,6 +11,7 @@ type Personne = { id: string; label: string; equipe_id: string | null; editable:
 export default function PlanningGrid({
   days,
   weeks = [],
+  todayIso = "",
   personnes = [],
   groups = [],
   besoin = [],
@@ -19,6 +20,7 @@ export default function PlanningGrid({
 }: {
   days: Jour[];
   weeks?: WeekHead[];
+  todayIso?: string;
   personnes?: Personne[];
   groups?: Group[];
   besoin?: number[];
@@ -80,6 +82,7 @@ export default function PlanningGrid({
   const deltaColor = (d: number) => (d < 0 ? "var(--danger)" : d > 0 ? "#9a3412" : "var(--ok)");
   const sep = (d: Jour): React.CSSProperties =>
     d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {};
+  const isToday = (d: Jour) => d.iso === todayIso;
 
   return (
     <div className="card" style={{ overflowX: "auto", position: "relative" }}>
@@ -115,7 +118,15 @@ export default function PlanningGrid({
           <tr>
             <th style={{ position: "sticky", left: 0, background: "#fff", textAlign: "left" }}>Personne</th>
             {days.map((d) => (
-              <th key={d.iso} style={{ textAlign: "center", minWidth: 88, ...sep(d) }}>
+              <th
+                key={d.iso}
+                style={{
+                  textAlign: "center",
+                  minWidth: 60,
+                  ...sep(d),
+                  background: isToday(d) ? "#dbeafe" : undefined,
+                }}
+              >
                 {d.nom.slice(0, 3)}
                 <br />
                 <span className="muted" style={{ fontWeight: 400 }}>{d.num}</span>
@@ -143,7 +154,16 @@ export default function PlanningGrid({
             <tr key={label} style={{ background: "#f8fafc" }}>
               <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600 }}>{label}</td>
               {days.map((d, i) => (
-                <td key={d.iso} style={{ textAlign: "center", fontWeight: 700, color: color(i), ...sep(d) }}>
+                <td
+                  key={d.iso}
+                  style={{
+                    textAlign: "center",
+                    fontWeight: 700,
+                    color: color(i),
+                    ...sep(d),
+                    background: isToday(d) ? "#eef2ff" : undefined,
+                  }}
+                >
                   {get(i)}
                 </td>
               ))}
@@ -166,7 +186,7 @@ export default function PlanningGrid({
                     key={d.iso}
                     style={{
                       textAlign: "center",
-                      background: alert ? "#fee2e2" : undefined,
+                      background: alert ? "#fee2e2" : isToday(d) ? "#eff6ff" : undefined,
                       outline: over ? "2px solid #f97316" : undefined,
                       outlineOffset: -2,
                       padding: 3,
