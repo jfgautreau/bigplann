@@ -1,0 +1,38 @@
+// Schema Prisma - TEST SIMPLIFIE (Lot 1 minimal).
+// Ne contient que ce qui est necessaire au smoke test : authentification.
+// Le modele complet (Atelier/Ligne/Poste, Matrice, Planning, Absences,
+// Habilitations, Journal d'audit...) sera ajoute apres validation de ce test.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  RESP_PROD
+  RESP_PLANNING
+  CHEF_EQUIPE
+  ORDONNANCEMENT
+  RH
+  DIRECTION
+}
+
+model AppUser {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  passwordHash   String
+  name           String
+  role           Role      @default(CHEF_EQUIPE)
+  isActive       Boolean   @default(true)
+  failedAttempts Int       @default(0)
+  lockedAt       DateTime? // non-null => compte verrouille (5 echecs), deverrouillage admin
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("app_user")
+}
