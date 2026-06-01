@@ -5,15 +5,15 @@ import { useRouter } from "next/navigation";
 type Opt = { id: string; label: string };
 
 export default function MatriceFilters({
-  ateliers,
-  equipes,
-  atelier,
-  equipe,
+  ateliers = [],
+  equipes = [],
+  atelier = "",
+  equipe = "",
 }: {
-  ateliers: Opt[];
-  equipes: Opt[];
-  atelier: string;
-  equipe: string;
+  ateliers?: Opt[];
+  equipes?: Opt[];
+  atelier?: string;
+  equipe?: string;
 }) {
   const router = useRouter();
 

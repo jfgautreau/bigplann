@@ -44,13 +44,13 @@ function Pie({ level }: { level: number }) {
 }
 
 export default function MatrixGrid({
-  groups,
-  personnes,
-  initial,
+  groups = [],
+  personnes = [],
+  initial = {},
 }: {
-  groups: Group[];
-  personnes: Personne[];
-  initial: Record<string, Cell>;
+  groups?: Group[];
+  personnes?: Personne[];
+  initial?: Record<string, Cell>;
 }) {
   const [mode, setMode] = useState<"actuel" | "cible">("actuel");
   const [cells, setCells] = useState<Record<string, Cell>>(initial);
