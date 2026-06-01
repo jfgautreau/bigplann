@@ -36,13 +36,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const non_travaille = value === "X";
+  let poste_id: string | null = null;
+  let motif_absence_id: string | null = null;
+  let non_travaille = false;
+  if (value === "X") non_travaille = true;
+  else if (value.startsWith("m:")) motif_absence_id = value.slice(2);
+  else poste_id = value;
+
   const { error } = await supabase.from("placement").upsert(
     {
       personne_id,
       jour,
       equipe_id: body?.equipe_id ?? null,
-      poste_id: non_travaille ? null : value,
+      poste_id,
+      motif_absence_id,
       non_travaille,
       created_by: profile.authId,
     },

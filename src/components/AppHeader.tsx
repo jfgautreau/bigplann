@@ -21,6 +21,7 @@ export default function AppHeader({
     { href: "/admin/referentiel", label: "Referentiel", show: isAdmin },
     { href: "/admin/equipes", label: "Equipes", show: isAdmin },
     { href: "/admin/competences", label: "Competences", show: isAdmin },
+    { href: "/admin/motifs", label: "Motifs", show: isAdmin },
     { href: "/admin/users", label: "Utilisateurs", show: isAdmin },
     { href: "/journal", label: "Journal", show: canAudit },
   ];

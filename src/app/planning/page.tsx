@@ -26,8 +26,15 @@ type PosteRow = {
 type LigneRow = { id: string; nom: string; poste: PosteRow[] };
 type Equipe = { id: string; nom: string };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null };
-type Placement = { personne_id: string; jour: string; poste_id: string | null; non_travaille: boolean };
+type Placement = {
+  personne_id: string;
+  jour: string;
+  poste_id: string | null;
+  motif_absence_id: string | null;
+  non_travaille: boolean;
+};
 type MatRow = { personne_id: string; poste_id: string; niveau_actuel: number };
+type Motif = { id: string; code_court: string; libelle: string; couleur: string };
 
 export default async function PlanningPage({
   searchParams,
@@ -50,7 +57,7 @@ export default async function PlanningPage({
   const allIsos = rawDays.map((d) => d.iso);
 
   const supabase = await getServerClient();
-  const [{ data: equipesD }, { data: lignesD }] = await Promise.all([
+  const [{ data: equipesD }, { data: lignesD }, { data: motifsD }] = await Promise.all([
     supabase.from("equipe").select("id, nom").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
       .from("ligne")
@@ -58,7 +65,14 @@ export default async function PlanningPage({
       .eq("actif", true)
       .order("nom")
       .returns<LigneRow[]>(),
+    supabase
+      .from("motif_absence")
+      .select("id, code_court, libelle, couleur")
+      .eq("actif", true)
+      .order("libelle")
+      .returns<Motif[]>(),
   ]);
+  const motifs = motifsD ?? [];
 
   const groups = (lignesD ?? [])
     .map((l) => ({
@@ -147,7 +161,7 @@ export default async function PlanningPage({
     const [{ data: pl }, { data: mat }] = await Promise.all([
       supabase
         .from("placement")
-        .select("personne_id, jour, poste_id, non_travaille")
+        .select("personne_id, jour, poste_id, motif_absence_id, non_travaille")
         .in("jour", visIsos)
         .in("personne_id", persIds)
         .returns<Placement[]>(),
@@ -157,7 +171,12 @@ export default async function PlanningPage({
         .in("personne_id", persIds)
         .returns<MatRow[]>(),
     ]);
-    for (const r of pl ?? []) initial[`${r.personne_id}:${r.jour}`] = r.non_travaille ? "X" : (r.poste_id ?? "");
+    for (const r of pl ?? [])
+      initial[`${r.personne_id}:${r.jour}`] = r.non_travaille
+        ? "X"
+        : r.motif_absence_id
+          ? `m:${r.motif_absence_id}`
+          : (r.poste_id ?? "");
     for (const r of mat ?? []) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
   }
 
@@ -213,6 +232,7 @@ export default async function PlanningPage({
           todayIso={isoDate(new Date())}
           personnes={gridPersonnes}
           groups={gridGroups}
+          motifs={motifs.map((m) => ({ id: m.id, code: m.code_court, couleur: m.couleur }))}
           besoin={besoin}
           initial={initial}
           matrice={matrice}

@@ -6,6 +6,7 @@ type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
 type WeekBlock = { num: number; span: number };
 type Poste = { id: string; nom: string; niveauMin: number; effectif: number };
 type Group = { ligneNom: string; postes: Poste[] };
+type Motif = { id: string; code: string; couleur: string };
 type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean };
 
 export default function PlanningGrid({
@@ -14,6 +15,7 @@ export default function PlanningGrid({
   todayIso = "",
   personnes = [],
   groups = [],
+  motifs = [],
   besoin = [],
   initial = {},
   matrice = {},
@@ -23,6 +25,7 @@ export default function PlanningGrid({
   todayIso?: string;
   personnes?: Personne[];
   groups?: Group[];
+  motifs?: Motif[];
   besoin?: number[];
   initial?: Record<string, string>;
   matrice?: Record<string, number>;
@@ -31,7 +34,12 @@ export default function PlanningGrid({
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const key = (pid: string, iso: string) => `${pid}:${iso}`;
-  const isPoste = (v: string) => v !== "" && v !== "X";
+  const isPoste = (v: string) => v !== "" && v !== "X" && !v.startsWith("m:");
+  const motifColor = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const x of motifs) m[`m:${x.id}`] = x.couleur;
+    return m;
+  }, [motifs]);
 
   // Index de semaine par colonne (pour le remplissage de semaine)
   const weekIdx = useMemo(() => {
@@ -262,7 +270,7 @@ export default function PlanningGrid({
                     className="pcell"
                     style={{
                       textAlign: "center",
-                      background: alert ? "#fee2e2" : isToday(d) ? "#eff6ff" : undefined,
+                      background: alert ? "#fee2e2" : motifColor[v] ? motifColor[v] : isToday(d) ? "#eff6ff" : undefined,
                       outline: over ? "2px solid #f97316" : undefined,
                       outlineOffset: -2,
                       padding: 2,
@@ -279,7 +287,7 @@ export default function PlanningGrid({
                       style={{ width: "100%", fontSize: 12, padding: "3px 1px" }}
                     >
                       <option value="">—</option>
-                      <option value="X">Abs</option>
+                      <option value="X">NT</option>
                       {groups.map((g) => (
                         <optgroup key={g.ligneNom} label={g.ligneNom}>
                           {g.postes.map((p) => (
@@ -289,6 +297,15 @@ export default function PlanningGrid({
                           ))}
                         </optgroup>
                       ))}
+                      {motifs.length > 0 && (
+                        <optgroup label="Absences">
+                          {motifs.map((mo) => (
+                            <option key={mo.id} value={`m:${mo.id}`}>
+                              {mo.code}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                     {showFill && (
                       <button
