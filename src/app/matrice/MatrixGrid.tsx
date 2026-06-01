@@ -7,22 +7,43 @@ type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
 type Personne = { id: string; label: string; editable: boolean };
 type Cell = { a: number; c: number };
 
-const BLUE = "#1d4ed8";
-const GREEN = "#16a34a";
+// Progression de couleur par niveau (0 -> 4) : du non-forme au expert.
+const FILL: Record<number, string | null> = {
+  0: null, // contour seul
+  1: "#dc2626", // rouge
+  2: "#f59e0b", // orange
+  3: "#84cc16", // vert clair (lime)
+  4: "#16a34a", // vert (expert)
+};
 
-// Camembert qui se remplit selon le niveau (0..4).
+// Definitions officielles (carre magique, cf. cahier des charges 6.1).
+const CARRE_MAGIQUE: [number, string][] = [
+  [0, "Non forme."],
+  [1, "Comprend et connait les instructions et regles de securite du poste."],
+  [2, "+ Garantit le niveau de qualite standard."],
+  [
+    3,
+    "+ Garantit les temps standards. Capable d'expliquer et de guider un operateur de niveau inferieur.",
+  ],
+  [
+    4,
+    "+ A forme avec succes un autre operateur jusqu'au niveau 3. Maitrise complete et capacite de transfert.",
+  ],
+];
+
 function Pie({ level }: { level: number }) {
   const size = 28,
     r = 11,
     cx = 14,
     cy = 14;
-  const f = Math.max(0, Math.min(4, level)) / 4;
-  const fill = level >= 4 ? GREEN : BLUE;
+  const lvl = Math.max(0, Math.min(4, level));
+  const f = lvl / 4;
+  const fill = FILL[lvl];
 
   let inner = null;
-  if (f >= 1) {
+  if (fill && f >= 1) {
     inner = <circle cx={cx} cy={cy} r={r} fill={fill} />;
-  } else if (f > 0) {
+  } else if (fill && f > 0) {
     const ang = -90 + 360 * f;
     const rad = (d: number) => (d * Math.PI) / 180;
     const x = cx + r * Math.cos(rad(ang));
@@ -37,7 +58,7 @@ function Pie({ level }: { level: number }) {
   }
   return (
     <svg width={size} height={size} style={{ display: "block" }}>
-      <circle cx={cx} cy={cy} r={r} fill="#fff" stroke="#1e3a8a" strokeWidth={1.5} />
+      <circle cx={cx} cy={cy} r={r} fill="#fff" stroke="#64748b" strokeWidth={1.5} />
       {inner}
     </svg>
   );
@@ -54,15 +75,16 @@ export default function MatrixGrid({
 }) {
   const [mode, setMode] = useState<"actuel" | "cible">("actuel");
   const [cells, setCells] = useState<Record<string, Cell>>(initial);
-  const [status, setStatus] = useState<Record<string, "saving" | "saved" | "error" | undefined>>({});
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allPostes = groups.flatMap((g) => g.postes);
   const key = (pid: string, poid: string) => `${pid}:${poid}`;
   const get = (k: string): Cell => cells[k] ?? { a: 0, c: 0 };
 
   function save(k: string, cell: Cell, pid: string, poid: string) {
-    setStatus((s) => ({ ...s, [k]: "saving" }));
+    setSaveState("saving");
     if (timers.current[k]) clearTimeout(timers.current[k]);
     timers.current[k] = setTimeout(async () => {
       try {
@@ -76,11 +98,12 @@ export default function MatrixGrid({
             niveau_cible: cell.c,
           }),
         });
-        setStatus((s) => ({ ...s, [k]: res.ok ? "saved" : "error" }));
-        if (res.ok) setTimeout(() => setStatus((s) => ({ ...s, [k]: undefined })), 900);
+        setSaveState(res.ok ? "saved" : "error");
       } catch {
-        setStatus((s) => ({ ...s, [k]: "error" }));
+        setSaveState("error");
       }
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setSaveState("idle"), 1500);
     }, 450);
   }
 
@@ -95,14 +118,16 @@ export default function MatrixGrid({
     });
   }
 
-  const ringFor = (k: string) =>
-    status[k] === "saving"
-      ? "0 0 0 2px #1d4ed8"
-      : status[k] === "saved"
-        ? "0 0 0 2px #16a34a"
-        : status[k] === "error"
-          ? "0 0 0 2px #b91c1c"
-          : "none";
+  const saveLabel =
+    saveState === "saving"
+      ? "Enregistrement..."
+      : saveState === "saved"
+        ? "Enregistre"
+        : saveState === "error"
+          ? "Echec d'enregistrement"
+          : "";
+  const saveColor =
+    saveState === "error" ? "var(--danger)" : saveState === "saved" ? "var(--ok)" : "var(--muted)";
 
   return (
     <div>
@@ -121,7 +146,22 @@ export default function MatrixGrid({
         <span className="muted">Clic = +1 · clic droit = −1 · enregistrement automatique</span>
       </div>
 
-      <div className="card" style={{ overflowX: "auto" }}>
+      <div className="card" style={{ overflowX: "auto", position: "relative" }}>
+        {/* Indicateur de sauvegarde unique, en haut a droite du tableau */}
+        <div
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 12,
+            fontSize: 12,
+            fontWeight: 600,
+            color: saveColor,
+            minHeight: 16,
+          }}
+        >
+          {saveLabel}
+        </div>
+
         <table className="matrix" style={{ borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -200,9 +240,7 @@ export default function MatrixGrid({
                             padding: 0,
                             background: "transparent",
                             border: "none",
-                            borderRadius: "50%",
                             cursor: "pointer",
-                            boxShadow: ringFor(k),
                             position: "relative",
                           }}
                         >
@@ -239,24 +277,26 @@ export default function MatrixGrid({
         </table>
       </div>
 
-      {/* Legende */}
-      <div className="toolbar" style={{ marginTop: 10, gap: 16 }}>
-        {[
-          [0, "Non forme"],
-          [1, "Niveau 1"],
-          [2, "Niveau 2"],
-          [3, "Niveau 3"],
-          [4, "Expert (4)"],
-        ].map(([n, label]) => (
-          <span key={n} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Pie level={n as number} />
-            <span className="muted">{label}</span>
-          </span>
-        ))}
-        <span className="muted">
-          Le petit chiffre dans le coin = l&apos;autre niveau (la cible quand vous
-          saisissez l&apos;actuel, et inversement).
-        </span>
+      {/* Legende : carre magique (cahier des charges) */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <h2 style={{ fontSize: 14, marginTop: 0 }}>Niveaux (carre magique)</h2>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          {CARRE_MAGIQUE.map(([n, txt]) => (
+            <li
+              key={n}
+              style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}
+            >
+              <Pie level={n} />
+              <span>
+                <strong>Niveau {n}</strong> — {txt}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Le petit chiffre dans le coin d&apos;une case = l&apos;autre niveau (la cible
+          quand vous saisissez l&apos;actuel, et inversement).
+        </p>
       </div>
     </div>
   );
