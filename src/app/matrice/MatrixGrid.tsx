@@ -18,16 +18,16 @@ const FILL: Record<number, string | null> = {
 
 // Definitions officielles (carre magique, cf. cahier des charges 6.1).
 const CARRE_MAGIQUE: [number, string][] = [
-  [0, "Non forme."],
-  [1, "Comprend et connait les instructions et regles de securite du poste."],
-  [2, "+ Garantit le niveau de qualite standard."],
+  [0, "Non formé."],
+  [1, "Comprend et connaît les instructions et règles de sécurité du poste."],
+  [2, "+ Garantit le niveau de qualité standard."],
   [
     3,
-    "+ Garantit les temps standards. Capable d'expliquer et de guider un operateur de niveau inferieur.",
+    "+ Garantit les temps standards. Capable d'expliquer et de guider un opérateur de niveau inférieur.",
   ],
   [
     4,
-    "+ A forme avec succes un autre operateur jusqu'au niveau 3. Maitrise complete et capacite de transfert.",
+    "+ A formé avec succès un autre opérateur jusqu'au niveau 3. Maîtrise complète et capacité de transfert.",
   ],
 ];
 
