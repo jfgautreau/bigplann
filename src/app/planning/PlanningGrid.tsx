@@ -44,6 +44,15 @@ export default function PlanningGrid({
     return arr;
   }, [days]);
 
+  // Indices de colonnes par bloc-semaine
+  const blockDayIndices = useMemo(() => {
+    const m: number[][] = [];
+    days.forEach((_, i) => {
+      (m[weekIdx[i]] ??= []).push(i);
+    });
+    return m;
+  }, [days, weekIdx]);
+
   const { niveauMin, effectif } = useMemo(() => {
     const nm: Record<string, number> = {};
     const ef: Record<string, number> = {};
@@ -98,6 +107,10 @@ export default function PlanningGrid({
   async function fillWeek(pers: Personne, dayIndex: number) {
     const value = vals[key(pers.id, days[dayIndex].iso)] ?? "";
     const targets = days.filter((_, j) => j !== dayIndex && weekIdx[j] === weekIdx[dayIndex]);
+    const hasExisting = targets.some((t) => (vals[key(pers.id, t.iso)] ?? "") !== "");
+    if (hasExisting && !window.confirm("Des affectations existent deja cette semaine pour cette personne. Les ecraser ?")) {
+      return;
+    }
     setVals((s) => {
       const next = { ...s };
       for (const t of targets) next[key(pers.id, t.iso)] = value;
@@ -106,6 +119,45 @@ export default function PlanningGrid({
     setSaving("saving");
     try {
       await Promise.all(targets.map((t) => postCell(pers.id, t.iso, pers.equipe_id, value)));
+      setSaving("saved");
+    } catch {
+      setSaving("error");
+    }
+    setTimeout(() => setSaving("idle"), 1200);
+  }
+
+  // Option B : recopie le bloc-semaine precedent (par jour de la semaine) dans le bloc cible.
+  async function copyPrevWeek(targetBlock: number) {
+    const src = blockDayIndices[targetBlock - 1] ?? [];
+    const tgt = blockDayIndices[targetBlock] ?? [];
+    if (!src.length || !tgt.length) return;
+
+    const srcByDow: Record<string, number> = {};
+    for (const j of src) srcByDow[days[j].nom] = j;
+
+    const existing = personnes.some(
+      (p) => p.editable && tgt.some((j) => (vals[key(p.id, days[j].iso)] ?? "") !== "")
+    );
+    if (existing && !window.confirm("Des affectations existent deja sur cette semaine. Les ecraser avec la semaine precedente ?")) {
+      return;
+    }
+
+    const updates: { pid: string; iso: string; eq: string | null; value: string }[] = [];
+    const next = { ...vals };
+    for (const p of personnes) {
+      if (!p.editable) continue;
+      for (const j of tgt) {
+        const s = srcByDow[days[j].nom];
+        if (s === undefined) continue;
+        const value = vals[key(p.id, days[s].iso)] ?? "";
+        next[key(p.id, days[j].iso)] = value;
+        updates.push({ pid: p.id, iso: days[j].iso, eq: p.equipe_id, value });
+      }
+    }
+    setVals(next);
+    setSaving("saving");
+    try {
+      await Promise.all(updates.map((u) => postCell(u.pid, u.iso, u.eq, u.value)));
       setSaving("saved");
     } catch {
       setSaving("error");
@@ -140,7 +192,20 @@ export default function PlanningGrid({
             </th>
             {weekBlocks.map((w, i) => (
               <th key={i} colSpan={w.span} style={{ textAlign: "center", borderLeft: "3px solid #94a3b8", background: "#f8fafc" }}>
-                Semaine {w.num}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  Semaine {w.num}
+                  {i >= 1 && (
+                    <button
+                      type="button"
+                      className="btn-sm btn-ghost"
+                      style={{ padding: "2px 6px", fontSize: 11 }}
+                      onClick={() => copyPrevWeek(i)}
+                      title="Recopier la semaine precedente dans celle-ci"
+                    >
+                      &larr; S-1
+                    </button>
+                  )}
+                </span>
               </th>
             ))}
           </tr>

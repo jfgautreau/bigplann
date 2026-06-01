@@ -8,7 +8,7 @@ type WeekBlock = { num: number; span: number };
 type Item = { id: string; label: string };
 
 const FIRST_W = 210;
-const DAY_W = 30;
+const DAY_W = 42;
 
 export default function OrdoGrid({
   days,
@@ -82,9 +82,9 @@ export default function OrdoGrid({
         <th style={{ width: FIRST_W, textAlign: "left" }}>{label}</th>
         {days.map((d) => (
           <th key={d.iso} style={{ width: DAY_W, textAlign: "center", ...sep(d), background: d.iso === todayIso ? "#dbeafe" : undefined }}>
-            {d.nom.slice(0, 1)}
+            {d.nom.slice(0, 3)}
             <br />
-            <span className="muted" style={{ fontWeight: 400, fontSize: 10 }}>{d.num.slice(0, 2)}</span>
+            <span className="muted" style={{ fontWeight: 400, fontSize: 10 }}>{d.num}</span>
           </th>
         ))}
       </tr>
