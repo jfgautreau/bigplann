@@ -5,8 +5,7 @@ import { mondayOf, isoDate } from "@/lib/week";
 
 const MOIS = ["Janv", "Fevr", "Mars", "Avr", "Mai", "Juin", "Juil", "Aout", "Sept", "Oct", "Nov", "Dec"];
 
-// Segments Annee / Mois pour naviguer rapidement (positionne la vue sur le
-// lundi de la semaine du 1er du mois choisi).
+// Segments Annee + Mois (sur une ligne, espace entre les deux groupes).
 export default function PeriodNav({
   base,
   semaine,
@@ -30,27 +29,18 @@ export default function PeriodNav({
   }
 
   return (
-    <div style={{ marginBottom: 12 }}>
+    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
       <div className="segments">
         {years.map((yy) => (
-          <button
-            key={yy}
-            type="button"
-            className={yy === year ? "seg active" : "seg"}
-            onClick={() => goto(yy, month)}
-          >
+          <button key={yy} type="button" className={yy === year ? "seg active" : "seg"} onClick={() => goto(yy, month)}>
             {yy}
           </button>
         ))}
       </div>
-      <div className="segments" style={{ marginTop: 6 }}>
+      <span style={{ display: "inline-block", width: 40 }} />
+      <div className="segments">
         {MOIS.map((lbl, mm) => (
-          <button
-            key={mm}
-            type="button"
-            className={mm === month ? "seg active" : "seg"}
-            onClick={() => goto(year, mm)}
-          >
+          <button key={mm} type="button" className={mm === month ? "seg active" : "seg"} onClick={() => goto(year, mm)}>
             {lbl}
           </button>
         ))}

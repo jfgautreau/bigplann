@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
 type WeekBlock = { num: number; span: number };
@@ -13,9 +12,6 @@ export default function PlanningGrid({
   days,
   weekBlocks = [],
   todayIso = "",
-  prevHref = "",
-  nextHref = "",
-  todayHref = "",
   personnes = [],
   groups = [],
   besoin = [],
@@ -25,9 +21,6 @@ export default function PlanningGrid({
   days: Jour[];
   weekBlocks?: WeekBlock[];
   todayIso?: string;
-  prevHref?: string;
-  nextHref?: string;
-  todayHref?: string;
   personnes?: Personne[];
   groups?: Group[];
   besoin?: number[];
@@ -39,6 +32,17 @@ export default function PlanningGrid({
 
   const key = (pid: string, iso: string) => `${pid}:${iso}`;
   const isPoste = (v: string) => v !== "" && v !== "X";
+
+  // Index de semaine par colonne (pour le remplissage de semaine)
+  const weekIdx = useMemo(() => {
+    const arr: number[] = [];
+    let w = -1;
+    days.forEach((d, i) => {
+      if (d.firstOfWeek) w++;
+      arr[i] = w;
+    });
+    return arr;
+  }, [days]);
 
   const { niveauMin, effectif } = useMemo(() => {
     const nm: Record<string, number> = {};
@@ -69,16 +73,40 @@ export default function PlanningGrid({
     return { counts, present, alerts };
   });
 
+  async function postCell(pid: string, iso: string, equipe_id: string | null, value: string) {
+    const res = await fetch("/api/placement/cell", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ personne_id: pid, jour: iso, equipe_id, value }),
+    });
+    if (!res.ok) throw new Error();
+  }
+
   async function change(pid: string, iso: string, equipe_id: string | null, value: string) {
     setVals((s) => ({ ...s, [key(pid, iso)]: value }));
     setSaving("saving");
     try {
-      const res = await fetch("/api/placement/cell", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personne_id: pid, jour: iso, equipe_id, value }),
-      });
-      setSaving(res.ok ? "saved" : "error");
+      await postCell(pid, iso, equipe_id, value);
+      setSaving("saved");
+    } catch {
+      setSaving("error");
+    }
+    setTimeout(() => setSaving("idle"), 1200);
+  }
+
+  // Recopie la valeur d'une case sur tous les autres jours de la meme semaine.
+  async function fillWeek(pers: Personne, dayIndex: number) {
+    const value = vals[key(pers.id, days[dayIndex].iso)] ?? "";
+    const targets = days.filter((_, j) => j !== dayIndex && weekIdx[j] === weekIdx[dayIndex]);
+    setVals((s) => {
+      const next = { ...s };
+      for (const t of targets) next[key(pers.id, t.iso)] = value;
+      return next;
+    });
+    setSaving("saving");
+    try {
+      await Promise.all(targets.map((t) => postCell(pers.id, t.iso, pers.equipe_id, value)));
+      setSaving("saved");
     } catch {
       setSaving("error");
     }
@@ -88,7 +116,6 @@ export default function PlanningGrid({
   const deltaColor = (d: number) => (d < 0 ? "var(--danger)" : d > 0 ? "#9a3412" : "var(--ok)");
   const sep = (d: Jour): React.CSSProperties => (d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {});
   const isToday = (d: Jour) => d.iso === todayIso;
-  const lastBlock = weekBlocks.length - 1;
 
   return (
     <div className="card" style={{ overflowX: "auto", position: "relative" }}>
@@ -107,45 +134,19 @@ export default function PlanningGrid({
 
       <table className="matrix" style={{ borderCollapse: "collapse" }}>
         <thead>
-          {/* Ligne semaines : Aujourd'hui (au-dessus de Personne) + n0 semaine + fleches */}
           <tr>
-            <th style={{ position: "sticky", left: 0, background: "#fff", textAlign: "center" }}>
-              {todayHref && (
-                <Link href={todayHref} className="btn-sm" style={{ textDecoration: "none" }} scroll={false}>
-                  Aujourd&apos;hui
-                </Link>
-              )}
+            <th rowSpan={2} style={{ position: "sticky", left: 0, background: "#fff", textAlign: "left" }}>
+              Personne
             </th>
             {weekBlocks.map((w, i) => (
-              <th
-                key={i}
-                colSpan={w.span}
-                style={{ textAlign: "center", borderLeft: "3px solid #94a3b8", background: "#f8fafc" }}
-              >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  {i === 0 && prevHref && (
-                    <Link href={prevHref} className="iconbtn" scroll={false} title="Semaine precedente">
-                      &lsaquo;
-                    </Link>
-                  )}
-                  Semaine {w.num}
-                  {i === lastBlock && nextHref && (
-                    <Link href={nextHref} className="iconbtn" scroll={false} title="Semaine suivante">
-                      &rsaquo;
-                    </Link>
-                  )}
-                </span>
+              <th key={i} colSpan={w.span} style={{ textAlign: "center", borderLeft: "3px solid #94a3b8", background: "#f8fafc" }}>
+                Semaine {w.num}
               </th>
             ))}
           </tr>
-          {/* Ligne jours */}
           <tr>
-            <th style={{ position: "sticky", left: 0, background: "#fff", textAlign: "left" }}>Personne</th>
             {days.map((d) => (
-              <th
-                key={d.iso}
-                style={{ textAlign: "center", minWidth: 58, ...sep(d), background: isToday(d) ? "#dbeafe" : undefined }}
-              >
+              <th key={d.iso} style={{ textAlign: "center", minWidth: 58, ...sep(d), background: isToday(d) ? "#dbeafe" : undefined }}>
                 {d.nom.slice(0, 3)}
                 <br />
                 <span className="muted" style={{ fontWeight: 400 }}>{d.num}</span>
@@ -189,15 +190,18 @@ export default function PlanningGrid({
                 const v = vals[key(pers.id, d.iso)] ?? "";
                 const alert = horsComp(pers.id, v);
                 const over = isPoste(v) && (perDay[i].counts[v] ?? 0) > (effectif[v] ?? 0);
+                const showFill = pers.editable && v !== "";
                 return (
                   <td
                     key={d.iso}
+                    className="pcell"
                     style={{
                       textAlign: "center",
                       background: alert ? "#fee2e2" : isToday(d) ? "#eff6ff" : undefined,
                       outline: over ? "2px solid #f97316" : undefined,
                       outlineOffset: -2,
                       padding: 2,
+                      position: "relative",
                       ...sep(d),
                     }}
                     title={[alert ? "Hors competence" : "", over ? "Sur-effectif" : ""].filter(Boolean).join(" · ") || undefined}
@@ -221,6 +225,16 @@ export default function PlanningGrid({
                         </optgroup>
                       ))}
                     </select>
+                    {showFill && (
+                      <button
+                        type="button"
+                        className="fillw"
+                        title="Remplir toute la semaine avec cette valeur"
+                        onClick={() => fillWeek(pers, i)}
+                      >
+                        &raquo;
+                      </button>
+                    )}
                   </td>
                 );
               })}
@@ -235,8 +249,9 @@ export default function PlanningGrid({
       </table>
 
       <p className="muted" style={{ marginTop: 10 }}>
-        Besoin = effectif des lignes ouvertes. Rouge = hors competence · contour orange =
-        sur-effectif. Les jours sans ligne ouverte sont masques.
+        Survolez une case remplie et cliquez sur &raquo; pour recopier la valeur sur toute
+        la semaine. Rouge = hors competence · contour orange = sur-effectif · jours sans
+        ligne ouverte masques.
       </p>
     </div>
   );

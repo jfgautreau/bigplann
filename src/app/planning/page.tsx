@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
-import PeriodNav from "@/components/PeriodNav";
+import PeriodBand from "@/components/PeriodBand";
 import {
   parseMonday,
   weekDays,
@@ -201,7 +201,7 @@ export default async function PlanningPage({
       <AppHeader role={profile.role} active="/planning" />
       <div className="container" style={{ maxWidth: 1500 }}>
         <h1>Planning</h1>
-        <PeriodNav base="/planning" semaine={centerIso} extra={extra} />
+        <PeriodBand base="/planning" semaine={centerIso} extra={extra} weekNums={weekBlocks.map((w) => w.num)} />
         <PlanningFilters
           equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom }))}
           equipe={equipe}
@@ -211,9 +211,6 @@ export default async function PlanningPage({
           days={days}
           weekBlocks={weekBlocks}
           todayIso={isoDate(new Date())}
-          prevHref={navHref(isoDate(addDays(center, -7)))}
-          nextHref={navHref(isoDate(addDays(center, 7)))}
-          todayHref={navHref(todayMondayIso)}
           personnes={gridPersonnes}
           groups={gridGroups}
           besoin={besoin}

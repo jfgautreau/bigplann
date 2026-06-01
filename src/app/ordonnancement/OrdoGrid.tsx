@@ -7,99 +7,8 @@ type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
 type WeekBlock = { num: number; span: number };
 type Item = { id: string; label: string };
 
-function ToggleTable({
-  type,
-  title,
-  items,
-  days,
-  weekBlocks,
-  todayIso,
-  initial,
-  equipeId,
-}: {
-  type: "ligne" | "equipe";
-  title: string;
-  items: Item[];
-  days: Jour[];
-  weekBlocks: WeekBlock[];
-  todayIso: string;
-  initial: Record<string, boolean>;
-  equipeId?: string;
-}) {
-  // Tout ouvert/actif par defaut SAUF le dimanche.
-  const [state, setState] = useState<Record<string, boolean>>(initial);
-  const [saving, setSaving] = useState(false);
-
-  const key = (id: string, iso: string) => `${id}:${iso}`;
-  const val = (id: string, iso: string) => state[key(id, iso)] ?? defaultOpenIso(iso);
-  const sep = (d: Jour) => (d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {});
-
-  async function toggle(id: string, iso: string) {
-    const k = key(id, iso);
-    const next = !val(id, iso);
-    setState((s) => ({ ...s, [k]: next }));
-    setSaving(true);
-    try {
-      await fetch("/api/ordonnancement/toggle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, id, jour: iso, equipe_id: equipeId, value: next }),
-      });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="card section" style={{ overflowX: "auto" }}>
-      <h2 style={{ marginTop: 0 }}>
-        {title} {saving && <span className="muted" style={{ fontSize: 12 }}>· enregistrement...</span>}
-      </h2>
-      <table className="matrix" style={{ borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th></th>
-            {weekBlocks.map((w, i) => (
-              <th key={i} colSpan={w.span} style={{ textAlign: "center", borderLeft: "3px solid #94a3b8", background: "#f8fafc" }}>
-                Sem {w.num}
-              </th>
-            ))}
-          </tr>
-          <tr>
-            <th style={{ textAlign: "left" }}>{type === "ligne" ? "Ligne" : "Equipe"}</th>
-            {days.map((d) => (
-              <th key={d.iso} style={{ textAlign: "center", ...sep(d), background: d.iso === todayIso ? "#dbeafe" : undefined }}>
-                {d.nom.slice(0, 1)}
-                <br />
-                <span className="muted" style={{ fontWeight: 400, fontSize: 11 }}>{d.num}</span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((it) => (
-            <tr key={it.id}>
-              <td style={{ whiteSpace: "nowrap" }}>{it.label}</td>
-              {days.map((d) => {
-                const on = val(it.id, d.iso);
-                return (
-                  <td key={d.iso} style={{ textAlign: "center", background: on ? undefined : "#fee2e2", ...sep(d) }}>
-                    <input type="checkbox" checked={on} onChange={() => toggle(it.id, d.iso)} style={{ width: "auto", cursor: "pointer" }} />
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-          {items.length === 0 && (
-            <tr>
-              <td colSpan={days.length + 1} className="muted">Aucun element.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+const FIRST_W = 210;
+const DAY_W = 30;
 
 export default function OrdoGrid({
   days,
@@ -118,37 +27,147 @@ export default function OrdoGrid({
   equipeState: Record<string, boolean>;
   ligneStateByEquipe: Record<string, Record<string, boolean>>;
 }) {
+  // Etats centralises
+  const [eqState, setEqState] = useState<Record<string, boolean>>(equipeState);
+  const [lgState, setLgState] = useState<Record<string, boolean>>(() => {
+    const flat: Record<string, boolean> = {};
+    for (const [eq, m] of Object.entries(ligneStateByEquipe))
+      for (const [k, v] of Object.entries(m)) flat[`${eq}:${k}`] = v;
+    return flat;
+  });
+  const [saving, setSaving] = useState(false);
+
+  const eqVal = (eq: string, iso: string) => eqState[`${eq}:${iso}`] ?? defaultOpenIso(iso);
+  const lgVal = (eq: string, lg: string, iso: string) =>
+    lgState[`${eq}:${lg}:${iso}`] ?? defaultOpenIso(iso);
+
+  async function post(body: object) {
+    setSaving(true);
+    try {
+      await fetch("/api/ordonnancement/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleEquipe(eq: string, iso: string) {
+    const next = !eqVal(eq, iso);
+    setEqState((s) => ({ ...s, [`${eq}:${iso}`]: next }));
+    post({ type: "equipe", id: eq, jour: iso, value: next });
+  }
+  function toggleLigne(eq: string, lg: string, iso: string) {
+    if (!eqVal(eq, iso)) return; // equipe inactive -> lignes verrouillees
+    const next = !lgVal(eq, lg, iso);
+    setLgState((s) => ({ ...s, [`${eq}:${lg}:${iso}`]: next }));
+    post({ type: "ligne", id: lg, jour: iso, equipe_id: eq, value: next });
+  }
+
+  const sep = (d: Jour) => (d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {});
+
+  const Header = ({ label }: { label: string }) => (
+    <thead>
+      <tr>
+        <th style={{ width: FIRST_W }}></th>
+        {weekBlocks.map((w, i) => (
+          <th key={i} colSpan={w.span} style={{ textAlign: "center", borderLeft: "3px solid #94a3b8", background: "#f8fafc" }}>
+            Sem {w.num}
+          </th>
+        ))}
+      </tr>
+      <tr>
+        <th style={{ width: FIRST_W, textAlign: "left" }}>{label}</th>
+        {days.map((d) => (
+          <th key={d.iso} style={{ width: DAY_W, textAlign: "center", ...sep(d), background: d.iso === todayIso ? "#dbeafe" : undefined }}>
+            {d.nom.slice(0, 1)}
+            <br />
+            <span className="muted" style={{ fontWeight: 400, fontSize: 10 }}>{d.num.slice(0, 2)}</span>
+          </th>
+        ))}
+      </tr>
+    </thead>
+  );
+
+  const tableStyle: React.CSSProperties = {
+    borderCollapse: "collapse",
+    tableLayout: "fixed",
+    width: FIRST_W + days.length * DAY_W,
+  };
+
   return (
     <>
-      <ToggleTable
-        type="equipe"
-        title="Equipes actives par jour"
-        items={equipes}
-        days={days}
-        weekBlocks={weekBlocks}
-        todayIso={todayIso}
-        initial={equipeState}
-      />
+      <div className="card section" style={{ overflowX: "auto" }}>
+        <h2 style={{ marginTop: 0 }}>
+          Equipes actives par jour {saving && <span className="muted" style={{ fontSize: 12 }}>· enregistrement...</span>}
+        </h2>
+        <table className="matrix" style={tableStyle}>
+          <Header label="Equipe" />
+          <tbody>
+            {equipes.map((e) => (
+              <tr key={e.id}>
+                <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.label}</td>
+                {days.map((d) => {
+                  const on = eqVal(e.id, d.iso);
+                  return (
+                    <td key={d.iso} style={{ textAlign: "center", background: on ? undefined : "#fee2e2", ...sep(d) }}>
+                      <input type="checkbox" checked={on} onChange={() => toggleEquipe(e.id, d.iso)} style={{ width: "auto", cursor: "pointer" }} />
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+            {equipes.length === 0 && (
+              <tr>
+                <td colSpan={days.length + 1} className="muted">Aucune equipe.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
       <h2 style={{ marginTop: 24 }}>Lignes ouvertes par equipe</h2>
       <p className="muted" style={{ marginTop: -8 }}>
-        Tout est ouvert par defaut (dimanche ferme). Decochez ce qui est ferme pour
-        chaque equipe.
+        Tout ouvert par defaut (dimanche ferme). Desactiver une equipe ci-dessus
+        verrouille et ferme ses lignes le jour concerne.
       </p>
       {equipes.map((e) => (
-        <ToggleTable
-          key={e.id}
-          type="ligne"
-          title={e.label}
-          items={lignes}
-          days={days}
-          weekBlocks={weekBlocks}
-          todayIso={todayIso}
-          initial={ligneStateByEquipe[e.id] ?? {}}
-          equipeId={e.id}
-        />
+        <div key={e.id} className="card section" style={{ overflowX: "auto" }}>
+          <h2 style={{ marginTop: 0 }}>{e.label}</h2>
+          <table className="matrix" style={tableStyle}>
+            <Header label="Ligne" />
+            <tbody>
+              {lignes.map((l) => (
+                <tr key={l.id}>
+                  <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.label}</td>
+                  {days.map((d) => {
+                    const active = eqVal(e.id, d.iso);
+                    const on = active && lgVal(e.id, l.id, d.iso);
+                    return (
+                      <td key={d.iso} style={{ textAlign: "center", background: on ? undefined : "#fee2e2", ...sep(d) }}>
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          disabled={!active}
+                          onChange={() => toggleLigne(e.id, l.id, d.iso)}
+                          style={{ width: "auto", cursor: active ? "pointer" : "not-allowed" }}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+              {lignes.length === 0 && (
+                <tr>
+                  <td colSpan={days.length + 1} className="muted">Aucune ligne.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       ))}
-      {equipes.length === 0 && <p className="muted">Aucune equipe.</p>}
     </>
   );
 }

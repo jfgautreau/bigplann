@@ -133,15 +133,21 @@ export default function MatrixGrid({
     <div>
       <div className="toolbar" style={{ alignItems: "center" }}>
         <span className="muted">Je saisis le niveau :</span>
-        <div className="modes" style={{ marginBottom: 0 }}>
-          <label className="mode">
-            <input type="radio" checked={mode === "actuel"} onChange={() => setMode("actuel")} />
-            Actuel
-          </label>
-          <label className="mode">
-            <input type="radio" checked={mode === "cible"} onChange={() => setMode("cible")} />
-            Cible
-          </label>
+        <div className="modeswitch">
+          <button
+            type="button"
+            className={mode === "actuel" ? "on-actuel" : ""}
+            onClick={() => setMode("actuel")}
+          >
+            Niveau actuel
+          </button>
+          <button
+            type="button"
+            className={mode === "cible" ? "on-cible" : ""}
+            onClick={() => setMode("cible")}
+          >
+            Niveau cible
+          </button>
         </div>
         <span className="muted">Clic = +1 · clic droit = −1 · enregistrement automatique</span>
       </div>

@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
-import PeriodNav from "@/components/PeriodNav";
-import { parseMonday, weekDays, isoDate, addDays, mondayOf, isoWeekNumber } from "@/lib/week";
+import PeriodBand from "@/components/PeriodBand";
+import { parseMonday, weekDays, isoDate, addDays, isoWeekNumber } from "@/lib/week";
 import OrdoGrid from "./OrdoGrid";
 
 type Ligne = { id: string; nom: string; atelier: { nom: string } | null };
@@ -58,28 +57,12 @@ export default async function OrdonnancementPage({
     (ligneStateByEquipe[r.equipe_id] ??= {})[`${r.ligne_id}:${r.jour}`] = r.ouverte;
   }
 
-  const navHref = (s: string) => `/ordonnancement?semaine=${s}`;
-
   return (
     <>
       <AppHeader role={profile.role} active="/ordonnancement" />
       <div className="container" style={{ maxWidth: 1500 }}>
         <h1>Ordonnancement</h1>
-        <PeriodNav base="/ordonnancement" semaine={centerIso} />
-        <div className="toolbar" style={{ alignItems: "center" }}>
-          <Link href={navHref(isoDate(addDays(center, -7)))} className="iconbtn" scroll={false} title="Semaine precedente">
-            &lsaquo;
-          </Link>
-          <Link href={navHref(isoDate(mondayOf()))} className="btn-sm" style={{ textDecoration: "none" }} scroll={false}>
-            Aujourd&apos;hui
-          </Link>
-          <Link href={navHref(isoDate(addDays(center, 7)))} className="iconbtn" scroll={false} title="Semaine suivante">
-            &rsaquo;
-          </Link>
-          <span className="muted">
-            Semaines {weekBlocks.map((w) => w.num).join(" · ")}
-          </span>
-        </div>
+        <PeriodBand base="/ordonnancement" semaine={centerIso} weekNums={weekBlocks.map((w) => w.num)} />
 
         <OrdoGrid
           days={days}
