@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { destroySession } from "@/lib/session";
+import { getServerClient } from "@/lib/supabase-server";
 
 export async function POST(req: Request) {
-  await destroySession();
+  const supabase = await getServerClient();
+  await supabase.auth.signOut();
   return NextResponse.redirect(new URL("/login", req.url));
 }

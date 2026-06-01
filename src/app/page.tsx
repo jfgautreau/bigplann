@@ -1,23 +1,23 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
-
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "Administrateur",
-  RESP_PROD: "Responsable production",
-  RESP_PLANNING: "Responsable planning",
-  CHEF_EQUIPE: "Chef d'equipe",
-  ORDONNANCEMENT: "Ordonnancement",
-  RH: "RH",
-  DIRECTION: "Direction / Reporting",
-};
+import { redirect } from "next/navigation";
+import { getServerClient } from "@/lib/supabase-server";
+import { roleLabel } from "@/lib/roles";
 
 export default async function DashboardPage() {
-  const user = await getCurrentUser();
+  const supabase = await getServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  // Le middleware garantit une session, mais on reste defensif.
-  if (!user) {
-    return null;
-  }
+  const { data: profile } = await supabase
+    .from("app_user")
+    .select("name, role, email")
+    .eq("user_id", user.id)
+    .single<{ name: string; role: string; email: string }>();
+
+  const name = profile?.name || profile?.email || user.email;
+  const role = profile?.role ?? "direction";
 
   return (
     <div className="container">
@@ -29,21 +29,20 @@ export default async function DashboardPage() {
       </div>
 
       <div className="card">
-        <h1>Bienvenue, {user.name}</h1>
+        <h1>Bienvenue, {name}</h1>
         <p className="muted">
-          Connecte en tant que <strong>{ROLE_LABELS[user.role] ?? user.role}</strong>{" "}
-          ({user.email}).
+          Connecte en tant que <strong>{roleLabel(role)}</strong> ({user.email}).
         </p>
 
-        {user.role === "ADMIN" && (
+        {role === "admin" && (
           <p style={{ marginTop: 16 }}>
             <Link href="/admin/users">Gestion des utilisateurs &rarr;</Link>
           </p>
         )}
 
         <p className="muted" style={{ marginTop: 24 }}>
-          Test simplifie de la stack (Lot 1). Les modules metier seront ajoutes
-          apres validation.
+          Socle Supabase + Vercel. Les modules metier seront ajoutes apres
+          validation de ce socle.
         </p>
       </div>
     </div>

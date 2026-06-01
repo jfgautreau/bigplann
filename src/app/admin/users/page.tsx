@@ -1,35 +1,38 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getServerClient } from "@/lib/supabase-server";
+import { roleLabel } from "@/lib/roles";
 import UserForm from "./UserForm";
 
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "Administrateur",
-  RESP_PROD: "Responsable production",
-  RESP_PLANNING: "Responsable planning",
-  CHEF_EQUIPE: "Chef d'equipe",
-  ORDONNANCEMENT: "Ordonnancement",
-  RH: "RH",
-  DIRECTION: "Direction / Reporting",
+type Row = {
+  user_id: string;
+  email: string;
+  name: string;
+  role: string;
+  is_active: boolean;
 };
 
 export default async function AdminUsersPage() {
-  const current = await getCurrentUser();
-  if (!current) redirect("/login");
-  if (current.role !== "ADMIN") redirect("/");
+  const supabase = await getServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  const users = await prisma.appUser.findMany({
-    orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      isActive: true,
-      lockedAt: true,
-    },
-  });
+  const { data: caller } = await supabase
+    .from("app_user")
+    .select("role")
+    .eq("user_id", user.id)
+    .single<{ role: string }>();
+  if (caller?.role !== "admin") redirect("/");
+
+  const { data: users } = await supabase
+    .from("app_user")
+    .select("user_id, email, name, role, is_active")
+    .order("created_at", { ascending: true })
+    .returns<Row[]>();
+
+  const list = users ?? [];
 
   return (
     <div className="container">
@@ -43,12 +46,16 @@ export default async function AdminUsersPage() {
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>
-        <h1>Creer un utilisateur</h1>
+        <h1>Inviter un utilisateur</h1>
         <UserForm />
+        <p className="muted" style={{ marginTop: 12 }}>
+          L&apos;invite recoit un email, definit son mot de passe, puis accede a
+          l&apos;application avec le role choisi.
+        </p>
       </div>
 
       <div className="card">
-        <h1>Utilisateurs ({users.length})</h1>
+        <h1>Utilisateurs ({list.length})</h1>
         <table>
           <thead>
             <tr>
@@ -59,18 +66,12 @@ export default async function AdminUsersPage() {
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
-              <tr key={u.id}>
-                <td>{u.name}</td>
+            {list.map((u) => (
+              <tr key={u.user_id}>
+                <td>{u.name || "-"}</td>
                 <td>{u.email}</td>
-                <td>{ROLE_LABELS[u.role] ?? u.role}</td>
-                <td>
-                  {u.lockedAt
-                    ? "Verrouille"
-                    : u.isActive
-                      ? "Actif"
-                      : "Desactive"}
-                </td>
+                <td>{roleLabel(u.role)}</td>
+                <td>{u.is_active ? "Actif" : "Desactive"}</td>
               </tr>
             ))}
           </tbody>
