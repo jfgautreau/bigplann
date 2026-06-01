@@ -45,3 +45,23 @@ export function addDays(d: Date, n: number): Date {
   x.setDate(x.getDate() + n);
   return x;
 }
+
+// Numero de semaine ISO 8601.
+export function isoWeekNumber(d: Date): number {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = (date.getUTCDay() + 6) % 7; // 0 = lundi
+  date.setUTCDate(date.getUTCDate() - dayNum + 3); // jeudi de la semaine
+  const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+  const diff = (date.getTime() - firstThursday.getTime()) / 86400000;
+  return 1 + Math.round((diff - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+}
+
+export function isSundayIso(iso: string): boolean {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay() === 0;
+}
+
+// Regle de defaut : ouvert/actif sauf le dimanche.
+export function defaultOpenIso(iso: string): boolean {
+  return !isSundayIso(iso);
+}

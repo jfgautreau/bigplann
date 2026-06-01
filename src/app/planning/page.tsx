@@ -1,9 +1,17 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
-import { parseMonday, weekDays, isoDate, addDays, mondayOf } from "@/lib/week";
+import PeriodNav from "@/components/PeriodNav";
+import {
+  parseMonday,
+  weekDays,
+  isoDate,
+  addDays,
+  mondayOf,
+  isoWeekNumber,
+  defaultOpenIso,
+} from "@/lib/week";
 import PlanningFilters from "./PlanningFilters";
 import PlanningGrid from "./PlanningGrid";
 
@@ -34,21 +42,14 @@ export default async function PlanningPage({
   const centerIso = isoDate(center);
   const equipe = sp.equipe ?? "";
 
-  // 3 semaines : passee, centrale, a venir
   const weekMondays = [addDays(center, -7), center, addDays(center, 7)];
-  const todayMonday = isoDate(mondayOf());
-  const todayIso = isoDate(new Date());
-  const days = weekMondays.flatMap((wm, wi) =>
-    weekDays(wm).map((d, di) => ({ ...d, firstOfWeek: di === 0, _wi: wi }))
+  const todayMondayIso = isoDate(mondayOf());
+  const rawDays = weekMondays.flatMap((wm, wi) =>
+    weekDays(wm).map((d, di) => ({ ...d, firstOfWeek: di === 0, wi }))
   );
-  const isos = days.map((d) => d.iso);
-  const weeks = weekMondays.map((wm) => {
-    const lbl = `Semaine du ${String(wm.getDate()).padStart(2, "0")}/${String(wm.getMonth() + 1).padStart(2, "0")}`;
-    return { label: isoDate(wm) === todayMonday ? `${lbl} (en cours)` : lbl };
-  });
+  const allIsos = rawDays.map((d) => d.iso);
 
   const supabase = await getServerClient();
-
   const [{ data: equipesD }, { data: lignesD }] = await Promise.all([
     supabase.from("equipe").select("id, nom").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
@@ -71,37 +72,65 @@ export default async function PlanningPage({
   for (const g of groups)
     lineEffectif[g.ligneId] = g.postes.reduce((s, p) => s + (p.effectif_requis ?? 0), 0);
 
-  // Fermetures / inactivites pour l'equipe selectionnee (defaut ouvert/actif)
-  const closed = new Set<string>(); // `${jour}:${ligne_id}`
-  const inactive = new Set<string>(); // jour
+  // Overrides explicites pour l'equipe (sinon regle par defaut : ferme le dimanche)
+  const ouvOverride = new Map<string, boolean>(); // `${jour}:${ligne}` -> ouverte
+  const actOverride = new Map<string, boolean>(); // jour -> actif
   if (equipe) {
     const [{ data: louv }, { data: jeq }] = await Promise.all([
       supabase
         .from("ligne_ouverture")
         .select("jour, ligne_id, ouverte")
-        .in("jour", isos)
+        .in("jour", allIsos)
         .eq("equipe_id", equipe)
         .returns<{ jour: string; ligne_id: string; ouverte: boolean }[]>(),
       supabase
         .from("jour_equipe")
         .select("jour, actif")
-        .in("jour", isos)
+        .in("jour", allIsos)
         .eq("equipe_id", equipe)
         .returns<{ jour: string; actif: boolean }[]>(),
     ]);
-    for (const r of louv ?? []) if (!r.ouverte) closed.add(`${r.jour}:${r.ligne_id}`);
-    for (const r of jeq ?? []) if (!r.actif) inactive.add(r.jour);
+    for (const r of louv ?? []) ouvOverride.set(`${r.jour}:${r.ligne_id}`, r.ouverte);
+    for (const r of jeq ?? []) actOverride.set(r.jour, r.actif);
   }
 
-  const besoin = isos.map((iso) => {
-    if (equipe && inactive.has(iso)) return 0;
-    return groups.reduce(
-      (s, g) => (closed.has(`${iso}:${g.ligneId}`) ? s : s + (lineEffectif[g.ligneId] ?? 0)),
-      0
-    );
+  const lineOpen = (iso: string, ligneId: string) =>
+    ouvOverride.has(`${iso}:${ligneId}`) ? ouvOverride.get(`${iso}:${ligneId}`)! : defaultOpenIso(iso);
+  const dayActive = (iso: string) =>
+    actOverride.has(iso) ? actOverride.get(iso)! : defaultOpenIso(iso);
+
+  // Jours visibles (au moins une ligne ouverte) + besoin
+  const visible = rawDays
+    .map((d) => {
+      const active = dayActive(d.iso);
+      const openIds = active ? groups.filter((g) => lineOpen(d.iso, g.ligneId)).map((g) => g.ligneId) : [];
+      const besoin = openIds.reduce((s, lid) => s + (lineEffectif[lid] ?? 0), 0);
+      return { ...d, open: openIds.length > 0, besoin };
+    })
+    .filter((d) => d.open);
+
+  const days = visible.map((d) => ({ iso: d.iso, nom: d.nom, num: d.num, firstOfWeek: d.firstOfWeek }));
+  const besoin = visible.map((d) => d.besoin);
+  const visIsos = visible.map((d) => d.iso);
+
+  // Blocs semaine visibles
+  const weekBlocks: { num: number; span: number }[] = [];
+  for (let wi = 0; wi < 3; wi++) {
+    const span = visible.filter((d) => d.wi === wi).length;
+    if (span > 0) weekBlocks.push({ num: isoWeekNumber(weekMondays[wi]), span });
+  }
+  // firstOfWeek : recalc sur les jours visibles (1er jour visible de chaque semaine)
+  const seenWeek = new Set<number>();
+  visible.forEach((d, idx) => {
+    if (!seenWeek.has(d.wi)) {
+      seenWeek.add(d.wi);
+      days[idx].firstOfWeek = true;
+    } else {
+      days[idx].firstOfWeek = false;
+    }
   });
 
-  // Personnes affichees
+  // Personnes
   let persQ = supabase
     .from("personne")
     .select("id, nom, prenom, equipe_id")
@@ -114,12 +143,12 @@ export default async function PlanningPage({
 
   const initial: Record<string, string> = {};
   const matrice: Record<string, number> = {};
-  if (persIds.length) {
+  if (persIds.length && visIsos.length) {
     const [{ data: pl }, { data: mat }] = await Promise.all([
       supabase
         .from("placement")
         .select("personne_id, jour, poste_id, non_travaille")
-        .in("jour", isos)
+        .in("jour", visIsos)
         .in("personne_id", persIds)
         .returns<Placement[]>(),
       supabase
@@ -132,7 +161,7 @@ export default async function PlanningPage({
     for (const r of mat ?? []) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
   }
 
-  // Perimetre d'edition
+  // Perimetre
   const isAdmin = profile.role === "admin";
   let chefEquipes = new Set<string>();
   if (!isAdmin) {
@@ -161,10 +190,9 @@ export default async function PlanningPage({
     })),
   }));
 
+  const extra: Record<string, string> = equipe ? { equipe } : {};
   const navHref = (s: string) => {
-    const p = new URLSearchParams();
-    if (equipe) p.set("equipe", equipe);
-    p.set("semaine", s);
+    const p = new URLSearchParams({ ...extra, semaine: s });
     return `/planning?${p.toString()}`;
   };
 
@@ -172,31 +200,20 @@ export default async function PlanningPage({
     <>
       <AppHeader role={profile.role} active="/planning" />
       <div className="container" style={{ maxWidth: 1500 }}>
-        <h1>Planning (3 semaines)</h1>
-
-        <div className="toolbar" style={{ alignItems: "center" }}>
-          <Link href={navHref(isoDate(addDays(center, -7)))} className="btn-sm btn-ghost" style={{ textDecoration: "none" }}>
-            &larr; Decaler -1 sem.
-          </Link>
-          <Link href={navHref(todayMonday)} className="btn-sm" style={{ textDecoration: "none" }}>
-            Aujourd&apos;hui
-          </Link>
-          <Link href={navHref(isoDate(addDays(center, 7)))} className="btn-sm btn-ghost" style={{ textDecoration: "none" }}>
-            Decaler +1 sem. &rarr;
-          </Link>
-          <span className="muted">Affichage centre sur la semaine du {centerIso}</span>
-        </div>
-
+        <h1>Planning</h1>
+        <PeriodNav base="/planning" semaine={centerIso} extra={extra} />
         <PlanningFilters
           equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom }))}
           equipe={equipe}
           semaine={centerIso}
         />
-
         <PlanningGrid
           days={days}
-          weeks={weeks}
-          todayIso={todayIso}
+          weekBlocks={weekBlocks}
+          todayIso={isoDate(new Date())}
+          prevHref={navHref(isoDate(addDays(center, -7)))}
+          nextHref={navHref(isoDate(addDays(center, 7)))}
+          todayHref={navHref(todayMondayIso)}
           personnes={gridPersonnes}
           groups={gridGroups}
           besoin={besoin}

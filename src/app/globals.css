@@ -282,3 +282,57 @@ a {
   flex-wrap: wrap;
   margin-bottom: 16px;
 }
+
+/* Segments de navigation (annee / mois) */
+.segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.seg {
+  margin: 0;
+  width: auto;
+  background: #fff;
+  color: var(--text);
+  border: none;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.seg:last-child {
+  border-right: none;
+}
+
+.seg.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* Cases planning : select sans fleche native */
+select.flat {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: none;
+  text-align: center;
+  text-align-last: center;
+}
+
+.iconbtn {
+  margin: 0;
+  width: auto;
+  padding: 2px 8px;
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-block;
+}

@@ -1,17 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
-type WeekHead = { label: string };
+type WeekBlock = { num: number; span: number };
 type Poste = { id: string; nom: string; niveauMin: number; effectif: number };
 type Group = { ligneNom: string; postes: Poste[] };
 type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean };
 
 export default function PlanningGrid({
   days,
-  weeks = [],
+  weekBlocks = [],
   todayIso = "",
+  prevHref = "",
+  nextHref = "",
+  todayHref = "",
   personnes = [],
   groups = [],
   besoin = [],
@@ -19,8 +23,11 @@ export default function PlanningGrid({
   matrice = {},
 }: {
   days: Jour[];
-  weeks?: WeekHead[];
+  weekBlocks?: WeekBlock[];
   todayIso?: string;
+  prevHref?: string;
+  nextHref?: string;
+  todayHref?: string;
   personnes?: Personne[];
   groups?: Group[];
   besoin?: number[];
@@ -47,7 +54,6 @@ export default function PlanningGrid({
   const horsComp = (pid: string, v: string) =>
     isPoste(v) && (matrice[`${pid}:${v}`] ?? 0) < (niveauMin[v] ?? 0);
 
-  // Comptage par jour et par poste (pour le sur-effectif) + indicateurs.
   const perDay = days.map((d) => {
     const counts: Record<string, number> = {};
     let present = 0;
@@ -80,9 +86,9 @@ export default function PlanningGrid({
   }
 
   const deltaColor = (d: number) => (d < 0 ? "var(--danger)" : d > 0 ? "#9a3412" : "var(--ok)");
-  const sep = (d: Jour): React.CSSProperties =>
-    d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {};
+  const sep = (d: Jour): React.CSSProperties => (d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {});
   const isToday = (d: Jour) => d.iso === todayIso;
+  const lastBlock = weekBlocks.length - 1;
 
   return (
     <div className="card" style={{ overflowX: "auto", position: "relative" }}>
@@ -101,31 +107,44 @@ export default function PlanningGrid({
 
       <table className="matrix" style={{ borderCollapse: "collapse" }}>
         <thead>
-          {weeks.length > 0 && (
-            <tr>
-              <th style={{ position: "sticky", left: 0, background: "#fff" }}></th>
-              {weeks.map((w, i) => (
-                <th
-                  key={i}
-                  colSpan={7}
-                  style={{ textAlign: "center", borderLeft: "3px solid #94a3b8", background: "#f8fafc" }}
-                >
-                  {w.label}
-                </th>
-              ))}
-            </tr>
-          )}
+          {/* Ligne semaines : Aujourd'hui (au-dessus de Personne) + n0 semaine + fleches */}
+          <tr>
+            <th style={{ position: "sticky", left: 0, background: "#fff", textAlign: "center" }}>
+              {todayHref && (
+                <Link href={todayHref} className="btn-sm" style={{ textDecoration: "none" }} scroll={false}>
+                  Aujourd&apos;hui
+                </Link>
+              )}
+            </th>
+            {weekBlocks.map((w, i) => (
+              <th
+                key={i}
+                colSpan={w.span}
+                style={{ textAlign: "center", borderLeft: "3px solid #94a3b8", background: "#f8fafc" }}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  {i === 0 && prevHref && (
+                    <Link href={prevHref} className="iconbtn" scroll={false} title="Semaine precedente">
+                      &lsaquo;
+                    </Link>
+                  )}
+                  Semaine {w.num}
+                  {i === lastBlock && nextHref && (
+                    <Link href={nextHref} className="iconbtn" scroll={false} title="Semaine suivante">
+                      &rsaquo;
+                    </Link>
+                  )}
+                </span>
+              </th>
+            ))}
+          </tr>
+          {/* Ligne jours */}
           <tr>
             <th style={{ position: "sticky", left: 0, background: "#fff", textAlign: "left" }}>Personne</th>
             {days.map((d) => (
               <th
                 key={d.iso}
-                style={{
-                  textAlign: "center",
-                  minWidth: 60,
-                  ...sep(d),
-                  background: isToday(d) ? "#dbeafe" : undefined,
-                }}
+                style={{ textAlign: "center", minWidth: 58, ...sep(d), background: isToday(d) ? "#dbeafe" : undefined }}
               >
                 {d.nom.slice(0, 3)}
                 <br />
@@ -135,7 +154,6 @@ export default function PlanningGrid({
           </tr>
         </thead>
         <tbody>
-          {/* Indicateurs */}
           {(
             [
               ["Besoin", (i: number) => `${besoin[i] ?? 0}`, () => "var(--muted)"],
@@ -154,23 +172,13 @@ export default function PlanningGrid({
             <tr key={label} style={{ background: "#f8fafc" }}>
               <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600 }}>{label}</td>
               {days.map((d, i) => (
-                <td
-                  key={d.iso}
-                  style={{
-                    textAlign: "center",
-                    fontWeight: 700,
-                    color: color(i),
-                    ...sep(d),
-                    background: isToday(d) ? "#eef2ff" : undefined,
-                  }}
-                >
+                <td key={d.iso} style={{ textAlign: "center", fontWeight: 700, color: color(i), ...sep(d), background: isToday(d) ? "#eef2ff" : undefined }}>
                   {get(i)}
                 </td>
               ))}
             </tr>
           ))}
 
-          {/* Personnes */}
           {personnes.map((pers) => (
             <tr key={pers.id}>
               <td style={{ position: "sticky", left: 0, background: "#fff", whiteSpace: "nowrap" }}>
@@ -189,26 +197,20 @@ export default function PlanningGrid({
                       background: alert ? "#fee2e2" : isToday(d) ? "#eff6ff" : undefined,
                       outline: over ? "2px solid #f97316" : undefined,
                       outlineOffset: -2,
-                      padding: 3,
+                      padding: 2,
                       ...sep(d),
                     }}
-                    title={
-                      [
-                        alert ? "Hors competence (niveau actuel insuffisant)" : "",
-                        over ? "Sur-effectif : depasse l'effectif de l'abaque" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || undefined
-                    }
+                    title={[alert ? "Hors competence" : "", over ? "Sur-effectif" : ""].filter(Boolean).join(" · ") || undefined}
                   >
                     <select
+                      className="flat"
                       value={v}
                       disabled={!pers.editable}
                       onChange={(e) => change(pers.id, d.iso, pers.equipe_id, e.target.value)}
                       style={{ width: "100%", fontSize: 12, padding: "3px 1px" }}
                     >
                       <option value="">—</option>
-                      <option value="X">Abs/NT</option>
+                      <option value="X">Abs</option>
                       {groups.map((g) => (
                         <optgroup key={g.ligneNom} label={g.ligneNom}>
                           {g.postes.map((p) => (
@@ -233,8 +235,8 @@ export default function PlanningGrid({
       </table>
 
       <p className="muted" style={{ marginTop: 10 }}>
-        Besoin = effectif des lignes ouvertes (abaque). Cellule rouge = hors competence ·
-        contour orange = sur-effectif (depasse l&apos;effectif du poste).
+        Besoin = effectif des lignes ouvertes. Rouge = hors competence · contour orange =
+        sur-effectif. Les jours sans ligne ouverte sont masques.
       </p>
     </div>
   );
