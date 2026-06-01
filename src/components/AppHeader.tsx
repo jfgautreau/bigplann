@@ -10,11 +10,14 @@ export default function AppHeader({
 }) {
   const isAdmin = role === "admin";
   const canAudit = role === "admin" || role === "codir";
+  const canOrdo = role === "admin" || role === "ordo";
 
   const links: { href: string; label: string; show: boolean }[] = [
     { href: "/", label: "Accueil", show: true },
     { href: "/personnel", label: "Personnel", show: true },
     { href: "/matrice", label: "Matrice", show: true },
+    { href: "/planning", label: "Planning", show: true },
+    { href: "/ordonnancement", label: "Ordonnancement", show: canOrdo },
     { href: "/admin/referentiel", label: "Referentiel", show: isAdmin },
     { href: "/admin/equipes", label: "Equipes", show: isAdmin },
     { href: "/admin/competences", label: "Competences", show: isAdmin },

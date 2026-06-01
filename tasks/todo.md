@@ -65,9 +65,22 @@
 - [ ] Utilisateur : executer supabase/migrations/0004_matrice.sql
 - [ ] Verif reel + demo (chef modifie un niveau, bilan a jour, audit)
 
+## Lot 5 - Planning - EN COURS
+- [x] Migration 0005 : ligne_ouverture, jour_equipe, placement + RLS
+      (placement = perimetre chef ; ouverture = admin/ordo) + audit + has_role
+- [x] /ordonnancement : lignes ouvertes + equipes actives par jour (toggles auto)
+- [x] /planning : grille personne x jour, affectation poste/absent, sauvegarde auto
+- [x] Indicateurs par jour : Besoin (abaque) / Present / Delta / Alertes
+- [x] Alerte hors-competence (niveau actuel < niveau min requis du poste)
+- [x] Menu Planning (tous) + Ordonnancement (admin/ordo) ; helper semaine + WeekNav
+- [x] npm run build + TypeScript OK
+- [ ] Drag & drop + vue par poste : 2e passage (optionnel)
+- [ ] Utilisateur : executer supabase/migrations/0005_planning.sql
+- [ ] Verif reel + demo (placer une semaine, indicateurs, alertes)
+
 ## Suite
-- [ ] Lot 4 Habilitations, Lot 5 Planning, Lot 6 Absences,
-      Lot 7 Affichage couloir, Lot 8 Bilans, Lot 9 RGPD/doc/tests
+- [ ] Lot 4 Habilitations, Lot 6 Absences, Lot 7 Affichage couloir,
+      Lot 8 Bilans, Lot 9 RGPD/doc/tests
 
 ## Revue
 - Lot 2 termine et valide en reel. Referentiel (atelier/ligne/poste+abaque),
