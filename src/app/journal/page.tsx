@@ -23,7 +23,7 @@ const ACTION_FR: Record<string, string> = {
 export default async function JournalPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
-  if (profile.role !== "admin" && profile.role !== "resp_prod") redirect("/");
+  if (profile.role !== "admin" && profile.role !== "codir") redirect("/");
 
   const supabase = await getServerClient();
   const [{ data: entriesData }, { data: usersData }] = await Promise.all([
@@ -54,7 +54,7 @@ export default async function JournalPage() {
         <h1>Journal d&apos;audit</h1>
         <p className="muted" style={{ marginBottom: 16 }}>
           200 dernieres modifications. Visible par l&apos;administrateur et le
-          responsable production ({roleLabel(profile.role)}).
+          CODIR ({roleLabel(profile.role)}).
         </p>
         <div className="card">
           <table>

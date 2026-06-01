@@ -9,7 +9,7 @@ export default function AppHeader({
   active?: string;
 }) {
   const isAdmin = role === "admin";
-  const canAudit = role === "admin" || role === "resp_prod";
+  const canAudit = role === "admin" || role === "codir";
 
   const links: { href: string; label: string; show: boolean }[] = [
     { href: "/", label: "Accueil", show: true },

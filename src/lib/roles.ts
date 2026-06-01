@@ -1,26 +1,25 @@
-// Roles applicatifs (cf. cahier des charges section 3.1).
-// Valeurs stockees en base (snake_case), libelles affiches en francais.
+// Roles applicatifs (liste officielle).
+// Valeurs stockees en base (snake_case / court), libelles affiches en francais.
+// Ordre = ordre d'affichage dans les listes deroulantes.
 
 export const ROLES = [
-  "admin",
-  "resp_prod",
-  "resp_planning",
+  "codir",
   "chef_equipe",
-  "ordonnancement",
+  "ordo",
   "rh",
-  "direction",
+  "admin",
+  "planning",
 ] as const;
 
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
-  admin: "Administrateur",
-  resp_prod: "Responsable production",
-  resp_planning: "Responsable planning",
-  chef_equipe: "Chef d'equipe",
-  ordonnancement: "Ordonnancement",
+  codir: "CODIR",
+  chef_equipe: "Chef d'équipe",
+  ordo: "Ordo",
   rh: "RH",
-  direction: "Direction / Reporting",
+  admin: "Admin",
+  planning: "Planning",
 };
 
 export function isRole(value: string): value is Role {
