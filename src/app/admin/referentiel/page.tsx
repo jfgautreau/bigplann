@@ -74,7 +74,7 @@ export default async function ReferentielPage({
         </p>
 
         <div className="card" style={{ marginBottom: 24 }}>
-          <form action={createAtelier} className="inline-form">
+          <form action={createAtelier} autoComplete="off" className="inline-form">
             <div className="field">
               <span>Nouvel atelier</span>
               <input name="nom" placeholder="Nom de l'atelier" required />
@@ -91,7 +91,7 @@ export default async function ReferentielPage({
           <div key={a.id} className="card section">
             {/* En-tete atelier */}
             {isEditing("atelier", a.id) ? (
-              <form action={renameAtelier} className="inline-form">
+              <form action={renameAtelier} autoComplete="off" className="inline-form">
                 <input type="hidden" name="id" value={a.id} />
                 <div className="field">
                   <span>Nom de l&apos;atelier</span>
@@ -125,7 +125,7 @@ export default async function ReferentielPage({
                 style={{ marginLeft: 16, borderLeft: "2px solid #eee", paddingLeft: 16 }}
               >
                 {isEditing("ligne", l.id) ? (
-                  <form action={renameLigne} className="inline-form">
+                  <form action={renameLigne} autoComplete="off" className="inline-form">
                     <input type="hidden" name="id" value={l.id} />
                     <div className="field">
                       <span>Nom de la ligne</span>
@@ -169,7 +169,7 @@ export default async function ReferentielPage({
                       isEditing("poste", p.id) ? (
                         <tr key={p.id}>
                           <td colSpan={7}>
-                            <form action={updatePoste} className="inline-form">
+                            <form action={updatePoste} autoComplete="off" className="inline-form">
                               <input type="hidden" name="id" value={p.id} />
                               <div className="field">
                                 <span>Nom</span>
@@ -241,7 +241,7 @@ export default async function ReferentielPage({
                 </table>
 
                 {/* Ajout poste */}
-                <form action={createPoste} className="inline-form" style={{ marginTop: 8 }}>
+                <form action={createPoste} autoComplete="off" className="inline-form" style={{ marginTop: 8 }}>
                   <input type="hidden" name="ligne_id" value={l.id} />
                   <div className="field">
                     <span>Nouveau poste</span>
@@ -281,7 +281,7 @@ export default async function ReferentielPage({
             ))}
 
             {/* Ajout ligne */}
-            <form action={createLigne} className="inline-form" style={{ marginTop: 8 }}>
+            <form action={createLigne} autoComplete="off" className="inline-form" style={{ marginTop: 8 }}>
               <input type="hidden" name="atelier_id" value={a.id} />
               <div className="field">
                 <span>Nouvelle ligne</span>

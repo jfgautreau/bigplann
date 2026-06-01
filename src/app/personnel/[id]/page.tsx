@@ -74,7 +74,7 @@ export default async function FichePersonne({
             </form>
           </div>
 
-          <form action={updatePersonne}>
+          <form action={updatePersonne} autoComplete="off">
             <input type="hidden" name="id" value={p.id} />
             <div className="toolbar">
               <div className="field">

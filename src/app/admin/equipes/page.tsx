@@ -47,7 +47,7 @@ export default async function EquipesPage() {
         <h1>Equipes</h1>
 
         <div className="card" style={{ marginBottom: 24 }}>
-          <form action={createEquipe} className="inline-form">
+          <form action={createEquipe} autoComplete="off" className="inline-form">
             <div className="field">
               <span>Nouvelle equipe</span>
               <input name="nom" placeholder="Ex. Equipe A, Nuit..." required />
@@ -61,7 +61,7 @@ export default async function EquipesPage() {
         {equipes.map((e) => (
           <div key={e.id} className="card section">
             <div className="toolbar">
-              <form action={renameEquipe} className="inline-form">
+              <form action={renameEquipe} autoComplete="off" className="inline-form">
                 <input type="hidden" name="id" value={e.id} />
                 <input name="nom" defaultValue={e.nom} />
                 <button type="submit" className="btn-sm btn-ghost">
@@ -98,7 +98,7 @@ export default async function EquipesPage() {
               ))}
             </ul>
 
-            <form action={addChef} className="inline-form">
+            <form action={addChef} autoComplete="off" className="inline-form">
               <input type="hidden" name="equipe_id" value={e.id} />
               <div className="field">
                 <span>Designer un chef</span>

@@ -125,7 +125,7 @@ export default async function PersonnelPage({
         {isAdmin && (
           <div className="card">
             <h2>Ajouter une personne</h2>
-            <form action={createPersonne}>
+            <form action={createPersonne} autoComplete="off">
               <div className="toolbar">
                 <div className="field">
                   <span>Nom *</span>
