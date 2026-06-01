@@ -37,8 +37,8 @@ export default async function AdminUsersPage() {
           <h2>Ajouter un utilisateur</h2>
           <UserForm />
           <p className="muted" style={{ marginTop: 12 }}>
-            Deux modes : creation directe avec un mot de passe (acces immediat), ou
-            invitation par email (l&apos;invite definit lui-meme son mot de passe).
+            Le compte est cree directement avec un mot de passe (acces immediat).
+            Communiquez-le a l&apos;utilisateur, qui pourra le changer ensuite.
           </p>
         </div>
 

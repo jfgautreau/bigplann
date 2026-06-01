@@ -4,11 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ROLE_LABELS, ROLES } from "@/lib/roles";
 
-type Mode = "create" | "invite";
-
 export default function UserForm() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("create");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("chef_equipe");
@@ -22,18 +19,10 @@ export default function UserForm() {
     setError(null);
     setSuccess(null);
     setPending(true);
-
-    const endpoint =
-      mode === "create" ? "/api/users/create" : "/api/users/invite";
-    const payload =
-      mode === "create"
-        ? { email, name, role, password }
-        : { email, name, role };
-
-    const res = await fetch(endpoint, {
+    const res = await fetch("/api/users/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ email, name, role, password }),
     });
     setPending(false);
     const json = await res.json().catch(() => ({}));
@@ -41,11 +30,7 @@ export default function UserForm() {
       setError(json.error ?? "Echec.");
       return;
     }
-    setSuccess(
-      mode === "create"
-        ? `Compte cree pour ${email}.`
-        : `Invitation envoyee a ${email}.`
-    );
+    setSuccess(`Compte cree pour ${email}.`);
     setName("");
     setEmail("");
     setPassword("");
@@ -54,27 +39,6 @@ export default function UserForm() {
 
   return (
     <form onSubmit={onSubmit} autoComplete="off">
-      <div className="modes">
-        <label className="mode">
-          <input
-            type="radio"
-            name="mode"
-            checked={mode === "create"}
-            onChange={() => setMode("create")}
-          />
-          Creer avec un mot de passe
-        </label>
-        <label className="mode">
-          <input
-            type="radio"
-            name="mode"
-            checked={mode === "invite"}
-            onChange={() => setMode("invite")}
-          />
-          Inviter par email
-        </label>
-      </div>
-
       <label htmlFor="name">Nom complet</label>
       <input
         id="name"
@@ -107,28 +71,20 @@ export default function UserForm() {
         ))}
       </select>
 
-      {mode === "create" && (
-        <>
-          <label htmlFor="password">Mot de passe initial</label>
-          <input
-            id="password"
-            type="text"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <p className="muted" style={{ marginTop: 4 }}>
-            Min. 8 caracteres, 3 classes parmi maj/min/chiffre/special.
-          </p>
-        </>
-      )}
+      <label htmlFor="password">Mot de passe initial</label>
+      <input
+        id="password"
+        type="text"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
+      <p className="muted" style={{ marginTop: 4 }}>
+        Min. 8 caracteres, 3 classes parmi maj/min/chiffre/special.
+      </p>
 
       <button type="submit" disabled={pending}>
-        {pending
-          ? "..."
-          : mode === "create"
-            ? "Creer l'utilisateur"
-            : "Inviter l'utilisateur"}
+        {pending ? "Creation..." : "Creer l'utilisateur"}
       </button>
       {error && <p className="error">{error}</p>}
       {success && <p className="success">{success}</p>}
