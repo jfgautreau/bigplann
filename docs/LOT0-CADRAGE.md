@@ -24,9 +24,13 @@
 atelier(id, nom, actif, created_at, updated_at)
 ligne(id, atelier_id→atelier, nom, actif, created_at, updated_at)
 poste(id, ligne_id→ligne, nom,
+      est_conducteur bool DEFAULT false,    -- type de poste conducteur (couleur saumon)
+      effectif_requis int DEFAULT 0,        -- ABAQUE : nb de personnes requises si ligne ouverte
       difficulte_formation int CHECK 1..3,
       niveau_min_requis int CHECK 0..4,
       actif, created_at, updated_at)
+   -- ex. ligne L1 = poste "Conducteur" (effectif_requis 1, est_conducteur true)
+   --              + poste "Opérateur"  (effectif_requis 3)  => abaque "1 cond. + 3 op."
 
 equipe(id, nom, actif, created_at, updated_at)            -- A, B, C, Nuit...
 equipe_chef(equipe_id→equipe, app_user_id→app_user)       -- chefs désignés (N-N)
@@ -37,11 +41,11 @@ equipe_chef(equipe_id→equipe, app_user_id→app_user)       -- chefs désigné
 ```
 personne(id, matricule UNIQUE NULL,          -- auto-généré si intérimaire sans matricule
          nom, prenom,
-         equipe_id→equipe,
+         equipe_id→equipe,                    -- équipe de RATTACHEMENT (l'équipe réelle
+                                              --   du jour est portée par `placement`)
          type_contrat ENUM('CDI','CDD','INTERIM'),
          agence_interim NULL,                 -- si INTERIM
          date_debut, date_fin NULL,           -- date_fin si CDD/INTERIM
-         est_operateur bool DEFAULT true,     -- Opérateur vs ... (cf. Conducteur §3)
          commentaire text NULL,               -- PAS d'info médicale (note UI)
          statut ENUM('ACTIF','PARTI') DEFAULT 'ACTIF',
          anonymise bool DEFAULT false, anonymise_at NULL,  -- RGPD
@@ -55,7 +59,6 @@ competence_niveau_libelle(niveau int PK CHECK 0..4, libelle)   -- échelle param
 matrice(id, personne_id→personne, poste_id→poste,
         niveau_actuel int CHECK 0..4 DEFAULT 0,
         niveau_cible  int CHECK 0..4 DEFAULT 0,
-        est_conducteur bool DEFAULT false,    -- Conducteur = attribut (personne × poste)
         commentaire NULL,
         date_maj, auteur_app_user_id→app_user,
         created_at)
@@ -88,7 +91,7 @@ motif_absence(id, libelle, code_court, couleur,
 absence(id, personne_id→personne, motif_id→motif_absence,
         date_debut, date_fin,
         statut ENUM('EN_ATTENTE','VALIDE','REFUSE') DEFAULT 'VALIDE',
-              -- 'EN_ATTENTE' surtout pour les congés (workflow §9.4)
+              -- colonne conservée ; workflow "congé en attente" REPORTÉ (non développé)
         demandeur_app_user_id→app_user,
         valideur_app_user_id NULL, date_validation NULL, raison_refus NULL,
         created_at, updated_at)
@@ -103,12 +106,13 @@ cp_solde(id, personne_id→personne, annee int, jours_initiaux numeric,
 ```
 jour_equipe(date, equipe_id→equipe, actif bool)   -- activer/désactiver nuit par jour
    PK(date, equipe_id)
-ligne_ouverture(date, ligne_id→ligne, ouverte bool)  -- lignes ouvertes/fermées du jour
+ligne_ouverture(date, ligne_id→ligne, ouverte bool)  -- saisie ORDO : ligne ouverte/fermée
    PK(date, ligne_id)
-besoin_poste(date, poste_id→poste, nb_requis int)    -- besoin chiffré (indicateurs §7.5)
-   PK(date, poste_id)
+-- Besoin du jour = NON saisi : calculé = somme des `poste.effectif_requis` (abaque)
+--   des postes appartenant aux lignes OUVERTES ce jour-là. Sert aux indicateurs §7.5.
 
-placement(id, date, personne_id→personne, equipe_id→equipe,
+placement(id, date, personne_id→personne,
+          equipe_id→equipe,                -- équipe RÉELLE du jour (≠ rattachement possible)
           poste_id→poste NULL,             -- poste assigné...
           motif_absence_id NULL,           -- ...OU motif d'absence du jour
           non_travaille bool DEFAULT false,-- OU jour non travaillé (X)
@@ -138,11 +142,13 @@ app_setting(cle PK, valeur jsonb, updated_at)
 
 | # | Sujet | Proposition retenue dans ce modèle | À confirmer |
 |---|-------|-----------------------------------|-------------|
-| A | Login | Email (Supabase Auth) pour les `app_user`. Matricule = identifiant des `personne`. | ✅ par défaut |
-| C | Conducteur | Attribut **booléen par (personne × poste)** dans `matrice` (proposition du cahier §7.6). Couleur saumon au placement. | ⚠️ à valider |
-| E | Transverses vs habilitations | **Une seule table `competence`** avec flag `a_recycler` + `duree_validite_mois`. Une habilitation = compétence à recycler. | ⚠️ à valider |
-| F | Granularité du besoin | `ligne_ouverture` (ouverte/fermée) **+** `besoin_poste` (nombre requis par poste/jour) **+** `jour_equipe` (nuit on/off). Couvre §7.3 et les indicateurs §7.5. | ⚠️ à valider |
-| G | Export Excel de référence | Besoin d'un **vrai fichier** (matrice + planning) pour caler le template d'import et les couleurs. | ⚠️ fournir si dispo |
+| A | Login | Email (Supabase Auth) pour les `app_user`. Matricule = identifiant des `personne`. | ✅ acté |
+| C | Conducteur | **Un poste à part entière** (comme Opérateur) ; flag `poste.est_conducteur` pour la couleur saumon. Plus d'attribut sur la personne ni la matrice. | ✅ acté |
+| E | Transverses vs habilitations | **Une seule table `competence`** avec flag `a_recycler` + `duree_validite_mois`. Une habilitation = compétence à recycler. | ✅ acté |
+| F | Besoin / abaque | L'ordo saisit seulement **ligne ouverte/fermée** (+ nuit). Le besoin est **dérivé de l'abaque** `poste.effectif_requis` (ex. 1 conducteur + 3 opérateurs), éditable via un écran « abaque ». | ✅ acté |
+| H | Changement d'équipe | Fréquent → l'équipe réelle est sur `placement` (jour). `personne.equipe_id` = rattachement. | ✅ acté |
+| I | Workflow congé | **Reporté**, non développé pour l'instant. Colonne `statut` conservée. | ✅ acté |
+| G | Excel de référence | **Plus tard** : template standard généré au Lot 2, l'utilisateur adaptera. | ⏳ plus tard |
 
 ### Conséquence du changement de stack (Vercel, plus de reverse-proxy)
 - **Affichage couloir (§8.4)** : le filtrage IP devait se faire au reverse-proxy Caddy. Sur Vercel il n'y en a pas. Options :
@@ -154,6 +160,9 @@ app_setting(cle PK, valeur jsonb, updated_at)
 ---
 
 ## 4. Sitemap fonctionnel (écrans)
+
+> **Provisoire.** Chaque écran sera précisé en l'affichant dans l'app puis ajusté
+> à la vue souhaitée (souvent calquée sur l'Excel actuel), plutôt que sur-spécifié ici.
 
 ### Public / authentification
 - `/login`, `/forgot`, `/reset`, `/auth/callback` ✅ (faits)
@@ -170,12 +179,12 @@ app_setting(cle PK, valeur jsonb, updated_at)
 - **Habilitations / compétences**
   - `/habilitations` — tableau « à recycler » trié par échéance (vert/orange/rouge)
 - **Planning**
-  - `/ordonnancement` — saisie besoins : lignes ouvertes, nuit on/off, nb requis
+  - `/ordonnancement` — saisie : lignes ouvertes/fermées + nuit on/off (besoin dérivé de l'abaque)
   - `/planning` — vue hebdo (personnes × jours) + indicateurs Besoin/Présent/Delta/Alertes
   - `/planning/jour` — vue par poste (alternative)
 - **Absences & congés**
   - `/absences` — saisie (chef = son équipe)
-  - `/conges` — file des congés **en attente** à valider (Resp. prod / planning)
+  - `/conges` — validation des congés en attente — **REPORTÉ** (workflow non développé)
 - **Bilans**
   - `/bilans` — effectifs, polyvalence, écarts compétences, habilitations (impression soignée)
 - **Journal**
@@ -183,6 +192,7 @@ app_setting(cle PK, valeur jsonb, updated_at)
 - **Administration**
   - `/admin/users` ✅ — comptes & rôles
   - `/admin/referentiel` — ateliers / lignes / postes (CRUD + désactivation)
+  - `/admin/abaques` — effectif requis par poste/ligne (ex. 1 conducteur + 3 opérateurs)
   - `/admin/equipes` — équipes & chefs
   - `/admin/motifs` — motifs d'absence
   - `/admin/competences` — compétences/habilitations + échelle de niveaux
