@@ -18,6 +18,7 @@ import {
 type Poste = {
   id: string;
   nom: string;
+  nom_court: string | null;
   est_conducteur: boolean;
   effectif_requis: number;
   difficulte_formation: number | null;
@@ -43,7 +44,7 @@ export default async function ReferentielPage({
   const { data } = await supabase
     .from("atelier")
     .select(
-      "id, nom, actif, ligne(id, nom, actif, poste(id, nom, est_conducteur, effectif_requis, difficulte_formation, niveau_min_requis, actif))"
+      "id, nom, actif, ligne(id, nom, actif, poste(id, nom, nom_court, est_conducteur, effectif_requis, difficulte_formation, niveau_min_requis, actif))"
     )
     .order("nom")
     .returns<Atelier[]>();
@@ -156,6 +157,7 @@ export default async function ReferentielPage({
                   <thead>
                     <tr>
                       <th>Poste</th>
+                      <th>Code</th>
                       <th>Effectif</th>
                       <th>Conducteur</th>
                       <th>Difficulte</th>
@@ -168,12 +170,16 @@ export default async function ReferentielPage({
                     {l.poste.map((p) =>
                       isEditing("poste", p.id) ? (
                         <tr key={p.id}>
-                          <td colSpan={7}>
+                          <td colSpan={8}>
                             <form action={updatePoste} autoComplete="off" className="inline-form">
                               <input type="hidden" name="id" value={p.id} />
                               <div className="field">
                                 <span>Nom</span>
                                 <input name="nom" defaultValue={p.nom} autoFocus required />
+                              </div>
+                              <div className="field">
+                                <span>Code (abrege)</span>
+                                <input name="nom_court" defaultValue={p.nom_court ?? ""} style={{ width: 90 }} />
                               </div>
                               <div className="field">
                                 <span>Effectif</span>
@@ -211,6 +217,7 @@ export default async function ReferentielPage({
                       ) : (
                         <tr key={p.id}>
                           <td>{p.nom}</td>
+                          <td>{p.nom_court ?? "-"}</td>
                           <td>{p.effectif_requis}</td>
                           <td>{p.est_conducteur ? "Oui" : "-"}</td>
                           <td>{p.difficulte_formation ?? "-"}</td>
@@ -234,7 +241,7 @@ export default async function ReferentielPage({
                     )}
                     {l.poste.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="muted">Aucun poste sur cette ligne.</td>
+                        <td colSpan={8} className="muted">Aucun poste sur cette ligne.</td>
                       </tr>
                     )}
                   </tbody>
@@ -246,6 +253,10 @@ export default async function ReferentielPage({
                   <div className="field">
                     <span>Nouveau poste</span>
                     <input name="nom" placeholder="Nom du poste" required />
+                  </div>
+                  <div className="field">
+                    <span>Code</span>
+                    <input name="nom_court" placeholder="abrege" style={{ width: 80 }} />
                   </div>
                   <div className="field">
                     <span>Effectif</span>

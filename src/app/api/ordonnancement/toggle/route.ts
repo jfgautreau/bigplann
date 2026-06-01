@@ -13,10 +13,11 @@ export async function POST(req: NextRequest) {
     type?: string;
     id?: string;
     jour?: string;
+    equipe_id?: string;
     value?: boolean;
   } | null;
 
-  const { type, id, jour } = body ?? {};
+  const { type, id, jour, equipe_id } = body ?? {};
   const value = !!body?.value;
   if (!type || !id || !jour) {
     return NextResponse.json({ error: "Parametres manquants" }, { status: 400 });
@@ -25,9 +26,15 @@ export async function POST(req: NextRequest) {
   const supabase = await getServerClient();
   let error;
   if (type === "ligne") {
+    if (!equipe_id) {
+      return NextResponse.json({ error: "Equipe requise" }, { status: 400 });
+    }
     ({ error } = await supabase
       .from("ligne_ouverture")
-      .upsert({ jour, ligne_id: id, ouverte: value }, { onConflict: "jour,ligne_id" }));
+      .upsert(
+        { jour, ligne_id: id, equipe_id, ouverte: value },
+        { onConflict: "jour,ligne_id,equipe_id" }
+      ));
   } else if (type === "equipe") {
     ({ error } = await supabase
       .from("jour_equipe")

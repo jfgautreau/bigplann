@@ -2,13 +2,15 @@
 
 import { useMemo, useState } from "react";
 
-type Jour = { iso: string; nom: string; num: string };
-type Poste = { id: string; nom: string; niveauMin: number };
+type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
+type WeekHead = { label: string };
+type Poste = { id: string; nom: string; niveauMin: number; effectif: number };
 type Group = { ligneNom: string; postes: Poste[] };
 type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean };
 
 export default function PlanningGrid({
   days,
+  weeks = [],
   personnes = [],
   groups = [],
   besoin = [],
@@ -16,6 +18,7 @@ export default function PlanningGrid({
   matrice = {},
 }: {
   days: Jour[];
+  weeks?: WeekHead[];
   personnes?: Personne[];
   groups?: Group[];
   besoin?: number[];
@@ -26,30 +29,36 @@ export default function PlanningGrid({
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const key = (pid: string, iso: string) => `${pid}:${iso}`;
+  const isPoste = (v: string) => v !== "" && v !== "X";
 
-  const niveauMin = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const g of groups) for (const p of g.postes) m[p.id] = p.niveauMin;
-    return m;
+  const { niveauMin, effectif } = useMemo(() => {
+    const nm: Record<string, number> = {};
+    const ef: Record<string, number> = {};
+    for (const g of groups)
+      for (const p of g.postes) {
+        nm[p.id] = p.niveauMin;
+        ef[p.id] = p.effectif;
+      }
+    return { niveauMin: nm, effectif: ef };
   }, [groups]);
 
-  const isPoste = (v: string) => v !== "" && v !== "X";
   const horsComp = (pid: string, v: string) =>
     isPoste(v) && (matrice[`${pid}:${v}`] ?? 0) < (niveauMin[v] ?? 0);
 
-  // Indicateurs par jour (sur les personnes affichees)
-  const stats = days.map((d, i) => {
+  // Comptage par jour et par poste (pour le sur-effectif) + indicateurs.
+  const perDay = days.map((d) => {
+    const counts: Record<string, number> = {};
     let present = 0;
     let alerts = 0;
     for (const pers of personnes) {
       const v = vals[key(pers.id, d.iso)] ?? "";
       if (isPoste(v)) {
         present++;
+        counts[v] = (counts[v] ?? 0) + 1;
         if (horsComp(pers.id, v)) alerts++;
       }
     }
-    const bes = besoin[i] ?? 0;
-    return { present, alerts, besoin: bes, delta: present - bes };
+    return { counts, present, alerts };
   });
 
   async function change(pid: string, iso: string, equipe_id: string | null, value: string) {
@@ -68,8 +77,9 @@ export default function PlanningGrid({
     setTimeout(() => setSaving("idle"), 1200);
   }
 
-  const deltaColor = (d: number) =>
-    d < 0 ? "var(--danger)" : d > 0 ? "#9a3412" : "var(--ok)";
+  const deltaColor = (d: number) => (d < 0 ? "var(--danger)" : d > 0 ? "#9a3412" : "var(--ok)");
+  const sep = (d: Jour): React.CSSProperties =>
+    d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {};
 
   return (
     <div className="card" style={{ overflowX: "auto", position: "relative" }}>
@@ -88,11 +98,25 @@ export default function PlanningGrid({
 
       <table className="matrix" style={{ borderCollapse: "collapse" }}>
         <thead>
+          {weeks.length > 0 && (
+            <tr>
+              <th style={{ position: "sticky", left: 0, background: "#fff" }}></th>
+              {weeks.map((w, i) => (
+                <th
+                  key={i}
+                  colSpan={7}
+                  style={{ textAlign: "center", borderLeft: "3px solid #94a3b8", background: "#f8fafc" }}
+                >
+                  {w.label}
+                </th>
+              ))}
+            </tr>
+          )}
           <tr>
             <th style={{ position: "sticky", left: 0, background: "#fff", textAlign: "left" }}>Personne</th>
             {days.map((d) => (
-              <th key={d.iso} style={{ textAlign: "center", minWidth: 130 }}>
-                {d.nom}
+              <th key={d.iso} style={{ textAlign: "center", minWidth: 88, ...sep(d) }}>
+                {d.nom.slice(0, 3)}
                 <br />
                 <span className="muted" style={{ fontWeight: 400 }}>{d.num}</span>
               </th>
@@ -103,17 +127,24 @@ export default function PlanningGrid({
           {/* Indicateurs */}
           {(
             [
-              ["Besoin", (s: (typeof stats)[number]) => `${s.besoin}`, () => "var(--muted)"],
-              ["Present", (s: (typeof stats)[number]) => `${s.present}`, () => "var(--text)"],
-              ["Delta", (s: (typeof stats)[number]) => (s.delta > 0 ? `+${s.delta}` : `${s.delta}`), (s: (typeof stats)[number]) => deltaColor(s.delta)],
-              ["Alertes", (s: (typeof stats)[number]) => `${s.alerts}`, (s: (typeof stats)[number]) => (s.alerts > 0 ? "var(--danger)" : "var(--muted)")],
-            ] as [string, (s: (typeof stats)[number]) => string, (s: (typeof stats)[number]) => string][]
+              ["Besoin", (i: number) => `${besoin[i] ?? 0}`, () => "var(--muted)"],
+              ["Present", (i: number) => `${perDay[i].present}`, () => "var(--text)"],
+              [
+                "Delta",
+                (i: number) => {
+                  const d = perDay[i].present - (besoin[i] ?? 0);
+                  return d > 0 ? `+${d}` : `${d}`;
+                },
+                (i: number) => deltaColor(perDay[i].present - (besoin[i] ?? 0)),
+              ],
+              ["Alertes", (i: number) => `${perDay[i].alerts}`, (i: number) => (perDay[i].alerts > 0 ? "var(--danger)" : "var(--muted)")],
+            ] as [string, (i: number) => string, (i: number) => string][]
           ).map(([label, get, color]) => (
             <tr key={label} style={{ background: "#f8fafc" }}>
               <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600 }}>{label}</td>
-              {stats.map((s, i) => (
-                <td key={i} style={{ textAlign: "center", fontWeight: 700, color: color(s) }}>
-                  {get(s)}
+              {days.map((d, i) => (
+                <td key={d.iso} style={{ textAlign: "center", fontWeight: 700, color: color(i), ...sep(d) }}>
+                  {get(i)}
                 </td>
               ))}
             </tr>
@@ -126,23 +157,38 @@ export default function PlanningGrid({
                 {pers.label}
                 {!pers.editable && <span className="muted"> (lecture)</span>}
               </td>
-              {days.map((d) => {
+              {days.map((d, i) => {
                 const v = vals[key(pers.id, d.iso)] ?? "";
                 const alert = horsComp(pers.id, v);
+                const over = isPoste(v) && (perDay[i].counts[v] ?? 0) > (effectif[v] ?? 0);
                 return (
                   <td
                     key={d.iso}
-                    style={{ textAlign: "center", background: alert ? "#fee2e2" : undefined, padding: 3 }}
-                    title={alert ? "Placement hors competence (niveau actuel insuffisant)" : undefined}
+                    style={{
+                      textAlign: "center",
+                      background: alert ? "#fee2e2" : undefined,
+                      outline: over ? "2px solid #f97316" : undefined,
+                      outlineOffset: -2,
+                      padding: 3,
+                      ...sep(d),
+                    }}
+                    title={
+                      [
+                        alert ? "Hors competence (niveau actuel insuffisant)" : "",
+                        over ? "Sur-effectif : depasse l'effectif de l'abaque" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || undefined
+                    }
                   >
                     <select
                       value={v}
                       disabled={!pers.editable}
                       onChange={(e) => change(pers.id, d.iso, pers.equipe_id, e.target.value)}
-                      style={{ width: "100%", fontSize: 12, padding: "4px 2px" }}
+                      style={{ width: "100%", fontSize: 12, padding: "3px 1px" }}
                     >
                       <option value="">—</option>
-                      <option value="X">Absent / NT</option>
+                      <option value="X">Abs/NT</option>
                       {groups.map((g) => (
                         <optgroup key={g.ligneNom} label={g.ligneNom}>
                           {g.postes.map((p) => (
@@ -167,8 +213,8 @@ export default function PlanningGrid({
       </table>
 
       <p className="muted" style={{ marginTop: 10 }}>
-        Besoin = effectif requis des lignes ouvertes (abaque). Present/Delta/Alertes
-        portent sur les personnes affichees. Cellule rouge = placement hors competence.
+        Besoin = effectif des lignes ouvertes (abaque). Cellule rouge = hors competence ·
+        contour orange = sur-effectif (depasse l&apos;effectif du poste).
       </p>
     </div>
   );

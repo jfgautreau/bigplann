@@ -67,6 +67,7 @@ export async function createPoste(fd: FormData) {
     await supabase.from("poste").insert({
       ligne_id,
       nom,
+      nom_court: str(fd, "nom_court") || null,
       est_conducteur: bool(fd, "est_conducteur"),
       effectif_requis: Number(str(fd, "effectif_requis") || "0"),
       difficulte_formation: intOrNull(fd, "difficulte_formation"),
@@ -81,6 +82,7 @@ export async function updatePoste(fd: FormData) {
     .from("poste")
     .update({
       nom: str(fd, "nom"),
+      nom_court: str(fd, "nom_court") || null,
       est_conducteur: bool(fd, "est_conducteur"),
       effectif_requis: Number(str(fd, "effectif_requis") || "0"),
       difficulte_formation: intOrNull(fd, "difficulte_formation"),

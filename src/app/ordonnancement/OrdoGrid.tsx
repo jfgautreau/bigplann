@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Jour = { iso: string; nom: string; num: string };
 type Item = { id: string; label: string };
@@ -11,20 +12,21 @@ function ToggleTable({
   items,
   days,
   initial,
-  defaultOn,
+  equipeId,
 }: {
   type: "ligne" | "equipe";
   title: string;
   items: Item[];
   days: Jour[];
   initial: Record<string, boolean>;
-  defaultOn: boolean;
+  equipeId?: string;
 }) {
+  // Tout est OUVERT / ACTIF par defaut : on decoche ce qui est ferme.
   const [state, setState] = useState<Record<string, boolean>>(initial);
   const [saving, setSaving] = useState(false);
 
   const key = (id: string, iso: string) => `${id}:${iso}`;
-  const val = (id: string, iso: string) => state[key(id, iso)] ?? defaultOn;
+  const val = (id: string, iso: string) => state[key(id, iso)] ?? true;
 
   async function toggle(id: string, iso: string) {
     const k = key(id, iso);
@@ -35,7 +37,7 @@ function ToggleTable({
       await fetch("/api/ordonnancement/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, id, jour: iso, value: next }),
+        body: JSON.stringify({ type, id, jour: iso, equipe_id: equipeId, value: next }),
       });
     } finally {
       setSaving(false);
@@ -45,7 +47,8 @@ function ToggleTable({
   return (
     <div className="card section" style={{ overflowX: "auto" }}>
       <h2 style={{ marginTop: 0 }}>
-        {title} {saving && <span className="muted" style={{ fontSize: 12 }}>· enregistrement...</span>}
+        {title}{" "}
+        {saving && <span className="muted" style={{ fontSize: 12 }}>· enregistrement...</span>}
       </h2>
       <table>
         <thead>
@@ -64,16 +67,22 @@ function ToggleTable({
           {items.map((it) => (
             <tr key={it.id}>
               <td style={{ whiteSpace: "nowrap" }}>{it.label}</td>
-              {days.map((d) => (
-                <td key={d.iso} style={{ textAlign: "center" }}>
-                  <input
-                    type="checkbox"
-                    checked={val(it.id, d.iso)}
-                    onChange={() => toggle(it.id, d.iso)}
-                    style={{ width: "auto", cursor: "pointer" }}
-                  />
-                </td>
-              ))}
+              {days.map((d) => {
+                const on = val(it.id, d.iso);
+                return (
+                  <td
+                    key={d.iso}
+                    style={{ textAlign: "center", background: on ? undefined : "#fee2e2" }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => toggle(it.id, d.iso)}
+                      style={{ width: "auto", cursor: "pointer" }}
+                    />
+                  </td>
+                );
+              })}
             </tr>
           ))}
           {items.length === 0 && (
@@ -83,41 +92,81 @@ function ToggleTable({
           )}
         </tbody>
       </table>
+      <p className="muted" style={{ marginTop: 6 }}>
+        Coche = {type === "ligne" ? "ligne ouverte" : "equipe active"}. Decochez ce
+        qui est ferme (fond rouge).
+      </p>
     </div>
   );
 }
 
 export default function OrdoGrid({
   days,
-  lignes,
   equipes,
-  ligneState,
   equipeState,
+  lignes,
+  ligneState,
+  selectedEquipe,
+  semaine,
 }: {
   days: Jour[];
-  lignes: Item[];
   equipes: Item[];
-  ligneState: Record<string, boolean>;
   equipeState: Record<string, boolean>;
+  lignes: Item[];
+  ligneState: Record<string, boolean>;
+  selectedEquipe: string;
+  semaine: string;
 }) {
+  const router = useRouter();
+  const equipeNom = equipes.find((e) => e.id === selectedEquipe)?.label;
+
+  function selectEquipe(id: string) {
+    const p = new URLSearchParams();
+    if (id) p.set("equipe", id);
+    if (semaine) p.set("semaine", semaine);
+    router.push(`/ordonnancement?${p.toString()}`);
+  }
+
   return (
     <>
       <ToggleTable
-        type="ligne"
-        title="Lignes ouvertes par jour"
-        items={lignes}
-        days={days}
-        initial={ligneState}
-        defaultOn={false}
-      />
-      <ToggleTable
         type="equipe"
-        title="Equipes actives par jour (ex. nuit)"
+        title="Equipes actives par jour"
         items={equipes}
         days={days}
         initial={equipeState}
-        defaultOn={false}
       />
+
+      <div className="card section">
+        <h2 style={{ marginTop: 0 }}>Lignes ouvertes par equipe</h2>
+        <div className="field" style={{ maxWidth: 320 }}>
+          <span>Equipe a configurer</span>
+          <select value={selectedEquipe} onChange={(e) => selectEquipe(e.target.value)}>
+            <option value="">Choisir une equipe...</option>
+            {equipes.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {selectedEquipe ? (
+        <ToggleTable
+          type="ligne"
+          title={`Lignes ouvertes - ${equipeNom ?? ""}`}
+          items={lignes}
+          days={days}
+          initial={ligneState}
+          equipeId={selectedEquipe}
+        />
+      ) : (
+        <p className="muted">
+          Choisissez une equipe pour ouvrir/fermer ses lignes (utile pour fermer une
+          ligne sur une seule equipe).
+        </p>
+      )}
     </>
   );
 }
