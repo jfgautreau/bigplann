@@ -5,10 +5,10 @@
 - [x] Reformuler la comprehension (12 points)
 - [x] Trancher : nouveau depot separe, projet distinct
 - [x] CHANGEMENT DE STACK : abandon Docker/Podman/Prisma -> Supabase + Vercel
-- [ ] Modele de donnees complet (Supabase) a valider  -> APRES le socle
-- [ ] Sitemap fonctionnel a valider                   -> APRES le socle
-- [ ] Lever les clarifications non bloquantes (login, conducteur, transverses
-      vs habilitations, granularite besoin, export Excel de reference)
+- [x] Modele de donnees complet (Supabase) redige -> docs/LOT0-CADRAGE.md
+- [x] Sitemap fonctionnel redige -> docs/LOT0-CADRAGE.md
+- [x] Clarifications adressees (propositions C/E/F + IP couloir + Excel) dans le doc
+- [ ] VALIDATION utilisateur du modele + sitemap
 
 ## Socle auth (stack Supabase + Vercel) - EN COURS
 - [x] Re-cabler le projet : retrait Docker/Prisma, ajout @supabase/ssr
