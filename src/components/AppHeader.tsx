@@ -18,6 +18,7 @@ export default function AppHeader({
     { href: "/matrice", label: "Matrice", show: true },
     { href: "/planning", label: "Planning", show: true },
     { href: "/ordonnancement", label: "Ordonnancement", show: canOrdo },
+    { href: "/bilans", label: "Bilans", show: true },
     { href: "/admin/referentiel", label: "Referentiel", show: isAdmin },
     { href: "/admin/equipes", label: "Equipes", show: isAdmin },
     { href: "/admin/competences", label: "Competences", show: isAdmin },

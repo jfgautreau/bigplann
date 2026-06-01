@@ -392,3 +392,14 @@ select.flat {
   background: var(--ok);
   color: #fff;
 }
+
+@media print {
+  .noprint,
+  .appheader {
+    display: none !important;
+  }
+  .card {
+    border: none;
+    padding: 0;
+  }
+}

@@ -32,7 +32,8 @@ export async function proxy(req: NextRequest) {
     pathname === "/login" ||
     pathname === "/forgot" ||
     pathname === "/reset" ||
-    pathname.startsWith("/auth/");
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/affichage"); // pages couloir : acces sans login (cf. cahier 8.4)
 
   // getUser() valide le JWT cote serveur (recommande par Supabase),
   // contrairement a getSession() qui lit juste le cookie sans verification.
