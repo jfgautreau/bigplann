@@ -16,8 +16,9 @@
 - [x] Auth : login bcrypt, session cookie signe, politique mdp, lockout 5 echecs
 - [x] Page login, dashboard, gestion utilisateurs admin, logout
 - [x] Dockerfile + docker-compose.yml (db + web)
-- [ ] `npm install` + `prisma generate` + `npm run build` OK en local
-- [ ] Migration initiale Prisma generee
+- [x] `npm install` + `prisma generate` + `npm run build` OK en local
+- [x] Typecheck `tsc --noEmit` OK (exit 0)
+- [x] Schema applique via `prisma db push` (pas de migration versionnee pour le test)
 - [ ] `podman compose up -d` valide (apres install Podman par l'utilisateur)
 - [ ] Demonstration : admin se connecte + cree un utilisateur
 
