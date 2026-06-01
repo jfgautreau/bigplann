@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
+import { getCurrentProfile } from "@/lib/current-user";
 import { roleLabel } from "@/lib/roles";
+import AppHeader from "@/components/AppHeader";
 import UserForm from "./UserForm";
 
 type Row = {
@@ -13,19 +14,11 @@ type Row = {
 };
 
 export default async function AdminUsersPage() {
+  const profile = await getCurrentProfile();
+  if (!profile) redirect("/login");
+  if (profile.role !== "admin") redirect("/");
+
   const supabase = await getServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: caller } = await supabase
-    .from("app_user")
-    .select("role")
-    .eq("user_id", user.id)
-    .single<{ role: string }>();
-  if (caller?.role !== "admin") redirect("/");
-
   const { data: users } = await supabase
     .from("app_user")
     .select("user_id, email, name, role, is_active")
@@ -35,48 +28,44 @@ export default async function AdminUsersPage() {
   const list = users ?? [];
 
   return (
-    <div className="container">
-      <div className="topbar">
-        <strong>
-          <Link href="/">Planning Usine</Link> / Utilisateurs
-        </strong>
-        <form action="/logout" method="post">
-          <button type="submit">Se deconnecter</button>
-        </form>
-      </div>
+    <>
+      <AppHeader role={profile.role} active="/admin/users" />
+      <div className="container">
+        <h1>Utilisateurs</h1>
 
-      <div className="card" style={{ marginBottom: 24 }}>
-        <h1>Ajouter un utilisateur</h1>
-        <UserForm />
-        <p className="muted" style={{ marginTop: 12 }}>
-          Deux modes : creation directe avec un mot de passe (acces immediat), ou
-          invitation par email (l&apos;invite definit lui-meme son mot de passe).
-        </p>
-      </div>
+        <div className="card" style={{ marginBottom: 24 }}>
+          <h2>Ajouter un utilisateur</h2>
+          <UserForm />
+          <p className="muted" style={{ marginTop: 12 }}>
+            Deux modes : creation directe avec un mot de passe (acces immediat), ou
+            invitation par email (l&apos;invite definit lui-meme son mot de passe).
+          </p>
+        </div>
 
-      <div className="card">
-        <h1>Utilisateurs ({list.length})</h1>
-        <table>
-          <thead>
-            <tr>
-              <th>Nom</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Statut</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((u) => (
-              <tr key={u.user_id}>
-                <td>{u.name || "-"}</td>
-                <td>{u.email}</td>
-                <td>{roleLabel(u.role)}</td>
-                <td>{u.is_active ? "Actif" : "Desactive"}</td>
+        <div className="card">
+          <h2>Comptes ({list.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Statut</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {list.map((u) => (
+                <tr key={u.user_id}>
+                  <td>{u.name || "-"}</td>
+                  <td>{u.email}</td>
+                  <td>{roleLabel(u.role)}</td>
+                  <td>{u.is_active ? "Actif" : "Desactive"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

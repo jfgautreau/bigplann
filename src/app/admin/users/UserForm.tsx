@@ -53,7 +53,7 @@ export default function UserForm() {
   }
 
   return (
-    <form onSubmit={onSubmit}>
+    <form onSubmit={onSubmit} autoComplete="off">
       <div className="modes">
         <label className="mode">
           <input
