@@ -3,31 +3,61 @@
 import { useRef, useState } from "react";
 
 type Poste = { id: string; nom: string };
+type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
 type Personne = { id: string; label: string; editable: boolean };
 type Cell = { a: number; c: number };
 
-const COLORS: Record<number, { bg: string; fg: string }> = {
-  0: { bg: "#f3f4f6", fg: "#6b7280" },
-  1: { bg: "#fee2e2", fg: "#991b1b" },
-  2: { bg: "#ffedd5", fg: "#9a3412" },
-  3: { bg: "#dcfce7", fg: "#166534" },
-  4: { bg: "#16a34a", fg: "#ffffff" },
-};
+const BLUE = "#1d4ed8";
+const GREEN = "#16a34a";
+
+// Camembert qui se remplit selon le niveau (0..4).
+function Pie({ level }: { level: number }) {
+  const size = 28,
+    r = 11,
+    cx = 14,
+    cy = 14;
+  const f = Math.max(0, Math.min(4, level)) / 4;
+  const fill = level >= 4 ? GREEN : BLUE;
+
+  let inner = null;
+  if (f >= 1) {
+    inner = <circle cx={cx} cy={cy} r={r} fill={fill} />;
+  } else if (f > 0) {
+    const ang = -90 + 360 * f;
+    const rad = (d: number) => (d * Math.PI) / 180;
+    const x = cx + r * Math.cos(rad(ang));
+    const y = cy + r * Math.sin(rad(ang));
+    const large = f > 0.5 ? 1 : 0;
+    inner = (
+      <path
+        d={`M${cx},${cy} L${cx},${cy - r} A${r},${r} 0 ${large} 1 ${x},${y} Z`}
+        fill={fill}
+      />
+    );
+  }
+  return (
+    <svg width={size} height={size} style={{ display: "block" }}>
+      <circle cx={cx} cy={cy} r={r} fill="#fff" stroke="#1e3a8a" strokeWidth={1.5} />
+      {inner}
+    </svg>
+  );
+}
 
 export default function MatrixGrid({
-  postes,
+  groups,
   personnes,
   initial,
 }: {
-  postes: Poste[];
+  groups: Group[];
   personnes: Personne[];
   initial: Record<string, Cell>;
 }) {
   const [mode, setMode] = useState<"actuel" | "cible">("actuel");
   const [cells, setCells] = useState<Record<string, Cell>>(initial);
-  const [status, setStatus] = useState<Record<string, "saving" | "saved" | "error">>({});
+  const [status, setStatus] = useState<Record<string, "saving" | "saved" | "error" | undefined>>({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  const allPostes = groups.flatMap((g) => g.postes);
   const key = (pid: string, poid: string) => `${pid}:${poid}`;
   const get = (k: string): Cell => cells[k] ?? { a: 0, c: 0 };
 
@@ -47,7 +77,7 @@ export default function MatrixGrid({
           }),
         });
         setStatus((s) => ({ ...s, [k]: res.ok ? "saved" : "error" }));
-        if (res.ok) setTimeout(() => setStatus((s) => ({ ...s, [k]: undefined as never })), 900);
+        if (res.ok) setTimeout(() => setStatus((s) => ({ ...s, [k]: undefined })), 900);
       } catch {
         setStatus((s) => ({ ...s, [k]: "error" }));
       }
@@ -65,14 +95,14 @@ export default function MatrixGrid({
     });
   }
 
-  const borderFor = (k: string) =>
+  const ringFor = (k: string) =>
     status[k] === "saving"
-      ? "2px solid #1d4ed8"
+      ? "0 0 0 2px #1d4ed8"
       : status[k] === "saved"
-        ? "2px solid #16a34a"
+        ? "0 0 0 2px #16a34a"
         : status[k] === "error"
-          ? "2px solid #b91c1c"
-          : "2px solid transparent";
+          ? "0 0 0 2px #b91c1c"
+          : "none";
 
   return (
     <div>
@@ -88,19 +118,42 @@ export default function MatrixGrid({
             Cible
           </label>
         </div>
-        <span className="muted">
-          Clic = +1 · clic droit = −1 · enregistrement automatique
-        </span>
+        <span className="muted">Clic = +1 · clic droit = −1 · enregistrement automatique</span>
       </div>
 
       <div className="card" style={{ overflowX: "auto" }}>
-        <table className="matrix">
+        <table className="matrix" style={{ borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ position: "sticky", left: 0, background: "#fff" }}>Personne</th>
-              {postes.map((p) => (
-                <th key={p.id} style={{ textAlign: "center" }}>{p.nom}</th>
+              <th rowSpan={2} style={{ position: "sticky", left: 0, background: "#fff", textAlign: "left" }}>
+                Personne
+              </th>
+              {groups.map((g) => (
+                <th
+                  key={g.ligneId}
+                  colSpan={g.postes.length}
+                  style={{ textAlign: "center", borderLeft: "2px solid #d9dce1" }}
+                >
+                  {g.ligneNom}
+                </th>
               ))}
+            </tr>
+            <tr>
+              {groups.flatMap((g) =>
+                g.postes.map((p, i) => (
+                  <th
+                    key={p.id}
+                    style={{
+                      textAlign: "center",
+                      fontWeight: 500,
+                      borderLeft: i === 0 ? "2px solid #d9dce1" : undefined,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {p.nom}
+                  </th>
+                ))
+              )}
             </tr>
           </thead>
           <tbody>
@@ -110,67 +163,74 @@ export default function MatrixGrid({
                   {pers.label}
                   {!pers.editable && <span className="muted"> (lecture)</span>}
                 </td>
-                {postes.map((po) => {
-                  const k = key(pers.id, po.id);
-                  const cell = get(k);
-                  const active = mode === "actuel" ? cell.a : cell.c;
-                  const other = mode === "actuel" ? cell.c : cell.a;
-                  const col = COLORS[active];
-                  if (!pers.editable) {
+                {groups.flatMap((g) =>
+                  g.postes.map((po, i) => {
+                    const k = key(pers.id, po.id);
+                    const cell = get(k);
+                    const active = mode === "actuel" ? cell.a : cell.c;
+                    const other = mode === "actuel" ? cell.c : cell.a;
+                    const tdStyle = {
+                      textAlign: "center" as const,
+                      padding: 3,
+                      borderLeft: i === 0 ? "2px solid #d9dce1" : undefined,
+                    };
+                    if (!pers.editable) {
+                      return (
+                        <td key={po.id} style={tdStyle}>
+                          <div style={{ display: "inline-block", opacity: 0.85 }}>
+                            <Pie level={active} />
+                          </div>
+                        </td>
+                      );
+                    }
                     return (
-                      <td key={po.id} style={{ textAlign: "center" }}>
-                        <span className="muted">{cell.a}/{cell.c}</span>
-                      </td>
-                    );
-                  }
-                  return (
-                    <td key={po.id} style={{ textAlign: "center", padding: 3 }}>
-                      <button
-                        type="button"
-                        onClick={() => bump(pers.id, po.id, +1)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          bump(pers.id, po.id, -1);
-                        }}
-                        title={`Actuel ${cell.a} / Cible ${cell.c}`}
-                        style={{
-                          margin: 0,
-                          width: 46,
-                          height: 40,
-                          background: col.bg,
-                          color: col.fg,
-                          border: borderFor(k),
-                          borderRadius: 6,
-                          fontWeight: 700,
-                          fontSize: 16,
-                          cursor: "pointer",
-                          position: "relative",
-                          lineHeight: 1,
-                        }}
-                      >
-                        {active}
-                        <span
+                      <td key={po.id} style={tdStyle}>
+                        <button
+                          type="button"
+                          onClick={() => bump(pers.id, po.id, +1)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            bump(pers.id, po.id, -1);
+                          }}
+                          title={`${pers.label} - ${po.nom}\nActuel ${cell.a} / Cible ${cell.c}\nClic +1, clic droit -1`}
                           style={{
-                            position: "absolute",
-                            right: 3,
-                            bottom: 2,
-                            fontSize: 9,
-                            fontWeight: 500,
-                            opacity: 0.7,
+                            margin: 0,
+                            width: 34,
+                            height: 34,
+                            padding: 0,
+                            background: "transparent",
+                            border: "none",
+                            borderRadius: "50%",
+                            cursor: "pointer",
+                            boxShadow: ringFor(k),
+                            position: "relative",
                           }}
                         >
-                          {mode === "actuel" ? "c" : "a"}
-                          {other}
-                        </span>
-                      </button>
-                    </td>
-                  );
-                })}
+                          <Pie level={active} />
+                          {other > 0 && (
+                            <span
+                              style={{
+                                position: "absolute",
+                                right: -1,
+                                bottom: -2,
+                                fontSize: 9,
+                                fontWeight: 600,
+                                color: "#6b7280",
+                              }}
+                            >
+                              {other}
+                            </span>
+                          )}
+                        </button>
+                      </td>
+                    );
+                  })
+                )}
               </tr>
             ))}
             {personnes.length === 0 && (
               <tr>
-                <td colSpan={postes.length + 1} className="muted">
+                <td colSpan={allPostes.length + 1} className="muted">
                   Aucune personne active.
                 </td>
               </tr>
@@ -179,25 +239,25 @@ export default function MatrixGrid({
         </table>
       </div>
 
-      <p className="muted" style={{ marginTop: 10 }}>
-        Legende niveaux :
-        {[0, 1, 2, 3, 4].map((n) => (
-          <span
-            key={n}
-            style={{
-              display: "inline-block",
-              margin: "0 4px",
-              padding: "2px 8px",
-              borderRadius: 4,
-              background: COLORS[n].bg,
-              color: COLORS[n].fg,
-              fontWeight: 700,
-            }}
-          >
-            {n}
+      {/* Legende */}
+      <div className="toolbar" style={{ marginTop: 10, gap: 16 }}>
+        {[
+          [0, "Non forme"],
+          [1, "Niveau 1"],
+          [2, "Niveau 2"],
+          [3, "Niveau 3"],
+          [4, "Expert (4)"],
+        ].map(([n, label]) => (
+          <span key={n} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Pie level={n as number} />
+            <span className="muted">{label}</span>
           </span>
         ))}
-      </p>
+        <span className="muted">
+          Le petit chiffre dans le coin = l&apos;autre niveau (la cible quand vous
+          saisissez l&apos;actuel, et inversement).
+        </span>
+      </div>
     </div>
   );
 }

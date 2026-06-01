@@ -5,36 +5,37 @@ import { useRouter } from "next/navigation";
 type Opt = { id: string; label: string };
 
 export default function MatriceFilters({
-  lignes,
+  ateliers,
   equipes,
-  ligne,
+  atelier,
   equipe,
 }: {
-  lignes: Opt[];
+  ateliers: Opt[];
   equipes: Opt[];
-  ligne: string;
+  atelier: string;
   equipe: string;
 }) {
   const router = useRouter();
 
-  function go(next: { ligne?: string; equipe?: string }) {
-    const l = next.ligne ?? ligne;
+  function go(next: { atelier?: string; equipe?: string }) {
+    const a = next.atelier ?? atelier;
     const e = next.equipe ?? equipe;
     const params = new URLSearchParams();
-    if (l) params.set("ligne", l);
+    if (a) params.set("atelier", a);
     if (e) params.set("equipe", e);
-    router.push(`/matrice?${params.toString()}`);
+    const qs = params.toString();
+    router.push(qs ? `/matrice?${qs}` : "/matrice");
   }
 
   return (
     <div className="toolbar">
       <div className="field">
-        <span>Ligne</span>
-        <select value={ligne} onChange={(e) => go({ ligne: e.target.value })}>
-          <option value="">Choisir une ligne...</option>
-          {lignes.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.label}
+        <span>Atelier</span>
+        <select value={atelier} onChange={(e) => go({ atelier: e.target.value })}>
+          <option value="">Tous les ateliers</option>
+          {ateliers.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.label}
             </option>
           ))}
         </select>
@@ -42,7 +43,7 @@ export default function MatriceFilters({
       <div className="field">
         <span>Equipe</span>
         <select value={equipe} onChange={(e) => go({ equipe: e.target.value })}>
-          <option value="">Toutes</option>
+          <option value="">Toutes les equipes</option>
           {equipes.map((e2) => (
             <option key={e2.id} value={e2.id}>
               {e2.label}
