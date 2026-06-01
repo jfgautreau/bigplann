@@ -25,6 +25,15 @@
 - [ ] Test final : se connecter avec le mot de passe admin (cote utilisateur)
 - [ ] Deployer sur Vercel (GitHub -> Vercel) + variables d'env + redirect URLs
 
+## Gestion utilisateurs - creation directe (sans email)
+- [x] Route /api/users/create (admin only, createUser + mot de passe, role)
+- [x] UserForm : choix mode "creer avec mot de passe" / "inviter par email"
+- [x] Verifie sur Supabase reel : create -> trigger -> update role -> delete cascade
+
+## Deploiement Vercel - EN ATTENTE
+- [ ] Bloque : creation compte Vercel indisponible cote utilisateur
+- [ ] (Supabase ne necessite PAS GitHub ; deploiement non requis pour dev local)
+
 ## Suite (apres validation du socle)
 - [ ] Modele de donnees complet + sitemap a valider
 - [ ] Modules metier : referentiel, matrice, habilitations, planning, absences,

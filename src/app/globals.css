@@ -139,3 +139,24 @@ th {
 a {
   color: var(--primary);
 }
+
+.modes {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 8px;
+}
+
+.mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.mode input {
+  width: auto;
+  margin: 0;
+}

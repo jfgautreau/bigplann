@@ -46,11 +46,11 @@ export default async function AdminUsersPage() {
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>
-        <h1>Inviter un utilisateur</h1>
+        <h1>Ajouter un utilisateur</h1>
         <UserForm />
         <p className="muted" style={{ marginTop: 12 }}>
-          L&apos;invite recoit un email, definit son mot de passe, puis accede a
-          l&apos;application avec le role choisi.
+          Deux modes : creation directe avec un mot de passe (acces immediat), ou
+          invitation par email (l&apos;invite definit lui-meme son mot de passe).
         </p>
       </div>
 
