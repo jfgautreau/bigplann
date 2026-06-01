@@ -18,9 +18,11 @@
 - [x] Pages login / forgot / reset / auth-callback / logout
 - [x] Dashboard + gestion utilisateurs (admin) + route d'invitation
 - [x] `npm run build` + TypeScript OK
-- [ ] Creer le projet Supabase (nouveau compte) + executer 0001_init.sql
-- [ ] Renseigner .env.local + creer/promouvoir le premier admin
-- [ ] Tester en local : login admin + invitation d'un utilisateur
+- [x] Creer le projet Supabase (stcxlsmmnplxpirrnefm) + executer 0001_init.sql
+- [x] Renseigner .env.local (URL + cles sb_publishable / sb_secret)
+- [x] Premier admin promu (jean-francois.gautreau@evolianz.com -> role admin)
+- [x] Verif runtime : /login = 200, / = 307 redirect (auth routing OK)
+- [ ] Test final : se connecter avec le mot de passe admin (cote utilisateur)
 - [ ] Deployer sur Vercel (GitHub -> Vercel) + variables d'env + redirect URLs
 
 ## Suite (apres validation du socle)
