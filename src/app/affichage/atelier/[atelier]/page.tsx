@@ -1,5 +1,5 @@
 import { getAdminClient } from "@/lib/supabase-server";
-import { isoDate } from "@/lib/week";
+import { isoDate, addDays } from "@/lib/week";
 import AutoRefresh from "@/components/AutoRefresh";
 import PrintButton from "@/components/PrintButton";
 
@@ -7,16 +7,26 @@ export const dynamic = "force-dynamic";
 
 type Atelier = { id: string; nom: string };
 type Poste = { id: string; nom: string; est_conducteur: boolean };
-type Ligne = { id: string; nom: string; poste: Poste[] };
+type Ligne = { id: string; nom: string; poste: (Poste & { actif: boolean })[] };
 type PlacementRow = {
   poste_id: string | null;
+  jour: string;
   personne: { nom: string; prenom: string; type_contrat: string } | null;
   equipe: { nom: string } | null;
 };
 type AbsenceRow = {
+  jour: string;
   personne: { nom: string; prenom: string } | null;
-  motif: { code_court: string; libelle: string } | null;
+  motif: { code_court: string } | null;
 };
+
+function dayLabel(iso: string) {
+  return new Date(iso + "T00:00").toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  });
+}
 
 export default async function AffichageAtelier({
   params,
@@ -27,16 +37,15 @@ export default async function AffichageAtelier({
 }) {
   const { atelier: param } = await params;
   const sp = await searchParams;
-  const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : isoDate(new Date());
+  const j0 = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : isoDate(new Date());
+  const j1 = isoDate(addDays(new Date(j0 + "T00:00"), 1));
+  const jours = [j0, j1];
 
   const admin = getAdminClient();
 
-  // Resolution de l'atelier (par id ou par nom)
   const { data: ateliers } = await admin.from("atelier").select("id, nom").returns<Atelier[]>();
   const decoded = decodeURIComponent(param).toLowerCase();
-  const atelier = (ateliers ?? []).find(
-    (a) => a.id === param || a.nom.toLowerCase() === decoded
-  );
+  const atelier = (ateliers ?? []).find((a) => a.id === param || a.nom.toLowerCase() === decoded);
 
   if (!atelier) {
     return (
@@ -53,7 +62,7 @@ export default async function AffichageAtelier({
     .eq("atelier_id", atelier.id)
     .eq("actif", true)
     .order("nom")
-    .returns<(Ligne & { poste: (Poste & { actif: boolean })[] })[]>();
+    .returns<Ligne[]>();
 
   const lignes = (lignesD ?? []).map((l) => ({
     ...l,
@@ -61,42 +70,34 @@ export default async function AffichageAtelier({
   }));
   const posteIds = lignes.flatMap((l) => l.poste.map((p) => p.id));
 
-  // Placements du jour sur les postes de l'atelier
-  const byPoste = new Map<string, PlacementRow[]>();
+  const byPoste = new Map<string, PlacementRow[]>(); // key `${poste}:${jour}`
   if (posteIds.length) {
     const { data: pl } = await admin
       .from("placement")
-      .select("poste_id, personne:personne_id(nom, prenom, type_contrat), equipe:equipe_id(nom)")
-      .eq("jour", date)
+      .select("poste_id, jour, personne:personne_id(nom, prenom, type_contrat), equipe:equipe_id(nom)")
+      .in("jour", jours)
       .in("poste_id", posteIds)
       .returns<PlacementRow[]>();
     for (const r of pl ?? []) {
       if (!r.poste_id) continue;
-      const arr = byPoste.get(r.poste_id) ?? [];
+      const k = `${r.poste_id}:${r.jour}`;
+      const arr = byPoste.get(k) ?? [];
       arr.push(r);
-      byPoste.set(r.poste_id, arr);
+      byPoste.set(k, arr);
     }
   }
 
-  // Absences du jour (toutes equipes)
   const { data: absD } = await admin
     .from("placement")
-    .select("personne:personne_id(nom, prenom), motif:motif_absence_id(code_court, libelle)")
-    .eq("jour", date)
+    .select("jour, personne:personne_id(nom, prenom), motif:motif_absence_id(code_court)")
+    .in("jour", jours)
     .not("motif_absence_id", "is", null)
     .returns<AbsenceRow[]>();
-  const absences = absD ?? [];
+  const absByDay = (iso: string) => (absD ?? []).filter((a) => a.jour === iso);
 
-  const dateLabel = new Date(date + "T00:00").toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-
-  const cellPerson = (r: PlacementRow) => {
+  const person = (r: PlacementRow) => {
     const p = r.personne;
-    if (!p) return "";
+    if (!p) return null;
     const interim = p.type_contrat === "INTERIM";
     return (
       <span style={{ background: interim ? "#fef08a" : undefined, padding: interim ? "0 4px" : 0, borderRadius: 3 }}>
@@ -106,38 +107,47 @@ export default async function AffichageAtelier({
     );
   };
 
+  const cell = (posteId: string, iso: string) => {
+    const rows = byPoste.get(`${posteId}:${iso}`) ?? [];
+    return rows.length ? rows.map((r, i) => <span key={i}>{i > 0 ? ", " : ""}{person(r)}</span>) : <span className="muted">—</span>;
+  };
+
   return (
-    <div style={{ padding: "24px 32px" }}>
+    <div style={{ padding: "20px 28px" }}>
       <AutoRefresh seconds={60} />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
-        <h1 style={{ fontSize: 34, margin: 0 }}>{atelier.nom}</h1>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 22, fontWeight: 600, textTransform: "capitalize" }}>{dateLabel}</div>
-          <PrintButton label="Imprimer / PDF" />
-        </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
+        <h1 style={{ fontSize: 32, margin: 0 }}>{atelier.nom}</h1>
+        <PrintButton label="Imprimer / PDF" />
       </div>
 
       {lignes.map((l) => (
-        <div key={l.id} style={{ marginBottom: 18 }}>
-          <h2 style={{ fontSize: 22, margin: "0 0 6px", borderBottom: "2px solid #1e3a8a" }}>{l.nom}</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 18 }}>
+        <div key={l.id} style={{ marginBottom: 16 }}>
+          <h2 style={{ fontSize: 20, margin: "0 0 4px", borderBottom: "2px solid #1e3a8a" }}>{l.nom}</h2>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 17, tableLayout: "fixed" }}>
+            <thead>
+              <tr>
+                <th style={{ width: 220, textAlign: "left", padding: "4px 10px", border: "1px solid #d9dce1" }}>Poste</th>
+                {jours.map((iso) => (
+                  <th key={iso} style={{ textAlign: "left", padding: "4px 10px", border: "1px solid #d9dce1", textTransform: "capitalize" }}>
+                    {dayLabel(iso)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
-              {l.poste.map((p) => {
-                const rows = byPoste.get(p.id) ?? [];
-                return (
-                  <tr key={p.id} style={{ background: p.est_conducteur ? "#fecdd3" : undefined }}>
-                    <td style={{ width: 260, padding: "6px 10px", fontWeight: 600, border: "1px solid #d9dce1" }}>
-                      {p.nom}
+              {l.poste.map((p) => (
+                <tr key={p.id} style={{ background: p.est_conducteur ? "#fecdd3" : undefined }}>
+                  <td style={{ padding: "6px 10px", fontWeight: 600, border: "1px solid #d9dce1" }}>{p.nom}</td>
+                  {jours.map((iso) => (
+                    <td key={iso} style={{ padding: "6px 10px", border: "1px solid #d9dce1" }}>
+                      {cell(p.id, iso)}
                     </td>
-                    <td style={{ padding: "6px 10px", border: "1px solid #d9dce1" }}>
-                      {rows.length ? rows.map((r, i) => <span key={i}>{i > 0 ? ", " : ""}{cellPerson(r)}</span>) : <span className="muted">—</span>}
-                    </td>
-                  </tr>
-                );
-              })}
+                  ))}
+                </tr>
+              ))}
               {l.poste.length === 0 && (
                 <tr>
-                  <td colSpan={2} className="muted" style={{ padding: 8 }}>Aucun poste.</td>
+                  <td colSpan={3} className="muted" style={{ padding: 8 }}>Aucun poste.</td>
                 </tr>
               )}
             </tbody>
@@ -145,23 +155,31 @@ export default async function AffichageAtelier({
         </div>
       ))}
 
-      {absences.length > 0 && (
-        <div style={{ marginTop: 20 }}>
-          <h2 style={{ fontSize: 20, margin: "0 0 6px" }}>Absences du jour</h2>
-          <div style={{ fontSize: 16, lineHeight: 1.7 }}>
-            {absences.map((a, i) => (
-              <span key={i} style={{ marginRight: 16, whiteSpace: "nowrap" }}>
-                {a.personne ? `${a.personne.nom} ${a.personne.prenom}` : "?"}
-                <strong> [{a.motif?.code_court ?? "?"}]</strong>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      <div style={{ display: "flex", gap: 32, marginTop: 16 }}>
+        {jours.map((iso) => {
+          const abs = absByDay(iso);
+          return (
+            <div key={iso} style={{ flex: 1 }}>
+              <h3 style={{ fontSize: 16, margin: "0 0 4px", textTransform: "capitalize" }}>Absences — {dayLabel(iso)}</h3>
+              <div style={{ fontSize: 15, lineHeight: 1.6 }}>
+                {abs.length ? (
+                  abs.map((a, i) => (
+                    <span key={i} style={{ marginRight: 14, whiteSpace: "nowrap" }}>
+                      {a.personne ? `${a.personne.nom} ${a.personne.prenom}` : "?"} <strong>[{a.motif?.code_court ?? "?"}]</strong>
+                    </span>
+                  ))
+                ) : (
+                  <span className="muted">Aucune</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
-      <div style={{ marginTop: 20, fontSize: 14, color: "#6b7280" }}>
+      <div style={{ marginTop: 16, fontSize: 14, color: "#6b7280" }}>
         Legende : <span style={{ background: "#fecdd3", padding: "0 6px" }}>Conducteur</span>{" "}
-        <span style={{ background: "#fef08a", padding: "0 6px" }}>Interimaire</span> · Mise a jour auto toutes les 60 s.
+        <span style={{ background: "#fef08a", padding: "0 6px" }}>Interimaire</span> · Mise a jour auto 60 s.
       </div>
     </div>
   );

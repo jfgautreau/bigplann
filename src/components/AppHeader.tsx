@@ -13,12 +13,11 @@ export default function AppHeader({
   const canOrdo = role === "admin" || role === "ordo";
 
   const links: { href: string; label: string; show: boolean }[] = [
-    { href: "/", label: "Accueil", show: true },
     { href: "/personnel", label: "Personnel", show: true },
     { href: "/matrice", label: "Matrice", show: true },
-    { href: "/planning", label: "Planning", show: true },
     { href: "/ordonnancement", label: "Ordonnancement", show: canOrdo },
     { href: "/bilans", label: "Bilans", show: true },
+    { href: "/affichage", label: "Affichage", show: isAdmin },
     { href: "/admin/referentiel", label: "Referentiel", show: isAdmin },
     { href: "/admin/equipes", label: "Equipes", show: isAdmin },
     { href: "/admin/competences", label: "Competences", show: isAdmin },
@@ -30,7 +29,9 @@ export default function AppHeader({
   return (
     <header className="appheader">
       <nav className="appnav">
-        <strong className="brand">Planning Usine</strong>
+        <Link href="/planning" className="brand" style={{ textDecoration: "none", color: "var(--primary)" }}>
+          BigPlann&apos;
+        </Link>
         {links
           .filter((l) => l.show)
           .map((l) => (

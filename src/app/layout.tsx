@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Planning Usine",
-  description: "Gestion des plannings - test simplifie",
+  title: "BigPlann'",
+  description: "Gestion des plannings d'usine",
 };
 
 export default function RootLayout({
