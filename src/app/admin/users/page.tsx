@@ -68,7 +68,7 @@ export default async function AdminUsersPage() {
                       ) : (
                         <form action={updateUserRole} className="inline-form" style={{ margin: 0 }}>
                           <input type="hidden" name="user_id" value={u.user_id} />
-                          <select name="role" defaultValue={u.role}>
+                          <select key={u.role} name="role" defaultValue={u.role}>
                             {ROLES.map((r) => (
                               <option key={r} value={r}>
                                 {ROLE_LABELS[r]}
