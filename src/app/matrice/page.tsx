@@ -6,7 +6,7 @@ import AppHeader from "@/components/AppHeader";
 import MatriceFilters from "./MatriceFilters";
 import MatrixGrid from "./MatrixGrid";
 
-type PosteRow = { id: string; nom: string; actif: boolean };
+type PosteRow = { id: string; nom: string; actif: boolean; objectif_polyvalence: number };
 type LigneRow = { id: string; nom: string; atelier_id: string; poste: PosteRow[] };
 type Atelier = { id: string; nom: string };
 type Equipe = { id: string; nom: string };
@@ -40,7 +40,7 @@ export default async function MatricePage({
   // Lignes (+ postes) eventuellement filtrees par atelier
   let ligneQ = supabase
     .from("ligne")
-    .select("id, nom, atelier_id, poste(id, nom, actif)")
+    .select("id, nom, atelier_id, poste(id, nom, actif, objectif_polyvalence)")
     .eq("actif", true)
     .order("nom");
   if (sp.atelier) ligneQ = ligneQ.eq("atelier_id", sp.atelier);
@@ -53,7 +53,7 @@ export default async function MatricePage({
       postes: [...(l.poste ?? [])]
         .filter((p) => p.actif)
         .sort((a, b) => a.nom.localeCompare(b.nom))
-        .map((p) => ({ id: p.id, nom: p.nom })),
+        .map((p) => ({ id: p.id, nom: p.nom, objectif: p.objectif_polyvalence ?? 0 })),
     }))
     .filter((g) => g.postes.length > 0);
 
@@ -122,7 +122,12 @@ export default async function MatricePage({
         {groups.length === 0 ? (
           <p className="muted">Aucun poste actif (verifiez le referentiel / le filtre atelier).</p>
         ) : (
-          <MatrixGrid groups={groups} personnes={gridPersonnes} initial={initial} />
+          <MatrixGrid
+            groups={groups}
+            personnes={gridPersonnes}
+            initial={initial}
+            canEditObjectif={isAdmin}
+          />
         )}
       </div>
     </>
