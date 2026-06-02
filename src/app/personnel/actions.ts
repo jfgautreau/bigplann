@@ -53,3 +53,39 @@ export async function toggleStatut(fd: FormData) {
   await supabase.from("personne").update({ statut }).eq("id", id);
   revalidatePath("/personnel");
 }
+
+// RGPD : anonymisation (conserve l'historique de placement, retire l'identite).
+export async function anonymiserPersonne(fd: FormData) {
+  const supabase = await requireAdmin();
+  const id = s(fd, "id");
+  if (!id) return;
+  const { data: p } = await supabase
+    .from("personne")
+    .select("matricule")
+    .eq("id", id)
+    .single<{ matricule: string | null }>();
+  await supabase
+    .from("personne")
+    .update({
+      nom: "Ex-collaborateur",
+      prenom: p?.matricule ? `(${p.matricule})` : "",
+      commentaire: null,
+      agence_interim: null,
+      statut: "PARTI",
+      anonymise: true,
+      anonymise_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  revalidatePath("/personnel");
+  redirect("/personnel");
+}
+
+// RGPD : droit a l'oubli (suppression definitive + cascade).
+export async function supprimerPersonne(fd: FormData) {
+  const supabase = await requireAdmin();
+  const id = s(fd, "id");
+  if (!id) return;
+  await supabase.from("personne").delete().eq("id", id);
+  revalidatePath("/personnel");
+  redirect("/personnel");
+}

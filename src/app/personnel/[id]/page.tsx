@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
-import { updatePersonne, toggleStatut } from "../actions";
+import ConfirmForm from "@/components/ConfirmForm";
+import { updatePersonne, toggleStatut, anonymiserPersonne, supprimerPersonne } from "../actions";
 
 type Equipe = { id: string; nom: string };
 type Personne = {
@@ -132,6 +133,33 @@ export default async function FichePersonne({
             </p>
             <button type="submit">Enregistrer</button>
           </form>
+        </div>
+
+        {/* RGPD */}
+        <div className="card" style={{ marginTop: 24, borderColor: "#fca5a5" }}>
+          <h2 style={{ marginTop: 0 }}>RGPD</h2>
+          <div className="toolbar" style={{ alignItems: "center" }}>
+            <a href={`/api/personnel/${p.id}/export`} className="btn-sm btn-ghost" style={{ textDecoration: "none" }}>
+              Exporter les donnees (JSON)
+            </a>
+            <ConfirmForm
+              action={anonymiserPersonne}
+              hidden={{ id: p.id }}
+              label="Anonymiser"
+              confirm="Anonymiser cette personne ? Le nom est remplace, l'historique de placement est conserve."
+            />
+            <ConfirmForm
+              action={supprimerPersonne}
+              hidden={{ id: p.id }}
+              label="Supprimer (droit a l'oubli)"
+              className="btn-sm"
+              confirm="Supprimer DEFINITIVEMENT cette personne et tout son historique ? Action irreversible."
+            />
+          </div>
+          <p className="muted" style={{ marginTop: 8 }}>
+            Anonymiser conserve l&apos;historique (bilans) en retirant l&apos;identite.
+            Supprimer efface definitivement la personne et ses donnees liees.
+          </p>
         </div>
       </div>
     </>

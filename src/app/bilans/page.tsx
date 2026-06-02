@@ -149,7 +149,10 @@ export default async function BilansPage({
 
         <div className="card section">
           <h2 style={{ marginTop: 0 }}>Habilitations</h2>
-          <p className="muted">A venir (Lot 4 : habilitations a recycler + echeances).</p>
+          <p>
+            Suivi des echeances et alertes sur la page{" "}
+            <Link href="/habilitations">Habilitations a recycler</Link>.
+          </p>
         </div>
       </div>
     </>
