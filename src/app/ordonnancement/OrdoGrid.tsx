@@ -89,7 +89,7 @@ export default function OrdoGrid({
         <th style={{ width: FIRST_W, textAlign: "left" }}>{label}</th>
         {days.map((d) => (
           <th key={d.iso} style={{ width: DAY_W, textAlign: "center", ...sep(d), background: dayBg(d.iso) }}>
-            {d.nom.slice(0, 3)}
+            {d.nom.slice(0, 2)}
             <br />
             <span className="muted" style={{ fontWeight: 400, fontSize: 10 }}>{d.num}</span>
           </th>

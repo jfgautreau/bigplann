@@ -245,7 +245,7 @@ export default function PlanningGrid({
           <tr>
             {days.map((d) => (
               <th key={d.iso} style={{ textAlign: "center", minWidth: 58, ...sep(d), background: isToday(d) ? "#dbeafe" : undefined }}>
-                {d.nom.slice(0, 3)}
+                {d.nom.slice(0, 2)}
                 <br />
                 <span className="muted" style={{ fontWeight: 400 }}>{d.num}</span>
               </th>
