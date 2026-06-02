@@ -11,9 +11,16 @@ type Ligne = { id: string; nom: string; poste: (Poste & { actif: boolean })[] };
 type PlacementRow = {
   poste_id: string | null;
   jour: string;
+  equipe_id: string | null;
   personne: { nom: string; prenom: string; type_contrat: string } | null;
   equipe: { nom: string } | null;
 };
+type HoraireRow = { poste_id: string; equipe_id: string; jour: number; debut: string | null; fin: string | null };
+
+// jour de semaine 0 = lundi .. 6 = dimanche
+function dow(iso: string) {
+  return (new Date(iso + "T00:00").getDay() + 6) % 7;
+}
 type AbsenceRow = {
   jour: string;
   personne: { nom: string; prenom: string } | null;
@@ -74,7 +81,7 @@ export default async function AffichageAtelier({
   if (posteIds.length) {
     const { data: pl } = await admin
       .from("placement")
-      .select("poste_id, jour, personne:personne_id(nom, prenom, type_contrat), equipe:equipe_id(nom)")
+      .select("poste_id, jour, equipe_id, personne:personne_id(nom, prenom, type_contrat), equipe:equipe_id(nom)")
       .in("jour", jours)
       .in("poste_id", posteIds)
       .returns<PlacementRow[]>();
@@ -86,6 +93,23 @@ export default async function AffichageAtelier({
       byPoste.set(k, arr);
     }
   }
+
+  // Horaires (poste x equipe x jour de semaine)
+  const horMap = new Map<string, { debut: string | null; fin: string | null }>();
+  if (posteIds.length) {
+    const { data: hor } = await admin
+      .from("horaire_poste")
+      .select("poste_id, equipe_id, jour, debut, fin")
+      .in("poste_id", posteIds)
+      .returns<HoraireRow[]>();
+    for (const h of hor ?? []) horMap.set(`${h.poste_id}:${h.equipe_id}:${h.jour}`, { debut: h.debut, fin: h.fin });
+  }
+  const horaireTxt = (posteId: string, equipeId: string | null, iso: string) => {
+    if (!equipeId) return "";
+    const h = horMap.get(`${posteId}:${equipeId}:${dow(iso)}`);
+    if (!h || (!h.debut && !h.fin)) return "";
+    return `${h.debut ?? "?"}-${h.fin ?? "?"}`;
+  };
 
   const { data: absD } = await admin
     .from("placement")
@@ -109,7 +133,16 @@ export default async function AffichageAtelier({
 
   const cell = (posteId: string, iso: string) => {
     const rows = byPoste.get(`${posteId}:${iso}`) ?? [];
-    return rows.length ? rows.map((r, i) => <span key={i}>{i > 0 ? ", " : ""}{person(r)}</span>) : <span className="muted">—</span>;
+    if (!rows.length) return <span className="muted">—</span>;
+    return rows.map((r, i) => {
+      const h = horaireTxt(posteId, r.equipe_id, iso);
+      return (
+        <div key={i}>
+          {person(r)}
+          {h && <span style={{ color: "#1d4ed8", fontWeight: 700, marginLeft: 6 }}>{h}</span>}
+        </div>
+      );
+    });
   };
 
   return (

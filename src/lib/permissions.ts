@@ -20,6 +20,7 @@ export const MODULES: { key: string; label: string; href: string; admin: boolean
   { key: "equipes", label: "Equipes", href: "/admin/equipes", admin: true },
   { key: "competences", label: "Competences", href: "/admin/competences", admin: true },
   { key: "motifs", label: "Motifs", href: "/admin/motifs", admin: true },
+  { key: "horaires", label: "Horaires", href: "/admin/horaires", admin: true },
   { key: "utilisateurs", label: "Utilisateurs", href: "/admin/users", admin: true },
   { key: "rgpd", label: "RGPD", href: "/admin/rgpd", admin: true },
 ];
