@@ -136,7 +136,7 @@ export default async function AffichageAtelier({
             </thead>
             <tbody>
               {l.poste.map((p) => (
-                <tr key={p.id} style={{ background: p.est_conducteur ? "#fecdd3" : undefined }}>
+                <tr key={p.id}>
                   <td style={{ padding: "6px 10px", fontWeight: 600, border: "1px solid #d9dce1" }}>{p.nom}</td>
                   {jours.map((iso) => (
                     <td key={iso} style={{ padding: "6px 10px", border: "1px solid #d9dce1" }}>
@@ -178,8 +178,7 @@ export default async function AffichageAtelier({
       </div>
 
       <div style={{ marginTop: 16, fontSize: 14, color: "#6b7280" }}>
-        Legende : <span style={{ background: "#fecdd3", padding: "0 6px" }}>Conducteur</span>{" "}
-        <span style={{ background: "#fef08a", padding: "0 6px" }}>Interimaire</span> · Mise a jour auto 60 s.
+        Legende : <span style={{ background: "#fef08a", padding: "0 6px" }}>Interimaire</span> · Mise a jour auto 60 s.
       </div>
     </div>
   );

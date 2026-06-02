@@ -21,7 +21,8 @@ export default async function OrdonnancementPage({
   const sp = await searchParams;
   const center = parseMonday(sp.semaine);
   const centerIso = isoDate(center);
-  const weekMondays = [addDays(center, -7), center, addDays(center, 7)];
+  // 1 mois : 4 semaines a partir de la semaine centrale.
+  const weekMondays = [center, addDays(center, 7), addDays(center, 14), addDays(center, 21)];
   const days = weekMondays.flatMap((wm) =>
     weekDays(wm).map((d, di) => ({ iso: d.iso, nom: d.nom, num: d.num, firstOfWeek: di === 0 }))
   );
