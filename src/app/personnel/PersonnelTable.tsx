@@ -43,9 +43,6 @@ export default function PersonnelTable({
 
   return (
     <div className="card">
-      <p className="muted" style={{ marginBottom: 8 }}>
-        {filtered.length} / {rows.length} personne(s) — tapez sous une colonne pour filtrer.
-      </p>
       <table>
         <thead>
           <tr>

@@ -39,7 +39,7 @@ export default async function AppHeader({
   return (
     <header className="appheader">
       <nav className="appnav">
-        <Link href="/planning" className="brand" style={{ textDecoration: "none", color: "var(--primary)" }}>
+        <Link href="/planning" className="brand" style={{ textDecoration: "none" }}>
           BigPlann&apos;
         </Link>
         {links.map((l) => (
@@ -58,7 +58,7 @@ export default async function AppHeader({
         )}
       </nav>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <Link href="/habilitations" title="Habilitations a recycler" style={{ position: "relative", textDecoration: "none", fontSize: 18 }}>
+        <Link href="/habilitations" title="Habilitations a recycler" style={{ position: "relative", textDecoration: "none", fontSize: 18, color: "#fff" }}>
           &#128276;
           {alertCount > 0 && (
             <span

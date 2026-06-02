@@ -52,15 +52,12 @@ export default async function PersonnelPage() {
       <div className="container">
         <h1>Personnel</h1>
 
-        <div style={{ marginBottom: 24 }}>
-          <PersonnelTable rows={rows} isAdmin={isAdmin} />
-        </div>
-
-        {/* Creation (admin) */}
+        {/* Creation (admin) - au-dessus du tableau */}
         {isAdmin && (
-          <div className="card">
-            <h2>Ajouter une personne</h2>
+          <div className="card" style={{ marginBottom: 24 }}>
+            <h2 style={{ marginTop: 0 }}>Ajouter une personne</h2>
             <form action={createPersonne} autoComplete="off">
+              {/* Ligne 1 */}
               <div className="toolbar">
                 <div className="field">
                   <span>Nom *</span>
@@ -74,8 +71,6 @@ export default async function PersonnelPage() {
                   <span>Matricule</span>
                   <input name="matricule" placeholder="(auto si interim)" />
                 </div>
-              </div>
-              <div className="toolbar">
                 <div className="field">
                   <span>Equipe</span>
                   <select name="equipe_id" defaultValue="">
@@ -95,11 +90,8 @@ export default async function PersonnelPage() {
                     <option value="INTERIM">Interim</option>
                   </select>
                 </div>
-                <div className="field">
-                  <span>Agence (si interim)</span>
-                  <input name="agence_interim" />
-                </div>
               </div>
+              {/* Ligne 2 */}
               <div className="toolbar">
                 <div className="field">
                   <span>Debut</span>
@@ -110,19 +102,27 @@ export default async function PersonnelPage() {
                   <input name="date_fin" type="date" />
                 </div>
                 <div className="field">
+                  <span>Agence (si interim)</span>
+                  <input name="agence_interim" />
+                </div>
+                <div className="field">
                   <span>Pointure</span>
                   <input name="pointure" maxLength={5} style={{ width: 70 }} placeholder="ex. 42" />
                 </div>
               </div>
-              <label htmlFor="commentaire">Commentaire</label>
-              <input id="commentaire" name="commentaire" />
-              <p className="muted" style={{ marginTop: 4 }}>
-                Ne pas saisir d&apos;information medicale.
-              </p>
-              <button type="submit">Creer</button>
+              {/* Ligne 3 */}
+              <div className="field" style={{ marginTop: 4 }}>
+                <span>Commentaire (pas d&apos;information medicale)</span>
+                <input name="commentaire" style={{ width: "100%" }} />
+              </div>
+              <button type="submit" style={{ width: "auto", padding: "9px 22px" }}>
+                Creer
+              </button>
             </form>
           </div>
         )}
+
+        <PersonnelTable rows={rows} isAdmin={isAdmin} />
       </div>
     </>
   );
