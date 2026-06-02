@@ -3,16 +3,16 @@
 import { useState } from "react";
 import { defaultOpenIso } from "@/lib/week";
 
-type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
+type Jour = { iso: string; nom: string; num: string; firstOfWeek?: boolean };
 type WeekBlock = { num: number; span: number };
 type Item = { id: string; label: string };
 
 const FIRST_W = 210;
-const DAY_W = 42;
+const DAY_W = 40;
 
 export default function OrdoGrid({
   days,
-  weekBlocks,
+  weekBlocks = [],
   todayIso,
   equipes,
   lignes,
@@ -20,7 +20,7 @@ export default function OrdoGrid({
   ligneStateByEquipe,
 }: {
   days: Jour[];
-  weekBlocks: WeekBlock[];
+  weekBlocks?: WeekBlock[];
   todayIso: string;
   equipes: Item[];
   lignes: Item[];
@@ -70,14 +70,16 @@ export default function OrdoGrid({
 
   const Header = ({ label }: { label: string }) => (
     <thead>
-      <tr>
-        <th style={{ width: FIRST_W }}></th>
-        {weekBlocks.map((w, i) => (
-          <th key={i} colSpan={w.span} style={{ textAlign: "center", borderLeft: "3px solid #94a3b8", background: "#f8fafc" }}>
-            Sem {w.num}
-          </th>
-        ))}
-      </tr>
+      {weekBlocks.length > 0 && (
+        <tr>
+          <th style={{ width: FIRST_W }}></th>
+          {weekBlocks.map((w, i) => (
+            <th key={i} colSpan={w.span} style={{ textAlign: "center", borderLeft: "3px solid #94a3b8", background: "#f8fafc" }}>
+              Sem {w.num}
+            </th>
+          ))}
+        </tr>
+      )}
       <tr>
         <th style={{ width: FIRST_W, textAlign: "left" }}>{label}</th>
         {days.map((d) => (

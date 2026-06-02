@@ -65,3 +65,40 @@ export function isSundayIso(iso: string): boolean {
 export function defaultOpenIso(iso: string): boolean {
   return !isSundayIso(iso);
 }
+
+// ---- Mois ----
+const MOIS_NOMS = [
+  "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre",
+];
+
+// Parse "YYYY-MM" -> { year, month0 } (month0 = 0..11). Defaut = mois courant.
+export function parseMois(s?: string): { year: number; month0: number } {
+  if (s && /^\d{4}-\d{2}$/.test(s)) {
+    const [y, m] = s.split("-").map(Number);
+    return { year: y, month0: m - 1 };
+  }
+  const n = new Date();
+  return { year: n.getFullYear(), month0: n.getMonth() };
+}
+
+export function moisStr(year: number, month0: number): string {
+  return `${year}-${String(month0 + 1).padStart(2, "0")}`;
+}
+
+export function monthLabel(year: number, month0: number): string {
+  return `${MOIS_NOMS[month0]} ${year}`;
+}
+
+// Tous les jours du mois.
+export function monthDays(year: number, month0: number): Jour[] {
+  const last = new Date(year, month0 + 1, 0).getDate();
+  return Array.from({ length: last }, (_, i) => {
+    const d = new Date(year, month0, i + 1);
+    return {
+      iso: isoDate(d),
+      nom: JOURS[(d.getDay() + 6) % 7],
+      num: `${String(d.getDate()).padStart(2, "0")}/${String(month0 + 1).padStart(2, "0")}`,
+    };
+  });
+}

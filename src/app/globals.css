@@ -316,21 +316,25 @@ a {
   margin: 0;
   width: auto;
   background: #fff;
-  color: var(--text);
+  color: #4338ca;
   border: none;
   border-right: 1px solid var(--border);
   border-radius: 0;
   padding: 6px 12px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .seg:last-child {
   border-right: none;
 }
 
+.seg:hover {
+  background: #eef2ff;
+}
+
 .seg.active {
-  background: var(--primary);
+  background: #4338ca;
   color: #fff;
 }
 
