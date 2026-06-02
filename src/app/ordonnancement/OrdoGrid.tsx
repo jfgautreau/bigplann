@@ -14,6 +14,7 @@ export default function OrdoGrid({
   days,
   weekBlocks = [],
   todayIso,
+  currentWeekIsos = [],
   equipes,
   lignes,
   equipeState,
@@ -22,6 +23,7 @@ export default function OrdoGrid({
   days: Jour[];
   weekBlocks?: WeekBlock[];
   todayIso: string;
+  currentWeekIsos?: string[];
   equipes: Item[];
   lignes: Item[];
   equipeState: Record<string, boolean>;
@@ -67,6 +69,9 @@ export default function OrdoGrid({
   }
 
   const sep = (d: Jour) => (d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {});
+  const currentSet = new Set(currentWeekIsos);
+  const dayBg = (iso: string) =>
+    iso === todayIso ? "#dbeafe" : currentSet.has(iso) ? "#eff6ff" : undefined;
 
   const Header = ({ label }: { label: string }) => (
     <thead>
@@ -83,7 +88,7 @@ export default function OrdoGrid({
       <tr>
         <th style={{ width: FIRST_W, textAlign: "left" }}>{label}</th>
         {days.map((d) => (
-          <th key={d.iso} style={{ width: DAY_W, textAlign: "center", ...sep(d), background: d.iso === todayIso ? "#dbeafe" : undefined }}>
+          <th key={d.iso} style={{ width: DAY_W, textAlign: "center", ...sep(d), background: dayBg(d.iso) }}>
             {d.nom.slice(0, 3)}
             <br />
             <span className="muted" style={{ fontWeight: 400, fontSize: 10 }}>{d.num}</span>

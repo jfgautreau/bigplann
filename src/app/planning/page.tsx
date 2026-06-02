@@ -131,10 +131,16 @@ export default async function PlanningPage({
   const visIsos = visible.map((d) => d.iso);
 
   // Blocs semaine visibles
-  const weekBlocks: { num: number; span: number }[] = [];
+  const weekBlocks: { num: number; span: number; year: number; isCurrent: boolean }[] = [];
   for (let wi = 0; wi < 3; wi++) {
     const span = visible.filter((d) => d.wi === wi).length;
-    if (span > 0) weekBlocks.push({ num: isoWeekNumber(weekMondays[wi]), span });
+    if (span > 0)
+      weekBlocks.push({
+        num: isoWeekNumber(weekMondays[wi]),
+        year: weekMondays[wi].getFullYear(),
+        span,
+        isCurrent: isoDate(weekMondays[wi]) === todayMondayIso,
+      });
   }
   // firstOfWeek : recalc sur les jours visibles (1er jour visible de chaque semaine)
   const seenWeek = new Set<number>();

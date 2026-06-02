@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
-type WeekBlock = { num: number; span: number };
+type WeekBlock = { num: number; span: number; year: number; isCurrent: boolean };
 type Poste = { id: string; nom: string; niveauMin: number; effectif: number };
 type Group = { ligneNom: string; ligneId: string; postes: Poste[] };
 type Motif = { id: string; code: string; couleur: string };
@@ -215,9 +215,18 @@ export default function PlanningGrid({
               Personne
             </th>
             {weekBlocks.map((w, i) => (
-              <th key={i} colSpan={w.span} style={{ textAlign: "center", borderLeft: "3px solid #94a3b8", background: "#f8fafc" }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  Semaine {w.num}
+              <th
+                key={i}
+                colSpan={w.span}
+                style={{
+                  textAlign: "center",
+                  borderLeft: "3px solid #94a3b8",
+                  background: w.isCurrent ? "#dbeafe" : "#f8fafc",
+                }}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: w.isCurrent ? 700 : undefined }}>
+                  {w.year} · Semaine {w.num}
+                  {w.isCurrent && <span className="muted" style={{ fontWeight: 400 }}>(en cours)</span>}
                   {i >= 1 && (
                     <button
                       type="button"

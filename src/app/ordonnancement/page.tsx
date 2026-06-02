@@ -1,7 +1,7 @@
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
-import { parseMois, monthDays, isoDate } from "@/lib/week";
+import { parseMois, monthDays, isoDate, mondayOf, addDays } from "@/lib/week";
 import OrdoGrid from "./OrdoGrid";
 import OrdoMonthNav from "./OrdoMonthNav";
 
@@ -59,6 +59,7 @@ export default async function OrdonnancementPage({
         <OrdoGrid
           days={days}
           todayIso={isoDate(new Date())}
+          currentWeekIsos={Array.from({ length: 7 }, (_, i) => isoDate(addDays(mondayOf(), i)))}
           equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom }))}
           lignes={(lignesD ?? []).map((l) => ({
             id: l.id,
