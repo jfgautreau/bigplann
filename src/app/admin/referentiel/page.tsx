@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
+import { requireModule } from "@/lib/permissions";
 import {
   createAtelier,
   renameAtelier,
@@ -33,9 +34,7 @@ export default async function ReferentielPage({
 }: {
   searchParams: Promise<{ edit?: string }>;
 }) {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
-  if (profile.role !== "admin") redirect("/");
+  const { profile } = await requireModule("referentiel", "write");
 
   const sp = await searchParams;
   const isEditing = (type: string, id: string) => sp.edit === `${type}:${id}`;

@@ -12,6 +12,7 @@ import {
   isoWeekNumber,
   defaultOpenIso,
 } from "@/lib/week";
+import { requireModule } from "@/lib/permissions";
 import PlanningFilters from "./PlanningFilters";
 import PlanningGrid from "./PlanningGrid";
 
@@ -41,8 +42,7 @@ export default async function PlanningPage({
 }: {
   searchParams: Promise<{ equipe?: string; semaine?: string }>;
 }) {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
+  const { profile } = await requireModule("planning", "read");
 
   const sp = await searchParams;
   const center = parseMonday(sp.semaine);

@@ -1,11 +1,9 @@
 import { redirect } from "next/navigation";
-import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
+import { requireModule } from "@/lib/permissions";
 
 export default async function RgpdPage() {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
-  if (profile.role !== "admin") redirect("/");
+  const { profile } = await requireModule("rgpd", "write");
 
   return (
     <>

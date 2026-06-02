@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
+import { requireModule } from "@/lib/permissions";
 import { createMotif, updateMotif, toggleMotif } from "./actions";
 
 type Motif = {
@@ -18,9 +19,7 @@ export default async function MotifsPage({
 }: {
   searchParams: Promise<{ edit?: string }>;
 }) {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
-  if (profile.role !== "admin") redirect("/");
+  const { profile } = await requireModule("motifs", "write");
 
   const sp = await searchParams;
   const supabase = await getServerClient();

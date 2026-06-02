@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
+import { requireModule, canWrite } from "@/lib/permissions";
 import { joursRestants, habStatut, HAB_COLOR } from "@/lib/habilitations";
 import { saveHabilitation, deleteHabilitation } from "./actions";
 
@@ -16,9 +17,8 @@ type Row = {
 };
 
 export default async function HabilitationsPage() {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
-  const canEdit = profile.role === "admin" || profile.role === "chef_equipe" || profile.role === "rh";
+  const { profile, perms } = await requireModule("habilitations", "read");
+  const canEdit = canWrite(perms, "habilitations");
 
   const supabase = await getServerClient();
   const [{ data: compsD }, { data: persD }, { data: pcD }] = await Promise.all([

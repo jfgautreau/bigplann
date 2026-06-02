@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
+import { requireModule } from "@/lib/permissions";
 import {
   saveEchelle,
   createCompetence,
@@ -25,9 +26,7 @@ export default async function CompetencesPage({
 }: {
   searchParams: Promise<{ edit?: string }>;
 }) {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
-  if (profile.role !== "admin") redirect("/");
+  const { profile } = await requireModule("competences", "write");
 
   const sp = await searchParams;
   const supabase = await getServerClient();

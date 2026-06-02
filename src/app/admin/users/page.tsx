@@ -3,6 +3,7 @@ import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import { roleLabel, ROLES, ROLE_LABELS } from "@/lib/roles";
 import AppHeader from "@/components/AppHeader";
+import { requireModule } from "@/lib/permissions";
 import UserForm from "./UserForm";
 import { updateUserRole } from "./actions";
 
@@ -15,9 +16,7 @@ type Row = {
 };
 
 export default async function AdminUsersPage() {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
-  if (profile.role !== "admin") redirect("/");
+  const { profile } = await requireModule("utilisateurs", "write");
 
   const supabase = await getServerClient();
   const { data: users } = await supabase

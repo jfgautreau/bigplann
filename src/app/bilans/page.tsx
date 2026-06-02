@@ -5,6 +5,7 @@ import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import PeriodBand from "@/components/PeriodBand";
 import PrintButton from "@/components/PrintButton";
+import { requireModule } from "@/lib/permissions";
 import { parseMonday, weekDays, isoDate, isoWeekNumber, defaultOpenIso } from "@/lib/week";
 
 type LigneRow = { id: string; poste: { actif: boolean; effectif_requis: number }[] };
@@ -16,8 +17,7 @@ export default async function BilansPage({
 }: {
   searchParams: Promise<{ semaine?: string }>;
 }) {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
+  const { profile } = await requireModule("bilans", "read");
 
   const sp = await searchParams;
   const monday = parseMonday(sp.semaine);

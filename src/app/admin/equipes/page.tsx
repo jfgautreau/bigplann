@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
+import { requireModule } from "@/lib/permissions";
 import {
   createEquipe,
   renameEquipe,
@@ -15,9 +16,7 @@ type Equipe = { id: string; nom: string; actif: boolean; equipe_chef: Chef[] };
 type AppUser = { user_id: string; name: string; email: string };
 
 export default async function EquipesPage() {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
-  if (profile.role !== "admin") redirect("/");
+  const { profile } = await requireModule("equipes", "write");
 
   const supabase = await getServerClient();
   const [{ data: equipesData }, { data: usersData }] = await Promise.all([

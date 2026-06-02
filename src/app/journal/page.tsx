@@ -3,6 +3,7 @@ import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import { roleLabel } from "@/lib/roles";
 import AppHeader from "@/components/AppHeader";
+import { requireModule } from "@/lib/permissions";
 
 type Entry = {
   id: number;
@@ -21,9 +22,7 @@ const ACTION_FR: Record<string, string> = {
 };
 
 export default async function JournalPage() {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
-  if (profile.role !== "admin" && profile.role !== "codir") redirect("/");
+  const { profile } = await requireModule("journal", "read");
 
   const supabase = await getServerClient();
   const [{ data: entriesData }, { data: usersData }] = await Promise.all([

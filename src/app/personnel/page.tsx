@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
+import { requireModule, canWrite } from "@/lib/permissions";
 import { createPersonne } from "./actions";
 import PersonnelTable from "./PersonnelTable";
 
@@ -17,10 +18,8 @@ type Row = {
 };
 
 export default async function PersonnelPage() {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
-
-  const isAdmin = profile.role === "admin";
+  const { profile, perms } = await requireModule("personnel", "read");
+  const isAdmin = canWrite(perms, "personnel");
 
   const supabase = await getServerClient();
   const { data: equipesData } = await supabase

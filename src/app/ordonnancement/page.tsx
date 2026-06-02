@@ -3,6 +3,7 @@ import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import PeriodBand from "@/components/PeriodBand";
+import { requireModule } from "@/lib/permissions";
 import { parseMonday, weekDays, isoDate, addDays, isoWeekNumber } from "@/lib/week";
 import OrdoGrid from "./OrdoGrid";
 
@@ -14,9 +15,7 @@ export default async function OrdonnancementPage({
 }: {
   searchParams: Promise<{ semaine?: string }>;
 }) {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
-  if (profile.role !== "admin" && profile.role !== "ordo") redirect("/");
+  const { profile } = await requireModule("ordonnancement", "write");
 
   const sp = await searchParams;
   const center = parseMonday(sp.semaine);

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
+import { requireModule } from "@/lib/permissions";
 
 type Atelier = { id: string; nom: string };
 type Ligne = { id: string; nom: string; atelier_id: string };
@@ -22,8 +23,7 @@ export default async function BilanPage({
 }: {
   searchParams: Promise<{ atelier?: string; ligne?: string; equipe?: string }>;
 }) {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
+  const { profile } = await requireModule("matrice", "read");
 
   const sp = await searchParams;
   const supabase = await getServerClient();

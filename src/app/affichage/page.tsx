@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { getAdminClient } from "@/lib/supabase-server";
+import { requireModule } from "@/lib/permissions";
 
-// Index public des affichages couloir (un par atelier).
+// Index des affichages couloir (un par atelier). Reserve aux droits "affichage".
 export const dynamic = "force-dynamic";
 
 type Atelier = { id: string; nom: string };
 
 export default async function AffichageIndex() {
+  await requireModule("affichage", "write");
   const admin = getAdminClient();
   const { data } = await admin
     .from("atelier")

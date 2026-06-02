@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import { isoDate, addDays } from "@/lib/week";
+import { MODULES, getPermissions, canRead, canWrite } from "@/lib/permissions";
 
-// En-tete commun aux pages authentifiees : navigation selon le role,
-// cloche d'alerte habilitations, deconnexion.
+// En-tete commun : navigation pilotee par la matrice des droits, cloche
+// d'alerte habilitations, deconnexion.
 export default async function AppHeader({
   role,
   active,
@@ -11,11 +12,10 @@ export default async function AppHeader({
   role: string;
   active?: string;
 }) {
+  const perms = await getPermissions(role);
   const isAdmin = role === "admin";
-  const canAudit = role === "admin" || role === "codir";
-  const canOrdo = role === "admin" || role === "ordo";
 
-  // Nombre d'habilitations en alerte (expiration <= 90 jours, ou expirees)
+  // Compteur d'alertes habilitations (<= 90 jours)
   let alertCount = 0;
   try {
     const supabase = await getServerClient();
@@ -30,21 +30,11 @@ export default async function AppHeader({
     alertCount = 0;
   }
 
-  const links: { href: string; label: string; show: boolean }[] = [
-    { href: "/personnel", label: "Personnel", show: true },
-    { href: "/matrice", label: "Matrice", show: true },
-    { href: "/habilitations", label: "Habilitations", show: true },
-    { href: "/ordonnancement", label: "Ordonnancement", show: canOrdo },
-    { href: "/bilans", label: "Bilans", show: true },
-    { href: "/affichage", label: "Affichage", show: isAdmin },
-    { href: "/admin/referentiel", label: "Referentiel", show: isAdmin },
-    { href: "/admin/equipes", label: "Equipes", show: isAdmin },
-    { href: "/admin/competences", label: "Competences", show: isAdmin },
-    { href: "/admin/motifs", label: "Motifs", show: isAdmin },
-    { href: "/admin/users", label: "Utilisateurs", show: isAdmin },
-    { href: "/admin/rgpd", label: "RGPD", show: isAdmin },
-    { href: "/journal", label: "Journal", show: canAudit },
-  ];
+  // Un module operationnel apparait des la lecture ; un module d'admin
+  // apparait uniquement avec le droit de modification.
+  const links = MODULES.filter((m) =>
+    m.admin ? canWrite(perms, m.key) : canRead(perms, m.key)
+  );
 
   return (
     <header className="appheader">
@@ -52,17 +42,20 @@ export default async function AppHeader({
         <Link href="/planning" className="brand" style={{ textDecoration: "none", color: "var(--primary)" }}>
           BigPlann&apos;
         </Link>
-        {links
-          .filter((l) => l.show)
-          .map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={active === l.href ? "navlink active" : "navlink"}
-            >
-              {l.label}
-            </Link>
-          ))}
+        {links.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            className={active === l.href ? "navlink active" : "navlink"}
+          >
+            {l.label}
+          </Link>
+        ))}
+        {isAdmin && (
+          <Link href="/admin/droits" className={active === "/admin/droits" ? "navlink active" : "navlink"}>
+            Droits
+          </Link>
+        )}
       </nav>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <Link href="/habilitations" title="Habilitations a recycler" style={{ position: "relative", textDecoration: "none", fontSize: 18 }}>

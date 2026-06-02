@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
+import { requireModule } from "@/lib/permissions";
 import MatriceFilters from "./MatriceFilters";
 import MatrixGrid from "./MatrixGrid";
 
@@ -29,8 +30,7 @@ export default async function MatricePage({
 }: {
   searchParams: Promise<{ atelier?: string; equipe?: string }>;
 }) {
-  const profile = await getCurrentProfile();
-  if (!profile) redirect("/login");
+  const { profile } = await requireModule("matrice", "read");
 
   const sp = await searchParams;
   const supabase = await getServerClient();
