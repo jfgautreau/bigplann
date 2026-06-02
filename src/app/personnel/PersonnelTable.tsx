@@ -10,6 +10,7 @@ type Row = {
   prenom: string;
   equipe: string;
   type_contrat: string;
+  pointure: string;
   statut: string;
 };
 
@@ -19,6 +20,7 @@ const COLS: { key: keyof Row; label: string }[] = [
   { key: "prenom", label: "Prenom" },
   { key: "equipe", label: "Equipe" },
   { key: "type_contrat", label: "Contrat" },
+  { key: "pointure", label: "Pointure" },
   { key: "statut", label: "Statut" },
 ];
 
@@ -74,6 +76,7 @@ export default function PersonnelTable({
               <td>{r.prenom}</td>
               <td>{r.equipe || "-"}</td>
               <td>{r.type_contrat}</td>
+              <td>{r.pointure || "-"}</td>
               <td>
                 <span className={r.statut === "ACTIF" ? "tag" : "tag tag-off"}>
                   {r.statut === "ACTIF" ? "Actif" : "Parti"}
@@ -88,7 +91,7 @@ export default function PersonnelTable({
           ))}
           {filtered.length === 0 && (
             <tr>
-              <td colSpan={isAdmin ? 7 : 6} className="muted">
+              <td colSpan={isAdmin ? 8 : 7} className="muted">
                 Aucun resultat.
               </td>
             </tr>

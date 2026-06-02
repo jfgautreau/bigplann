@@ -14,6 +14,7 @@ type Row = {
   prenom: string;
   type_contrat: string;
   statut: string;
+  pointure: string | null;
   equipe: { nom: string } | null;
 };
 
@@ -31,7 +32,7 @@ export default async function PersonnelPage() {
 
   const { data: rowsData } = await supabase
     .from("personne")
-    .select("id, matricule, nom, prenom, type_contrat, statut, equipe:equipe_id(nom)")
+    .select("id, matricule, nom, prenom, type_contrat, statut, pointure, equipe:equipe_id(nom)")
     .order("nom")
     .returns<Row[]>();
   const rows = (rowsData ?? []).map((r) => ({
@@ -41,6 +42,7 @@ export default async function PersonnelPage() {
     prenom: r.prenom,
     equipe: r.equipe?.nom ?? "",
     type_contrat: r.type_contrat,
+    pointure: r.pointure ?? "",
     statut: r.statut,
   }));
 
