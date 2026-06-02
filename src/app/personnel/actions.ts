@@ -25,6 +25,7 @@ function buildData(fd: FormData) {
     agence_interim: type_contrat === "INTERIM" ? orNull(s(fd, "agence_interim")) : null,
     date_debut: orNull(s(fd, "date_debut")),
     date_fin: orNull(s(fd, "date_fin")),
+    pointure: orNull(s(fd, "pointure")),
     commentaire: orNull(s(fd, "commentaire")),
   };
 }

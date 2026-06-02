@@ -107,6 +107,10 @@ export default async function PersonnelPage() {
                   <span>Fin (CDD/interim)</span>
                   <input name="date_fin" type="date" />
                 </div>
+                <div className="field">
+                  <span>Pointure</span>
+                  <input name="pointure" maxLength={5} style={{ width: 70 }} placeholder="ex. 42" />
+                </div>
               </div>
               <label htmlFor="commentaire">Commentaire</label>
               <input id="commentaire" name="commentaire" />

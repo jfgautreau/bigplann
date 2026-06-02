@@ -17,6 +17,7 @@ type Personne = {
   agence_interim: string | null;
   date_debut: string | null;
   date_fin: string | null;
+  pointure: string | null;
   commentaire: string | null;
   statut: string;
 };
@@ -37,7 +38,7 @@ export default async function FichePersonne({
     supabase
       .from("personne")
       .select(
-        "id, matricule, nom, prenom, equipe_id, type_contrat, agence_interim, date_debut, date_fin, commentaire, statut"
+        "id, matricule, nom, prenom, equipe_id, type_contrat, agence_interim, date_debut, date_fin, pointure, commentaire, statut"
       )
       .eq("id", id)
       .single<Personne>(),
@@ -124,6 +125,10 @@ export default async function FichePersonne({
               <div className="field">
                 <span>Fin (CDD/interim)</span>
                 <input name="date_fin" type="date" defaultValue={p.date_fin ?? ""} />
+              </div>
+              <div className="field">
+                <span>Pointure</span>
+                <input name="pointure" maxLength={5} defaultValue={p.pointure ?? ""} style={{ width: 70 }} />
               </div>
             </div>
             <label htmlFor="commentaire">Commentaire</label>
