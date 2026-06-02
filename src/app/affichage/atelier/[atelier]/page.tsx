@@ -168,7 +168,7 @@ export default async function AffichageAtelier({
                     {p.nom}
                   </td>
                   {days.map((d) => (
-                    <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top", background: colBg(d.iso) }}>
+                    <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top" }}>
                       {cell(p.id, d.iso)}
                     </td>
                   ))}
