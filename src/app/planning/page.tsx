@@ -119,9 +119,12 @@ export default async function PlanningPage({
       const active = dayActive(d.iso);
       const openIds = active ? groups.filter((g) => lineOpen(d.iso, g.ligneId)).map((g) => g.ligneId) : [];
       const besoin = openIds.reduce((s, lid) => s + (lineEffectif[lid] ?? 0), 0);
-      return { ...d, open: openIds.length > 0, besoin };
+      return { ...d, open: openIds.length > 0, besoin, openIds };
     })
     .filter((d) => d.open);
+
+  const openByIso: Record<string, string[]> = {};
+  for (const d of visible) openByIso[d.iso] = d.openIds;
 
   const days = visible.map((d) => ({ iso: d.iso, nom: d.nom, num: d.num, firstOfWeek: d.firstOfWeek }));
   const besoin = visible.map((d) => d.besoin);
@@ -201,6 +204,7 @@ export default async function PlanningPage({
 
   const gridGroups = groups.map((g) => ({
     ligneNom: g.ligneNom,
+    ligneId: g.ligneId,
     postes: g.postes.map((p) => ({
       id: p.id,
       nom: (p.nom_court || p.nom).slice(0, 6),
@@ -232,6 +236,7 @@ export default async function PlanningPage({
           todayIso={isoDate(new Date())}
           personnes={gridPersonnes}
           groups={gridGroups}
+          openByIso={openByIso}
           motifs={motifs.map((m) => ({ id: m.id, code: m.code_court, couleur: m.couleur }))}
           besoin={besoin}
           initial={initial}

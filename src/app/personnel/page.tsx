@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import { createPersonne } from "./actions";
+import PersonnelTable from "./PersonnelTable";
 
 type Equipe = { id: string; nom: string };
 type Row = {
@@ -16,15 +16,10 @@ type Row = {
   equipe: { nom: string } | null;
 };
 
-export default async function PersonnelPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ equipe?: string; statut?: string }>;
-}) {
+export default async function PersonnelPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
 
-  const sp = await searchParams;
   const isAdmin = profile.role === "admin";
 
   const supabase = await getServerClient();
@@ -35,90 +30,29 @@ export default async function PersonnelPage({
     .returns<Equipe[]>();
   const equipes = equipesData ?? [];
 
-  let query = supabase
+  const { data: rowsData } = await supabase
     .from("personne")
     .select("id, matricule, nom, prenom, type_contrat, statut, equipe:equipe_id(nom)")
-    .order("nom");
-  if (sp.equipe) query = query.eq("equipe_id", sp.equipe);
-  if (sp.statut) query = query.eq("statut", sp.statut);
-
-  const { data: rowsData } = await query.returns<Row[]>();
-  const rows = rowsData ?? [];
+    .order("nom")
+    .returns<Row[]>();
+  const rows = (rowsData ?? []).map((r) => ({
+    id: r.id,
+    matricule: r.matricule,
+    nom: r.nom,
+    prenom: r.prenom,
+    equipe: r.equipe?.nom ?? "",
+    type_contrat: r.type_contrat,
+    statut: r.statut,
+  }));
 
   return (
     <>
       <AppHeader role={profile.role} active="/personnel" />
       <div className="container">
-        <h1>Personnel ({rows.length})</h1>
+        <h1>Personnel</h1>
 
-        {/* Filtres */}
-        <form className="toolbar" method="get">
-          <div className="field">
-            <span>Equipe</span>
-            <select name="equipe" defaultValue={sp.equipe ?? ""}>
-              <option value="">Toutes</option>
-              {equipes.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.nom}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <span>Statut</span>
-            <select name="statut" defaultValue={sp.statut ?? ""}>
-              <option value="">Tous</option>
-              <option value="ACTIF">Actif</option>
-              <option value="PARTI">Parti</option>
-            </select>
-          </div>
-          <button type="submit" className="btn-sm btn-ghost">
-            Filtrer
-          </button>
-        </form>
-
-        <div className="card" style={{ marginBottom: 24 }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Matricule</th>
-                <th>Nom</th>
-                <th>Prenom</th>
-                <th>Equipe</th>
-                <th>Contrat</th>
-                <th>Statut</th>
-                {isAdmin && <th></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.matricule ?? "-"}</td>
-                  <td>{p.nom}</td>
-                  <td>{p.prenom}</td>
-                  <td>{p.equipe?.nom ?? "-"}</td>
-                  <td>{p.type_contrat}</td>
-                  <td>
-                    <span className={p.statut === "ACTIF" ? "tag" : "tag tag-off"}>
-                      {p.statut === "ACTIF" ? "Actif" : "Parti"}
-                    </span>
-                  </td>
-                  {isAdmin && (
-                    <td>
-                      <Link href={`/personnel/${p.id}`}>Modifier</Link>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={isAdmin ? 7 : 6} className="muted">
-                    Aucune personne.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div style={{ marginBottom: 24 }}>
+          <PersonnelTable rows={rows} isAdmin={isAdmin} />
         </div>
 
         {/* Creation (admin) */}

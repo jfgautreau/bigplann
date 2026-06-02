@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
 type WeekBlock = { num: number; span: number };
 type Poste = { id: string; nom: string; niveauMin: number; effectif: number };
-type Group = { ligneNom: string; postes: Poste[] };
+type Group = { ligneNom: string; ligneId: string; postes: Poste[] };
 type Motif = { id: string; code: string; couleur: string };
 type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean };
 
@@ -15,6 +15,7 @@ export default function PlanningGrid({
   todayIso = "",
   personnes = [],
   groups = [],
+  openByIso = {},
   motifs = [],
   besoin = [],
   initial = {},
@@ -25,6 +26,7 @@ export default function PlanningGrid({
   todayIso?: string;
   personnes?: Personne[];
   groups?: Group[];
+  openByIso?: Record<string, string[]>;
   motifs?: Motif[];
   besoin?: number[];
   initial?: Record<string, string>;
@@ -70,6 +72,20 @@ export default function PlanningGrid({
         ef[p.id] = p.effectif;
       }
     return { niveauMin: nm, effectif: ef };
+  }, [groups]);
+
+  const { posteLigne, posteLabel, allLigneIds } = useMemo(() => {
+    const pl: Record<string, string> = {};
+    const lab: Record<string, string> = {};
+    const ids: string[] = [];
+    for (const g of groups) {
+      ids.push(g.ligneId);
+      for (const p of g.postes) {
+        pl[p.id] = g.ligneId;
+        lab[p.id] = p.nom;
+      }
+    }
+    return { posteLigne: pl, posteLabel: lab, allLigneIds: ids };
   }, [groups]);
 
   const horsComp = (pid: string, v: string) =>
@@ -263,6 +279,8 @@ export default function PlanningGrid({
                 const v = vals[key(pers.id, d.iso)] ?? "";
                 const alert = horsComp(pers.id, v);
                 const over = isPoste(v) && (perDay[i].counts[v] ?? 0) > (effectif[v] ?? 0);
+                const openSet = new Set(openByIso[d.iso] ?? allLigneIds);
+                const closedCurrent = isPoste(v) && !openSet.has(posteLigne[v] ?? "");
                 const showFill = pers.editable && v !== "";
                 return (
                   <td
@@ -288,15 +306,20 @@ export default function PlanningGrid({
                     >
                       <option value="">—</option>
                       <option value="X">NT</option>
-                      {groups.map((g) => (
-                        <optgroup key={g.ligneNom} label={g.ligneNom}>
-                          {g.postes.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.nom}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
+                      {closedCurrent && (
+                        <option value={v}>{posteLabel[v] ?? "?"} (ligne fermee)</option>
+                      )}
+                      {groups
+                        .filter((g) => openSet.has(g.ligneId))
+                        .map((g) => (
+                          <optgroup key={g.ligneNom} label={g.ligneNom}>
+                            {g.postes.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nom}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
                       {motifs.length > 0 && (
                         <optgroup label="Absences">
                           {motifs.map((mo) => (

@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 
-type Poste = { id: string; nom: string; objectif?: number };
+type Poste = { id: string; nom: string; objectifActuel?: number; objectifCible?: number };
 type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
 type Personne = { id: string; label: string; editable: boolean };
 type Cell = { a: number; c: number };
@@ -77,9 +77,14 @@ export default function MatrixGrid({
 }) {
   const [mode, setMode] = useState<"actuel" | "cible">("actuel");
   const [cells, setCells] = useState<Record<string, Cell>>(initial);
-  const [objectifs, setObjectifs] = useState<Record<string, number>>(() => {
+  const [objActuel, setObjActuel] = useState<Record<string, number>>(() => {
     const o: Record<string, number> = {};
-    for (const g of groups) for (const p of g.postes) o[p.id] = p.objectif ?? 0;
+    for (const g of groups) for (const p of g.postes) o[p.id] = p.objectifActuel ?? 0;
+    return o;
+  });
+  const [objCible, setObjCible] = useState<Record<string, number>>(() => {
+    const o: Record<string, number> = {};
+    for (const g of groups) for (const p of g.postes) o[p.id] = p.objectifCible ?? 0;
     return o;
   });
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -95,16 +100,18 @@ export default function MatrixGrid({
   const countAt = (poid: string, field: "a" | "c") =>
     personnes.reduce((n, pe) => n + ((cells[key(pe.id, poid)]?.[field] ?? 0) >= 2 ? 1 : 0), 0);
 
-  function saveObjectif(poid: string, value: number) {
-    setObjectifs((o) => ({ ...o, [poid]: value }));
+  function saveObjectif(poid: string, champ: "actuel" | "cible", value: number) {
+    if (champ === "actuel") setObjActuel((o) => ({ ...o, [poid]: value }));
+    else setObjCible((o) => ({ ...o, [poid]: value }));
     setSaveState("saving");
-    if (objTimers.current[poid]) clearTimeout(objTimers.current[poid]);
-    objTimers.current[poid] = setTimeout(async () => {
+    const tk = `${poid}:${champ}`;
+    if (objTimers.current[tk]) clearTimeout(objTimers.current[tk]);
+    objTimers.current[tk] = setTimeout(async () => {
       try {
         const res = await fetch("/api/poste/objectif", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ poste_id: poid, objectif: value }),
+          body: JSON.stringify({ poste_id: poid, champ, objectif: value }),
         });
         setSaveState(res.ok ? "saved" : "error");
       } catch {
@@ -313,57 +320,61 @@ export default function MatrixGrid({
             )}
           </tbody>
           <tfoot>
-            <tr style={{ background: "#f1f5f9" }}>
-              <td style={{ position: "sticky", left: 0, background: "#f1f5f9", fontWeight: 700 }}>
-                Objectif (niv. &ge; 2)
-              </td>
-              {groups.flatMap((g) =>
-                g.postes.map((po, i) => (
-                  <td
-                    key={po.id}
-                    style={{ textAlign: "center", borderLeft: i === 0 ? "2px solid #d9dce1" : undefined }}
-                  >
-                    {canEditObjectif ? (
-                      <input
-                        type="number"
-                        min={0}
-                        value={objectifs[po.id] ?? 0}
-                        onChange={(e) => saveObjectif(po.id, Math.max(0, Number(e.target.value) || 0))}
-                        style={{ width: 44, textAlign: "center", padding: 2 }}
-                      />
-                    ) : (
-                      objectifs[po.id] ?? 0
-                    )}
+            {(
+              [
+                ["actuel", "a", "#1d4ed8", objActuel] as const,
+                ["cible", "c", "#16a34a", objCible] as const,
+              ]
+            ).map(([champ, field, accent, objMap]) => (
+              <Fragment key={champ}>
+                <tr style={{ background: "#f1f5f9" }}>
+                  <td style={{ position: "sticky", left: 0, background: "#f1f5f9", fontWeight: 700, color: accent }}>
+                    Objectif {champ}
                   </td>
-                ))
-              )}
-            </tr>
-            {(["a", "c"] as const).map((field) => (
-              <tr key={field} style={{ background: "#f8fafc" }}>
-                <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600 }}>
-                  {field === "a" ? "Competents actuel (≥2)" : "Competents cible (≥2)"}
-                </td>
-                {groups.flatMap((g) =>
-                  g.postes.map((po, i) => {
-                    const c = countAt(po.id, field);
-                    const obj = objectifs[po.id] ?? 0;
-                    return (
-                      <td
-                        key={po.id}
-                        style={{
-                          textAlign: "center",
-                          fontWeight: 700,
-                          color: c < obj ? "var(--danger)" : "var(--ok)",
-                          borderLeft: i === 0 ? "2px solid #d9dce1" : undefined,
-                        }}
-                        title={`${c} / objectif ${obj}`}
-                      >
-                        {c}
+                  {groups.flatMap((g) =>
+                    g.postes.map((po, i) => (
+                      <td key={po.id} style={{ textAlign: "center", borderLeft: i === 0 ? "2px solid #d9dce1" : undefined }}>
+                        {canEditObjectif ? (
+                          <input
+                            type="number"
+                            min={0}
+                            value={objMap[po.id] ?? 0}
+                            onChange={(e) => saveObjectif(po.id, champ, Math.max(0, Number(e.target.value) || 0))}
+                            style={{ width: 44, textAlign: "center", padding: 2 }}
+                          />
+                        ) : (
+                          objMap[po.id] ?? 0
+                        )}
                       </td>
-                    );
-                  })
-                )}
-              </tr>
+                    ))
+                  )}
+                </tr>
+                <tr style={{ background: "#f8fafc" }}>
+                  <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600 }}>
+                    Competents {champ} (≥2)
+                  </td>
+                  {groups.flatMap((g) =>
+                    g.postes.map((po, i) => {
+                      const c = countAt(po.id, field);
+                      const obj = objMap[po.id] ?? 0;
+                      return (
+                        <td
+                          key={po.id}
+                          style={{
+                            textAlign: "center",
+                            fontWeight: 700,
+                            color: c < obj ? "var(--danger)" : "var(--ok)",
+                            borderLeft: i === 0 ? "2px solid #d9dce1" : undefined,
+                          }}
+                          title={`${c} / objectif ${obj}`}
+                        >
+                          {c}
+                        </td>
+                      );
+                    })
+                  )}
+                </tr>
+              </Fragment>
             ))}
           </tfoot>
         </table>
