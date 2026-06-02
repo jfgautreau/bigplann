@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
-import { roleLabel } from "@/lib/roles";
+import { roleLabel, ROLES, ROLE_LABELS } from "@/lib/roles";
 import AppHeader from "@/components/AppHeader";
 import UserForm from "./UserForm";
+import { updateUserRole } from "./actions";
 
 type Row = {
   user_id: string;
@@ -54,14 +55,37 @@ export default async function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {list.map((u) => (
-                <tr key={u.user_id}>
-                  <td>{u.name || "-"}</td>
-                  <td>{u.email}</td>
-                  <td>{roleLabel(u.role)}</td>
-                  <td>{u.is_active ? "Actif" : "Desactive"}</td>
-                </tr>
-              ))}
+              {list.map((u) => {
+                const isSelf = u.user_id === profile.authId;
+                return (
+                  <tr key={u.user_id}>
+                    <td>{u.name || "-"}</td>
+                    <td>{u.email}</td>
+                    <td>
+                      {isSelf ? (
+                        <span>
+                          {roleLabel(u.role)} <span className="muted">(vous)</span>
+                        </span>
+                      ) : (
+                        <form action={updateUserRole} className="inline-form" style={{ margin: 0 }}>
+                          <input type="hidden" name="user_id" value={u.user_id} />
+                          <select name="role" defaultValue={u.role}>
+                            {ROLES.map((r) => (
+                              <option key={r} value={r}>
+                                {ROLE_LABELS[r]}
+                              </option>
+                            ))}
+                          </select>
+                          <button type="submit" className="btn-sm btn-ghost">
+                            Enregistrer
+                          </button>
+                        </form>
+                      )}
+                    </td>
+                    <td>{u.is_active ? "Actif" : "Desactive"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
