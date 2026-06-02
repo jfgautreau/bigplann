@@ -1,5 +1,6 @@
+import { Fragment } from "react";
 import { getAdminClient } from "@/lib/supabase-server";
-import { isoDate, addDays } from "@/lib/week";
+import { isoDate, mondayOf, parseMonday, weekDays } from "@/lib/week";
 import AutoRefresh from "@/components/AutoRefresh";
 import PrintButton from "@/components/PrintButton";
 
@@ -17,23 +18,7 @@ type PlacementRow = {
 };
 type HoraireRow = { poste_id: string; equipe_id: string; jour: number; debut: string | null; fin: string | null };
 
-// jour de semaine 0 = lundi .. 6 = dimanche
-function dow(iso: string) {
-  return (new Date(iso + "T00:00").getDay() + 6) % 7;
-}
-type AbsenceRow = {
-  jour: string;
-  personne: { nom: string; prenom: string } | null;
-  motif: { code_court: string } | null;
-};
-
-function dayLabel(iso: string) {
-  return new Date(iso + "T00:00").toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  });
-}
+const dow = (iso: string) => (new Date(iso + "T00:00").getDay() + 6) % 7;
 
 export default async function AffichageAtelier({
   params,
@@ -44,9 +29,10 @@ export default async function AffichageAtelier({
 }) {
   const { atelier: param } = await params;
   const sp = await searchParams;
-  const j0 = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : isoDate(new Date());
-  const j1 = isoDate(addDays(new Date(j0 + "T00:00"), 1));
-  const jours = [j0, j1];
+  const ref = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? parseMonday(sp.date) : mondayOf();
+  const days = weekDays(ref);
+  const isos = days.map((d) => d.iso);
+  const todayIso = isoDate(new Date());
 
   const admin = getAdminClient();
 
@@ -71,20 +57,30 @@ export default async function AffichageAtelier({
     .order("nom")
     .returns<Ligne[]>();
 
-  const lignes = (lignesD ?? []).map((l) => ({
-    ...l,
-    poste: [...(l.poste ?? [])].filter((p) => p.actif).sort((a, b) => a.nom.localeCompare(b.nom)),
-  }));
+  const lignes = (lignesD ?? [])
+    .map((l) => ({
+      ...l,
+      poste: [...(l.poste ?? [])].filter((p) => p.actif).sort((a, b) => a.nom.localeCompare(b.nom)),
+    }))
+    .filter((l) => l.poste.length > 0);
   const posteIds = lignes.flatMap((l) => l.poste.map((p) => p.id));
 
-  const byPoste = new Map<string, PlacementRow[]>(); // key `${poste}:${jour}`
+  const byPoste = new Map<string, PlacementRow[]>(); // `${poste}:${iso}`
+  const horMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${poste}:${equipe}:${dow}`
   if (posteIds.length) {
-    const { data: pl } = await admin
-      .from("placement")
-      .select("poste_id, jour, equipe_id, personne:personne_id(nom, prenom, type_contrat), equipe:equipe_id(nom)")
-      .in("jour", jours)
-      .in("poste_id", posteIds)
-      .returns<PlacementRow[]>();
+    const [{ data: pl }, { data: hor }] = await Promise.all([
+      admin
+        .from("placement")
+        .select("poste_id, jour, equipe_id, personne:personne_id(nom, prenom, type_contrat), equipe:equipe_id(nom)")
+        .in("jour", isos)
+        .in("poste_id", posteIds)
+        .returns<PlacementRow[]>(),
+      admin
+        .from("horaire_poste")
+        .select("poste_id, equipe_id, jour, debut, fin")
+        .in("poste_id", posteIds)
+        .returns<HoraireRow[]>(),
+    ]);
     for (const r of pl ?? []) {
       if (!r.poste_id) continue;
       const k = `${r.poste_id}:${r.jour}`;
@@ -92,18 +88,9 @@ export default async function AffichageAtelier({
       arr.push(r);
       byPoste.set(k, arr);
     }
-  }
-
-  // Horaires (poste x equipe x jour de semaine)
-  const horMap = new Map<string, { debut: string | null; fin: string | null }>();
-  if (posteIds.length) {
-    const { data: hor } = await admin
-      .from("horaire_poste")
-      .select("poste_id, equipe_id, jour, debut, fin")
-      .in("poste_id", posteIds)
-      .returns<HoraireRow[]>();
     for (const h of hor ?? []) horMap.set(`${h.poste_id}:${h.equipe_id}:${h.jour}`, { debut: h.debut, fin: h.fin });
   }
+
   const horaireTxt = (posteId: string, equipeId: string | null, iso: string) => {
     if (!equipeId) return "";
     const h = horMap.get(`${posteId}:${equipeId}:${dow(iso)}`);
@@ -111,107 +98,96 @@ export default async function AffichageAtelier({
     return `${h.debut ?? "?"}-${h.fin ?? "?"}`;
   };
 
-  const { data: absD } = await admin
-    .from("placement")
-    .select("jour, personne:personne_id(nom, prenom), motif:motif_absence_id(code_court)")
-    .in("jour", jours)
-    .not("motif_absence_id", "is", null)
-    .returns<AbsenceRow[]>();
-  const absByDay = (iso: string) => (absD ?? []).filter((a) => a.jour === iso);
-
-  const person = (r: PlacementRow) => {
-    const p = r.personne;
-    if (!p) return null;
-    const interim = p.type_contrat === "INTERIM";
-    return (
-      <span style={{ background: interim ? "#fef08a" : undefined, padding: interim ? "0 4px" : 0, borderRadius: 3 }}>
-        {p.nom} {p.prenom}
-        {r.equipe?.nom ? <span style={{ color: "#6b7280", fontWeight: 400 }}> ({r.equipe.nom})</span> : null}
-      </span>
-    );
-  };
-
   const cell = (posteId: string, iso: string) => {
     const rows = byPoste.get(`${posteId}:${iso}`) ?? [];
-    if (!rows.length) return <span className="muted">—</span>;
+    if (!rows.length) return <span style={{ color: "#cbd5e1" }}>—</span>;
     return rows.map((r, i) => {
+      const p = r.personne;
+      if (!p) return null;
+      const interim = p.type_contrat === "INTERIM";
       const h = horaireTxt(posteId, r.equipe_id, iso);
       return (
-        <div key={i}>
-          {person(r)}
-          {h && <span style={{ color: "#1d4ed8", fontWeight: 700, marginLeft: 6 }}>{h}</span>}
+        <div key={i} style={{ lineHeight: 1.25 }}>
+          <span style={{ background: interim ? "#bbf7d0" : undefined, padding: interim ? "0 4px" : 0, borderRadius: 3 }}>
+            {p.nom} {p.prenom}
+          </span>
+          {h && <span style={{ color: "#1d4ed8", fontWeight: 700, marginLeft: 5 }}>{h}</span>}
         </div>
       );
     });
   };
 
+  const FLUO = "#fde047"; // jaune fluo pour le jour
+  const colBg = (iso: string) => (iso === todayIso ? FLUO : undefined);
+  const cellBorder = "1px solid #d9dce1";
+
   return (
-    <div style={{ padding: "20px 28px" }}>
-      <AutoRefresh seconds={60} />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-        <h1 style={{ fontSize: 32, margin: 0 }}>{atelier.nom}</h1>
+    <div style={{ padding: "18px 24px" }}>
+      <AutoRefresh seconds={300} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+        <h1 style={{ fontSize: 30, margin: 0 }}>{atelier.nom}</h1>
         <PrintButton label="Imprimer / PDF" />
       </div>
 
-      {lignes.map((l) => (
-        <div key={l.id} style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 20, margin: "0 0 4px", borderBottom: "2px solid #1e3a8a" }}>{l.nom}</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 17, tableLayout: "fixed" }}>
-            <thead>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 16, tableLayout: "fixed" }}>
+        <thead>
+          <tr>
+            <th style={{ width: 180, border: cellBorder, background: "#1e3a8a", color: "#fff", padding: "8px 10px" }}></th>
+            {days.map((d) => (
+              <th
+                key={d.iso}
+                style={{
+                  border: cellBorder,
+                  padding: "8px 6px",
+                  textAlign: "center",
+                  fontSize: 20,
+                  background: colBg(d.iso) ?? "#1e3a8a",
+                  color: d.iso === todayIso ? "#000" : "#fff",
+                }}
+              >
+                {d.nom}
+                <div style={{ fontSize: 14, fontWeight: 400 }}>{d.num}</div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {lignes.map((l) => (
+            <Fragment key={l.id}>
               <tr>
-                <th style={{ width: 220, textAlign: "left", padding: "4px 10px", border: "1px solid #d9dce1" }}>Poste</th>
-                {jours.map((iso) => (
-                  <th key={iso} style={{ textAlign: "left", padding: "4px 10px", border: "1px solid #d9dce1", textTransform: "capitalize" }}>
-                    {dayLabel(iso)}
-                  </th>
-                ))}
+                <td
+                  colSpan={days.length + 1}
+                  style={{ background: "#eef2ff", fontWeight: 800, fontSize: 17, padding: "6px 10px", border: cellBorder }}
+                >
+                  {l.nom}
+                </td>
               </tr>
-            </thead>
-            <tbody>
               {l.poste.map((p) => (
                 <tr key={p.id}>
-                  <td style={{ padding: "6px 10px", fontWeight: 600, border: "1px solid #d9dce1" }}>{p.nom}</td>
-                  {jours.map((iso) => (
-                    <td key={iso} style={{ padding: "6px 10px", border: "1px solid #d9dce1" }}>
-                      {cell(p.id, iso)}
+                  <td style={{ border: cellBorder, padding: "5px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>
+                    {p.nom}
+                  </td>
+                  {days.map((d) => (
+                    <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top", background: colBg(d.iso) }}>
+                      {cell(p.id, d.iso)}
                     </td>
                   ))}
                 </tr>
               ))}
-              {l.poste.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="muted" style={{ padding: 8 }}>Aucun poste.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      ))}
+            </Fragment>
+          ))}
+          {lignes.length === 0 && (
+            <tr>
+              <td colSpan={days.length + 1} className="muted" style={{ padding: 10 }}>Aucun poste.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
 
-      <div style={{ display: "flex", gap: 32, marginTop: 16 }}>
-        {jours.map((iso) => {
-          const abs = absByDay(iso);
-          return (
-            <div key={iso} style={{ flex: 1 }}>
-              <h3 style={{ fontSize: 16, margin: "0 0 4px", textTransform: "capitalize" }}>Absences — {dayLabel(iso)}</h3>
-              <div style={{ fontSize: 15, lineHeight: 1.6 }}>
-                {abs.length ? (
-                  abs.map((a, i) => (
-                    <span key={i} style={{ marginRight: 14, whiteSpace: "nowrap" }}>
-                      {a.personne ? `${a.personne.nom} ${a.personne.prenom}` : "?"} <strong>[{a.motif?.code_court ?? "?"}]</strong>
-                    </span>
-                  ))
-                ) : (
-                  <span className="muted">Aucune</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div style={{ marginTop: 16, fontSize: 14, color: "#6b7280" }}>
-        Legende : <span style={{ background: "#fef08a", padding: "0 6px" }}>Interimaire</span> · Mise a jour auto 60 s.
+      <div style={{ marginTop: 14, fontSize: 14, color: "#6b7280" }}>
+        Legende : <span style={{ background: "#bbf7d0", padding: "0 6px" }}>Interimaire</span>{" "}
+        · <span style={{ background: FLUO, padding: "0 6px" }}>Aujourd&apos;hui</span> · horaires en bleu ·
+        mise a jour auto toutes les 5 min.
       </div>
     </div>
   );
