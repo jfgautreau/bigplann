@@ -122,12 +122,15 @@ export default function PlanningGrid({
   }
 
   async function change(pid: string, iso: string, equipe_id: string | null, value: string) {
-    setVals((s) => ({ ...s, [key(pid, iso)]: value }));
+    const k = key(pid, iso);
+    const prev = vals[k] ?? "";
+    setVals((s) => ({ ...s, [k]: value }));
     setSaving("saving");
     try {
       await postCell(pid, iso, equipe_id, value);
       setSaving("saved");
     } catch {
+      setVals((s) => ({ ...s, [k]: prev })); // refus serveur : on annule le changement
       setSaving("error");
     }
     setTimeout(() => setSaving("idle"), 1200);

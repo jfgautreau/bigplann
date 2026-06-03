@@ -48,6 +48,27 @@ export async function POST(req: NextRequest) {
   // pour toute la journee, tous quarts).
   const quart_code = poste_id ? (body?.quart ?? null) : null;
 
+  // Une personne placee sur un poste un quart ne peut pas etre placee sur un
+  // poste d'un autre quart le meme jour (legacy quart null = matin).
+  if (poste_id) {
+    const { data: existing } = await supabase
+      .from("placement")
+      .select("poste_id, quart_code")
+      .eq("personne_id", personne_id)
+      .eq("jour", jour)
+      .maybeSingle<{ poste_id: string | null; quart_code: string | null }>();
+    if (existing?.poste_id) {
+      const exQ = existing.quart_code ?? "matin";
+      const newQ = quart_code ?? "matin";
+      if (exQ !== newQ) {
+        return NextResponse.json(
+          { error: "Personne deja placee sur un autre quart ce jour-la." },
+          { status: 409 }
+        );
+      }
+    }
+  }
+
   const { error } = await supabase.from("placement").upsert(
     {
       personne_id,
