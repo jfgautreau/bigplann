@@ -316,9 +316,10 @@ export default function PlanningGrid({
                     <select
                       className="flat"
                       value={v}
-                      disabled={!pers.editable}
+                      disabled={!pers.editable || !!other}
+                      title={other ? "Deja place sur un autre quart ce jour-la" : undefined}
                       onChange={(e) => change(pers.id, d.iso, pers.equipe_id, e.target.value)}
-                      style={{ width: "100%", fontSize: 12, padding: "3px 1px" }}
+                      style={{ width: "100%", fontSize: 12, padding: "3px 1px", opacity: other ? 0.6 : 1 }}
                     >
                       <option value="">—</option>
                       <option value="X">NT</option>

@@ -27,17 +27,22 @@ export default function PlanningFilters({
   }
 
   return (
-    <div className="toolbar">
-      <div className="field">
-        <span>Equipe</span>
-        <select value={equipe} onChange={(e) => go(e.target.value)}>
-          <option value="">Toutes les equipes</option>
-          {equipes.map((e2) => (
-            <option key={e2.id} value={e2.id}>
-              {e2.label}
-            </option>
-          ))}
-        </select>
+    <div className="toolbar" style={{ alignItems: "center" }}>
+      <span className="muted">Equipe :</span>
+      <div className="segments">
+        <button type="button" className={equipe === "" ? "seg active" : "seg"} onClick={() => go("")}>
+          Toutes
+        </button>
+        {equipes.map((e) => (
+          <button
+            key={e.id}
+            type="button"
+            className={equipe === e.id ? "seg active" : "seg"}
+            onClick={() => go(e.id)}
+          >
+            {e.label}
+          </button>
+        ))}
       </div>
     </div>
   );
