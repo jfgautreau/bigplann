@@ -20,6 +20,9 @@ export default function PlanningGrid({
   besoin = [],
   initial = {},
   matrice = {},
+  quart = "",
+  otherByCell = {},
+  quartLabel = {},
 }: {
   days: Jour[];
   weekBlocks?: WeekBlock[];
@@ -31,6 +34,9 @@ export default function PlanningGrid({
   besoin?: number[];
   initial?: Record<string, string>;
   matrice?: Record<string, number>;
+  quart?: string;
+  otherByCell?: Record<string, string>;
+  quartLabel?: Record<string, string>;
 }) {
   const [vals, setVals] = useState<Record<string, string>>(initial);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -110,7 +116,7 @@ export default function PlanningGrid({
     const res = await fetch("/api/placement/cell", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ personne_id: pid, jour: iso, equipe_id, value }),
+      body: JSON.stringify({ personne_id: pid, jour: iso, equipe_id, value, quart }),
     });
     if (!res.ok) throw new Error();
   }
@@ -291,6 +297,7 @@ export default function PlanningGrid({
                 const openSet = new Set(openByIso[d.iso] ?? allLigneIds);
                 const closedCurrent = isPoste(v) && !openSet.has(posteLigne[v] ?? "");
                 const showFill = pers.editable && v !== "";
+                const other = v === "" ? otherByCell[key(pers.id, d.iso)] : undefined;
                 return (
                   <td
                     key={d.iso}
@@ -348,6 +355,14 @@ export default function PlanningGrid({
                       >
                         &raquo;
                       </button>
+                    )}
+                    {other && (
+                      <div
+                        style={{ fontSize: 9, color: "#9a3412", marginTop: -1 }}
+                        title={`Place sur un autre quart : ${quartLabel[other] ?? other}`}
+                      >
+                        &rarr; {quartLabel[other] ?? other}
+                      </div>
                     )}
                   </td>
                 );

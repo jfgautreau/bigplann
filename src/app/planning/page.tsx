@@ -1,6 +1,4 @@
-import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
-import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import PeriodBand from "@/components/PeriodBand";
 import {
@@ -10,10 +8,11 @@ import {
   addDays,
   mondayOf,
   isoWeekNumber,
-  defaultOpenIso,
+  defaultQuartActif,
 } from "@/lib/week";
 import { requireModule } from "@/lib/permissions";
 import PlanningFilters from "./PlanningFilters";
+import QuartSelector from "./QuartSelector";
 import PlanningGrid from "./PlanningGrid";
 
 type PosteRow = {
@@ -26,6 +25,7 @@ type PosteRow = {
 };
 type LigneRow = { id: string; nom: string; poste: PosteRow[] };
 type Equipe = { id: string; nom: string };
+type Quart = { code: string; libelle: string };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null };
 type Placement = {
   personne_id: string;
@@ -33,6 +33,7 @@ type Placement = {
   poste_id: string | null;
   motif_absence_id: string | null;
   non_travaille: boolean;
+  quart_code: string | null;
 };
 type MatRow = { personne_id: string; poste_id: string; niveau_actuel: number };
 type Motif = { id: string; code_court: string; libelle: string; couleur: string };
@@ -40,7 +41,7 @@ type Motif = { id: string; code_court: string; libelle: string; couleur: string 
 export default async function PlanningPage({
   searchParams,
 }: {
-  searchParams: Promise<{ equipe?: string; semaine?: string }>;
+  searchParams: Promise<{ equipe?: string; semaine?: string; quart?: string }>;
 }) {
   const { profile } = await requireModule("planning", "read");
 
@@ -57,7 +58,7 @@ export default async function PlanningPage({
   const allIsos = rawDays.map((d) => d.iso);
 
   const supabase = await getServerClient();
-  const [{ data: equipesD }, { data: lignesD }, { data: motifsD }] = await Promise.all([
+  const [{ data: equipesD }, { data: lignesD }, { data: motifsD }, { data: quartsD }] = await Promise.all([
     supabase.from("equipe").select("id, nom").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
       .from("ligne")
@@ -71,8 +72,24 @@ export default async function PlanningPage({
       .eq("actif", true)
       .order("libelle")
       .returns<Motif[]>(),
+    supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
   ]);
   const motifs = motifsD ?? [];
+  const quarts = quartsD ?? [];
+  const quartCodes = quarts.map((q) => q.code);
+
+  // Quart selectionne : ?quart, sinon rotation de l'equipe pour la semaine, sinon "matin".
+  let quart = sp.quart && quartCodes.includes(sp.quart) ? sp.quart : "";
+  if (!quart && equipe) {
+    const { data: rot } = await supabase
+      .from("equipe_quart_semaine")
+      .select("quart_code")
+      .eq("equipe_id", equipe)
+      .eq("semaine", centerIso)
+      .maybeSingle<{ quart_code: string }>();
+    if (rot?.quart_code) quart = rot.quart_code;
+  }
+  if (!quart) quart = quartCodes[0] ?? "matin";
 
   const groups = (lignesD ?? [])
     .map((l) => ({
@@ -86,38 +103,33 @@ export default async function PlanningPage({
   for (const g of groups)
     lineEffectif[g.ligneId] = g.postes.reduce((s, p) => s + (p.effectif_requis ?? 0), 0);
 
-  // Overrides explicites pour l'equipe (sinon regle par defaut : ferme le dimanche)
-  const ouvOverride = new Map<string, boolean>(); // `${jour}:${ligne}` -> ouverte
-  const actOverride = new Map<string, boolean>(); // jour -> actif
-  if (equipe) {
-    const [{ data: louv }, { data: jeq }] = await Promise.all([
-      supabase
-        .from("ligne_ouverture")
-        .select("jour, ligne_id, ouverte")
-        .in("jour", allIsos)
-        .eq("equipe_id", equipe)
-        .returns<{ jour: string; ligne_id: string; ouverte: boolean }[]>(),
-      supabase
-        .from("jour_equipe")
-        .select("jour, actif")
-        .in("jour", allIsos)
-        .eq("equipe_id", equipe)
-        .returns<{ jour: string; actif: boolean }[]>(),
-    ]);
-    for (const r of louv ?? []) ouvOverride.set(`${r.jour}:${r.ligne_id}`, r.ouverte);
-    for (const r of jeq ?? []) actOverride.set(r.jour, r.actif);
-  }
+  // Ouverture par quart selectionne
+  const [{ data: ouv }, { data: jq }] = await Promise.all([
+    supabase
+      .from("ouverture_quart")
+      .select("jour, ligne_id, ouverte")
+      .eq("quart_code", quart)
+      .in("jour", allIsos)
+      .returns<{ jour: string; ligne_id: string; ouverte: boolean }[]>(),
+    supabase
+      .from("jour_quart")
+      .select("jour, actif")
+      .eq("quart_code", quart)
+      .in("jour", allIsos)
+      .returns<{ jour: string; actif: boolean }[]>(),
+  ]);
+  const ouvMap = new Map<string, boolean>();
+  for (const r of ouv ?? []) ouvMap.set(`${r.jour}:${r.ligne_id}`, r.ouverte);
+  const actMap = new Map<string, boolean>();
+  for (const r of jq ?? []) actMap.set(r.jour, r.actif);
 
+  const quartActif = (iso: string) => (actMap.has(iso) ? actMap.get(iso)! : defaultQuartActif(iso, quart));
   const lineOpen = (iso: string, ligneId: string) =>
-    ouvOverride.has(`${iso}:${ligneId}`) ? ouvOverride.get(`${iso}:${ligneId}`)! : defaultOpenIso(iso);
-  const dayActive = (iso: string) =>
-    actOverride.has(iso) ? actOverride.get(iso)! : defaultOpenIso(iso);
+    quartActif(iso) ? (ouvMap.has(`${iso}:${ligneId}`) ? ouvMap.get(`${iso}:${ligneId}`)! : true) : false;
 
-  // Jours visibles (au moins une ligne ouverte) + besoin
   const visible = rawDays
     .map((d) => {
-      const active = dayActive(d.iso);
-      const openIds = active ? groups.filter((g) => lineOpen(d.iso, g.ligneId)).map((g) => g.ligneId) : [];
+      const openIds = quartActif(d.iso) ? groups.filter((g) => lineOpen(d.iso, g.ligneId)).map((g) => g.ligneId) : [];
       const besoin = openIds.reduce((s, lid) => s + (lineEffectif[lid] ?? 0), 0);
       return { ...d, open: openIds.length > 0, besoin, openIds };
     })
@@ -130,7 +142,6 @@ export default async function PlanningPage({
   const besoin = visible.map((d) => d.besoin);
   const visIsos = visible.map((d) => d.iso);
 
-  // Blocs semaine visibles
   const weekBlocks: { num: number; span: number; year: number; isCurrent: boolean }[] = [];
   for (let wi = 0; wi < 3; wi++) {
     const span = visible.filter((d) => d.wi === wi).length;
@@ -142,15 +153,10 @@ export default async function PlanningPage({
         isCurrent: isoDate(weekMondays[wi]) === todayMondayIso,
       });
   }
-  // firstOfWeek : recalc sur les jours visibles (1er jour visible de chaque semaine)
   const seenWeek = new Set<number>();
   visible.forEach((d, idx) => {
-    if (!seenWeek.has(d.wi)) {
-      seenWeek.add(d.wi);
-      days[idx].firstOfWeek = true;
-    } else {
-      days[idx].firstOfWeek = false;
-    }
+    days[idx].firstOfWeek = !seenWeek.has(d.wi);
+    seenWeek.add(d.wi);
   });
 
   // Personnes
@@ -164,13 +170,18 @@ export default async function PlanningPage({
   const personnes = persD ?? [];
   const persIds = personnes.map((p) => p.id);
 
+  // Une affectation sur poste n'apparait que pour le quart courant ; une absence/NT
+  // vaut pour tous les quarts. matchQuart gere les anciens placements (quart null -> matin).
+  const matchQuart = (qc: string | null) => (qc ? qc === quart : quart === (quartCodes[0] ?? "matin"));
+
   const initial: Record<string, string> = {};
+  const otherByCell: Record<string, string> = {}; // place sur un autre quart -> code du quart
   const matrice: Record<string, number> = {};
   if (persIds.length && visIsos.length) {
     const [{ data: pl }, { data: mat }] = await Promise.all([
       supabase
         .from("placement")
-        .select("personne_id, jour, poste_id, motif_absence_id, non_travaille")
+        .select("personne_id, jour, poste_id, motif_absence_id, non_travaille, quart_code")
         .in("jour", visIsos)
         .in("personne_id", persIds)
         .returns<Placement[]>(),
@@ -180,16 +191,16 @@ export default async function PlanningPage({
         .in("personne_id", persIds)
         .returns<MatRow[]>(),
     ]);
-    for (const r of pl ?? [])
-      initial[`${r.personne_id}:${r.jour}`] = r.non_travaille
-        ? "X"
-        : r.motif_absence_id
-          ? `m:${r.motif_absence_id}`
-          : (r.poste_id ?? "");
+    for (const r of pl ?? []) {
+      const k = `${r.personne_id}:${r.jour}`;
+      if (r.non_travaille) initial[k] = "X";
+      else if (r.motif_absence_id) initial[k] = `m:${r.motif_absence_id}`;
+      else if (r.poste_id && matchQuart(r.quart_code)) initial[k] = r.poste_id;
+      else if (r.poste_id) otherByCell[k] = r.quart_code ?? (quartCodes[0] ?? "matin");
+    }
     for (const r of mat ?? []) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
   }
 
-  // Perimetre
   const isAdmin = profile.role === "admin";
   let chefEquipes = new Set<string>();
   if (!isAdmin) {
@@ -219,11 +230,11 @@ export default async function PlanningPage({
     })),
   }));
 
-  const extra: Record<string, string> = equipe ? { equipe } : {};
-  const navHref = (s: string) => {
-    const p = new URLSearchParams({ ...extra, semaine: s });
-    return `/planning?${p.toString()}`;
-  };
+  const quartLabel: Record<string, string> = {};
+  for (const q of quarts) quartLabel[q.code] = q.libelle.slice(0, 3);
+
+  const extra: Record<string, string> = { quart };
+  if (equipe) extra.equipe = equipe;
 
   return (
     <>
@@ -231,11 +242,15 @@ export default async function PlanningPage({
       <div className="container" style={{ maxWidth: 1500 }}>
         <h1>Planning</h1>
         <PeriodBand base="/planning" semaine={centerIso} extra={extra} weekNums={weekBlocks.map((w) => w.num)} />
-        <PlanningFilters
-          equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom }))}
-          equipe={equipe}
-          semaine={centerIso}
-        />
+        <div className="toolbar" style={{ gap: 24 }}>
+          <PlanningFilters
+            equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom }))}
+            equipe={equipe}
+            semaine={centerIso}
+            quart={quart}
+          />
+          <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} />
+        </div>
         <PlanningGrid
           days={days}
           weekBlocks={weekBlocks}
@@ -247,6 +262,9 @@ export default async function PlanningPage({
           besoin={besoin}
           initial={initial}
           matrice={matrice}
+          quart={quart}
+          otherByCell={otherByCell}
+          quartLabel={quartLabel}
         />
       </div>
     </>

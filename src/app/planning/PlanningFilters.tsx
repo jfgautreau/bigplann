@@ -8,10 +8,12 @@ export default function PlanningFilters({
   equipes = [],
   equipe = "",
   semaine = "",
+  quart = "",
 }: {
   equipes?: Opt[];
   equipe?: string;
   semaine?: string;
+  quart?: string;
 }) {
   const router = useRouter();
 
@@ -19,6 +21,7 @@ export default function PlanningFilters({
     const p = new URLSearchParams();
     if (eq) p.set("equipe", eq);
     if (semaine) p.set("semaine", semaine);
+    if (quart) p.set("quart", quart);
     const qs = p.toString();
     router.push(qs ? `/planning?${qs}` : "/planning");
   }

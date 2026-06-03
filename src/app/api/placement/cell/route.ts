@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
     personne_id?: string;
     jour?: string;
     equipe_id?: string | null;
+    quart?: string | null;
     value?: string;
   } | null;
 
@@ -43,6 +44,10 @@ export async function POST(req: NextRequest) {
   else if (value.startsWith("m:")) motif_absence_id = value.slice(2);
   else poste_id = value;
 
+  // Le quart ne s'applique qu'a un placement sur poste (une absence/NT vaut
+  // pour toute la journee, tous quarts).
+  const quart_code = poste_id ? (body?.quart ?? null) : null;
+
   const { error } = await supabase.from("placement").upsert(
     {
       personne_id,
@@ -51,6 +56,7 @@ export async function POST(req: NextRequest) {
       poste_id,
       motif_absence_id,
       non_travaille,
+      quart_code,
       created_by: profile.authId,
     },
     { onConflict: "personne_id,jour" }
