@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
@@ -6,7 +7,7 @@ import OrdoGrid from "./OrdoGrid";
 import OrdoMonthNav from "./OrdoMonthNav";
 
 type Ligne = { id: string; nom: string; atelier: { nom: string } | null };
-type Equipe = { id: string; nom: string };
+type Quart = { code: string; libelle: string };
 
 export default async function OrdonnancementPage({
   searchParams,
@@ -21,52 +22,54 @@ export default async function OrdonnancementPage({
   const isos = days.map((d) => d.iso);
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, { data: equipesD }, { data: jeq }, { data: louv }] = await Promise.all([
+  const [{ data: quartsD }, { data: lignesD }, { data: jq }, { data: ov }] = await Promise.all([
+    supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
     supabase
       .from("ligne")
       .select("id, nom, atelier:atelier_id(nom)")
       .eq("actif", true)
       .order("nom")
       .returns<Ligne[]>(),
-    supabase.from("equipe").select("id, nom").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
-      .from("jour_equipe")
-      .select("jour, equipe_id, actif")
+      .from("jour_quart")
+      .select("jour, quart_code, actif")
       .in("jour", isos)
-      .returns<{ jour: string; equipe_id: string; actif: boolean }[]>(),
+      .returns<{ jour: string; quart_code: string; actif: boolean }[]>(),
     supabase
-      .from("ligne_ouverture")
-      .select("jour, ligne_id, equipe_id, ouverte")
+      .from("ouverture_quart")
+      .select("jour, ligne_id, quart_code, ouverte")
       .in("jour", isos)
-      .returns<{ jour: string; ligne_id: string; equipe_id: string; ouverte: boolean }[]>(),
+      .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
   ]);
 
-  const equipeState: Record<string, boolean> = {};
-  for (const r of jeq ?? []) equipeState[`${r.equipe_id}:${r.jour}`] = r.actif;
-
-  const ligneStateByEquipe: Record<string, Record<string, boolean>> = {};
-  for (const r of louv ?? []) {
-    (ligneStateByEquipe[r.equipe_id] ??= {})[`${r.ligne_id}:${r.jour}`] = r.ouverte;
-  }
+  const jourQuartState: Record<string, boolean> = {};
+  for (const r of jq ?? []) jourQuartState[`${r.quart_code}:${r.jour}`] = r.actif;
+  const ouvertureState: Record<string, boolean> = {};
+  for (const r of ov ?? []) ouvertureState[`${r.quart_code}:${r.ligne_id}:${r.jour}`] = r.ouverte;
 
   return (
     <>
       <AppHeader role={profile.role} active="/ordonnancement" />
       <div className="container" style={{ maxWidth: 1500 }}>
-        <h1>Ordonnancement</h1>
+        <div className="toolbar">
+          <h1 style={{ margin: 0 }}>Ordonnancement</h1>
+          <Link href="/admin/rotation" className="navlink">
+            Rotation des equipes &rarr;
+          </Link>
+        </div>
         <OrdoMonthNav base="/ordonnancement" year={year} month0={month0} />
 
         <OrdoGrid
           days={days}
           todayIso={isoDate(new Date())}
           currentWeekIsos={Array.from({ length: 7 }, (_, i) => isoDate(addDays(mondayOf(), i)))}
-          equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom }))}
+          quarts={quartsD ?? []}
           lignes={(lignesD ?? []).map((l) => ({
             id: l.id,
             label: l.atelier?.nom ? `${l.atelier.nom} / ${l.nom}` : l.nom,
           }))}
-          equipeState={equipeState}
-          ligneStateByEquipe={ligneStateByEquipe}
+          jourQuartState={jourQuartState}
+          ouvertureState={ouvertureState}
         />
       </div>
     </>

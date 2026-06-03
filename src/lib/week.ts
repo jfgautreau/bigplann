@@ -66,6 +66,12 @@ export function defaultOpenIso(iso: string): boolean {
   return !isSundayIso(iso);
 }
 
+// Quart actif par defaut : Matin et Apres-midi en semaine, Nuit fermee.
+export function defaultQuartActif(iso: string, code: string): boolean {
+  if (isSundayIso(iso)) return false;
+  return code !== "nuit";
+}
+
 // ---- Mois ----
 const MOIS_NOMS = [
   "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
