@@ -242,7 +242,7 @@ export default function PlanningGrid({
   const isToday = (d: Jour) => d.iso === todayIso;
 
   return (
-    <div className="card" style={{ overflowX: "auto", position: "relative" }}>
+    <div className="card" style={{ overflowX: "auto", position: "relative", padding: "6px 12px" }}>
       <div
         style={{
           position: "absolute",
@@ -259,15 +259,14 @@ export default function PlanningGrid({
       <table className="matrix" style={{ borderCollapse: "collapse" }}>
         <thead>
           <tr>
-            <th rowSpan={2} style={{ position: "sticky", left: 0, background: "#fff", textAlign: "left" }}>
-              Personne
-            </th>
+            <th rowSpan={2} style={{ position: "sticky", left: 0, background: "#fff", textAlign: "left", padding: "2px 8px" }} />
             {weekBlocks.map((w, i) => (
               <th
                 key={i}
                 colSpan={w.span}
                 style={{
                   textAlign: "center",
+                  padding: "2px 8px",
                   borderLeft: "3px solid #94a3b8",
                   background: w.isCurrent ? "#dbeafe" : "#f8fafc",
                 }}
@@ -301,7 +300,7 @@ export default function PlanningGrid({
           </tr>
           <tr>
             {days.map((d) => (
-              <th key={d.iso} style={{ textAlign: "center", minWidth: 58, ...sep(d), background: isToday(d) ? "#dbeafe" : undefined }}>
+              <th key={d.iso} style={{ textAlign: "center", minWidth: 58, padding: "2px 4px", ...sep(d), background: isToday(d) ? "#dbeafe" : undefined }}>
                 {d.nom.slice(0, 2)}
                 <br />
                 <span className="muted" style={{ fontWeight: 400 }}>{d.num}</span>
@@ -326,9 +325,9 @@ export default function PlanningGrid({
             ] as [string, (i: number) => string, (i: number) => string][]
           ).map(([label, get, color]) => (
             <tr key={label} style={{ background: "#f8fafc" }}>
-              <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600 }}>{label}</td>
+              <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600, padding: "1px 8px" }}>{label}</td>
               {days.map((d, i) => (
-                <td key={d.iso} style={{ textAlign: "center", fontWeight: 700, color: color(i), ...sep(d), background: isToday(d) ? "#eef2ff" : undefined }}>
+                <td key={d.iso} style={{ textAlign: "center", fontWeight: 700, padding: "1px 4px", color: color(i), ...sep(d), background: isToday(d) ? "#eef2ff" : undefined }}>
                   {get(i)}
                 </td>
               ))}

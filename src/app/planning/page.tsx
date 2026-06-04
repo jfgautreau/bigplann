@@ -246,16 +246,17 @@ export default async function PlanningPage({
     <>
       <AppHeader role={profile.role} active="/planning" />
       <div className="container" style={{ maxWidth: 1500 }}>
-        <h1>Planning</h1>
-        <PlanningNav base="/planning" semaine={centerIso} extra={extra} />
-        <div className="toolbar" style={{ gap: 24 }}>
-          <PlanningFilters
-            equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom, couleur: e.couleur }))}
-            equipe={equipe}
-            semaine={centerIso}
-            quart={quart}
-          />
-          <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+          <PlanningNav base="/planning" semaine={centerIso} extra={extra} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+            <PlanningFilters
+              equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom, couleur: e.couleur }))}
+              equipe={equipe}
+              semaine={centerIso}
+              quart={quart}
+            />
+            <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} />
+          </div>
         </div>
         <PlanningGrid
           key={`${equipe}|${quart}|${centerIso}`}
