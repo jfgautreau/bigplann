@@ -9,12 +9,15 @@ const s = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 export async function createEquipe(fd: FormData) {
   const supabase = await requireAdmin();
   const nom = s(fd, "nom");
-  if (nom) await supabase.from("equipe").insert({ nom });
+  if (nom) await supabase.from("equipe").insert({ nom, couleur: s(fd, "couleur") || "#64748b" });
   revalidatePath(PATH);
 }
 export async function renameEquipe(fd: FormData) {
   const supabase = await requireAdmin();
-  await supabase.from("equipe").update({ nom: s(fd, "nom") }).eq("id", s(fd, "id"));
+  await supabase
+    .from("equipe")
+    .update({ nom: s(fd, "nom"), couleur: s(fd, "couleur") || "#64748b" })
+    .eq("id", s(fd, "id"));
   revalidatePath(PATH);
 }
 export async function toggleEquipe(fd: FormData) {

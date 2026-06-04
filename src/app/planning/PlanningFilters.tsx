@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-type Opt = { id: string; label: string };
+type Opt = { id: string; label: string; couleur?: string };
 
 export default function PlanningFilters({
   equipes = [],
@@ -39,7 +39,23 @@ export default function PlanningFilters({
             type="button"
             className={equipe === e.id ? "seg active" : "seg"}
             onClick={() => go(e.id)}
+            style={
+              equipe === e.id && e.couleur
+                ? { background: e.couleur, color: "#fff", borderColor: e.couleur }
+                : undefined
+            }
           >
+            <span
+              style={{
+                display: "inline-block",
+                width: 10,
+                height: 10,
+                borderRadius: 2,
+                background: e.couleur ?? "#cbd5e1",
+                marginRight: 6,
+                verticalAlign: "middle",
+              }}
+            />
             {e.label}
           </button>
         ))}

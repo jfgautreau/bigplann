@@ -7,8 +7,8 @@ type Jour = { iso: string; nom: string; num: string; firstOfWeek?: boolean };
 type Item = { id: string; label: string };
 type Quart = { code: string; libelle: string };
 
-const FIRST_W = 210;
-const DAY_W = 40;
+const FIRST_W = 150;
+const DAY_W = 34;
 
 export default function OrdoGrid({
   days,
@@ -59,7 +59,7 @@ export default function OrdoGrid({
     post({ type: "ligne", quart_code: code, ligne_id: lg, jour: iso, value: next });
   }
 
-  const sep = (d: Jour) => (d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {});
+  const sep = (d: Jour) => (d.firstOfWeek ? { borderLeft: "2px solid #cbd5e1" } : {});
   const currentSet = new Set(currentWeekIsos);
   const dayBg = (iso: string) =>
     iso === todayIso ? "#dbeafe" : currentSet.has(iso) ? "#eff6ff" : undefined;

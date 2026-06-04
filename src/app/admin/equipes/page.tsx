@@ -12,7 +12,7 @@ import {
 } from "./actions";
 
 type Chef = { id: string; app_user_id: string };
-type Equipe = { id: string; nom: string; actif: boolean; equipe_chef: Chef[] };
+type Equipe = { id: string; nom: string; actif: boolean; couleur: string; equipe_chef: Chef[] };
 type AppUser = { user_id: string; name: string; email: string };
 
 export default async function EquipesPage() {
@@ -22,7 +22,7 @@ export default async function EquipesPage() {
   const [{ data: equipesData }, { data: usersData }] = await Promise.all([
     supabase
       .from("equipe")
-      .select("id, nom, actif, equipe_chef(id, app_user_id)")
+      .select("id, nom, actif, couleur, equipe_chef(id, app_user_id)")
       .order("nom")
       .returns<Equipe[]>(),
     supabase
@@ -51,6 +51,10 @@ export default async function EquipesPage() {
               <span>Nouvelle equipe</span>
               <input name="nom" placeholder="Ex. Equipe A, Nuit..." required />
             </div>
+            <div className="field">
+              <span>Couleur</span>
+              <input name="couleur" type="color" defaultValue="#16a34a" style={{ width: 48, padding: 2 }} />
+            </div>
             <button type="submit">Ajouter</button>
           </form>
         </div>
@@ -62,9 +66,13 @@ export default async function EquipesPage() {
             <div className="toolbar">
               <form action={renameEquipe} autoComplete="off" className="inline-form">
                 <input type="hidden" name="id" value={e.id} />
+                <span
+                  style={{ display: "inline-block", width: 16, height: 16, borderRadius: 4, background: e.couleur, border: "1px solid #cbd5e1" }}
+                />
                 <input name="nom" defaultValue={e.nom} />
+                <input name="couleur" type="color" defaultValue={e.couleur} style={{ width: 44, padding: 2 }} />
                 <button type="submit" className="btn-sm btn-ghost">
-                  Renommer
+                  Enregistrer
                 </button>
               </form>
               <span className={e.actif ? "tag" : "tag tag-off"}>

@@ -26,7 +26,7 @@ export function parseMonday(s?: string): Date {
 
 const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
-export type Jour = { iso: string; nom: string; num: string };
+export type Jour = { iso: string; nom: string; num: string; firstOfWeek?: boolean };
 
 export function weekDays(monday: Date): Jour[] {
   return Array.from({ length: 7 }, (_, i) => {
@@ -105,6 +105,7 @@ export function monthDays(year: number, month0: number): Jour[] {
       iso: isoDate(d),
       nom: JOURS[(d.getDay() + 6) % 7],
       num: `${String(d.getDate()).padStart(2, "0")}/${String(month0 + 1).padStart(2, "0")}`,
+      firstOfWeek: d.getDay() === 1, // lundi
     };
   });
 }

@@ -24,7 +24,7 @@ type PosteRow = {
   niveau_min_requis: number;
 };
 type LigneRow = { id: string; nom: string; poste: PosteRow[] };
-type Equipe = { id: string; nom: string };
+type Equipe = { id: string; nom: string; couleur: string };
 type Quart = { code: string; libelle: string };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null };
 type Placement = {
@@ -59,7 +59,7 @@ export default async function PlanningPage({
 
   const supabase = await getServerClient();
   const [{ data: equipesD }, { data: lignesD }, { data: motifsD }, { data: quartsD }] = await Promise.all([
-    supabase.from("equipe").select("id, nom").eq("actif", true).order("nom").returns<Equipe[]>(),
+    supabase.from("equipe").select("id, nom, couleur").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
       .from("ligne")
       .select("id, nom, poste(id, nom, nom_court, actif, effectif_requis, niveau_min_requis)")
@@ -212,10 +212,14 @@ export default async function PlanningPage({
     chefEquipes = new Set((data ?? []).map((r) => r.equipe_id));
   }
 
+  const equipeColor: Record<string, string> = {};
+  for (const e of equipesD ?? []) equipeColor[e.id] = e.couleur;
+
   const gridPersonnes = personnes.map((p) => ({
     id: p.id,
     label: `${p.nom} ${p.prenom}`,
     equipe_id: p.equipe_id,
+    color: p.equipe_id ? equipeColor[p.equipe_id] : undefined,
     editable: isAdmin || (p.equipe_id != null && chefEquipes.has(p.equipe_id)),
   }));
 
@@ -244,7 +248,7 @@ export default async function PlanningPage({
         <PeriodBand base="/planning" semaine={centerIso} extra={extra} weekNums={weekBlocks.map((w) => w.num)} />
         <div className="toolbar" style={{ gap: 24 }}>
           <PlanningFilters
-            equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom }))}
+            equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom, couleur: e.couleur }))}
             equipe={equipe}
             semaine={centerIso}
             quart={quart}

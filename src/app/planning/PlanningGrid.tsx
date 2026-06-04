@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
 type WeekBlock = { num: number; span: number; year: number; isCurrent: boolean };
 type Poste = { id: string; nom: string; niveauMin: number; effectif: number };
 type Group = { ligneNom: string; ligneId: string; postes: Poste[] };
 type Motif = { id: string; code: string; couleur: string };
-type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean };
+type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean; color?: string };
 
 export default function PlanningGrid({
   days,
@@ -38,6 +39,7 @@ export default function PlanningGrid({
   otherByCell?: Record<string, string>;
   quartLabel?: Record<string, string>;
 }) {
+  const router = useRouter();
   const [vals, setVals] = useState<Record<string, string>>(initial);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
@@ -198,6 +200,34 @@ export default function PlanningGrid({
     setTimeout(() => setSaving("idle"), 1200);
   }
 
+  // Reinitialise (vide) tous les placements de la semaine pour les personnes editables affichees.
+  async function resetWeek(block: number) {
+    const isos = (blockDayIndices[block] ?? []).map((idx) => days[idx].iso);
+    const pids = personnes.filter((p) => p.editable).map((p) => p.id);
+    if (!isos.length || !pids.length) return;
+    if (!window.confirm("Reinitialiser (vider) tous les placements de cette semaine pour les personnes affichees ?")) {
+      return;
+    }
+    setVals((s) => {
+      const n = { ...s };
+      for (const p of pids) for (const iso of isos) delete n[`${p}:${iso}`];
+      return n;
+    });
+    setSaving("saving");
+    try {
+      const res = await fetch("/api/placement/reset-week", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personne_ids: pids, jours: isos }),
+      });
+      setSaving(res.ok ? "saved" : "error");
+      if (res.ok) router.refresh();
+    } catch {
+      setSaving("error");
+    }
+    setTimeout(() => setSaving("idle"), 1200);
+  }
+
   const deltaColor = (d: number) => (d < 0 ? "var(--danger)" : d > 0 ? "#9a3412" : "var(--ok)");
   const sep = (d: Jour): React.CSSProperties => (d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {});
   const isToday = (d: Jour) => d.iso === todayIso;
@@ -247,6 +277,15 @@ export default function PlanningGrid({
                       &larr; S-1
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className="btn-sm btn-ghost"
+                    style={{ padding: "2px 6px", fontSize: 11 }}
+                    onClick={() => resetWeek(i)}
+                    title="Reinitialiser (vider) la semaine"
+                  >
+                    Vider
+                  </button>
                 </span>
               </th>
             ))}
@@ -290,6 +329,17 @@ export default function PlanningGrid({
           {personnes.map((pers) => (
             <tr key={pers.id}>
               <td style={{ position: "sticky", left: 0, background: "#fff", whiteSpace: "nowrap" }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 4,
+                    height: 14,
+                    borderRadius: 2,
+                    background: pers.color ?? "transparent",
+                    marginRight: 6,
+                    verticalAlign: "middle",
+                  }}
+                />
                 {pers.label}
                 {!pers.editable && <span className="muted"> (lecture)</span>}
               </td>
