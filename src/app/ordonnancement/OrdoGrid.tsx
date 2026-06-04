@@ -6,12 +6,14 @@ import { defaultQuartActif } from "@/lib/week";
 type Jour = { iso: string; nom: string; num: string; firstOfWeek?: boolean };
 type Item = { id: string; label: string };
 type Quart = { code: string; libelle: string };
+type WeekBlock = { num: number; year: number; span: number };
 
 const FIRST_W = 150;
 const DAY_W = 34;
 
 export default function OrdoGrid({
   days,
+  weekBlocks = [],
   todayIso,
   currentWeekIsos = [],
   quarts,
@@ -20,6 +22,7 @@ export default function OrdoGrid({
   ouvertureState,
 }: {
   days: Jour[];
+  weekBlocks?: WeekBlock[];
   todayIso: string;
   currentWeekIsos?: string[];
   quarts: Quart[];
@@ -72,6 +75,20 @@ export default function OrdoGrid({
 
   const Header = ({ label }: { label: string }) => (
     <thead>
+      {weekBlocks.length > 0 && (
+        <tr>
+          <th style={{ width: FIRST_W }}></th>
+          {weekBlocks.map((w, i) => (
+            <th
+              key={i}
+              colSpan={w.span}
+              style={{ textAlign: "center", fontSize: 12, borderLeft: "2px solid #cbd5e1", background: "#f8fafc" }}
+            >
+              {w.year} · S{w.num}
+            </th>
+          ))}
+        </tr>
+      )}
       <tr>
         <th style={{ width: FIRST_W, textAlign: "left" }}>{label}</th>
         {days.map((d) => (

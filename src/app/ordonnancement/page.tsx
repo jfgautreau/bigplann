@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
-import { parseMois, monthDays, isoDate, mondayOf, addDays } from "@/lib/week";
+import { parseMois, monthDays, isoDate, mondayOf, addDays, isoWeekNumber } from "@/lib/week";
 import OrdoGrid from "./OrdoGrid";
 import OrdoMonthNav from "./OrdoMonthNav";
 
@@ -20,6 +20,17 @@ export default async function OrdonnancementPage({
   const { year, month0 } = parseMois(sp.mois);
   const days = monthDays(year, month0);
   const isos = days.map((d) => d.iso);
+
+  // Blocs-semaine (annee + n0 ISO) pour l'en-tete des tableaux.
+  const weekBlocks: { num: number; year: number; span: number }[] = [];
+  for (const d of days) {
+    if (d.firstOfWeek || weekBlocks.length === 0) {
+      const mon = mondayOf(new Date(d.iso + "T00:00"));
+      weekBlocks.push({ num: isoWeekNumber(mon), year: addDays(mon, 3).getFullYear(), span: 1 });
+    } else {
+      weekBlocks[weekBlocks.length - 1].span += 1;
+    }
+  }
 
   const supabase = await getServerClient();
   const [{ data: quartsD }, { data: lignesD }, { data: jq }, { data: ov }] = await Promise.all([
@@ -61,6 +72,7 @@ export default async function OrdonnancementPage({
 
         <OrdoGrid
           days={days}
+          weekBlocks={weekBlocks}
           todayIso={isoDate(new Date())}
           currentWeekIsos={Array.from({ length: 7 }, (_, i) => isoDate(addDays(mondayOf(), i)))}
           quarts={quartsD ?? []}
