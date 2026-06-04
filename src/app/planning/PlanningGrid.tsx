@@ -141,7 +141,10 @@ export default function PlanningGrid({
   // Recopie la valeur d'une case sur tous les autres jours de la meme semaine.
   async function fillWeek(pers: Personne, dayIndex: number) {
     const value = vals[key(pers.id, days[dayIndex].iso)] ?? "";
-    const targets = days.filter((_, j) => j !== dayIndex && weekIdx[j] === weekIdx[dayIndex]);
+    // On ne touche pas aux jours ou la personne est deja placee sur un autre quart.
+    const targets = days
+      .filter((_, j) => j !== dayIndex && weekIdx[j] === weekIdx[dayIndex])
+      .filter((t) => !otherByCell[key(pers.id, t.iso)]);
     const hasExisting = targets.some((t) => (vals[key(pers.id, t.iso)] ?? "") !== "");
     if (hasExisting && !window.confirm("Des affectations existent deja cette semaine pour cette personne. Les ecraser ?")) {
       return;
@@ -182,6 +185,7 @@ export default function PlanningGrid({
     for (const p of personnes) {
       if (!p.editable) continue;
       for (const j of tgt) {
+        if (otherByCell[key(p.id, days[j].iso)]) continue; // place sur un autre quart : on ne touche pas
         const s = srcByDow[days[j].nom];
         if (s === undefined) continue;
         const value = vals[key(p.id, days[s].iso)] ?? "";
