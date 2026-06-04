@@ -159,16 +159,18 @@ export default async function PlanningPage({
     seenWeek.add(d.wi);
   });
 
-  // Personnes
-  let persQ = supabase
+  // Toutes les personnes actives : on n'affiche que l'equipe filtree (lignes),
+  // mais les indicateurs Present/Delta/Alertes comptent TOUT le quart (toutes equipes).
+  const { data: allActiveD } = await supabase
     .from("personne")
     .select("id, nom, prenom, equipe_id")
     .eq("statut", "ACTIF")
-    .order("nom");
-  if (equipe) persQ = persQ.eq("equipe_id", equipe);
-  const { data: persD } = await persQ.returns<Personne[]>();
-  const personnes = persD ?? [];
-  const persIds = personnes.map((p) => p.id);
+    .order("nom")
+    .returns<Personne[]>();
+  const allActive = allActiveD ?? [];
+  const allIds = allActive.map((p) => p.id);
+  const displayed = equipe ? allActive.filter((p) => p.equipe_id === equipe) : allActive;
+  const displayedSet = new Set(displayed.map((p) => p.id));
 
   // Une affectation sur poste n'apparait que pour le quart courant ; une absence/NT
   // vaut pour tous les quarts. matchQuart gere les anciens placements (quart null -> matin).
@@ -177,18 +179,18 @@ export default async function PlanningPage({
   const initial: Record<string, string> = {};
   const otherByCell: Record<string, string> = {}; // place sur un autre quart -> code du quart
   const matrice: Record<string, number> = {};
-  if (persIds.length && visIsos.length) {
+  if (allIds.length && visIsos.length) {
     const [{ data: pl }, { data: mat }] = await Promise.all([
       supabase
         .from("placement")
         .select("personne_id, jour, poste_id, motif_absence_id, non_travaille, quart_code")
         .in("jour", visIsos)
-        .in("personne_id", persIds)
+        .in("personne_id", allIds)
         .returns<Placement[]>(),
       supabase
         .from("matrice")
         .select("personne_id, poste_id, niveau_actuel")
-        .in("personne_id", persIds)
+        .in("personne_id", allIds)
         .returns<MatRow[]>(),
     ]);
     for (const r of pl ?? []) {
@@ -196,7 +198,7 @@ export default async function PlanningPage({
       if (r.non_travaille) initial[k] = "X";
       else if (r.motif_absence_id) initial[k] = `m:${r.motif_absence_id}`;
       else if (r.poste_id && matchQuart(r.quart_code)) initial[k] = r.poste_id;
-      else if (r.poste_id) otherByCell[k] = r.quart_code ?? (quartCodes[0] ?? "matin");
+      else if (r.poste_id && displayedSet.has(r.personne_id)) otherByCell[k] = r.quart_code ?? (quartCodes[0] ?? "matin");
     }
     for (const r of mat ?? []) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
   }
@@ -215,7 +217,7 @@ export default async function PlanningPage({
   const equipeColor: Record<string, string> = {};
   for (const e of equipesD ?? []) equipeColor[e.id] = e.couleur;
 
-  const gridPersonnes = personnes.map((p) => ({
+  const gridPersonnes = displayed.map((p) => ({
     id: p.id,
     label: `${p.nom} ${p.prenom}`,
     equipe_id: p.equipe_id,
@@ -261,6 +263,7 @@ export default async function PlanningPage({
           weekBlocks={weekBlocks}
           todayIso={isoDate(new Date())}
           personnes={gridPersonnes}
+          statIds={allIds}
           groups={gridGroups}
           openByIso={openByIso}
           motifs={motifs.map((m) => ({ id: m.id, code: m.code_court, couleur: m.couleur }))}

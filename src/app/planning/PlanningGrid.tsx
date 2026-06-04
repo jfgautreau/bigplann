@@ -15,6 +15,7 @@ export default function PlanningGrid({
   weekBlocks = [],
   todayIso = "",
   personnes = [],
+  statIds = [],
   groups = [],
   openByIso = {},
   motifs = [],
@@ -29,6 +30,7 @@ export default function PlanningGrid({
   weekBlocks?: WeekBlock[];
   todayIso?: string;
   personnes?: Personne[];
+  statIds?: string[];
   groups?: Group[];
   openByIso?: Record<string, string[]>;
   motifs?: Motif[];
@@ -99,16 +101,19 @@ export default function PlanningGrid({
   const horsComp = (pid: string, v: string) =>
     isPoste(v) && (matrice[`${pid}:${v}`] ?? 0) < (niveauMin[v] ?? 0);
 
+  // Indicateurs comptes sur TOUTES les personnes du quart (statIds), pas seulement
+  // l'equipe affichee : le besoin et le present concernent l'ensemble du quart.
+  const indicIds = statIds.length ? statIds : personnes.map((p) => p.id);
   const perDay = days.map((d) => {
     const counts: Record<string, number> = {};
     let present = 0;
     let alerts = 0;
-    for (const pers of personnes) {
-      const v = vals[key(pers.id, d.iso)] ?? "";
+    for (const pid of indicIds) {
+      const v = vals[key(pid, d.iso)] ?? "";
       if (isPoste(v)) {
         present++;
         counts[v] = (counts[v] ?? 0) + 1;
-        if (horsComp(pers.id, v)) alerts++;
+        if (horsComp(pid, v)) alerts++;
       }
     }
     return { counts, present, alerts };
