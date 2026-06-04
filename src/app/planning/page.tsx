@@ -256,6 +256,7 @@ export default async function PlanningPage({
           <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} />
         </div>
         <PlanningGrid
+          key={`${equipe}|${quart}|${centerIso}`}
           days={days}
           weekBlocks={weekBlocks}
           todayIso={isoDate(new Date())}
