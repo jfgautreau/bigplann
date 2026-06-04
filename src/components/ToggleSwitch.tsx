@@ -3,7 +3,7 @@
 // Cadenas ferme (off) / ouvert (on), facon visuel de bascule.
 function Lock({ open }: { open: boolean }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="5" y="11" width="14" height="9" rx="2" fill="#e5e7eb" />
       {open ? <path d="M8 11V7a4 4 0 0 1 8 0" /> : <path d="M8 11V7a4 4 0 0 1 8 0v4" />}
     </svg>
@@ -24,9 +24,9 @@ export default function ToggleSwitch({
   offLabel?: string;
   title?: string;
 }) {
-  const W = 112;
-  const H = 34;
-  const K = 28;
+  const W = 92;
+  const H = 24;
+  const K = 18;
   return (
     <button
       type="button"
@@ -55,12 +55,12 @@ export default function ToggleSwitch({
           bottom: 0,
           display: "flex",
           alignItems: "center",
-          left: on ? 14 : "auto",
-          right: on ? "auto" : 14,
+          left: on ? 11 : "auto",
+          right: on ? "auto" : 11,
           color: "#fff",
           fontWeight: 700,
-          fontSize: 12,
-          letterSpacing: 0.3,
+          fontSize: 11,
+          letterSpacing: 0.2,
         }}
       >
         {on ? onLabel : offLabel}

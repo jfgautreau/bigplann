@@ -117,11 +117,23 @@ table {
   font-size: 14px;
 }
 
+:root {
+  --appbar: 40px; /* hauteur approx. de la barre d'app sticky, pour figer les en-tetes */
+}
+
 th,
 td {
   text-align: left;
-  padding: 8px 10px;
+  padding: 4px 10px;
   border-bottom: 1px solid var(--border);
+}
+
+/* En-tetes de tableau qui restent visibles au defilement (sous la barre d'app). */
+.sticky-head thead tr:first-child th {
+  position: sticky;
+  top: var(--appbar);
+  background: #fff;
+  z-index: 20;
 }
 
 th {

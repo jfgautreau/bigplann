@@ -242,7 +242,7 @@ export default function PlanningGrid({
   const isToday = (d: Jour) => d.iso === todayIso;
 
   return (
-    <div className="card" style={{ overflowX: "auto", position: "relative", padding: "6px 12px" }}>
+    <div className="card" style={{ overflow: "auto", maxHeight: "calc(100vh - 190px)", position: "relative", padding: "6px 12px" }}>
       <div
         style={{
           position: "absolute",
@@ -259,7 +259,7 @@ export default function PlanningGrid({
       <table className="matrix" style={{ borderCollapse: "collapse" }}>
         <thead>
           <tr>
-            <th rowSpan={2} style={{ position: "sticky", left: 0, background: "#fff", textAlign: "left", padding: "2px 8px" }} />
+            <th rowSpan={2} style={{ position: "sticky", left: 0, top: 0, zIndex: 25, background: "#fff", textAlign: "left", padding: "2px 8px" }} />
             {weekBlocks.map((w, i) => (
               <th
                 key={i}
@@ -267,6 +267,9 @@ export default function PlanningGrid({
                 style={{
                   textAlign: "center",
                   padding: "2px 8px",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 20,
                   borderLeft: "3px solid #94a3b8",
                   background: w.isCurrent ? "#dbeafe" : "#f8fafc",
                 }}
@@ -300,7 +303,7 @@ export default function PlanningGrid({
           </tr>
           <tr>
             {days.map((d) => (
-              <th key={d.iso} style={{ textAlign: "center", minWidth: 58, padding: "2px 4px", ...sep(d), background: isToday(d) ? "#dbeafe" : undefined }}>
+              <th key={d.iso} style={{ textAlign: "center", minWidth: 58, padding: "2px 4px", position: "sticky", top: 26, zIndex: 20, ...sep(d), background: isToday(d) ? "#dbeafe" : "#fff" }}>
                 {d.nom.slice(0, 2)}
                 <br />
                 <span className="muted" style={{ fontWeight: 400 }}>{d.num}</span>

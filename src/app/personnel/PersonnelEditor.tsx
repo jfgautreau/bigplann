@@ -34,11 +34,17 @@ export default function PersonnelEditor({
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Ajout rapide
+  // Formulaire de creation
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
+  const [matricule, setMatricule] = useState("");
   const [eq, setEq] = useState("");
   const [contrat, setContrat] = useState("CDI");
+  const [dateDebut, setDateDebut] = useState("");
+  const [dateFin, setDateFin] = useState("");
+  const [agence, setAgence] = useState("");
+  const [pointure, setPointure] = useState("");
+  const [commentaire, setCommentaire] = useState("");
 
   const equipeNom = (id: string | null) => (id ? equipes.find((e) => e.id === id)?.nom ?? "" : "");
 
@@ -81,13 +87,30 @@ export default function PersonnelEditor({
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (!nom.trim() || !prenom.trim()) return;
-    const j = await post("create", { nom: nom.trim(), prenom: prenom.trim(), equipe_id: eq, type_contrat: contrat });
+    const j = await post("create", {
+      nom: nom.trim(),
+      prenom: prenom.trim(),
+      matricule,
+      equipe_id: eq,
+      type_contrat: contrat,
+      agence_interim: agence,
+      date_debut: dateDebut,
+      date_fin: dateFin,
+      pointure,
+      commentaire,
+    });
     if (j?.row) {
       setRows((rs) => [...rs, j.row as Row].sort(sortRows));
       setNom("");
       setPrenom("");
+      setMatricule("");
       setEq("");
       setContrat("CDI");
+      setDateDebut("");
+      setDateFin("");
+      setAgence("");
+      setPointure("");
+      setCommentaire("");
     }
   }
 
@@ -122,38 +145,62 @@ export default function PersonnelEditor({
       {canEdit && (
         <div className="card" style={{ marginBottom: 20 }}>
           <h2 style={{ marginTop: 0 }}>Ajouter une personne</h2>
-          <form onSubmit={add} autoComplete="off" className="toolbar" style={{ alignItems: "flex-end" }}>
-            <div className="field">
-              <span>Nom *</span>
-              <input value={nom} onChange={(e) => setNom(e.target.value)} required />
+          <form onSubmit={add} autoComplete="off">
+            <div className="toolbar">
+              <div className="field">
+                <span>Nom *</span>
+                <input value={nom} onChange={(e) => setNom(e.target.value)} required />
+              </div>
+              <div className="field">
+                <span>Prénom *</span>
+                <input value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
+              </div>
+              <div className="field">
+                <span>Matricule</span>
+                <input value={matricule} onChange={(e) => setMatricule(e.target.value)} placeholder="(auto si intérim)" />
+              </div>
+              <div className="field">
+                <span>Équipe</span>
+                <select value={eq} onChange={(e) => setEq(e.target.value)}>
+                  <option value="">-</option>
+                  {equipes.map((x) => (
+                    <option key={x.id} value={x.id}>{x.nom}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <span>Contrat</span>
+                <select value={contrat} onChange={(e) => setContrat(e.target.value)}>
+                  {CONTRATS.map((c) => (
+                    <option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="field">
-              <span>Prénom *</span>
-              <input value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
+            <div className="toolbar">
+              <div className="field">
+                <span>Début</span>
+                <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
+              </div>
+              <div className="field">
+                <span>Fin (CDD/intérim)</span>
+                <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
+              </div>
+              <div className="field">
+                <span>Agence (si intérim)</span>
+                <input value={agence} onChange={(e) => setAgence(e.target.value)} />
+              </div>
+              <div className="field">
+                <span>Pointure</span>
+                <input value={pointure} maxLength={5} onChange={(e) => setPointure(e.target.value)} style={{ width: 70 }} placeholder="ex. 42" />
+              </div>
             </div>
-            <div className="field">
-              <span>Équipe</span>
-              <select value={eq} onChange={(e) => setEq(e.target.value)}>
-                <option value="">-</option>
-                {equipes.map((x) => (
-                  <option key={x.id} value={x.id}>{x.nom}</option>
-                ))}
-              </select>
+            <div className="field" style={{ marginTop: 4 }}>
+              <span>Commentaire (pas d&apos;information médicale)</span>
+              <input value={commentaire} onChange={(e) => setCommentaire(e.target.value)} style={{ width: "100%" }} />
             </div>
-            <div className="field">
-              <span>Contrat</span>
-              <select value={contrat} onChange={(e) => setContrat(e.target.value)}>
-                {CONTRATS.map((c) => (
-                  <option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>
-                ))}
-              </select>
-            </div>
-            <button type="submit" style={{ width: "auto", padding: "9px 22px" }}>+ Ajouter</button>
+            <button type="submit" style={{ width: "auto", padding: "9px 22px" }}>Créer</button>
           </form>
-          <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
-            Saisissez Nom + Prénom puis Entrée. Les autres champs (matricule, pointure…) se
-            renseignent directement dans le tableau ; dates, agence et RGPD via « Modifier ».
-          </p>
         </div>
       )}
 
@@ -161,7 +208,7 @@ export default function PersonnelEditor({
         <div style={{ minHeight: 16, textAlign: "right", fontSize: 12, fontWeight: 600, color: saveColor, marginBottom: 4 }}>
           {saveLabel}
         </div>
-        <table>
+        <table className="sticky-head">
           <thead>
             <tr>
               {COLS.map((c) => (

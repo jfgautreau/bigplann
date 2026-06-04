@@ -33,7 +33,18 @@ export async function POST(req: NextRequest) {
       if (!matricule && type_contrat === "INTERIM") matricule = `INT-${Date.now().toString(36).toUpperCase()}`;
       const { data, error } = await supabase
         .from("personne")
-        .insert({ nom, prenom, equipe_id: orNull(s(body.equipe_id)), type_contrat, matricule })
+        .insert({
+          nom,
+          prenom,
+          equipe_id: orNull(s(body.equipe_id)),
+          type_contrat,
+          matricule,
+          agence_interim: type_contrat === "INTERIM" ? orNull(s(body.agence_interim)) : null,
+          date_debut: orNull(s(body.date_debut)),
+          date_fin: orNull(s(body.date_fin)),
+          pointure: orNull(s(body.pointure)),
+          commentaire: orNull(s(body.commentaire)),
+        })
         .select(COLS)
         .single();
       if (error) throw error;
