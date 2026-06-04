@@ -10,7 +10,7 @@ function Lock({ open }: { open: boolean }) {
   );
 }
 
-// Interrupteur a bascule : vert "Actif" (on) / rouge "Inactif" (off).
+// Interrupteur a bascule : vert (on) / rouge (off), libelles parametrables.
 export default function ToggleSwitch({
   on,
   onChange,

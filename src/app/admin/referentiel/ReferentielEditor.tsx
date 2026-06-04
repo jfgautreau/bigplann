@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import ToggleSwitch from "./ToggleSwitch";
+import ToggleSwitch from "@/components/ToggleSwitch";
 
 type Poste = {
   id: string;
