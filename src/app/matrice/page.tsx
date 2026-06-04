@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
-import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
 import MatriceFilters from "./MatriceFilters";
@@ -34,14 +32,7 @@ export default async function MatricePage({
 
   const sp = await searchParams;
   const supabase = await getServerClient();
-
-  // Filtres
-  const [{ data: ateliersData }, { data: equipesData }] = await Promise.all([
-    supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
-    supabase.from("equipe").select("id, nom").eq("actif", true).order("nom").returns<Equipe[]>(),
-  ]);
-  const ateliers = ateliersData ?? [];
-  const equipes = equipesData ?? [];
+  const isAdmin = profile.role === "admin";
 
   // Lignes (+ postes) eventuellement filtrees par atelier
   let ligneQ = supabase
@@ -50,7 +41,35 @@ export default async function MatricePage({
     .eq("actif", true)
     .order("nom");
   if (sp.atelier) ligneQ = ligneQ.eq("atelier_id", sp.atelier);
-  const { data: lignesData } = await ligneQ.returns<LigneRow[]>();
+
+  // Personnes (filtre equipe)
+  let persQ = supabase
+    .from("personne")
+    .select("id, nom, prenom, equipe_id")
+    .eq("statut", "ACTIF")
+    .order("nom");
+  if (sp.equipe) persQ = persQ.eq("equipe_id", sp.equipe);
+
+  // Vague 1 : tout ce qui est independant part en parallele.
+  const [
+    { data: ateliersData },
+    { data: equipesData },
+    { data: lignesData },
+    { data: persData },
+    { data: chefData },
+  ] = await Promise.all([
+    supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
+    supabase.from("equipe").select("id, nom").eq("actif", true).order("nom").returns<Equipe[]>(),
+    ligneQ.returns<LigneRow[]>(),
+    persQ.returns<Personne[]>(),
+    isAdmin
+      ? Promise.resolve({ data: [] as { equipe_id: string }[] })
+      : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
+  ]);
+  const ateliers = ateliersData ?? [];
+  const equipes = equipesData ?? [];
+  const personnes = persData ?? [];
+  const chefEquipes = new Set((chefData ?? []).map((r) => r.equipe_id));
 
   const groups = (lignesData ?? [])
     .map((l) => ({
@@ -70,17 +89,7 @@ export default async function MatricePage({
 
   const posteIds = groups.flatMap((g) => g.postes.map((p) => p.id));
 
-  // Personnes (filtre equipe)
-  let persQ = supabase
-    .from("personne")
-    .select("id, nom, prenom, equipe_id")
-    .eq("statut", "ACTIF")
-    .order("nom");
-  if (sp.equipe) persQ = persQ.eq("equipe_id", sp.equipe);
-  const { data: persData } = await persQ.returns<Personne[]>();
-  const personnes = persData ?? [];
-
-  // Niveaux existants
+  // Niveaux existants (vague 2 : depend des postes affiches et des personnes)
   const initial: Record<string, { a: number; c: number }> = {};
   if (posteIds.length && personnes.length) {
     const { data: m } = await supabase
@@ -94,18 +103,7 @@ export default async function MatricePage({
     }
   }
 
-  // Perimetre d'edition
-  const isAdmin = profile.role === "admin";
-  let chefEquipes = new Set<string>();
-  if (!isAdmin) {
-    const { data } = await supabase
-      .from("equipe_chef")
-      .select("equipe_id")
-      .eq("app_user_id", profile.authId)
-      .returns<{ equipe_id: string }[]>();
-    chefEquipes = new Set((data ?? []).map((r) => r.equipe_id));
-  }
-
+  // Perimetre d'edition (chefEquipes recupere en vague 1)
   const gridPersonnes = personnes.map((p) => ({
     id: p.id,
     label: `${p.nom} ${p.prenom}`,

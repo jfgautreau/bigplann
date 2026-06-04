@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
@@ -63,7 +64,8 @@ export function canWrite(p: Perms, mod: string): boolean {
 }
 
 // Droits effectifs d'un role = defauts surchargés par la table role_permission.
-export async function getPermissions(role: string): Promise<Perms> {
+// `cache()` : dedupe la requete role_permission par role sur toute la requete HTTP.
+export const getPermissions = cache(async function getPermissions(role: string): Promise<Perms> {
   const p = defaultsFor(role);
   try {
     const supabase = await getServerClient();
@@ -77,7 +79,7 @@ export async function getPermissions(role: string): Promise<Perms> {
     // table absente ou erreur : on garde les defauts
   }
   return p;
-}
+});
 
 // Tous les droits effectifs (pour l'editeur de la matrice).
 export async function getAllPermissions(): Promise<Record<string, Perms>> {

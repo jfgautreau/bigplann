@@ -1,10 +1,13 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Client serveur lie aux cookies de la requete (lit la session du user appelant).
-export async function getServerClient(): Promise<SupabaseClient> {
+// `cache()` : un seul client instancie par requete, meme si plusieurs couches
+// (getCurrentProfile, getPermissions, page) l'appellent dans le meme rendu.
+export const getServerClient = cache(async function getServerClient(): Promise<SupabaseClient> {
   const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +29,7 @@ export async function getServerClient(): Promise<SupabaseClient> {
       },
     }
   );
-}
+});
 
 // Client service_role : bypass RLS. A utiliser UNIQUEMENT dans des routes
 // serveur qui ont deja verifie l'autorisation de l'appelant.

@@ -58,7 +58,17 @@ export default async function PlanningPage({
   const allIsos = rawDays.map((d) => d.iso);
 
   const supabase = await getServerClient();
-  const [{ data: equipesD }, { data: lignesD }, { data: motifsD }, { data: quartsD }] = await Promise.all([
+  const isAdmin = profile.role === "admin";
+  // Vague 1 : referentiel + personnes + perimetre chef, tout independant du calcul
+  // d'ouverture qui suit. allActive sert aux indicateurs (tout le quart, toutes equipes).
+  const [
+    { data: equipesD },
+    { data: lignesD },
+    { data: motifsD },
+    { data: quartsD },
+    { data: allActiveD },
+    { data: chefData },
+  ] = await Promise.all([
     supabase.from("equipe").select("id, nom, couleur").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
       .from("ligne")
@@ -73,6 +83,10 @@ export default async function PlanningPage({
       .order("libelle")
       .returns<Motif[]>(),
     supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
+    supabase.from("personne").select("id, nom, prenom, equipe_id").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
+    isAdmin
+      ? Promise.resolve({ data: [] as { equipe_id: string }[] })
+      : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
   ]);
   const motifs = motifsD ?? [];
   const quarts = quartsD ?? [];
@@ -159,14 +173,8 @@ export default async function PlanningPage({
     seenWeek.add(d.wi);
   });
 
-  // Toutes les personnes actives : on n'affiche que l'equipe filtree (lignes),
-  // mais les indicateurs Present/Delta/Alertes comptent TOUT le quart (toutes equipes).
-  const { data: allActiveD } = await supabase
-    .from("personne")
-    .select("id, nom, prenom, equipe_id")
-    .eq("statut", "ACTIF")
-    .order("nom")
-    .returns<Personne[]>();
+  // Personnes actives recuperees en vague 1. On n'affiche que l'equipe filtree
+  // (lignes), mais les indicateurs Present/Delta/Alertes comptent TOUT le quart.
   const allActive = allActiveD ?? [];
   const allIds = allActive.map((p) => p.id);
   const displayed = equipe ? allActive.filter((p) => p.equipe_id === equipe) : allActive;
@@ -203,16 +211,8 @@ export default async function PlanningPage({
     for (const r of mat ?? []) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
   }
 
-  const isAdmin = profile.role === "admin";
-  let chefEquipes = new Set<string>();
-  if (!isAdmin) {
-    const { data } = await supabase
-      .from("equipe_chef")
-      .select("equipe_id")
-      .eq("app_user_id", profile.authId)
-      .returns<{ equipe_id: string }[]>();
-    chefEquipes = new Set((data ?? []).map((r) => r.equipe_id));
-  }
+  // Perimetre chef recupere en vague 1.
+  const chefEquipes = new Set((chefData ?? []).map((r) => r.equipe_id));
 
   const equipeColor: Record<string, string> = {};
   for (const e of equipesD ?? []) equipeColor[e.id] = e.couleur;
