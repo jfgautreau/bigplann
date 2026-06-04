@@ -50,7 +50,18 @@ export default async function AppHeader({
   return (
     <header className="appheader">
       <nav className="appnav">
-        <Link href="/planning" className="brand" style={{ textDecoration: "none" }}>
+        <Link href="/planning" className="brand" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 9 }}>
+          <svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true" style={{ display: "block" }}>
+            <defs>
+              <linearGradient id="bpLogo" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#ffffff" stopOpacity="0.28" />
+                <stop offset="1" stopColor="#ffffff" stopOpacity="0.12" />
+              </linearGradient>
+            </defs>
+            <rect width="64" height="64" rx="14" fill="url(#bpLogo)" stroke="rgba(255,255,255,0.55)" strokeWidth="2" />
+            <text x="30" y="47" textAnchor="middle" fill="#fff" fontFamily="Arial, Helvetica, sans-serif" fontSize="40" fontWeight="900">B</text>
+            <circle cx="47" cy="20" r="3.4" fill="#ddd6fe" />
+          </svg>
           BigPlann&apos;
         </Link>
         {mainLinks.map((l) => (
