@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import ToggleSwitch from "./ToggleSwitch";
 
 type Poste = {
   id: string;
@@ -155,10 +156,7 @@ export default function ReferentielEditor({ initial }: { initial: Atelier[] }) {
               onChange={(e) => renameAtelier(a.id, e.target.value)}
               style={{ fontSize: 16, fontWeight: 700, width: 260 }}
             />
-            <label className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
-              <input type="checkbox" checked={a.actif} onChange={(e) => toggleAtelier(a.id, e.target.checked)} style={{ width: "auto" }} />
-              Actif
-            </label>
+            <ToggleSwitch on={a.actif} onChange={(v) => toggleAtelier(a.id, v)} title="Activer / désactiver l'atelier" />
           </div>
 
           {/* Lignes */}
@@ -170,10 +168,7 @@ export default function ReferentielEditor({ initial }: { initial: Atelier[] }) {
                   onChange={(e) => renameLigne(a.id, l.id, e.target.value)}
                   style={{ fontWeight: 600, width: 220 }}
                 />
-                <label className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
-                  <input type="checkbox" checked={l.actif} onChange={(e) => toggleLigne(a.id, l.id, e.target.checked)} style={{ width: "auto" }} />
-                  Actif
-                </label>
+                <ToggleSwitch on={l.actif} onChange={(v) => toggleLigne(a.id, l.id, v)} title="Activer / désactiver la ligne" />
               </div>
 
               {/* Postes */}
