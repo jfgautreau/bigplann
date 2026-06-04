@@ -207,7 +207,7 @@ export default function MatrixGrid({
           {saveLabel}
         </div>
 
-        <table className="matrix" style={{ borderCollapse: "collapse" }}>
+        <table className="matrix" style={{ borderCollapse: "collapse", width: "auto" }}>
           <thead>
             <tr>
               <th rowSpan={2} style={{ position: "sticky", left: 0, background: "#fff", textAlign: "left" }}>
@@ -228,14 +228,28 @@ export default function MatrixGrid({
                 g.postes.map((p, i) => (
                   <th
                     key={p.id}
+                    title={p.nom}
                     style={{
-                      textAlign: "center",
                       fontWeight: 500,
                       borderLeft: i === 0 ? "2px solid #d9dce1" : undefined,
-                      whiteSpace: "nowrap",
+                      padding: "4px 0",
+                      verticalAlign: "bottom",
                     }}
                   >
-                    {p.nom}
+                    {/* Nom de poste vertical (lecture bas->haut) : colonnes resserrees
+                        a la largeur d'une pastille pour tout afficher sur une page. */}
+                    <div
+                      style={{
+                        writingMode: "vertical-rl",
+                        transform: "rotate(180deg)",
+                        whiteSpace: "nowrap",
+                        margin: "0 auto",
+                        fontSize: 12,
+                        lineHeight: 1.1,
+                      }}
+                    >
+                      {p.nom}
+                    </div>
                   </th>
                 ))
               )}
@@ -333,14 +347,14 @@ export default function MatrixGrid({
                   </td>
                   {groups.flatMap((g) =>
                     g.postes.map((po, i) => (
-                      <td key={po.id} style={{ textAlign: "center", borderLeft: i === 0 ? "2px solid #d9dce1" : undefined }}>
+                      <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", borderLeft: i === 0 ? "2px solid #d9dce1" : undefined }}>
                         {canEditObjectif ? (
                           <input
                             type="number"
                             min={0}
                             value={objMap[po.id] ?? 0}
                             onChange={(e) => saveObjectif(po.id, champ, Math.max(0, Number(e.target.value) || 0))}
-                            style={{ width: 44, textAlign: "center", padding: 2 }}
+                            style={{ width: 30, textAlign: "center", padding: 2 }}
                           />
                         ) : (
                           objMap[po.id] ?? 0
@@ -362,6 +376,7 @@ export default function MatrixGrid({
                           key={po.id}
                           style={{
                             textAlign: "center",
+                            padding: "3px 2px",
                             fontWeight: 700,
                             color: c < obj ? "var(--danger)" : "var(--ok)",
                             borderLeft: i === 0 ? "2px solid #d9dce1" : undefined,
