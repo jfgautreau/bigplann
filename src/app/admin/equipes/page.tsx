@@ -43,13 +43,13 @@ export default async function EquipesPage() {
     <>
       <AppHeader role={profile.role} active="/admin/equipes" />
       <div className="container">
-        <h1>Equipes</h1>
+        <h1>Équipes</h1>
 
         <div className="card" style={{ marginBottom: 24 }}>
           <form action={createEquipe} autoComplete="off" className="inline-form">
             <div className="field">
-              <span>Nouvelle equipe</span>
-              <input name="nom" placeholder="Ex. Equipe A, Nuit..." required />
+              <span>Nouvelle équipe</span>
+              <input name="nom" placeholder="Ex. Équipe A, Nuit..." required />
             </div>
             <div className="field">
               <span>Couleur</span>
@@ -59,7 +59,7 @@ export default async function EquipesPage() {
           </form>
         </div>
 
-        {equipes.length === 0 && <p className="muted">Aucune equipe.</p>}
+        {equipes.length === 0 && <p className="muted">Aucune équipe.</p>}
 
         {equipes.map((e) => (
           <div key={e.id} className="card section">
@@ -76,20 +76,20 @@ export default async function EquipesPage() {
                 </button>
               </form>
               <span className={e.actif ? "tag" : "tag tag-off"}>
-                {e.actif ? "Active" : "Desactivee"}
+                {e.actif ? "Active" : "Désactivée"}
               </span>
               <form action={toggleEquipe}>
                 <input type="hidden" name="id" value={e.id} />
                 <input type="hidden" name="actif" value={(!e.actif).toString()} />
                 <button type="submit" className="btn-sm btn-ghost">
-                  {e.actif ? "Desactiver" : "Reactiver"}
+                  {e.actif ? "Désactiver" : "Réactiver"}
                 </button>
               </form>
             </div>
 
-            <h2 style={{ fontSize: 14, marginTop: 8 }}>Chefs d&apos;equipe</h2>
+            <h2 style={{ fontSize: 14, marginTop: 8 }}>Chefs d&apos;équipe</h2>
             {e.equipe_chef.length === 0 && (
-              <p className="muted">Aucun chef designe.</p>
+              <p className="muted">Aucun chef désigné.</p>
             )}
             <ul style={{ margin: "4px 0 12px", paddingLeft: 18 }}>
               {e.equipe_chef.map((c) => (
@@ -108,7 +108,7 @@ export default async function EquipesPage() {
             <form action={addChef} autoComplete="off" className="inline-form">
               <input type="hidden" name="equipe_id" value={e.id} />
               <div className="field">
-                <span>Designer un chef</span>
+                <span>Désigner un chef</span>
                 <select name="app_user_id" required defaultValue="">
                   <option value="" disabled>
                     Choisir un utilisateur...

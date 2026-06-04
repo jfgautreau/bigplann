@@ -131,7 +131,7 @@ export default async function MatricePage({
         />
 
         {groups.length === 0 ? (
-          <p className="muted">Aucun poste actif (verifiez le referentiel / le filtre atelier).</p>
+          <p className="muted">Aucun poste actif (vérifiez le référentiel / le filtre atelier).</p>
         ) : (
           <MatrixGrid
             groups={groups}

@@ -37,7 +37,7 @@ export default async function MotifsPage({
         <h1>Motifs d&apos;absence</h1>
         <p className="muted" style={{ marginBottom: 16 }}>
           Ces motifs apparaissent dans les listes du planning. Le comptage en
-          rapports sera ajoute ulterieurement.
+          rapports sera ajouté ultérieurement.
         </p>
 
         <div className="card" style={{ marginBottom: 24 }}>
@@ -45,7 +45,7 @@ export default async function MotifsPage({
             <thead>
               <tr>
                 <th>Couleur</th>
-                <th>Libelle</th>
+                <th>Libellé</th>
                 <th>Code</th>
                 <th>Statut</th>
                 <th></th>
@@ -63,7 +63,7 @@ export default async function MotifsPage({
                           <input name="couleur" type="color" defaultValue={m.couleur} style={{ width: 48, padding: 2 }} />
                         </div>
                         <div className="field">
-                          <span>Libelle</span>
+                          <span>Libellé</span>
                           <input name="libelle" defaultValue={m.libelle} autoFocus required />
                         </div>
                         <div className="field">
@@ -83,7 +83,7 @@ export default async function MotifsPage({
                     <td>{m.libelle}</td>
                     <td><strong>{m.code_court}</strong></td>
                     <td>
-                      <span className={m.actif ? "tag" : "tag tag-off"}>{m.actif ? "Actif" : "Desactive"}</span>
+                      <span className={m.actif ? "tag" : "tag tag-off"}>{m.actif ? "Actif" : "Désactivé"}</span>
                     </td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       <Link href={`/admin/motifs?edit=motif:${m.id}`} className="navlink" scroll={false}>Modifier</Link>
@@ -92,7 +92,7 @@ export default async function MotifsPage({
                         <input type="hidden" name="id" value={m.id} />
                         <input type="hidden" name="actif" value={(!m.actif).toString()} />
                         <button type="submit" className="btn-sm btn-ghost">
-                          {m.actif ? "Desactiver" : "Reactiver"}
+                          {m.actif ? "Désactiver" : "Réactiver"}
                         </button>
                       </form>
                     </td>
@@ -116,8 +116,8 @@ export default async function MotifsPage({
               <input name="couleur" type="color" defaultValue="#e5e7eb" style={{ width: 48, padding: 2 }} />
             </div>
             <div className="field">
-              <span>Libelle</span>
-              <input name="libelle" placeholder="Ex. Conge paye" required />
+              <span>Libellé</span>
+              <input name="libelle" placeholder="Ex. Congé payé" required />
             </div>
             <div className="field">
               <span>Code</span>

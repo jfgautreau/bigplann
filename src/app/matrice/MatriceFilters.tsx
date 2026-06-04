@@ -41,9 +41,9 @@ export default function MatriceFilters({
         </select>
       </div>
       <div className="field">
-        <span>Equipe</span>
+        <span>Équipe</span>
         <select value={equipe} onChange={(e) => go({ equipe: e.target.value })}>
-          <option value="">Toutes les equipes</option>
+          <option value="">Toutes les équipes</option>
           {equipes.map((e2) => (
             <option key={e2.id} value={e2.id}>
               {e2.label}

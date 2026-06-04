@@ -59,18 +59,18 @@ export default async function ReferentielPage({
   }));
 
   const StatutTag = ({ actif, on = "Actif" }: { actif: boolean; on?: string }) => (
-    <span className={actif ? "tag" : "tag tag-off"}>{actif ? on : "Desactive"}</span>
+    <span className={actif ? "tag" : "tag tag-off"}>{actif ? on : "Désactivé"}</span>
   );
 
   return (
     <>
       <AppHeader role={profile.role} active="/admin/referentiel" />
       <div className="container">
-        <h1>Referentiel : ateliers, lignes, postes</h1>
+        <h1>Référentiel : ateliers, lignes, postes</h1>
         <p className="muted" style={{ marginBottom: 16 }}>
-          Affichage en lecture seule. Cliquez sur « Modifier » pour editer un
-          element. L&apos;effectif requis par poste constitue l&apos;abaque
-          (ex. 1 conducteur + 3 operateurs).
+          Affichage en lecture seule. Cliquez sur « Modifier » pour éditer un
+          élément. L&apos;effectif requis par poste constitue l&apos;abaque
+          (ex. 1 conducteur + 3 opérateurs).
         </p>
 
         <div className="card" style={{ marginBottom: 24 }}>
@@ -84,7 +84,7 @@ export default async function ReferentielPage({
         </div>
 
         {ateliers.length === 0 && (
-          <p className="muted">Aucun atelier. Commencez par en creer un.</p>
+          <p className="muted">Aucun atelier. Commencez par en créer un.</p>
         )}
 
         {ateliers.map((a) => (
@@ -111,7 +111,7 @@ export default async function ReferentielPage({
                   <input type="hidden" name="id" value={a.id} />
                   <input type="hidden" name="actif" value={(!a.actif).toString()} />
                   <button type="submit" className="btn-sm btn-ghost">
-                    {a.actif ? "Desactiver" : "Reactiver"}
+                    {a.actif ? "Désactiver" : "Réactiver"}
                   </button>
                 </form>
               </div>
@@ -145,7 +145,7 @@ export default async function ReferentielPage({
                       <input type="hidden" name="id" value={l.id} />
                       <input type="hidden" name="actif" value={(!l.actif).toString()} />
                       <button type="submit" className="btn-sm btn-ghost">
-                        {l.actif ? "Desactiver" : "Reactiver"}
+                        {l.actif ? "Désactiver" : "Réactiver"}
                       </button>
                     </form>
                   </div>
@@ -159,7 +159,7 @@ export default async function ReferentielPage({
                       <th>Code</th>
                       <th>Effectif</th>
                       <th>Conducteur</th>
-                      <th>Difficulte</th>
+                      <th>Difficulté</th>
                       <th>Niv. min</th>
                       <th>Statut</th>
                       <th></th>
@@ -177,7 +177,7 @@ export default async function ReferentielPage({
                                 <input name="nom" defaultValue={p.nom} autoFocus required />
                               </div>
                               <div className="field">
-                                <span>Code (abrege)</span>
+                                <span>Code (abrégé)</span>
                                 <input name="nom_court" defaultValue={p.nom_court ?? ""} maxLength={6} style={{ width: 90 }} />
                               </div>
                               <div className="field">
@@ -192,7 +192,7 @@ export default async function ReferentielPage({
                                 </select>
                               </div>
                               <div className="field">
-                                <span>Difficulte</span>
+                                <span>Difficulté</span>
                                 <select name="difficulte_formation" defaultValue={p.difficulte_formation?.toString() ?? ""}>
                                   <option value="">-</option>
                                   <option value="1">1</option>
@@ -231,7 +231,7 @@ export default async function ReferentielPage({
                               <input type="hidden" name="id" value={p.id} />
                               <input type="hidden" name="actif" value={(!p.actif).toString()} />
                               <button type="submit" className="btn-sm btn-ghost">
-                                {p.actif ? "Desactiver" : "Reactiver"}
+                                {p.actif ? "Désactiver" : "Réactiver"}
                               </button>
                             </form>
                           </td>
@@ -269,7 +269,7 @@ export default async function ReferentielPage({
                     </select>
                   </div>
                   <div className="field">
-                    <span>Difficulte</span>
+                    <span>Difficulté</span>
                     <select name="difficulte_formation" defaultValue="">
                       <option value="">-</option>
                       <option value="1">1</option>

@@ -25,7 +25,7 @@ export default function PeriodBand({
     <div style={{ marginBottom: 16 }}>
       <PeriodNav base={base} semaine={semaine} extra={extra} />
       <div className="toolbar" style={{ alignItems: "center", marginTop: 10 }}>
-        <Link href={href(isoDate(addDays(center, -7)))} className="iconbtn" scroll={false} title="Semaine precedente">
+        <Link href={href(isoDate(addDays(center, -7)))} className="iconbtn" scroll={false} title="Semaine précédente">
           &lsaquo;
         </Link>
         <Link href={href(isoDate(mondayOf()))} className="btn-sm" style={{ textDecoration: "none" }} scroll={false}>

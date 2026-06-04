@@ -105,7 +105,7 @@ export default async function BilanPage({
             </select>
           </div>
           <div className="field">
-            <span>Equipe</span>
+            <span>Équipe</span>
             <select name="equipe" defaultValue={sp.equipe ?? ""}>
               <option value="">Toutes</option>
               {equipes.map((e) => (
@@ -119,7 +119,7 @@ export default async function BilanPage({
         <div className="card" style={{ overflowX: "auto" }}>
           <p className="muted" style={{ marginBottom: 8 }}>
             Par seuil de niveau N : <strong>Ex</strong> = nb de personnes au niveau actuel &ge; N,{" "}
-            <strong>Bes</strong> = nb au niveau cible &ge; N, <strong>Ecart</strong> = Bes - Ex
+            <strong>Bes</strong> = nb au niveau cible &ge; N, <strong>Écart</strong> = Bes - Ex
             (rouge si manque).
           </p>
           <table>
@@ -128,7 +128,7 @@ export default async function BilanPage({
                 <th>Poste</th>
                 <th>Ligne</th>
                 {SEUILS.map((n) => (
-                  <th key={n}>Niv &ge; {n} (Ex/Bes/Ecart)</th>
+                  <th key={n}>Niv &ge; {n} (Ex/Bes/Écart)</th>
                 ))}
               </tr>
             </thead>

@@ -64,15 +64,15 @@ export default async function PersonnelPage() {
                   <input name="nom" required />
                 </div>
                 <div className="field">
-                  <span>Prenom *</span>
+                  <span>Prénom *</span>
                   <input name="prenom" required />
                 </div>
                 <div className="field">
                   <span>Matricule</span>
-                  <input name="matricule" placeholder="(auto si interim)" />
+                  <input name="matricule" placeholder="(auto si intérim)" />
                 </div>
                 <div className="field">
-                  <span>Equipe</span>
+                  <span>Équipe</span>
                   <select name="equipe_id" defaultValue="">
                     <option value="">-</option>
                     {equipes.map((e) => (
@@ -87,22 +87,22 @@ export default async function PersonnelPage() {
                   <select name="type_contrat" defaultValue="CDI">
                     <option value="CDI">CDI</option>
                     <option value="CDD">CDD</option>
-                    <option value="INTERIM">Interim</option>
+                    <option value="INTERIM">Intérim</option>
                   </select>
                 </div>
               </div>
               {/* Ligne 2 */}
               <div className="toolbar">
                 <div className="field">
-                  <span>Debut</span>
+                  <span>Début</span>
                   <input name="date_debut" type="date" />
                 </div>
                 <div className="field">
-                  <span>Fin (CDD/interim)</span>
+                  <span>Fin (CDD/intérim)</span>
                   <input name="date_fin" type="date" />
                 </div>
                 <div className="field">
-                  <span>Agence (si interim)</span>
+                  <span>Agence (si intérim)</span>
                   <input name="agence_interim" />
                 </div>
                 <div className="field">
@@ -112,11 +112,11 @@ export default async function PersonnelPage() {
               </div>
               {/* Ligne 3 */}
               <div className="field" style={{ marginTop: 4 }}>
-                <span>Commentaire (pas d&apos;information medicale)</span>
+                <span>Commentaire (pas d&apos;information médicale)</span>
                 <input name="commentaire" style={{ width: "100%" }} />
               </div>
               <button type="submit" style={{ width: "auto", padding: "9px 22px" }}>
-                Creer
+                Créer
               </button>
             </form>
           </div>

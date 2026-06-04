@@ -52,12 +52,12 @@ export default async function CompetencesPage({
     <>
       <AppHeader role={profile.role} active="/admin/competences" />
       <div className="container">
-        <h1>Competences</h1>
+        <h1>Compétences</h1>
 
         {/* Echelle de niveaux */}
         <div className="card section">
-          <h2>Echelle de niveaux (carre magique)</h2>
-          <p className="muted">Libelles parametrables des niveaux 0 a 4.</p>
+          <h2>Échelle de niveaux (carré magique)</h2>
+          <p className="muted">Libellés paramétrables des niveaux 0 à 4.</p>
           <form action={saveEchelle} autoComplete="off">
             {[0, 1, 2, 3, 4].map((n) => (
               <div key={n} style={{ marginBottom: 8 }}>
@@ -65,24 +65,24 @@ export default async function CompetencesPage({
                 <input id={`niveau_${n}`} name={`niveau_${n}`} defaultValue={libelle(n)} required />
               </div>
             ))}
-            <button type="submit">Enregistrer l&apos;echelle</button>
+            <button type="submit">Enregistrer l&apos;échelle</button>
           </form>
         </div>
 
         {/* Competences transverses / habilitations */}
         <div className="card section">
-          <h2>Competences transverses et habilitations</h2>
+          <h2>Compétences transverses et habilitations</h2>
           <p className="muted">
-            Type NIVEAU (0-4) ou ACQUIS (oui/non). Cocher « a recycler » pour une
-            habilitation a duree de validite (le suivi des echeances arrive au lot suivant).
+            Type NIVEAU (0-4) ou ACQUIS (oui/non). Cocher « à recycler » pour une
+            habilitation à durée de validité (le suivi des échéances arrive au lot suivant).
           </p>
           <table>
             <thead>
               <tr>
                 <th>Nom</th>
                 <th>Type</th>
-                <th>A recycler</th>
-                <th>Validite (mois)</th>
+                <th>À recycler</th>
+                <th>Validité (mois)</th>
                 <th>Statut</th>
                 <th></th>
               </tr>
@@ -106,14 +106,14 @@ export default async function CompetencesPage({
                           </select>
                         </div>
                         <div className="field">
-                          <span>A recycler</span>
+                          <span>À recycler</span>
                           <select name="a_recycler" defaultValue={c.a_recycler ? "true" : "false"}>
                             <option value="false">Non</option>
                             <option value="true">Oui</option>
                           </select>
                         </div>
                         <div className="field">
-                          <span>Validite (mois)</span>
+                          <span>Validité (mois)</span>
                           <input
                             name="duree_validite_mois"
                             type="number"
@@ -135,7 +135,7 @@ export default async function CompetencesPage({
                     <td>{c.duree_validite_mois ?? "-"}</td>
                     <td>
                       <span className={c.actif ? "tag" : "tag tag-off"}>
-                        {c.actif ? "Actif" : "Desactive"}
+                        {c.actif ? "Actif" : "Désactivé"}
                       </span>
                     </td>
                     <td style={{ whiteSpace: "nowrap" }}>
@@ -147,7 +147,7 @@ export default async function CompetencesPage({
                         <input type="hidden" name="id" value={c.id} />
                         <input type="hidden" name="actif" value={(!c.actif).toString()} />
                         <button type="submit" className="btn-sm btn-ghost">
-                          {c.actif ? "Desactiver" : "Reactiver"}
+                          {c.actif ? "Désactiver" : "Réactiver"}
                         </button>
                       </form>
                     </td>
@@ -156,7 +156,7 @@ export default async function CompetencesPage({
               )}
               {comps.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="muted">Aucune competence.</td>
+                  <td colSpan={6} className="muted">Aucune compétence.</td>
                 </tr>
               )}
             </tbody>
@@ -164,7 +164,7 @@ export default async function CompetencesPage({
 
           <form action={createCompetence} autoComplete="off" className="inline-form" style={{ marginTop: 12 }}>
             <div className="field">
-              <span>Nouvelle competence</span>
+              <span>Nouvelle compétence</span>
               <input name="nom" placeholder="Ex. Tuteur, EPI, Incendie..." required />
             </div>
             <div className="field">
@@ -175,14 +175,14 @@ export default async function CompetencesPage({
               </select>
             </div>
             <div className="field">
-              <span>A recycler</span>
+              <span>À recycler</span>
               <select name="a_recycler" defaultValue="false">
                 <option value="false">Non</option>
                 <option value="true">Oui</option>
               </select>
             </div>
             <div className="field">
-              <span>Validite (mois)</span>
+              <span>Validité (mois)</span>
               <input name="duree_validite_mois" type="number" min={1} style={{ width: 90 }} />
             </div>
             <button type="submit" className="btn-sm">Ajouter</button>

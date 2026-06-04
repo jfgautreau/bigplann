@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { mondayOf, isoDate } from "@/lib/week";
 
-const MOIS = ["Janv", "Fevr", "Mars", "Avr", "Mai", "Juin", "Juil", "Aout", "Sept", "Oct", "Nov", "Dec"];
+const MOIS = ["Janv", "Févr", "Mars", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"];
 
 // Segments Annee + Mois (sur une ligne, espace entre les deux groupes).
 export default function PeriodNav({

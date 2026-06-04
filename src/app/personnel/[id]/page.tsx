@@ -71,7 +71,7 @@ export default async function FichePersonne({
                 value={p.statut === "ACTIF" ? "PARTI" : "ACTIF"}
               />
               <button type="submit" className="btn-sm btn-ghost">
-                {p.statut === "ACTIF" ? "Marquer parti" : "Reactiver"}
+                {p.statut === "ACTIF" ? "Marquer parti" : "Réactiver"}
               </button>
             </form>
           </div>
@@ -84,7 +84,7 @@ export default async function FichePersonne({
                 <input name="nom" defaultValue={p.nom} required />
               </div>
               <div className="field">
-                <span>Prenom *</span>
+                <span>Prénom *</span>
                 <input name="prenom" defaultValue={p.prenom} required />
               </div>
               <div className="field">
@@ -94,7 +94,7 @@ export default async function FichePersonne({
             </div>
             <div className="toolbar">
               <div className="field">
-                <span>Equipe</span>
+                <span>Équipe</span>
                 <select name="equipe_id" defaultValue={p.equipe_id ?? ""}>
                   <option value="">-</option>
                   {equipes.map((e) => (
@@ -109,21 +109,21 @@ export default async function FichePersonne({
                 <select name="type_contrat" defaultValue={p.type_contrat}>
                   <option value="CDI">CDI</option>
                   <option value="CDD">CDD</option>
-                  <option value="INTERIM">Interim</option>
+                  <option value="INTERIM">Intérim</option>
                 </select>
               </div>
               <div className="field">
-                <span>Agence (si interim)</span>
+                <span>Agence (si intérim)</span>
                 <input name="agence_interim" defaultValue={p.agence_interim ?? ""} />
               </div>
             </div>
             <div className="toolbar">
               <div className="field">
-                <span>Debut</span>
+                <span>Début</span>
                 <input name="date_debut" type="date" defaultValue={p.date_debut ?? ""} />
               </div>
               <div className="field">
-                <span>Fin (CDD/interim)</span>
+                <span>Fin (CDD/intérim)</span>
                 <input name="date_fin" type="date" defaultValue={p.date_fin ?? ""} />
               </div>
               <div className="field">
@@ -134,7 +134,7 @@ export default async function FichePersonne({
             <label htmlFor="commentaire">Commentaire</label>
             <input id="commentaire" name="commentaire" defaultValue={p.commentaire ?? ""} />
             <p className="muted" style={{ marginTop: 4 }}>
-              Ne pas saisir d&apos;information medicale.
+              Ne pas saisir d&apos;information médicale.
             </p>
             <button type="submit">Enregistrer</button>
           </form>
@@ -145,25 +145,25 @@ export default async function FichePersonne({
           <h2 style={{ marginTop: 0 }}>RGPD</h2>
           <div className="toolbar" style={{ alignItems: "center" }}>
             <a href={`/api/personnel/${p.id}/export`} className="btn-sm btn-ghost" style={{ textDecoration: "none" }}>
-              Exporter les donnees (JSON)
+              Exporter les données (JSON)
             </a>
             <ConfirmForm
               action={anonymiserPersonne}
               hidden={{ id: p.id }}
               label="Anonymiser"
-              confirm="Anonymiser cette personne ? Le nom est remplace, l'historique de placement est conserve."
+              confirm="Anonymiser cette personne ? Le nom est remplacé, l'historique de placement est conservé."
             />
             <ConfirmForm
               action={supprimerPersonne}
               hidden={{ id: p.id }}
-              label="Supprimer (droit a l'oubli)"
+              label="Supprimer (droit à l'oubli)"
               className="btn-sm"
-              confirm="Supprimer DEFINITIVEMENT cette personne et tout son historique ? Action irreversible."
+              confirm="Supprimer DÉFINITIVEMENT cette personne et tout son historique ? Action irréversible."
             />
           </div>
           <p className="muted" style={{ marginTop: 8 }}>
-            Anonymiser conserve l&apos;historique (bilans) en retirant l&apos;identite.
-            Supprimer efface definitivement la personne et ses donnees liees.
+            Anonymiser conserve l&apos;historique (bilans) en retirant l&apos;identité.
+            Supprimer efface définitivement la personne et ses données liées.
           </p>
         </div>
       </div>

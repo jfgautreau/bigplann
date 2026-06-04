@@ -17,8 +17,8 @@ type Row = {
 const COLS: { key: keyof Row; label: string }[] = [
   { key: "matricule", label: "Matricule" },
   { key: "nom", label: "Nom" },
-  { key: "prenom", label: "Prenom" },
-  { key: "equipe", label: "Equipe" },
+  { key: "prenom", label: "Prénom" },
+  { key: "equipe", label: "Équipe" },
   { key: "type_contrat", label: "Contrat" },
   { key: "pointure", label: "Pointure" },
   { key: "statut", label: "Statut" },
@@ -89,7 +89,7 @@ export default function PersonnelTable({
           {filtered.length === 0 && (
             <tr>
               <td colSpan={isAdmin ? 8 : 7} className="muted">
-                Aucun resultat.
+                Aucun résultat.
               </td>
             </tr>
           )}

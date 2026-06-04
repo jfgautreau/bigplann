@@ -161,9 +161,9 @@ export default function MatrixGrid({
     saveState === "saving"
       ? "Enregistrement..."
       : saveState === "saved"
-        ? "Enregistre"
+        ? "Enregistré"
         : saveState === "error"
-          ? "Echec d'enregistrement"
+          ? "Échec d'enregistrement"
           : "";
   const saveColor =
     saveState === "error" ? "var(--danger)" : saveState === "saved" ? "var(--ok)" : "var(--muted)";
@@ -351,7 +351,7 @@ export default function MatrixGrid({
                 </tr>
                 <tr style={{ background: "#f8fafc" }}>
                   <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600 }}>
-                    Competents {champ} (≥2)
+                    Compétents {champ} (≥2)
                   </td>
                   {groups.flatMap((g) =>
                     g.postes.map((po, i) => {
@@ -382,7 +382,7 @@ export default function MatrixGrid({
 
       {/* Legende : carre magique (cahier des charges) */}
       <div className="card" style={{ marginTop: 16 }}>
-        <h2 style={{ fontSize: 14, marginTop: 0 }}>Niveaux (carre magique)</h2>
+        <h2 style={{ fontSize: 14, marginTop: 0 }}>Niveaux (carré magique)</h2>
         <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
           {CARRE_MAGIQUE.map(([n, txt]) => (
             <li
