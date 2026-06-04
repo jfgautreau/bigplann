@@ -143,6 +143,18 @@ th {
   text-transform: uppercase;
 }
 
+/* Matrice : champs Objectif sans fleches +/- (selection + saisie manuelle). */
+.matrix input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+  text-align: center;
+}
+.matrix input[type="number"]::-webkit-outer-spin-button,
+.matrix input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .muted {
   color: var(--muted);
   font-size: 13px;

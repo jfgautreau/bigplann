@@ -365,7 +365,7 @@ export default function MatrixGrid({
                 </tr>
                 <tr style={{ background: "#f8fafc" }}>
                   <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600 }}>
-                    Compétents {champ} (≥2)
+                    Compétences {champ} (≥2)
                   </td>
                   {groups.flatMap((g) =>
                     g.postes.map((po, i) => {
