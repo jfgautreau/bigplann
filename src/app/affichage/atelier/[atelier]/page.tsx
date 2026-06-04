@@ -12,11 +12,10 @@ type Ligne = { id: string; nom: string; poste: (Poste & { actif: boolean })[] };
 type PlacementRow = {
   poste_id: string | null;
   jour: string;
-  equipe_id: string | null;
+  quart_code: string | null;
   personne: { nom: string; prenom: string; type_contrat: string } | null;
-  equipe: { nom: string } | null;
 };
-type HoraireRow = { poste_id: string; equipe_id: string; jour: number; debut: string | null; fin: string | null };
+type HoraireRow = { poste_id: string; quart_code: string; jour: number; debut: string | null; fin: string | null };
 
 const dow = (iso: string) => (new Date(iso + "T00:00").getDay() + 6) % 7;
 
@@ -66,18 +65,18 @@ export default async function AffichageAtelier({
   const posteIds = lignes.flatMap((l) => l.poste.map((p) => p.id));
 
   const byPoste = new Map<string, PlacementRow[]>(); // `${poste}:${iso}`
-  const horMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${poste}:${equipe}:${dow}`
+  const horMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${poste}:${quart}:${dow}`
   if (posteIds.length) {
     const [{ data: pl }, { data: hor }] = await Promise.all([
       admin
         .from("placement")
-        .select("poste_id, jour, equipe_id, personne:personne_id(nom, prenom, type_contrat), equipe:equipe_id(nom)")
+        .select("poste_id, jour, quart_code, personne:personne_id(nom, prenom, type_contrat)")
         .in("jour", isos)
         .in("poste_id", posteIds)
         .returns<PlacementRow[]>(),
       admin
         .from("horaire_poste")
-        .select("poste_id, equipe_id, jour, debut, fin")
+        .select("poste_id, quart_code, jour, debut, fin")
         .in("poste_id", posteIds)
         .returns<HoraireRow[]>(),
     ]);
@@ -88,12 +87,12 @@ export default async function AffichageAtelier({
       arr.push(r);
       byPoste.set(k, arr);
     }
-    for (const h of hor ?? []) horMap.set(`${h.poste_id}:${h.equipe_id}:${h.jour}`, { debut: h.debut, fin: h.fin });
+    for (const h of hor ?? []) horMap.set(`${h.poste_id}:${h.quart_code}:${h.jour}`, { debut: h.debut, fin: h.fin });
   }
 
-  const horaireTxt = (posteId: string, equipeId: string | null, iso: string) => {
-    if (!equipeId) return "";
-    const h = horMap.get(`${posteId}:${equipeId}:${dow(iso)}`);
+  const horaireTxt = (posteId: string, quartCode: string | null, iso: string) => {
+    const q = quartCode ?? "matin";
+    const h = horMap.get(`${posteId}:${q}:${dow(iso)}`);
     if (!h || (!h.debut && !h.fin)) return "";
     return `${h.debut ?? "?"}-${h.fin ?? "?"}`;
   };
@@ -105,7 +104,7 @@ export default async function AffichageAtelier({
       const p = r.personne;
       if (!p) return null;
       const interim = p.type_contrat === "INTERIM";
-      const h = horaireTxt(posteId, r.equipe_id, iso);
+      const h = horaireTxt(posteId, r.quart_code, iso);
       return (
         <div key={i} style={{ lineHeight: 1.25 }}>
           <span style={{ background: interim ? "#bbf7d0" : undefined, padding: interim ? "0 4px" : 0, borderRadius: 3 }}>
