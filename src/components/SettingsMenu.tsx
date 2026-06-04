@@ -23,10 +23,24 @@ export default function SettingsMenu({ links, active }: { links: Item[]; active?
     <div ref={ref} style={{ position: "relative" }}>
       <button
         type="button"
-        className="navlink"
         onClick={() => setOpen((o) => !o)}
         title="Parametrage"
-        style={{ fontSize: 18, lineHeight: 1, background: open ? "rgba(255,255,255,0.18)" : undefined }}
+        style={{
+          margin: 0,
+          width: 34,
+          height: 34,
+          padding: 0,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 17,
+          lineHeight: 1,
+          color: "#fff",
+          background: open ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.14)",
+          border: "1px solid rgba(255,255,255,0.35)",
+          borderRadius: 8,
+          cursor: "pointer",
+        }}
       >
         &#9881;
       </button>
