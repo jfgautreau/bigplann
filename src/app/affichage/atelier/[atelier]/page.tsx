@@ -77,6 +77,7 @@ export default async function AffichageAtelier({
   type Personne = { nom: string; prenom: string; type_contrat: string };
   const persons = new Map<string, Personne>(); // personne_id -> infos
   const byPerson = new Map<string, PlacementRow[]>(); // `${personne_id}:${iso}`
+  const workedDays = new Set<string>(); // jours (iso) ou au moins une personne travaille
 
   if (posteIds.length) {
     const [{ data: pl }, { data: hor }, { data: jq }, { data: ov }] = await Promise.all([
@@ -120,6 +121,7 @@ export default async function AffichageAtelier({
       const qc = r.quart_code ?? "matin";
       const lid = posteLigne.get(r.poste_id);
       if (lid && !isOpen(lid, qc, r.jour)) continue; // jour/ligne ferme -> on n'affiche pas
+      workedDays.add(r.jour);
       const k = `${r.poste_id}:${r.jour}`;
       (byPoste.get(k) ?? byPoste.set(k, []).get(k)!).push(r);
       if (r.personne) persons.set(r.personne_id, r.personne);
@@ -181,6 +183,10 @@ export default async function AffichageAtelier({
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (a.nom + a.prenom).localeCompare(b.nom + b.prenom));
 
+  // On n'affiche que les jours ou au moins une personne travaille (week-end ferme masque).
+  const shownDays = days.filter((d) => workedDays.has(d.iso));
+  const noWork = shownDays.length === 0;
+
   const dateQ = sp.date ? `&date=${sp.date}` : "";
   const postesHref = `/affichage/atelier/${param}${sp.date ? `?date=${sp.date}` : ""}`;
   const nomsHref = `/affichage/atelier/${param}?vue=noms${dateQ}`;
@@ -206,11 +212,16 @@ export default async function AffichageAtelier({
         </div>
       </div>
 
+      {noWork ? (
+        <p className="muted" style={{ fontSize: 18, padding: 20 }}>
+          Personne ne travaille cette semaine dans cet atelier.
+        </p>
+      ) : (
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 16, tableLayout: "fixed" }}>
         <thead>
           <tr>
             <th style={{ width: 180, border: cellBorder, background: "#1e3a8a", color: "#fff", padding: "8px 10px" }}></th>
-            {days.map((d) => (
+            {shownDays.map((d) => (
               <th
                 key={d.iso}
                 style={{
@@ -234,7 +245,7 @@ export default async function AffichageAtelier({
               <Fragment key={l.id}>
                 <tr>
                   <td
-                    colSpan={days.length + 1}
+                    colSpan={shownDays.length + 1}
                     style={{ background: "#eef2ff", fontWeight: 800, fontSize: 17, padding: "6px 10px", border: cellBorder }}
                   >
                     {l.nom}
@@ -242,11 +253,11 @@ export default async function AffichageAtelier({
                 </tr>
                 {l.poste.map((p) => (
                   <tr key={p.id}>
-                    <td style={{ border: cellBorder, padding: "5px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>
+                    <td style={{ border: cellBorder, padding: "5px 10px", fontWeight: 600, overflowWrap: "anywhere", wordBreak: "break-word" }}>
                       {p.nom}
                     </td>
-                    {days.map((d) => (
-                      <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top", background: colBg(d.iso) }}>
+                    {shownDays.map((d) => (
+                      <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top", background: colBg(d.iso), overflowWrap: "anywhere", wordBreak: "break-word" }}>
                         {cellPoste(p.id, d.iso)}
                       </td>
                     ))}
@@ -260,13 +271,13 @@ export default async function AffichageAtelier({
               const interim = p.type_contrat === "INTERIM";
               return (
                 <tr key={p.id}>
-                  <td style={{ border: cellBorder, padding: "5px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>
+                  <td style={{ border: cellBorder, padding: "5px 10px", fontWeight: 600, overflowWrap: "anywhere", wordBreak: "break-word" }}>
                     <span style={{ background: interim ? "#bbf7d0" : undefined, padding: interim ? "0 4px" : 0, borderRadius: 3 }}>
                       {p.nom} {p.prenom}
                     </span>
                   </td>
-                  {days.map((d) => (
-                    <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top", background: colBg(d.iso) }}>
+                  {shownDays.map((d) => (
+                    <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top", background: colBg(d.iso), overflowWrap: "anywhere", wordBreak: "break-word" }}>
                       {cellNom(p.id, d.iso)}
                     </td>
                   ))}
@@ -276,16 +287,17 @@ export default async function AffichageAtelier({
 
           {vue === "postes" && lignes.length === 0 && (
             <tr>
-              <td colSpan={days.length + 1} className="muted" style={{ padding: 10 }}>Aucun poste.</td>
+              <td colSpan={shownDays.length + 1} className="muted" style={{ padding: 10 }}>Aucun poste.</td>
             </tr>
           )}
           {vue === "noms" && personList.length === 0 && (
             <tr>
-              <td colSpan={days.length + 1} className="muted" style={{ padding: 10 }}>Personne de placé cette semaine.</td>
+              <td colSpan={shownDays.length + 1} className="muted" style={{ padding: 10 }}>Personne de placé cette semaine.</td>
             </tr>
           )}
         </tbody>
       </table>
+      )}
 
       <div style={{ marginTop: 14, fontSize: 14, color: "#6b7280" }}>
         Légende : <span style={{ background: "#bbf7d0", padding: "0 6px" }}>Intérimaire</span>{" "}
