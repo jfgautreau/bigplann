@@ -81,7 +81,7 @@ export default async function BilansPage({
             <tbody>
               {([
                 ["Besoin", (iso: string) => (defaultOpenIso(iso) ? totalEffectif : 0), () => "var(--muted)"],
-                ["Present", (iso: string) => presentByDay[iso] ?? 0, () => "var(--text)"],
+                ["Présent", (iso: string) => presentByDay[iso] ?? 0, () => "var(--text)"],
                 [
                   "Delta",
                   (iso: string) => (presentByDay[iso] ?? 0) - (defaultOpenIso(iso) ? totalEffectif : 0),
@@ -106,8 +106,8 @@ export default async function BilansPage({
             </tbody>
           </table>
           <p className="muted" style={{ marginTop: 6 }}>
-            Besoin = effectif total des postes actifs (capacite pleine, hors dimanche).
-            Present = personnes placees sur un poste.
+            Besoin = effectif total des postes actifs (capacité pleine, hors dimanche).
+            Présent = personnes placées sur un poste.
           </p>
         </div>
 
@@ -140,22 +140,22 @@ export default async function BilansPage({
 
         {/* Polyvalence */}
         <div className="card section">
-          <h2 style={{ marginTop: 0 }}>Polyvalence & ecarts de competences</h2>
+          <h2 style={{ marginTop: 0 }}>Polyvalence & écarts de compétences</h2>
           <p>
-            Le detail Existant / Besoin / Ecart par poste et par niveau est sur la page{" "}
+            Le détail Existant / Besoin / Écart par poste et par niveau est sur la page{" "}
             <Link href="/matrice/bilan">Bilan polyvalence</Link>.
           </p>
           <p>
-            Couverture jour par jour (competents disponibles par poste, hors absences) :{" "}
-            <Link href="/bilans/competences">Competences disponibles</Link>.
+            Couverture jour par jour (compétents disponibles par poste, hors absences) :{" "}
+            <Link href="/bilans/competences">Compétences disponibles</Link>.
           </p>
         </div>
 
         <div className="card section">
           <h2 style={{ marginTop: 0 }}>Habilitations</h2>
           <p>
-            Suivi des echeances et alertes sur la page{" "}
-            <Link href="/habilitations">Habilitations a recycler</Link>.
+            Suivi des échéances et alertes sur la page{" "}
+            <Link href="/habilitations">Habilitations à recycler</Link>.
           </p>
         </div>
       </div>

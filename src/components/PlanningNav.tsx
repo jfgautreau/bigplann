@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { parseMonday, isoDate, addDays, mondayOf, isoWeekNumber } from "@/lib/week";
 
-const MOIS = ["Janv", "Fevr", "Mars", "Avr", "Mai", "Juin", "Juil", "Aout", "Sept", "Oct", "Nov", "Dec"];
+const MOIS = ["Janv", "Févr", "Mars", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"];
 
 // Navigation planning : Annee / Mois (segments) + pastilles des semaines du mois.
 // Cliquer une semaine ouvre la vue 3 semaines (S-1 / S / S+1) centree dessus.
@@ -65,7 +65,7 @@ export default function PlanningNav({
 
       {/* Niveau 2 : semaines du mois + navigation */}
       <div className="toolbar" style={{ alignItems: "center", marginTop: 10 }}>
-        <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, -7)))} title="Semaine precedente">
+        <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, -7)))} title="Semaine précédente">
           &lsaquo;
         </button>
         <button type="button" className="btn-sm" style={{ width: "auto" }} onClick={() => goWeek(todayMonday)}>

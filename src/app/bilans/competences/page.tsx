@@ -84,14 +84,14 @@ export default async function CompetencesDispoPage({
       <AppHeader role={profile.role} active="/bilans" />
       <div className="container" style={{ maxWidth: 1500 }}>
         <div className="toolbar">
-          <h1 style={{ margin: 0 }}>Competences disponibles</h1>
+          <h1 style={{ margin: 0 }}>Compétences disponibles</h1>
           <Link href="/bilans" className="navlink">&larr; Bilans</Link>
           <PrintButton />
         </div>
         <p className="muted" style={{ marginBottom: 8 }}>
-          Pour chaque poste et chaque jour : nombre de personnes <strong>competentes</strong>
+          Pour chaque poste et chaque jour : nombre de personnes <strong>compétentes</strong>
           (niveau &ge; {seuil}) et <strong>disponibles</strong> (pas en absence). Total des
-          competents par poste indique entre parentheses.
+          compétents par poste indiqué entre parenthèses.
         </p>
         <CompetenceNav year={year} month0={month0} seuil={seuil} />
 

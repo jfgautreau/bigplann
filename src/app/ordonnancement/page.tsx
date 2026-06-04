@@ -65,7 +65,7 @@ export default async function OrdonnancementPage({
         <div className="toolbar">
           <h1 style={{ margin: 0 }}>Ordonnancement</h1>
           <Link href="/admin/rotation" className="navlink">
-            Rotation des equipes &rarr;
+            Rotation des équipes &rarr;
           </Link>
         </div>
         <OrdoMonthNav base="/ordonnancement" year={year} month0={month0} />

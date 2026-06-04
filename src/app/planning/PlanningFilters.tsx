@@ -28,7 +28,7 @@ export default function PlanningFilters({
 
   return (
     <div className="toolbar" style={{ alignItems: "center" }}>
-      <span className="muted">Equipe :</span>
+      <span className="muted">Équipe :</span>
       <div className="segments">
         <button type="button" className={equipe === "" ? "seg active" : "seg"} onClick={() => go("")}>
           Toutes

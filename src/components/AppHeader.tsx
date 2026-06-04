@@ -65,7 +65,7 @@ export default async function AppHeader({
       </nav>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <SettingsMenu links={configLinks} active={active} />
-        <Link href="/habilitations" title="Habilitations a recycler" style={{ position: "relative", textDecoration: "none", fontSize: 18, color: "#fff" }}>
+        <Link href="/habilitations" title="Habilitations à recycler" style={{ position: "relative", textDecoration: "none", fontSize: 18, color: "#fff" }}>
           &#128276;
           {alertCount > 0 && (
             <span
@@ -87,7 +87,7 @@ export default async function AppHeader({
         </Link>
         <form action="/logout" method="post">
           <button type="submit" className="logout">
-            Se deconnecter
+            Se déconnecter
           </button>
         </form>
       </div>

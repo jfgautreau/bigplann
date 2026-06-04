@@ -151,7 +151,7 @@ export default function PlanningGrid({
       .filter((_, j) => j !== dayIndex && weekIdx[j] === weekIdx[dayIndex])
       .filter((t) => !otherByCell[key(pers.id, t.iso)]);
     const hasExisting = targets.some((t) => (vals[key(pers.id, t.iso)] ?? "") !== "");
-    if (hasExisting && !window.confirm("Des affectations existent deja cette semaine pour cette personne. Les ecraser ?")) {
+    if (hasExisting && !window.confirm("Des affectations existent déjà cette semaine pour cette personne. Les écraser ?")) {
       return;
     }
     setVals((s) => {
@@ -181,7 +181,7 @@ export default function PlanningGrid({
     const existing = personnes.some(
       (p) => p.editable && tgt.some((j) => (vals[key(p.id, days[j].iso)] ?? "") !== "")
     );
-    if (existing && !window.confirm("Des affectations existent deja sur cette semaine. Les ecraser avec la semaine precedente ?")) {
+    if (existing && !window.confirm("Des affectations existent déjà sur cette semaine. Les écraser avec la semaine précédente ?")) {
       return;
     }
 
@@ -214,7 +214,7 @@ export default function PlanningGrid({
     const isos = (blockDayIndices[block] ?? []).map((idx) => days[idx].iso);
     const pids = personnes.filter((p) => p.editable).map((p) => p.id);
     if (!isos.length || !pids.length) return;
-    if (!window.confirm("Reinitialiser (vider) tous les placements de cette semaine pour les personnes affichees ?")) {
+    if (!window.confirm("Réinitialiser (vider) tous les placements de cette semaine pour les personnes affichées ?")) {
       return;
     }
     setVals((s) => {
@@ -253,7 +253,7 @@ export default function PlanningGrid({
           color: saving === "error" ? "var(--danger)" : saving === "saved" ? "var(--ok)" : "var(--muted)",
         }}
       >
-        {saving === "saving" ? "Enregistrement..." : saving === "saved" ? "Enregistre" : saving === "error" ? "Echec" : ""}
+        {saving === "saving" ? "Enregistrement..." : saving === "saved" ? "Enregistré" : saving === "error" ? "Échec" : ""}
       </div>
 
       <table className="matrix" style={{ borderCollapse: "collapse" }}>
@@ -281,7 +281,7 @@ export default function PlanningGrid({
                       className="btn-sm btn-ghost"
                       style={{ padding: "2px 6px", fontSize: 11 }}
                       onClick={() => copyPrevWeek(i)}
-                      title="Recopier la semaine precedente dans celle-ci"
+                      title="Recopier la semaine précédente dans celle-ci"
                     >
                       &larr; S-1
                     </button>
@@ -291,7 +291,7 @@ export default function PlanningGrid({
                     className="btn-sm btn-ghost"
                     style={{ padding: "2px 6px", fontSize: 11 }}
                     onClick={() => resetWeek(i)}
-                    title="Reinitialiser (vider) la semaine"
+                    title="Réinitialiser (vider) la semaine"
                   >
                     Vider
                   </button>
@@ -313,7 +313,7 @@ export default function PlanningGrid({
           {(
             [
               ["Besoin", (i: number) => `${besoin[i] ?? 0}`, () => "var(--muted)"],
-              ["Present", (i: number) => `${perDay[i].present}`, () => "var(--text)"],
+              ["Présent", (i: number) => `${perDay[i].present}`, () => "var(--text)"],
               [
                 "Delta",
                 (i: number) => {
@@ -373,20 +373,20 @@ export default function PlanningGrid({
                       position: "relative",
                       ...sep(d),
                     }}
-                    title={[alert ? "Hors competence" : "", over ? "Sur-effectif" : ""].filter(Boolean).join(" · ") || undefined}
+                    title={[alert ? "Hors compétence" : "", over ? "Sur-effectif" : ""].filter(Boolean).join(" · ") || undefined}
                   >
                     <select
                       className="flat"
                       value={v}
                       disabled={!pers.editable || !!other}
-                      title={other ? "Deja place sur un autre quart ce jour-la" : undefined}
+                      title={other ? "Déjà placé sur un autre quart ce jour-là" : undefined}
                       onChange={(e) => change(pers.id, d.iso, pers.equipe_id, e.target.value)}
                       style={{ width: "100%", fontSize: 12, padding: "3px 1px", opacity: other ? 0.6 : 1 }}
                     >
                       <option value="">—</option>
                       <option value="X">NT</option>
                       {closedCurrent && (
-                        <option value={v}>{posteLabel[v] ?? "?"} (ligne fermee)</option>
+                        <option value={v}>{posteLabel[v] ?? "?"} (ligne fermée)</option>
                       )}
                       {groups
                         .filter((g) => openSet.has(g.ligneId))
@@ -422,7 +422,7 @@ export default function PlanningGrid({
                     {other && (
                       <div
                         style={{ fontSize: 9, color: "#9a3412", marginTop: -1 }}
-                        title={`Place sur un autre quart : ${quartLabel[other] ?? other}`}
+                        title={`Placé sur un autre quart : ${quartLabel[other] ?? other}`}
                       >
                         &rarr; {quartLabel[other] ?? other}
                       </div>
@@ -434,7 +434,7 @@ export default function PlanningGrid({
           ))}
           {personnes.length === 0 && (
             <tr>
-              <td colSpan={days.length + 1} className="muted">Aucune personne (choisissez une equipe).</td>
+              <td colSpan={days.length + 1} className="muted">Aucune personne (choisissez une équipe).</td>
             </tr>
           )}
         </tbody>
@@ -442,8 +442,8 @@ export default function PlanningGrid({
 
       <p className="muted" style={{ marginTop: 10 }}>
         Survolez une case remplie et cliquez sur &raquo; pour recopier la valeur sur toute
-        la semaine. Rouge = hors competence · contour orange = sur-effectif · jours sans
-        ligne ouverte masques.
+        la semaine. Rouge = hors compétence · contour orange = sur-effectif · jours sans
+        ligne ouverte masqués.
       </p>
     </div>
   );

@@ -24,7 +24,7 @@ export default function SettingsMenu({ links, active }: { links: Item[]; active?
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        title="Parametrage"
+        title="Paramétrage"
         style={{
           margin: 0,
           width: 34,

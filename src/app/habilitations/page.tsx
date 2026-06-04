@@ -46,7 +46,7 @@ export default async function HabilitationsPage() {
     <>
       <AppHeader role={profile.role} active="/habilitations" />
       <div className="container" style={{ maxWidth: 1100 }}>
-        <h1>Habilitations a recycler</h1>
+        <h1>Habilitations à recycler</h1>
 
         <div className="card section">
           <table>
@@ -56,7 +56,7 @@ export default async function HabilitationsPage() {
                 <th>Habilitation</th>
                 <th>Obtention</th>
                 <th>Expiration</th>
-                <th>Echeance</th>
+                <th>Échéance</th>
                 {canEdit && <th></th>}
               </tr>
             </thead>
@@ -76,7 +76,7 @@ export default async function HabilitationsPage() {
                           className="tag"
                           style={{ background: HAB_COLOR[st], color: "#fff" }}
                         >
-                          {j !== null && j < 0 ? `expiree (${-j} j)` : `${j} j`}
+                          {j !== null && j < 0 ? `expirée (${-j} j)` : `${j} j`}
                         </span>
                       )}
                     </td>
@@ -94,7 +94,7 @@ export default async function HabilitationsPage() {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={canEdit ? 6 : 5} className="muted">
-                    Aucune habilitation enregistree.
+                    Aucune habilitation enregistrée.
                   </td>
                 </tr>
               )}
@@ -103,16 +103,16 @@ export default async function HabilitationsPage() {
           <p className="muted" style={{ marginTop: 8 }}>
             <span style={{ color: HAB_COLOR.vert }}>●</span> &gt; 90 j ·{" "}
             <span style={{ color: HAB_COLOR.orange }}>●</span> 30-90 j ·{" "}
-            <span style={{ color: HAB_COLOR.rouge }}>●</span> &lt; 30 j ou expiree
+            <span style={{ color: HAB_COLOR.rouge }}>●</span> &lt; 30 j ou expirée
           </p>
         </div>
 
         {canEdit && (
           <div className="card">
-            <h2>Enregistrer / mettre a jour une habilitation</h2>
+            <h2>Enregistrer / mettre à jour une habilitation</h2>
             {comps.length === 0 ? (
               <p className="muted">
-                Aucune habilitation definie. Cree-en dans Competences (case « a recycler »).
+                Aucune habilitation définie. Crée-en dans Compétences (case « à recycler »).
               </p>
             ) : (
               <form action={saveHabilitation} autoComplete="off" className="inline-form">
@@ -144,7 +144,7 @@ export default async function HabilitationsPage() {
               </form>
             )}
             <p className="muted" style={{ marginTop: 6 }}>
-              L&apos;expiration est calculee automatiquement (obtention + duree de validite).
+              L&apos;expiration est calculée automatiquement (obtention + durée de validité).
             </p>
           </div>
         )}

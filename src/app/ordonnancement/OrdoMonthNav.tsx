@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { moisStr, monthLabel } from "@/lib/week";
 
-const MOIS = ["Janv", "Fevr", "Mars", "Avr", "Mai", "Juin", "Juil", "Aout", "Sept", "Oct", "Nov", "Dec"];
+const MOIS = ["Janv", "Févr", "Mars", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"];
 
 export default function OrdoMonthNav({
   base,
@@ -42,7 +42,7 @@ export default function OrdoMonthNav({
         </div>
       </div>
       <div className="toolbar" style={{ alignItems: "center", marginTop: 10 }}>
-        <button type="button" className="iconbtn" onClick={() => go(prev[0], prev[1])} title="Mois precedent">
+        <button type="button" className="iconbtn" onClick={() => go(prev[0], prev[1])} title="Mois précédent">
           &lsaquo;
         </button>
         <button type="button" className="btn-sm" style={{ width: "auto" }} onClick={() => go(now.getFullYear(), now.getMonth())}>

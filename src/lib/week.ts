@@ -74,8 +74,8 @@ export function defaultQuartActif(iso: string, code: string): boolean {
 
 // ---- Mois ----
 const MOIS_NOMS = [
-  "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre",
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
 // Parse "YYYY-MM" -> { year, month0 } (month0 = 0..11). Defaut = mois courant.

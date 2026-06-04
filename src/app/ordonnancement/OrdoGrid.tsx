@@ -106,7 +106,7 @@ export default function OrdoGrid({
     <>
       <div className="card section" style={{ overflowX: "auto" }}>
         <h2 style={{ marginTop: 0 }}>
-          Quarts actifs par jour {saving && <span className="muted" style={{ fontSize: 12 }}>· enregistrement...</span>}
+          Quarts actifs par jour {saving && <span className="muted" style={{ fontSize: 12 }}>· enregistrement…</span>}
         </h2>
         <table className="matrix" style={tableStyle}>
           <Header label="Quart" />
@@ -130,8 +130,8 @@ export default function OrdoGrid({
 
       <h2 style={{ marginTop: 24 }}>Lignes ouvertes par quart</h2>
       <p className="muted" style={{ marginTop: -8 }}>
-        Tout ouvert par defaut. Desactiver un quart (au-dessus) ferme et verrouille
-        ses lignes ce jour-la.
+        Tout ouvert par défaut. Désactiver un quart (au-dessus) ferme et verrouille
+        ses lignes ce jour-là.
       </p>
       {quarts.map((q) => (
         <div key={q.code} className="card section" style={{ overflowX: "auto" }}>
@@ -168,7 +168,7 @@ export default function OrdoGrid({
           </table>
         </div>
       ))}
-      {quarts.length === 0 && <p className="muted">Aucun quart configure.</p>}
+      {quarts.length === 0 && <p className="muted">Aucun quart configuré.</p>}
     </>
   );
 }
