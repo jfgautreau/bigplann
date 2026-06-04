@@ -40,6 +40,9 @@
 - Padding tables réduit globalement à `4px 10px` (globals.css).
 
 ## Travaux récents (commits, du + récent au + ancien)
+- `bb5b023` **Perf latence serveur/page** : `getUser()`→`getClaims()` (vérif JWT locale, fallback HS256) dans `current-user.ts` ; `React.cache()` sur `getServerClient`/`getCurrentProfile`/`getPermissions` (1 seul contrôle profil+droits par requête) ; requêtes pages parallélisées (matrice 5→2 vagues, planning : `personne`+`equipe_chef` remontés en vague 1) ; `AutoRefresh` → `router.refresh()`.
+  - ⚠️ **Pour activer le gain auth** : Supabase Dashboard → *Project Settings → JWT Keys* → migrer vers des **clés asymétriques (RS256/ES256)**. Tant que le projet est en HS256, `getClaims()` retombe sur `getUser()` distant (aucune régression, mais pas de speedup).
+  - Pistes non faites (proposées) : P4 `output: "standalone"`, P5 mémoïsation grilles, cache cross-requête des permissions (`unstable_cache` + invalidation dans `droits/actions.ts`), vérif des index DB (`placement(personne_id,jour)`, `matrice(personne_id)`, `ouverture_quart(quart_code,jour)`).
 - `ef5018a` Bilan **Compétences disponibles** refondu : regroupé par **catégorie** (Chefs d'équipe / Conducteurs / Opérateurs=tous les autres), cellule `dispo/besoin`, **bordeaux sur fond rouge pâle** si dispo<besoin, jours fermés masqués, séparateurs + en-tête de semaine. Besoin calculé depuis l'ordonnancement.
 - `00ad873` Personnel : form création complet rétabli ; ToggleSwitch 24px (tout le site) ; lignes resserrées ; en-têtes figés (perso + planning).
 - `9743334` Planning : titre retiré, filtres Équipe/Quart à droite, lignes compactées, cellule « Personne » vidée.
