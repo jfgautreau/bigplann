@@ -1,10 +1,21 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
+import { getCurrentProfile } from "@/lib/current-user";
 import { isoDate, addDays } from "@/lib/week";
 import { MODULES, getPermissions, canRead, canWrite } from "@/lib/permissions";
 import SettingsMenu from "@/components/SettingsMenu";
+import UserMenu from "@/components/UserMenu";
 
 const MAIN_ORDER = ["personnel", "matrice", "ordonnancement", "planning", "bilans"];
+
+// Pastille d'icone coloree par module (reperage visuel facon "apps").
+const NAV_ICON: Record<string, { emoji: string; bg: string }> = {
+  personnel: { emoji: "👥", bg: "#3b82f6" },     // bleu
+  matrice: { emoji: "🎯", bg: "#a855f7" },       // violet
+  ordonnancement: { emoji: "🏭", bg: "#f59e0b" }, // ambre
+  planning: { emoji: "📅", bg: "#10b981" },       // vert
+  bilans: { emoji: "📊", bg: "#ef4444" },         // rouge
+};
 
 // En-tete commun : navigation pilotee par la matrice des droits, cloche
 // d'alerte habilitations, deconnexion.
@@ -17,6 +28,7 @@ export default async function AppHeader({
 }) {
   const perms = await getPermissions(role);
   const isAdmin = role === "admin";
+  const profile = await getCurrentProfile();
 
   // Compteur d'alertes habilitations (<= 90 jours)
   let alertCount = 0;
@@ -64,15 +76,39 @@ export default async function AppHeader({
           </svg>
           BigPlann&apos;
         </Link>
-        {mainLinks.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            className={active === l.href ? "navlink active" : "navlink"}
-          >
-            {l.label}
-          </Link>
-        ))}
+        {mainLinks.map((l) => {
+          const ic = NAV_ICON[l.key];
+          return (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={active === l.href ? "navlink active" : "navlink"}
+              style={{ display: "inline-flex", alignItems: "center", gap: 7 }}
+            >
+              {ic && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 20,
+                    height: 20,
+                    borderRadius: 6,
+                    background: ic.bg,
+                    fontSize: 11,
+                    lineHeight: 1,
+                    flexShrink: 0,
+                    boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.25)",
+                  }}
+                >
+                  {ic.emoji}
+                </span>
+              )}
+              {l.label}
+            </Link>
+          );
+        })}
       </nav>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <SettingsMenu links={configLinks} active={active} />
@@ -96,11 +132,7 @@ export default async function AppHeader({
             </span>
           )}
         </Link>
-        <form action="/logout" method="post">
-          <button type="submit" className="logout">
-            Se déconnecter
-          </button>
-        </form>
+        <UserMenu name={profile?.name ?? ""} email={profile?.email ?? ""} />
       </div>
     </header>
   );
