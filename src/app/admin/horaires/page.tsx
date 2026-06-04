@@ -53,9 +53,9 @@ export default async function HorairesPage({
       <div className="container" style={{ maxWidth: 1300 }}>
         <h1>Horaires de travail</h1>
         <p className="muted" style={{ marginBottom: 16 }}>
-          Horaires par poste, par equipe et par jour de la semaine (modele
-          hebdomadaire). Affiches a cote de chaque personne sur les ecrans TV.
-          Pour chaque case : heure de debut (haut) et de fin (bas).
+          Horaires par poste, par équipe et par jour de la semaine (modèle
+          hebdomadaire). Affichés à côté de chaque personne sur les écrans TV.
+          Pour chaque case : heure de début (haut) et de fin (bas).
         </p>
 
         {/* Selection ligne + equipe */}
@@ -72,7 +72,7 @@ export default async function HorairesPage({
             </select>
           </div>
           <div className="field">
-            <span>Equipe</span>
+            <span>Équipe</span>
             <select name="equipe" defaultValue={sp.equipe ?? ""}>
               <option value="">Choisir...</option>
               {equipes.map((e) => (
@@ -86,7 +86,7 @@ export default async function HorairesPage({
         </form>
 
         {!sp.ligne || !sp.equipe ? (
-          <p className="muted">Choisissez une ligne et une equipe.</p>
+          <p className="muted">Choisissez une ligne et une équipe.</p>
         ) : (
           <div className="card">
             <form action={saveHoraires} autoComplete="off">

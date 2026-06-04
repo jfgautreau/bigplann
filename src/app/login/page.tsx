@@ -59,7 +59,7 @@ export default function LoginPage() {
           {error && <p className="error">{error}</p>}
         </form>
         <p className="muted" style={{ marginTop: 16 }}>
-          <Link href="/forgot">Mot de passe oublie ?</Link>
+          <Link href="/forgot">Mot de passe oublié ?</Link>
         </p>
       </div>
     </div>

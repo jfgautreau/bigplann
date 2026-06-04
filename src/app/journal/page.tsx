@@ -16,7 +16,7 @@ type Entry = {
 type AppUser = { user_id: string; name: string; email: string };
 
 const ACTION_FR: Record<string, string> = {
-  INSERT: "Creation",
+  INSERT: "Création",
   UPDATE: "Modification",
   DELETE: "Suppression",
 };
@@ -41,7 +41,7 @@ export default async function JournalPage() {
   const entries = entriesData ?? [];
   const users = usersData ?? [];
   const who = (id: string | null) => {
-    if (!id) return "Systeme";
+    if (!id) return "Système";
     const u = users.find((x) => x.user_id === id);
     return u ? u.name || u.email : id.slice(0, 8);
   };
@@ -52,7 +52,7 @@ export default async function JournalPage() {
       <div className="container">
         <h1>Journal d&apos;audit</h1>
         <p className="muted" style={{ marginBottom: 16 }}>
-          200 dernieres modifications. Visible par l&apos;administrateur et le
+          200 dernières modifications. Visible par l&apos;administrateur et le
           CODIR ({roleLabel(profile.role)}).
         </p>
         <div className="card">
@@ -79,7 +79,7 @@ export default async function JournalPage() {
               {entries.length === 0 && (
                 <tr>
                   <td colSpan={5} className="muted">
-                    Aucune entree.
+                    Aucune entrée.
                   </td>
                 </tr>
               )}

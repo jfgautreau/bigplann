@@ -53,7 +53,7 @@ export default async function RotationPage({
     <>
       <AppHeader role={profile.role} active="/admin/rotation" />
       <div className="container" style={{ maxWidth: 1100 }}>
-        <h1>Rotation des equipes & horaires des quarts</h1>
+        <h1>Rotation des équipes & horaires des quarts</h1>
 
         {/* Horaires des quarts */}
         <div className="card section">
@@ -62,11 +62,11 @@ export default async function RotationPage({
             {quarts.map((q) => (
               <div key={q.code} className="toolbar">
                 <div className="field">
-                  <span>Libelle</span>
+                  <span>Libellé</span>
                   <input name={`lib_${q.code}`} defaultValue={q.libelle} />
                 </div>
                 <div className="field">
-                  <span>Debut</span>
+                  <span>Début</span>
                   <input name={`debut_${q.code}`} type="time" defaultValue={(q.debut ?? "").slice(0, 5)} />
                 </div>
                 <div className="field">
@@ -82,13 +82,13 @@ export default async function RotationPage({
         {/* Rotation */}
         <div className="card section">
           <div className="toolbar">
-            <h2 style={{ margin: 0 }}>Rotation (equipe &rarr; quart par semaine)</h2>
+            <h2 style={{ margin: 0 }}>Rotation (équipe &rarr; quart par semaine)</h2>
             <Link href={navHref(isoDate(addDays(start, -NB_SEM * 7)))} className="navlink">&larr; 8 sem.</Link>
             <Link href={navHref(isoDate(addDays(start, NB_SEM * 7)))} className="navlink">8 sem. &rarr;</Link>
           </div>
           <p className="muted">
-            Saisie manuelle. « Pre-remplir » initialise une alternance Matin/Apres-midi
-            (et Nuit pour les equipes nommees « nuit ») ; ajustez ensuite a la main.
+            Saisie manuelle. « Pré-remplir » initialise une alternance Matin/Après-midi
+            (et Nuit pour les équipes nommées « nuit ») ; ajustez ensuite à la main.
           </p>
           <form action={saveRotation}>
             <RotationEditor

@@ -23,11 +23,11 @@ export default function ForgotPage() {
   return (
     <div className="container">
       <div className="card card-narrow">
-        <h1>Mot de passe oublie</h1>
+        <h1>Mot de passe oublié</h1>
         {sent ? (
           <p className="success">
-            Si un compte existe pour cet email, un lien de reinitialisation a ete
-            envoye.
+            Si un compte existe pour cet email, un lien de réinitialisation a été
+            envoyé.
           </p>
         ) : (
           <form onSubmit={onSubmit}>
@@ -45,7 +45,7 @@ export default function ForgotPage() {
           </form>
         )}
         <p className="muted" style={{ marginTop: 16 }}>
-          <Link href="/login">Retour a la connexion</Link>
+          <Link href="/login">Retour à la connexion</Link>
         </p>
       </div>
     </div>

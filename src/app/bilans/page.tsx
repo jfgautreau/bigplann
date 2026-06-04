@@ -59,6 +59,8 @@ export default async function BilansPage({
       <div className="container" style={{ maxWidth: 1100 }}>
         <div className="toolbar">
           <h1 style={{ margin: 0 }}>Bilans</h1>
+          <Link href="/matrice/bilan" className="navlink">Bilan polyvalence &rarr;</Link>
+          <Link href="/bilans/competences" className="navlink">Compétences disponibles &rarr;</Link>
           <PrintButton />
         </div>
         <PeriodBand base="/bilans" semaine={centerIso} weekNums={[isoWeekNumber(monday)]} />

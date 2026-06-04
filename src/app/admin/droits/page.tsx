@@ -17,7 +17,7 @@ export default async function DroitsPage() {
     <>
       <AppHeader role={profile.role} active="/admin/droits" />
       <div className="container" style={{ maxWidth: 1100 }}>
-        <h1>Droits d&apos;acces (role x module)</h1>
+        <h1>Droits d&apos;accès (rôle × module)</h1>
         <p className="muted" style={{ marginBottom: 16 }}>
           Cliquez sur une case pour changer le droit :{" "}
           <span style={{ background: "#fff", border: "1px solid #cbd5e1", padding: "1px 8px", borderRadius: 5 }}>Aucun</span>{" "}

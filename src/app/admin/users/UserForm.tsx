@@ -27,10 +27,10 @@ export default function UserForm() {
     setPending(false);
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(json.error ?? "Echec.");
+      setError(json.error ?? "Échec.");
       return;
     }
-    setSuccess(`Compte cree pour ${email}.`);
+    setSuccess(`Compte créé pour ${email}.`);
     setName("");
     setEmail("");
     setPassword("");
@@ -57,7 +57,7 @@ export default function UserForm() {
         required
       />
 
-      <label htmlFor="role">Role</label>
+      <label htmlFor="role">Rôle</label>
       <select
         id="role"
         value={role}
@@ -80,11 +80,11 @@ export default function UserForm() {
         required
       />
       <p className="muted" style={{ marginTop: 4 }}>
-        Min. 8 caracteres, 3 classes parmi maj/min/chiffre/special.
+        Min. 8 caractères, 3 classes parmi maj/min/chiffre/spécial.
       </p>
 
       <button type="submit" disabled={pending}>
-        {pending ? "Creation..." : "Creer l'utilisateur"}
+        {pending ? "Création..." : "Créer l'utilisateur"}
       </button>
       {error && <p className="error">{error}</p>}
       {success && <p className="success">{success}</p>}

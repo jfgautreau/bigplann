@@ -11,7 +11,7 @@ import { isRole } from "@/lib/roles";
 // d'utilisateur, pour garantir la persistance.
 export async function updateUserRole(fd: FormData) {
   const profile = await getCurrentProfile();
-  if (!profile || profile.role !== "admin") throw new Error("Acces refuse.");
+  if (!profile || profile.role !== "admin") throw new Error("Accès refusé.");
 
   const user_id = String(fd.get("user_id") ?? "");
   const role = String(fd.get("role") ?? "");

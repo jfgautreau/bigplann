@@ -7,7 +7,7 @@ import { getCurrentProfile } from "@/lib/current-user";
 async function requireOrdoAdmin() {
   const profile = await getCurrentProfile();
   if (!profile || (profile.role !== "admin" && profile.role !== "ordo")) {
-    throw new Error("Acces refuse.");
+    throw new Error("Accès refusé.");
   }
   return getServerClient();
 }

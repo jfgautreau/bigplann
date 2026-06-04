@@ -19,7 +19,7 @@ function addMonths(iso: string, months: number): string {
 // a partir de la duree de validite de la competence. RLS = admin ou chef.
 export async function saveHabilitation(fd: FormData) {
   const profile = await getCurrentProfile();
-  if (!profile) throw new Error("Non authentifie.");
+  if (!profile) throw new Error("Non authentifié.");
   const supabase = await getServerClient();
 
   const personne_id = s(fd, "personne_id");

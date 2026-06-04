@@ -8,7 +8,7 @@ type Equipe = { id: string; label: string };
 const OPTIONS: [string, string][] = [
   ["", "—"],
   ["matin", "Matin"],
-  ["apres_midi", "Apres-midi"],
+  ["apres_midi", "Après-midi"],
   ["nuit", "Nuit"],
 ];
 
@@ -44,7 +44,7 @@ export default function RotationEditor({
   return (
     <div>
       <button type="button" className="btn-sm btn-ghost" onClick={prefill} style={{ marginBottom: 10 }}>
-        Pre-remplir (alternance A/B)
+        Pré-remplir (alternance A/B)
       </button>
       <div style={{ overflowX: "auto" }}>
         <table className="matrix" style={{ borderCollapse: "collapse" }}>

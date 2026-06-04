@@ -10,7 +10,7 @@ const VALID: Niveau[] = ["none", "read", "write"];
 
 export async function saveDroits(fd: FormData) {
   const profile = await getCurrentProfile();
-  if (!profile || profile.role !== "admin") throw new Error("Acces refuse.");
+  if (!profile || profile.role !== "admin") throw new Error("Accès refusé.");
   const supabase = await getServerClient();
 
   const rows: { role: string; module: string; niveau: Niveau }[] = [];

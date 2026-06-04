@@ -37,8 +37,8 @@ export default async function AdminUsersPage() {
           <h2>Ajouter un utilisateur</h2>
           <UserForm />
           <p className="muted" style={{ marginTop: 12 }}>
-            Le compte est cree directement avec un mot de passe (acces immediat).
-            Communiquez-le a l&apos;utilisateur, qui pourra le changer ensuite.
+            Le compte est créé directement avec un mot de passe (accès immédiat).
+            Communiquez-le à l&apos;utilisateur, qui pourra le changer ensuite.
           </p>
         </div>
 
@@ -49,7 +49,7 @@ export default async function AdminUsersPage() {
               <tr>
                 <th>Nom</th>
                 <th>Email</th>
-                <th>Role</th>
+                <th>Rôle</th>
                 <th>Statut</th>
               </tr>
             </thead>
@@ -81,7 +81,7 @@ export default async function AdminUsersPage() {
                         </form>
                       )}
                     </td>
-                    <td>{u.is_active ? "Actif" : "Desactive"}</td>
+                    <td>{u.is_active ? "Actif" : "Désactivé"}</td>
                   </tr>
                 );
               })}

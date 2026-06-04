@@ -44,7 +44,7 @@ export default async function AffichageAtelier({
     return (
       <div className="container">
         <h1>Atelier introuvable</h1>
-        <p className="muted">Verifiez l&apos;URL (/affichage).</p>
+        <p className="muted">Vérifiez l&apos;URL (/affichage).</p>
       </div>
     );
   }
@@ -185,9 +185,9 @@ export default async function AffichageAtelier({
       </table>
 
       <div style={{ marginTop: 14, fontSize: 14, color: "#6b7280" }}>
-        Legende : <span style={{ background: "#bbf7d0", padding: "0 6px" }}>Interimaire</span>{" "}
+        Légende : <span style={{ background: "#bbf7d0", padding: "0 6px" }}>Intérimaire</span>{" "}
         · <span style={{ background: FLUO, padding: "0 6px" }}>Aujourd&apos;hui</span> · horaires en bleu ·
-        mise a jour auto toutes les 5 min.
+        mise à jour auto toutes les 5 min.
       </div>
     </div>
   );

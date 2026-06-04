@@ -32,7 +32,7 @@ export default function ResetPage() {
     const { error } = await supabase.auth.updateUser({ password });
     setPending(false);
     if (error) {
-      setError("Echec de la mise a jour. Le lien a peut-etre expire.");
+      setError("Échec de la mise à jour. Le lien a peut-être expiré.");
       return;
     }
     router.replace("/");
@@ -42,7 +42,7 @@ export default function ResetPage() {
   return (
     <div className="container">
       <div className="card card-narrow">
-        <h1>Definir le mot de passe</h1>
+        <h1>Définir le mot de passe</h1>
         <form onSubmit={onSubmit}>
           <label htmlFor="password">Nouveau mot de passe</label>
           <input
@@ -63,7 +63,7 @@ export default function ResetPage() {
             required
           />
           <p className="muted" style={{ marginTop: 4 }}>
-            Min. 8 caracteres, 3 classes parmi maj/min/chiffre/special.
+            Min. 8 caractères, 3 classes parmi maj/min/chiffre/spécial.
           </p>
           <button type="submit" disabled={pending}>
             {pending ? "Enregistrement..." : "Valider"}
