@@ -145,6 +145,10 @@ export default async function BilansPage({
             Le detail Existant / Besoin / Ecart par poste et par niveau est sur la page{" "}
             <Link href="/matrice/bilan">Bilan polyvalence</Link>.
           </p>
+          <p>
+            Couverture jour par jour (competents disponibles par poste, hors absences) :{" "}
+            <Link href="/bilans/competences">Competences disponibles</Link>.
+          </p>
         </div>
 
         <div className="card section">
