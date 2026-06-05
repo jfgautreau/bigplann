@@ -69,13 +69,14 @@ export default function MatrixGrid({
   personnes = [],
   initial = {},
   canEditObjectif = false,
+  mode = "actuel",
 }: {
   groups?: Group[];
   personnes?: Personne[];
   initial?: Record<string, Cell>;
   canEditObjectif?: boolean;
+  mode?: "actuel" | "cible";
 }) {
-  const [mode, setMode] = useState<"actuel" | "cible">("actuel");
   const [cells, setCells] = useState<Record<string, Cell>>(initial);
   const [objActuel, setObjActuel] = useState<Record<string, number>>(() => {
     const o: Record<string, number> = {};
@@ -176,27 +177,6 @@ export default function MatrixGrid({
 
   return (
     <div>
-      <div className="toolbar" style={{ alignItems: "center" }}>
-        <span className="muted">Je saisis le niveau :</span>
-        <div className="modeswitch">
-          <button
-            type="button"
-            className={mode === "actuel" ? "on-actuel" : ""}
-            onClick={() => setMode("actuel")}
-          >
-            Niveau actuel
-          </button>
-          <button
-            type="button"
-            className={mode === "cible" ? "on-cible" : ""}
-            onClick={() => setMode("cible")}
-          >
-            Niveau cible
-          </button>
-        </div>
-        <span className="muted">Clic = +1 · clic droit = −1 · enregistrement automatique</span>
-      </div>
-
       <div className="card" style={{ overflowX: "auto", position: "relative" }}>
         {/* Indicateur de sauvegarde unique, en haut a droite du tableau */}
         <div

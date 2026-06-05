@@ -2,8 +2,7 @@ import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
-import MatriceFilters from "./MatriceFilters";
-import MatrixGrid from "./MatrixGrid";
+import MatricePanel from "./MatricePanel";
 
 type PosteRow = {
   id: string;
@@ -113,7 +112,7 @@ export default async function MatricePage({
   return (
     <>
       <AppHeader role={profile.role} active="/matrice" />
-      <div className="container" style={{ maxWidth: 1200 }}>
+      <div className="container" style={{ maxWidth: 1500 }}>
         <div className="toolbar">
           <h1 style={{ margin: 0 }}>Matrice de polyvalence</h1>
           <Link href="/matrice/bilan" className="navlink">
@@ -121,23 +120,16 @@ export default async function MatricePage({
           </Link>
         </div>
 
-        <MatriceFilters
+        <MatricePanel
+          groups={groups}
+          personnes={gridPersonnes}
+          initial={initial}
+          canEditObjectif={isAdmin}
           ateliers={ateliers.map((a) => ({ id: a.id, label: a.nom }))}
           equipes={equipes.map((e) => ({ id: e.id, label: e.nom }))}
           atelier={sp.atelier ?? ""}
           equipe={sp.equipe ?? ""}
         />
-
-        {groups.length === 0 ? (
-          <p className="muted">Aucun poste actif (vérifiez le référentiel / le filtre atelier).</p>
-        ) : (
-          <MatrixGrid
-            groups={groups}
-            personnes={gridPersonnes}
-            initial={initial}
-            canEditObjectif={isAdmin}
-          />
-        )}
       </div>
     </>
   );

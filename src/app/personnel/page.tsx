@@ -32,7 +32,7 @@ export default async function PersonnelPage() {
   return (
     <>
       <AppHeader role={profile.role} active="/personnel" />
-      <div className="container">
+      <div className="container" style={{ maxWidth: 1500 }}>
         <h1>Personnel</h1>
         <PersonnelEditor initial={rowsData ?? []} equipes={equipesData ?? []} canEdit={canEdit} />
       </div>

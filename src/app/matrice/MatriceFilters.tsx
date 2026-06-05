@@ -28,28 +28,43 @@ export default function MatriceFilters({
   }
 
   return (
-    <div className="toolbar">
-      <div className="field">
-        <span>Atelier</span>
-        <select value={atelier} onChange={(e) => go({ atelier: e.target.value })}>
-          <option value="">Tous les ateliers</option>
+    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span className="muted">Atelier :</span>
+        <div className="segments">
+          <button type="button" className={atelier === "" ? "seg active" : "seg"} onClick={() => go({ atelier: "" })}>
+            Tous
+          </button>
           {ateliers.map((a) => (
-            <option key={a.id} value={a.id}>
+            <button
+              key={a.id}
+              type="button"
+              className={atelier === a.id ? "seg active" : "seg"}
+              onClick={() => go({ atelier: a.id })}
+            >
               {a.label}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
       </div>
-      <div className="field">
-        <span>Équipe</span>
-        <select value={equipe} onChange={(e) => go({ equipe: e.target.value })}>
-          <option value="">Toutes les équipes</option>
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span className="muted">Équipe :</span>
+        <div className="segments">
+          <button type="button" className={equipe === "" ? "seg active" : "seg"} onClick={() => go({ equipe: "" })}>
+            Toutes
+          </button>
           {equipes.map((e2) => (
-            <option key={e2.id} value={e2.id}>
+            <button
+              key={e2.id}
+              type="button"
+              className={equipe === e2.id ? "seg active" : "seg"}
+              onClick={() => go({ equipe: e2.id })}
+            >
               {e2.label}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
       </div>
     </div>
   );
