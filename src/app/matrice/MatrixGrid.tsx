@@ -100,6 +100,12 @@ export default function MatrixGrid({
   const countAt = (poid: string, field: "a" | "c") =>
     personnes.reduce((n, pe) => n + ((cells[key(pe.id, poid)]?.[field] ?? 0) >= 2 ? 1 : 0), 0);
 
+  // Repartition : nb de personnes a un niveau EXACT, sur le niveau affiche
+  // (actuel ou cible selon le mode courant, pour coller aux pastilles visibles).
+  const fieldShown: "a" | "c" = mode === "actuel" ? "a" : "c";
+  const countLevel = (poid: string, level: number) =>
+    personnes.reduce((n, pe) => n + ((cells[key(pe.id, poid)]?.[fieldShown] ?? 0) === level ? 1 : 0), 0);
+
   function saveObjectif(poid: string, champ: "actuel" | "cible", value: number) {
     if (champ === "actuel") setObjActuel((o) => ({ ...o, [poid]: value }));
     else setObjCible((o) => ({ ...o, [poid]: value }));
@@ -334,6 +340,46 @@ export default function MatrixGrid({
             )}
           </tbody>
           <tfoot>
+            {/* Repartition par niveau (niveau affiche : actuel ou cible). */}
+            {[1, 2, 3, 4].map((lvl) => (
+              <tr key={`niv${lvl}`} style={{ background: "#fbfcfe" }}>
+                <td style={{ position: "sticky", left: 0, background: "#fbfcfe", fontWeight: 600, fontSize: 12, color: "#475569" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+                    <span
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        background: FILL[lvl] ?? "#999",
+                        border: "1px solid #94a3b8",
+                        display: "inline-block",
+                        flexShrink: 0,
+                      }}
+                    />
+                    Nb de Niv. {lvl}
+                  </span>
+                </td>
+                {groups.flatMap((g) =>
+                  g.postes.map((po, i) => {
+                    const c = countLevel(po.id, lvl);
+                    return (
+                      <td
+                        key={po.id}
+                        style={{
+                          textAlign: "center",
+                          padding: "3px 2px",
+                          fontWeight: 600,
+                          color: c > 0 ? "var(--text)" : "#cbd5e1",
+                          borderLeft: i === 0 ? "2px solid #d9dce1" : undefined,
+                        }}
+                      >
+                        {c}
+                      </td>
+                    );
+                  })
+                )}
+              </tr>
+            ))}
             {(
               [
                 ["actuel", "a", "#1d4ed8", objActuel] as const,
