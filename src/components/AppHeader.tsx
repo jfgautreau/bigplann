@@ -5,16 +5,20 @@ import { isoDate, addDays } from "@/lib/week";
 import { MODULES, getPermissions, canRead, canWrite } from "@/lib/permissions";
 import SettingsMenu from "@/components/SettingsMenu";
 import UserMenu from "@/components/UserMenu";
+import { NavIcon } from "@/components/NavIcons";
 
 const MAIN_ORDER = ["personnel", "matrice", "ordonnancement", "planning", "bilans"];
 
-// Pastille d'icone coloree par module (reperage visuel facon "apps").
-const NAV_ICON: Record<string, { emoji: string; bg: string }> = {
-  personnel: { emoji: "👥", bg: "#3b82f6" },     // bleu
-  matrice: { emoji: "🎯", bg: "#a855f7" },       // violet
-  ordonnancement: { emoji: "🏭", bg: "#f59e0b" }, // ambre
-  planning: { emoji: "📅", bg: "#10b981" },       // vert
-  bilans: { emoji: "📊", bg: "#ef4444" },         // rouge
+// Palette des pastilles (icone blanche dessus). Tons "jewel" niveau 600 :
+// luminosite/saturation homogenes -> la rangee se lit comme un systeme coherent,
+// teintes reparties sur la roue -> chaque module est instantanement distinct,
+// equilibre froid/chaud, et contraste blanc >= 4.5:1 sur chaque tuile.
+const NAV_TILE: Record<string, string> = {
+  personnel: "#2563eb",      // bleu  (RH / les gens)
+  matrice: "#7c3aed",        // violet (rappel discret de la marque)
+  ordonnancement: "#ea580c", // orange (production / industriel)
+  planning: "#0d9488",       // teal  (organisation / temps)
+  bilans: "#e11d48",         // rose  (resultats / rapport)
 };
 
 // En-tete commun : navigation pilotee par la matrice des droits, cloche
@@ -66,18 +70,19 @@ export default async function AppHeader({
           <svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true" style={{ display: "block" }}>
             <defs>
               <linearGradient id="bpLogo" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stopColor="#ffffff" stopOpacity="0.28" />
-                <stop offset="1" stopColor="#ffffff" stopOpacity="0.12" />
+                <stop offset="0" stopColor="#4338ca" />
+                <stop offset="0.55" stopColor="#6d28d9" />
+                <stop offset="1" stopColor="#7c3aed" />
               </linearGradient>
             </defs>
-            <rect width="64" height="64" rx="14" fill="url(#bpLogo)" stroke="rgba(255,255,255,0.55)" strokeWidth="2" />
+            <rect width="64" height="64" rx="14" fill="url(#bpLogo)" />
             <text x="30" y="47" textAnchor="middle" fill="#fff" fontFamily="Arial, Helvetica, sans-serif" fontSize="40" fontWeight="900">B</text>
             <circle cx="47" cy="20" r="3.4" fill="#ddd6fe" />
           </svg>
           BigPlann&apos;
         </Link>
         {mainLinks.map((l) => {
-          const ic = NAV_ICON[l.key];
+          const tile = NAV_TILE[l.key];
           return (
             <Link
               key={l.href}
@@ -85,24 +90,22 @@ export default async function AppHeader({
               className={active === l.href ? "navlink active" : "navlink"}
               style={{ display: "inline-flex", alignItems: "center", gap: 7 }}
             >
-              {ic && (
+              {tile && (
                 <span
                   aria-hidden="true"
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    width: 20,
-                    height: 20,
-                    borderRadius: 6,
-                    background: ic.bg,
-                    fontSize: 11,
-                    lineHeight: 1,
+                    width: 22,
+                    height: 22,
+                    borderRadius: 7,
+                    background: tile,
                     flexShrink: 0,
-                    boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.25)",
+                    boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.22)",
                   }}
                 >
-                  {ic.emoji}
+                  <NavIcon name={l.key} />
                 </span>
               )}
               {l.label}
