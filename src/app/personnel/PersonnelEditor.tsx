@@ -146,20 +146,20 @@ export default function PersonnelEditor({
         <div className="card" style={{ marginBottom: 20 }}>
           <h2 style={{ marginTop: 0 }}>Ajouter une personne</h2>
           <form onSubmit={add} autoComplete="off">
-            <div className="toolbar">
-              <div className="field">
+            <div className="toolbar" style={{ alignItems: "flex-end" }}>
+              <div className="field" style={{ flex: "1 1 120px" }}>
                 <span>Nom *</span>
                 <input value={nom} onChange={(e) => setNom(e.target.value)} required />
               </div>
-              <div className="field">
+              <div className="field" style={{ flex: "1 1 120px" }}>
                 <span>Prénom *</span>
                 <input value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
               </div>
-              <div className="field">
+              <div className="field" style={{ flex: "1 1 120px" }}>
                 <span>Matricule</span>
                 <input value={matricule} onChange={(e) => setMatricule(e.target.value)} placeholder="(auto si intérim)" />
               </div>
-              <div className="field">
+              <div className="field" style={{ flex: "0 0 92px" }}>
                 <span>Équipe</span>
                 <select value={eq} onChange={(e) => setEq(e.target.value)}>
                   <option value="">-</option>
@@ -168,7 +168,7 @@ export default function PersonnelEditor({
                   ))}
                 </select>
               </div>
-              <div className="field">
+              <div className="field" style={{ flex: "0 0 92px" }}>
                 <span>Contrat</span>
                 <select value={contrat} onChange={(e) => setContrat(e.target.value)}>
                   {CONTRATS.map((c) => (
@@ -176,23 +176,21 @@ export default function PersonnelEditor({
                   ))}
                 </select>
               </div>
-            </div>
-            <div className="toolbar">
-              <div className="field">
+              <div className="field" style={{ flex: "0 0 150px" }}>
                 <span>Début</span>
                 <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
               </div>
-              <div className="field">
+              <div className="field" style={{ flex: "0 0 150px" }}>
                 <span>Fin (CDD/intérim)</span>
                 <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
               </div>
-              <div className="field">
+              <div className="field" style={{ flex: "1 1 120px" }}>
                 <span>Agence (si intérim)</span>
                 <input value={agence} onChange={(e) => setAgence(e.target.value)} />
               </div>
-              <div className="field">
+              <div className="field" style={{ flex: "0 0 78px" }}>
                 <span>Pointure</span>
-                <input value={pointure} maxLength={5} onChange={(e) => setPointure(e.target.value)} style={{ width: 70 }} placeholder="ex. 42" />
+                <input value={pointure} maxLength={5} onChange={(e) => setPointure(e.target.value)} placeholder="ex. 42" />
               </div>
             </div>
             <div className="field" style={{ marginTop: 4 }}>
