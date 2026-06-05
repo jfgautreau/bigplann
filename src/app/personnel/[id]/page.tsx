@@ -4,6 +4,7 @@ import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import ConfirmForm from "@/components/ConfirmForm";
+import PeriodesEditor from "../PeriodesEditor";
 import { updatePersonne, toggleStatut, anonymiserPersonne, supprimerPersonne } from "../actions";
 
 type Equipe = { id: string; nom: string };
@@ -105,32 +106,13 @@ export default async function FichePersonne({
                 </select>
               </div>
               <div className="field">
-                <span>Contrat</span>
-                <select name="type_contrat" defaultValue={p.type_contrat}>
-                  <option value="CDI">CDI</option>
-                  <option value="CDD">CDD</option>
-                  <option value="INTERIM">Intérim</option>
-                </select>
-              </div>
-              <div className="field">
-                <span>Agence (si intérim)</span>
-                <input name="agence_interim" defaultValue={p.agence_interim ?? ""} />
-              </div>
-            </div>
-            <div className="toolbar">
-              <div className="field">
-                <span>Début</span>
-                <input name="date_debut" type="date" defaultValue={p.date_debut ?? ""} />
-              </div>
-              <div className="field">
-                <span>Fin (CDD/intérim)</span>
-                <input name="date_fin" type="date" defaultValue={p.date_fin ?? ""} />
-              </div>
-              <div className="field">
                 <span>Pointure</span>
                 <input name="pointure" maxLength={5} defaultValue={p.pointure ?? ""} style={{ width: 70 }} />
               </div>
             </div>
+            <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
+              Le type de contrat et les dates sont gérés dans « Contrats / périodes » ci-dessous.
+            </p>
             <label htmlFor="commentaire">Commentaire</label>
             <input id="commentaire" name="commentaire" defaultValue={p.commentaire ?? ""} />
             <p className="muted" style={{ marginTop: 4 }}>
@@ -139,6 +121,8 @@ export default async function FichePersonne({
             <button type="submit">Enregistrer</button>
           </form>
         </div>
+
+        <PeriodesEditor personneId={p.id} />
 
         {/* RGPD */}
         <div className="card" style={{ marginTop: 24, borderColor: "#fca5a5" }}>

@@ -11,6 +11,7 @@ type Row = {
   prenom: string;
   equipe_id: string | null;
   type_contrat: string;
+  date_fin: string | null;
   pointure: string | null;
   statut: string;
 };
@@ -24,7 +25,7 @@ export default async function PersonnelPage() {
     supabase.from("equipe").select("id, nom").order("nom").returns<Equipe[]>(),
     supabase
       .from("personne")
-      .select("id, matricule, nom, prenom, equipe_id, type_contrat, pointure, statut")
+      .select("id, matricule, nom, prenom, equipe_id, type_contrat, date_fin, pointure, statut")
       .order("nom")
       .returns<Row[]>(),
   ]);

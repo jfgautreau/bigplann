@@ -11,6 +11,7 @@ type Row = {
   prenom: string;
   equipe_id: string | null;
   type_contrat: string;
+  date_fin: string | null;
   pointure: string | null;
   statut: string;
 };
@@ -18,6 +19,8 @@ type Equipe = { id: string; nom: string };
 
 const CONTRATS = ["CDI", "CDD", "INTERIM"];
 const sortRows = (a: Row, b: Row) => (a.nom + a.prenom).localeCompare(b.nom + b.prenom);
+// "2025-06-30" -> "30/06/2025" (sans decalage de fuseau)
+const fmtDate = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
 
 export default function PersonnelEditor({
   initial,
@@ -120,12 +123,14 @@ export default function PersonnelEditor({
     { key: "prenom", label: "Prénom" },
     { key: "equipe", label: "Équipe" },
     { key: "type_contrat", label: "Contrat" },
+    { key: "date_fin", label: "Fin contrat" },
     { key: "pointure", label: "Pointure" },
     { key: "statut", label: "Statut" },
   ];
   const cellText = (r: Row, key: string) => {
     if (key === "equipe") return equipeNom(r.equipe_id);
     if (key === "statut") return r.statut === "ACTIF" ? "Actif" : "Parti";
+    if (key === "date_fin") return fmtDate(r.date_fin);
     return String((r as unknown as Record<string, unknown>)[key] ?? "");
   };
   const filtered = rows.filter((r) =>
@@ -251,6 +256,7 @@ export default function PersonnelEditor({
                         ))}
                       </select>
                     </td>
+                    <td style={{ textAlign: "center", whiteSpace: "nowrap", color: "var(--muted)" }} title="Fin du contrat le plus récent (gérée sur la fiche)">{fmtDate(r.date_fin)}</td>
                     <td><input value={r.pointure ?? ""} maxLength={5} onChange={(e) => field(r.id, "pointure", e.target.value)} style={{ ...inp, width: 64 }} /></td>
                     <td>
                       <ToggleSwitch
@@ -270,6 +276,7 @@ export default function PersonnelEditor({
                     <td>{r.prenom}</td>
                     <td>{equipeNom(r.equipe_id) || "-"}</td>
                     <td>{r.type_contrat}</td>
+                    <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>{fmtDate(r.date_fin)}</td>
                     <td>{r.pointure || "-"}</td>
                     <td>
                       <span className={r.statut === "ACTIF" ? "tag" : "tag tag-off"}>

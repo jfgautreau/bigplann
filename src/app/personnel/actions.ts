@@ -42,7 +42,20 @@ export async function updatePersonne(fd: FormData) {
   const supabase = await requireAdmin();
   const id = s(fd, "id");
   if (!id) return;
-  await supabase.from("personne").update(buildData(fd)).eq("id", id);
+  // Champs niveau-personne uniquement. Le type de contrat et les dates sont
+  // gérés via les périodes (table contrat_periode) et le reflet est synchronisé
+  // côté API — on ne les touche donc pas ici pour ne pas écraser l'historique.
+  await supabase
+    .from("personne")
+    .update({
+      nom: s(fd, "nom"),
+      prenom: s(fd, "prenom"),
+      matricule: orNull(s(fd, "matricule")),
+      equipe_id: orNull(s(fd, "equipe_id")),
+      pointure: orNull(s(fd, "pointure")),
+      commentaire: orNull(s(fd, "commentaire")),
+    })
+    .eq("id", id);
   revalidatePath("/personnel");
   redirect("/personnel");
 }
