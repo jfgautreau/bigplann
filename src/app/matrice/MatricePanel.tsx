@@ -53,7 +53,7 @@ export default function MatricePanel({
         <p className="muted">Aucun poste actif (vérifiez le référentiel / le filtre atelier).</p>
       ) : (
         <>
-          <p className="muted" style={{ margin: "-6px 0 10px", fontSize: 12 }}>
+          <p className="muted" style={{ margin: "-6px 0 10px", fontSize: 12, textAlign: "right" }}>
             Clic = +1 · clic droit = −1 · enregistrement automatique
           </p>
           <MatrixGrid groups={groups} personnes={personnes} initial={initial} canEditObjectif={canEditObjectif} mode={mode} />
