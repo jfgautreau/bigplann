@@ -239,8 +239,9 @@ export default async function PlanningPage({
   const initial: Record<string, string> = {};
   const otherByCell: Record<string, string> = {}; // place sur un autre quart -> code du quart
   const matrice: Record<string, number> = {};
+  const exceptions: Record<string, { debut: string; fin: string; motif: string }> = {};
   if (allIds.length && visIsos.length) {
-    const [{ data: pl }, { data: mat }] = await Promise.all([
+    const [{ data: pl }, { data: mat }, { data: exc }] = await Promise.all([
       supabase
         .from("placement")
         .select("personne_id, jour, poste_id, motif_absence_id, non_travaille, quart_code")
@@ -252,6 +253,12 @@ export default async function PlanningPage({
         .select("personne_id, poste_id, niveau_actuel")
         .in("personne_id", allIds)
         .returns<MatRow[]>(),
+      supabase
+        .from("horaire_exception")
+        .select("personne_id, jour, debut, fin, motif")
+        .in("jour", visIsos)
+        .in("personne_id", allIds)
+        .returns<{ personne_id: string; jour: string; debut: string | null; fin: string | null; motif: string | null }[]>(),
     ]);
     for (const r of pl ?? []) {
       const k = `${r.personne_id}:${r.jour}`;
@@ -261,6 +268,8 @@ export default async function PlanningPage({
       else if (r.poste_id && displayedSet.has(r.personne_id)) otherByCell[k] = r.quart_code ?? (quartCodes[0] ?? "matin");
     }
     for (const r of mat ?? []) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
+    for (const r of exc ?? [])
+      exceptions[`${r.personne_id}:${r.jour}`] = { debut: r.debut ?? "", fin: r.fin ?? "", motif: r.motif ?? "" };
   }
 
   // Perimetre chef recupere en vague 1.
@@ -340,6 +349,7 @@ export default async function PlanningPage({
           otherByCell={otherByCell}
           quartLabel={quartLabel}
           posteLabelAll={posteLabelAll}
+          exceptions={exceptions}
         />
       </div>
     </>

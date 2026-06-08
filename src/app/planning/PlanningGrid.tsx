@@ -32,6 +32,7 @@ export default function PlanningGrid({
   otherByCell = {},
   quartLabel = {},
   posteLabelAll = {},
+  exceptions = {},
 }: {
   days: Jour[];
   weekBlocks?: WeekBlock[];
@@ -48,6 +49,7 @@ export default function PlanningGrid({
   otherByCell?: Record<string, string>;
   quartLabel?: Record<string, string>;
   posteLabelAll?: Record<string, string>;
+  exceptions?: Record<string, { debut: string; fin: string; motif: string }>;
 }) {
   const router = useRouter();
   const [vals, setVals] = useState<Record<string, string>>(initial);
@@ -56,6 +58,50 @@ export default function PlanningGrid({
   const [highlight, setHighlight] = useState<{ iso: string; type: "hc" | "over" } | null>(null);
   const toggleHi = (iso: string, type: "hc" | "over") =>
     setHighlight((h) => (h && h.iso === iso && h.type === type ? null : { iso, type }));
+
+  // Horaires specifiques (exceptions) : etat local + popover d'edition par case.
+  const [exc, setExc] = useState(exceptions);
+  const [excAt, setExcAt] = useState<string | null>(null); // cle "pid:iso"
+  const [draft, setDraft] = useState<{ debut: string; fin: string; motif: string }>({ debut: "", fin: "", motif: "" });
+  const excKey = (pid: string, iso: string) => `${pid}:${iso}`;
+  function openExc(pid: string, iso: string) {
+    const e = exc[excKey(pid, iso)] ?? { debut: "", fin: "", motif: "" };
+    setDraft({ debut: e.debut, fin: e.fin, motif: e.motif });
+    setExcAt(excKey(pid, iso));
+  }
+  async function saveExc(pid: string, iso: string) {
+    const k = excKey(pid, iso);
+    const res = await fetch("/api/horaire-exception", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "save", personne_id: pid, jour: iso, ...draft }),
+    });
+    if (res.ok) {
+      setExc((s) => {
+        const n = { ...s };
+        if (!draft.debut && !draft.fin && !draft.motif) delete n[k];
+        else n[k] = { ...draft };
+        return n;
+      });
+      setExcAt(null);
+    }
+  }
+  async function clearExc(pid: string, iso: string) {
+    const res = await fetch("/api/horaire-exception", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "delete", personne_id: pid, jour: iso }),
+    });
+    if (res.ok) {
+      setExc((s) => {
+        const n = { ...s };
+        delete n[excKey(pid, iso)];
+        return n;
+      });
+      setExcAt(null);
+    }
+  }
+  const excLabel = (e: { debut: string; fin: string }) => `${e.debut || "?"}-${e.fin || "?"}`;
 
   const key = (pid: string, iso: string) => `${pid}:${iso}`;
   const isPoste = (v: string) => v !== "" && v !== "X" && !v.startsWith("m:");
@@ -529,6 +575,50 @@ export default function PlanningGrid({
                         &raquo;
                       </button>
                     )}
+                    {(() => {
+                      const ek = excKey(pers.id, d.iso);
+                      const e = exc[ek];
+                      const canEditExc = pers.editable && isPoste(v);
+                      if (!e && !canEditExc) return null;
+                      return (
+                        <>
+                          {canEditExc ? (
+                            <button
+                              type="button"
+                              className={`horx${e ? " has" : ""}`}
+                              title={e ? `Horaire spécifique : ${excLabel(e)}${e.motif ? " · " + e.motif : ""}` : "Définir un horaire spécifique"}
+                              onClick={() => openExc(pers.id, d.iso)}
+                            >
+                              🕐
+                            </button>
+                          ) : (
+                            e && <span className="horx has" title={`Horaire spécifique : ${excLabel(e)}`}>🕐</span>
+                          )}
+                          {excAt === ek && (
+                            <div className="exc-pop" onClick={(ev) => ev.stopPropagation()}>
+                              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Horaire spécifique</div>
+                              <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+                                <input type="time" value={draft.debut} onChange={(ev) => setDraft((s) => ({ ...s, debut: ev.target.value }))} style={{ fontSize: 12, padding: "2px 3px" }} />
+                                <input type="time" value={draft.fin} onChange={(ev) => setDraft((s) => ({ ...s, fin: ev.target.value }))} style={{ fontSize: 12, padding: "2px 3px" }} />
+                              </div>
+                              <input
+                                placeholder="motif (optionnel)"
+                                value={draft.motif}
+                                onChange={(ev) => setDraft((s) => ({ ...s, motif: ev.target.value }))}
+                                style={{ width: "100%", fontSize: 12, padding: "2px 3px", marginBottom: 6 }}
+                              />
+                              <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                                <button type="button" className="btn-sm" style={{ padding: "2px 8px" }} onClick={() => saveExc(pers.id, d.iso)}>OK</button>
+                                {e && (
+                                  <button type="button" className="btn-sm btn-ghost" style={{ padding: "2px 8px" }} onClick={() => clearExc(pers.id, d.iso)}>Effacer</button>
+                                )}
+                                <button type="button" className="btn-sm btn-ghost" style={{ padding: "2px 8px" }} onClick={() => setExcAt(null)}>×</button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                     {other && (
                       <div
                         style={{ fontSize: 9, color: "#9a3412", marginTop: -1 }}
@@ -556,7 +646,8 @@ export default function PlanningGrid({
         <span className="legend-swatch hc" /> hors compétence ·{" "}
         <span className="legend-swatch over" /> sur-effectif (badge présents/requis) ·
         cliquez une pastille colorée de la ligne « Alertes » pour surligner les cases
-        concernées · jours sans ligne ouverte masqués.
+        concernées · <span style={{ background: "#1d4ed8", color: "#fff", borderRadius: 3, padding: "0 3px", fontSize: 10 }}>🕐</span> horaire
+        spécifique (survolez une case placée) · jours sans ligne ouverte masqués.
       </p>
     </div>
   );
