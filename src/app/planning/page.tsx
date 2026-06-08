@@ -24,7 +24,7 @@ type PosteRow = {
   niveau_min_requis: number;
 };
 type LigneRow = { id: string; nom: string; atelier: { id: string; nom: string } | null; poste: PosteRow[] };
-type Equipe = { id: string; nom: string; couleur: string };
+type Equipe = { id: string; nom: string; couleur: string; quart_fixe: string | null };
 type Quart = { code: string; libelle: string };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null };
 type Placement = {
@@ -70,7 +70,7 @@ export default async function PlanningPage({
     { data: allActiveD },
     { data: chefData },
   ] = await Promise.all([
-    supabase.from("equipe").select("id, nom, couleur").eq("actif", true).order("nom").returns<Equipe[]>(),
+    supabase.from("equipe").select("id, nom, couleur, quart_fixe").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
       .from("ligne")
       .select("id, nom, atelier:atelier_id(id, nom), poste(id, nom, nom_court, actif, effectif_requis, niveau_min_requis)")
@@ -93,18 +93,24 @@ export default async function PlanningPage({
   const quarts = quartsD ?? [];
   const quartCodes = quarts.map((q) => q.code);
 
-  // Quart selectionne : ?quart, sinon rotation de l'equipe pour la semaine, sinon "matin".
+  // Quart selectionne : ?quart, sinon quart fixe de l'equipe, sinon rotation de la
+  // semaine, sinon "matin".
   let quart = sp.quart && quartCodes.includes(sp.quart) ? sp.quart : "";
   if (!quart && equipe) {
-    const { data: rot } = await supabase
-      .from("equipe_quart_semaine")
-      .select("quart_code")
-      .eq("equipe_id", equipe)
-      .eq("semaine", centerIso)
-      .maybeSingle<{ quart_code: string }>();
-    if (rot?.quart_code) quart = rot.quart_code;
+    const eqRow = (equipesD ?? []).find((e) => e.id === equipe);
+    if (eqRow?.quart_fixe && quartCodes.includes(eqRow.quart_fixe)) {
+      quart = eqRow.quart_fixe;
+    } else {
+      const { data: rot } = await supabase
+        .from("equipe_quart_semaine")
+        .select("quart_code")
+        .eq("equipe_id", equipe)
+        .eq("semaine", centerIso)
+        .maybeSingle<{ quart_code: string }>();
+      if (rot?.quart_code) quart = rot.quart_code;
+    }
   }
-  if (!quart) quart = quartCodes[0] ?? "matin";
+  if (!quart) quart = quartCodes.includes("matin") ? "matin" : quartCodes[0] ?? "matin";
 
   const groupsAll = (lignesD ?? [])
     .map((l) => ({

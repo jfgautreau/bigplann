@@ -12,17 +12,18 @@ import {
 } from "./actions";
 
 type Chef = { id: string; app_user_id: string };
-type Equipe = { id: string; nom: string; actif: boolean; couleur: string; equipe_chef: Chef[] };
+type Equipe = { id: string; nom: string; actif: boolean; couleur: string; quart_fixe: string | null; equipe_chef: Chef[] };
 type AppUser = { user_id: string; name: string; email: string };
+type Quart = { code: string; libelle: string };
 
 export default async function EquipesPage() {
   const { profile } = await requireModule("equipes", "write");
 
   const supabase = await getServerClient();
-  const [{ data: equipesData }, { data: usersData }] = await Promise.all([
+  const [{ data: equipesData }, { data: usersData }, { data: quartsData }] = await Promise.all([
     supabase
       .from("equipe")
-      .select("id, nom, actif, couleur, equipe_chef(id, app_user_id)")
+      .select("id, nom, actif, couleur, quart_fixe, equipe_chef(id, app_user_id)")
       .order("nom")
       .returns<Equipe[]>(),
     supabase
@@ -30,7 +31,9 @@ export default async function EquipesPage() {
       .select("user_id, name, email")
       .order("name")
       .returns<AppUser[]>(),
+    supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
   ]);
+  const quarts = quartsData ?? [];
 
   const equipes = equipesData ?? [];
   const users = usersData ?? [];
@@ -71,6 +74,15 @@ export default async function EquipesPage() {
                 />
                 <input name="nom" defaultValue={e.nom} />
                 <input name="couleur" type="color" defaultValue={e.couleur} style={{ width: 44, padding: 2 }} />
+                <div className="field" style={{ margin: 0 }}>
+                  <span>Quart fixe</span>
+                  <select name="quart_fixe" defaultValue={e.quart_fixe ?? ""}>
+                    <option value="">Rotation (tourne)</option>
+                    {quarts.map((q) => (
+                      <option key={q.code} value={q.code}>{q.libelle}</option>
+                    ))}
+                  </select>
+                </div>
                 <button type="submit" className="btn-sm btn-ghost">
                   Enregistrer
                 </button>

@@ -16,7 +16,11 @@ export async function renameEquipe(fd: FormData) {
   const supabase = await requireAdmin();
   await supabase
     .from("equipe")
-    .update({ nom: s(fd, "nom"), couleur: s(fd, "couleur") || "#64748b" })
+    .update({
+      nom: s(fd, "nom"),
+      couleur: s(fd, "couleur") || "#64748b",
+      quart_fixe: s(fd, "quart_fixe") || null,
+    })
     .eq("id", s(fd, "id"));
   revalidatePath(PATH);
 }

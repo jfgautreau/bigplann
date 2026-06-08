@@ -7,7 +7,7 @@ import RotationEditor from "./RotationEditor";
 import { saveQuartHoraires, saveRotation } from "./actions";
 
 type Quart = { code: string; libelle: string; debut: string | null; fin: string | null };
-type Equipe = { id: string; nom: string };
+type Equipe = { id: string; nom: string; quart_fixe: string | null };
 
 const NB_SEM = 8;
 
@@ -34,7 +34,7 @@ export default async function RotationPage({
   const supabase = await getServerClient();
   const [{ data: quartsD }, { data: equipesD }, { data: rot }] = await Promise.all([
     supabase.from("quart").select("code, libelle, debut, fin").order("ordre").returns<Quart[]>(),
-    supabase.from("equipe").select("id, nom").eq("actif", true).order("nom").returns<Equipe[]>(),
+    supabase.from("equipe").select("id, nom, quart_fixe").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
       .from("equipe_quart_semaine")
       .select("equipe_id, semaine, quart_code")
@@ -43,7 +43,9 @@ export default async function RotationPage({
   ]);
 
   const quarts = quartsD ?? [];
-  const equipes = equipesD ?? [];
+  // Les equipes a quart fixe ne tournent pas : on ne les affiche pas dans la rotation.
+  const equipes = (equipesD ?? []).filter((e) => !e.quart_fixe);
+  const equipesFixes = (equipesD ?? []).filter((e) => e.quart_fixe);
   const initial: Record<string, string> = {};
   for (const r of rot ?? []) initial[`${r.equipe_id}|${r.semaine}`] = r.quart_code;
 
@@ -89,6 +91,12 @@ export default async function RotationPage({
           <p className="muted">
             Saisie manuelle. « Pré-remplir » initialise une alternance Matin/Après-midi
             (et Nuit pour les équipes nommées « nuit ») ; ajustez ensuite à la main.
+            {equipesFixes.length > 0 && (
+              <>
+                {" "}Équipe(s) à quart fixe (hors rotation) :{" "}
+                <strong>{equipesFixes.map((e) => e.nom).join(", ")}</strong>.
+              </>
+            )}
           </p>
           <form action={saveRotation}>
             <RotationEditor
