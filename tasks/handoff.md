@@ -12,7 +12,7 @@
 - Projet Supabase de l'app : ref **`stcxlsmmnplxpirrnefm`** (cf. `NEXT_PUBLIC_SUPABASE_URL` dans `.env.local`).
 - ⚠️ **Le MCP Supabase est sur un AUTRE compte** (projets visibles : PlanningMission/Questionnaire/assistant) — il **ne voit pas** `stcxlsmmnplxpirrnefm`. Donc **impossible d'écrire en base via le MCP**.
 - Pour modifier la base : soit **donner du SQL** à exécuter par l'utilisateur dans **Supabase → SQL Editor**, soit script Node local lisant `SUPABASE_SERVICE_ROLE_KEY` de `.env.local`.
-- **Migrations** : fichiers dans `supabase/migrations/`, **appliquées MANUELLEMENT par l'utilisateur** dans le SQL Editor. **Dernière appliquée : `0018`** (l'utilisateur confirme « 0018 faite » — table `semaine_type_quart` : gabarit de quarts actifs paramétrable + reset semaine).
+- **Migrations** : fichiers dans `supabase/migrations/`, **appliquées MANUELLEMENT par l'utilisateur** dans le SQL Editor. **Dernière appliquée : `0018`**. ⚠️ **`0019_semaine_type_ouverture.sql` créée mais PAS encore confirmée appliquée** (table `semaine_type_ouverture` : ouverture des lignes par défaut dans la semaine type ; tant qu'elle n'est pas passée, la section « Lignes ouvertes par défaut » échoue à l'enregistrement, et le défaut reste « tout ouvert »).
 
 ## Gotchas environnement (Windows / PowerShell)
 - `git commit -m "..."` avec accents/guillemets **casse le parsing PS**. Méthode qui marche :
