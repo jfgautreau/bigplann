@@ -22,6 +22,7 @@ type PosteRow = {
   actif: boolean;
   effectif_requis: number;
   niveau_min_requis: number;
+  categorie: string;
 };
 type LigneRow = { id: string; nom: string; atelier: { id: string; nom: string } | null; poste: PosteRow[] };
 type Equipe = { id: string; nom: string; couleur: string; quart_fixe: string | null };
@@ -69,11 +70,12 @@ export default async function PlanningPage({
     { data: quartsD },
     { data: allActiveD },
     { data: chefData },
+    { data: pqOffD },
   ] = await Promise.all([
     supabase.from("equipe").select("id, nom, couleur, quart_fixe").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
       .from("ligne")
-      .select("id, nom, atelier:atelier_id(id, nom), poste(id, nom, nom_court, actif, effectif_requis, niveau_min_requis)")
+      .select("id, nom, atelier:atelier_id(id, nom), poste(id, nom, nom_court, actif, effectif_requis, niveau_min_requis, categorie)")
       .eq("actif", true)
       .order("nom")
       .returns<LigneRow[]>(),
@@ -88,6 +90,7 @@ export default async function PlanningPage({
     isAdmin
       ? Promise.resolve({ data: [] as { equipe_id: string }[] })
       : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
+    supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
   ]);
   const motifs = motifsD ?? [];
   const quarts = quartsD ?? [];
@@ -136,7 +139,14 @@ export default async function PlanningPage({
   for (const g of groupsAll)
     for (const p of g.postes) posteLabelAll[p.id] = (p.nom_court || p.nom).slice(0, 6);
 
-  const groups = atelier ? groupsAll.filter((g) => g.atelierId === atelier) : groupsAll;
+  // Filtre poste x quart : un poste desactive pour le quart affiche n'apparait pas
+  // (et n'est pas compte). Defaut actif : pqOff ne contient que les desactivations.
+  const pqOff = new Set((pqOffD ?? []).map((r) => `${r.poste_id}:${r.quart_code}`));
+  const posteActifQuart = (pid: string) => !pqOff.has(`${pid}:${quart}`);
+
+  const groups = (atelier ? groupsAll.filter((g) => g.atelierId === atelier) : groupsAll)
+    .map((g) => ({ ...g, postes: g.postes.filter((p) => posteActifQuart(p.id)) }))
+    .filter((g) => g.postes.length > 0);
 
   const lineEffectif: Record<string, number> = {};
   for (const g of groups)
@@ -274,6 +284,7 @@ export default async function PlanningPage({
       nom: (p.nom_court || p.nom).slice(0, 6),
       niveauMin: p.niveau_min_requis,
       effectif: p.effectif_requis,
+      categorie: p.categorie,
     })),
   }));
 

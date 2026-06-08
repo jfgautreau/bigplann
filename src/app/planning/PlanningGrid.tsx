@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
 type WeekBlock = { num: number; span: number; year: number; isCurrent: boolean };
-type Poste = { id: string; nom: string; niveauMin: number; effectif: number };
+type Poste = { id: string; nom: string; niveauMin: number; effectif: number; categorie?: string };
+
+const CAT_BILANS: { key: string; label: string }[] = [
+  { key: "manager", label: "Managers" },
+  { key: "conducteur", label: "Conducteurs" },
+  { key: "operateur", label: "Opérateurs" },
+];
 type Group = { ligneNom: string; ligneId: string; postes: Poste[] };
 type Motif = { id: string; code: string; couleur: string };
 type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean; color?: string };
@@ -90,18 +96,20 @@ export default function PlanningGrid({
     return { niveauMin: nm, effectif: ef };
   }, [groups]);
 
-  const { posteLigne, posteLabel, allLigneIds } = useMemo(() => {
+  const { posteLigne, posteLabel, posteCat, allLigneIds } = useMemo(() => {
     const pl: Record<string, string> = {};
     const lab: Record<string, string> = {};
+    const cat: Record<string, string> = {};
     const ids: string[] = [];
     for (const g of groups) {
       ids.push(g.ligneId);
       for (const p of g.postes) {
         pl[p.id] = g.ligneId;
         lab[p.id] = p.nom;
+        cat[p.id] = p.categorie ?? "operateur";
       }
     }
-    return { posteLigne: pl, posteLabel: lab, allLigneIds: ids };
+    return { posteLigne: pl, posteLabel: lab, posteCat: cat, allLigneIds: ids };
   }, [groups]);
 
   const horsComp = (pid: string, v: string) =>
@@ -112,6 +120,7 @@ export default function PlanningGrid({
   const indicIds = statIds.length ? statIds : personnes.map((p) => p.id);
   const perDay = days.map((d) => {
     const counts: Record<string, number> = {};
+    const catPresent: Record<string, number> = { manager: 0, conducteur: 0, operateur: 0 };
     let present = 0;
     let alerts = 0;
     for (const pid of indicIds) {
@@ -120,12 +129,23 @@ export default function PlanningGrid({
       if (isPoste(v) && posteLigne[v] !== undefined) {
         present++;
         counts[v] = (counts[v] ?? 0) + 1;
+        const c = posteCat[v];
+        if (c && c in catPresent) catPresent[c]++;
         if (horsComp(pid, v)) alerts++;
       }
     }
     let overCount = 0;
     for (const [pid, c] of Object.entries(counts)) if (c > (effectif[pid] ?? 0)) overCount++;
-    return { counts, present, alerts, overCount };
+    // Besoin par categorie = effectifs requis des postes sur les lignes ouvertes ce jour.
+    const openLines = new Set(openByIso[d.iso] ?? allLigneIds);
+    const catRequis: Record<string, number> = { manager: 0, conducteur: 0, operateur: 0 };
+    for (const g of groups)
+      if (openLines.has(g.ligneId))
+        for (const p of g.postes) {
+          const c = p.categorie ?? "operateur";
+          if (c in catRequis) catRequis[c] += p.effectif ?? 0;
+        }
+    return { counts, present, alerts, overCount, catPresent, catRequis };
   });
 
   async function postCell(pid: string, iso: string, equipe_id: string | null, value: string) {
@@ -342,6 +362,37 @@ export default function PlanningGrid({
                   {get(i)}
                 </td>
               ))}
+            </tr>
+          ))}
+
+          {/* Bilans par categorie : presents / requis par jour (quart affiche) */}
+          {CAT_BILANS.map((cat) => (
+            <tr key={cat.key} style={{ background: "#f8fafc" }}>
+              <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600, padding: "1px 8px", whiteSpace: "nowrap" }}>
+                {cat.label}
+              </td>
+              {days.map((d, i) => {
+                const pres = perDay[i].catPresent[cat.key] ?? 0;
+                const req = perDay[i].catRequis[cat.key] ?? 0;
+                const manque = req > 0 && pres < req;
+                return (
+                  <td
+                    key={d.iso}
+                    style={{
+                      textAlign: "center",
+                      fontWeight: 700,
+                      padding: "1px 4px",
+                      color: manque ? "#7f1d1d" : "var(--text)",
+                      background: manque ? "#fee2e2" : isToday(d) ? "#eef2ff" : undefined,
+                      ...sep(d),
+                    }}
+                    title={`${cat.label} : ${pres} présents / ${req} requis`}
+                  >
+                    {pres}
+                    <span style={{ fontWeight: 400, fontSize: 11, opacity: 0.7 }}>/{req}</span>
+                  </td>
+                );
+              })}
             </tr>
           ))}
 
