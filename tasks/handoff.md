@@ -12,7 +12,7 @@
 - Projet Supabase de l'app : ref **`stcxlsmmnplxpirrnefm`** (cf. `NEXT_PUBLIC_SUPABASE_URL` dans `.env.local`).
 - ⚠️ **Le MCP Supabase est sur un AUTRE compte** (projets visibles : PlanningMission/Questionnaire/assistant) — il **ne voit pas** `stcxlsmmnplxpirrnefm`. Donc **impossible d'écrire en base via le MCP**.
 - Pour modifier la base : soit **donner du SQL** à exécuter par l'utilisateur dans **Supabase → SQL Editor**, soit script Node local lisant `SUPABASE_SERVICE_ROLE_KEY` de `.env.local`.
-- **Migrations** : fichiers dans `supabase/migrations/`, **appliquées MANUELLEMENT par l'utilisateur** dans le SQL Editor. **Dernière appliquée : `0020`** (l'utilisateur confirme « 0020 faite » — ajoute `personne.atelier_id` : affectation atelier du personnel, filtre souple du planning par atelier).
+- **Migrations** : fichiers dans `supabase/migrations/`, **appliquées MANUELLEMENT par l'utilisateur** dans le SQL Editor. **Dernière appliquée : `0021`** (l'utilisateur confirme « 0021 faite »). Récap récent : `0020` = `personne.atelier_id` (filtre atelier) ; `0021` = Lot C : quart `journee`, `equipe.quart_fixe`, `poste.categorie` (manager/conducteur/operateur, reprise depuis l'existant), table `poste_quart` (activation poste×quart, défaut actif), table `horaire_exception` (horaires spécifiques par personne×jour). Voir `docs/LOT-C-CADRAGE.md`.
 
 ## Gotchas environnement (Windows / PowerShell)
 - `git commit -m "..."` avec accents/guillemets **casse le parsing PS**. Méthode qui marche :
@@ -26,7 +26,10 @@
 - Déployer systématiquement à la fin d'une tâche (push = déploiement prod).
 
 ## Modèle métier clé
-- **Quart (shift) ≠ Équipe (team)** : quarts = `matin` / `apres_midi` / `nuit` (table `quart`, libellé « Après-midi » corrigé en 0016). Les équipes tournent par semaine via `equipe_quart_semaine`.
+- **Quart (shift) ≠ Équipe (team)** : quarts = `journee` (ordre 0) / `matin` / `apres_midi` / `nuit` (table `quart`). Les équipes tournent par semaine via `equipe_quart_semaine`, SAUF celles à `equipe.quart_fixe` non nul (ne tournent pas, ex. l'équipe « journée »). Défaut planning = `matin` même si `journee` est en tête.
+- **Catégorie de poste** : `poste.categorie` ∈ manager/conducteur/operateur (remplace l'usage de `est_conducteur`, conservé en base mais déprécié). Source des 3 bilans planning et du bilan Compétences.
+- **Activation poste×quart** : table `poste_quart`, défaut actif (ne stocke que les désactivations). Filtre les postes proposés/comptés dans le planning du quart affiché.
+- **Horaires spécifiques** : table `horaire_exception` (personne×jour, début/fin/motif). Surcharge l'horaire standard `horaire_poste` à l'affichage (planning + TV). Saisie : case du planning (bouton 🕐) + écran `/horaires-specifiques`. API `/api/horaire-exception`.
 - **Ordonnancement** : `jour_quart` (quart actif un jour) + `ouverture_quart` (ligne ouverte par jour×quart). Défauts : actif sauf dimanche, ouvert par défaut (`lib/week.ts: defaultQuartActif`).
 - **`horaire_poste`** : depuis 0016, clé **(poste_id, quart_code, jour 0-6)** — l'horaire est au POSTE par quart (avant : par équipe).
 - **Permissions** : `lib/permissions.ts` (MODULES, getPermissions, canRead/canWrite, requireModule). Rôles : `lib/roles.ts`. Écriture référentiel/personnel = **admin** (RLS `is_admin()`).
