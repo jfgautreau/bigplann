@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { typeQuartActif, typeLigneOuverte, type SemaineType, type SemaineOuverture } from "@/lib/semaine-type";
+import { typeQuartActif, type SemaineType, type SemaineOuverture } from "@/lib/semaine-type";
+import { dowMon } from "@/lib/week";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek?: boolean };
 type Item = { id: string; label: string };
@@ -38,9 +39,15 @@ export default function OrdoGrid({
   const [ov, setOv] = useState<Record<string, boolean>>(ouvertureState);
   const [saving, setSaving] = useState(false);
 
-  const quartActif = (code: string, iso: string) => jq[`${code}:${iso}`] ?? typeQuartActif(semaineType, iso, code);
+  // Plus de remplissage par defaut : un jour sans ligne explicite est FERME.
+  // La semaine type ne s'applique qu'a l'initialisation (bouton), donc modifier
+  // la semaine type ensuite n'est pas retroactif sur les semaines deja initialisees.
+  const quartActif = (code: string, iso: string) => jq[`${code}:${iso}`] ?? false;
 
-  // ISO de chaque bloc-semaine (pour le bouton "Reinitialiser").
+  // Un jour est "initialise" s'il porte au moins une ligne jour_quart explicite.
+  const dayInitialized = (iso: string) => quarts.some((q) => `${q.code}:${iso}` in jq);
+
+  // ISO de chaque bloc-semaine (pour le bouton "Initialiser").
   const blockIsos: string[][] = [];
   {
     let idx = 0;
@@ -52,7 +59,8 @@ export default function OrdoGrid({
 
   async function resetWeek(isos: string[]) {
     if (!isos.length) return;
-    if (!window.confirm("Réinitialiser cette semaine selon la semaine type ? Les quarts et l'ouverture des lignes reviennent au gabarit.")) return;
+    const dejaInit = isos.some((iso) => dayInitialized(iso));
+    if (dejaInit && !window.confirm("Cette semaine est déjà initialisée. L'écraser avec la semaine type actuelle ?")) return;
     setSaving(true);
     try {
       const res = await fetch("/api/ordonnancement/reset-week", {
@@ -61,17 +69,25 @@ export default function OrdoGrid({
         body: JSON.stringify({ isos }),
       });
       if (res.ok) {
-        // Mise a jour immediate de l'affichage : on retire les surcharges locales
-        // de ces jours -> l'affichage retombe sur le gabarit (semaine type).
+        // Mise a jour immediate : on ecrit l'instantané (snapshot) de la semaine
+        // type dans l'etat local, comme le serveur vient de le faire en base.
         const set = new Set(isos);
         setJq((s) => {
           const n = { ...s };
-          for (const k of Object.keys(n)) if (set.has(k.slice(-10))) delete n[k];
+          for (const iso of isos) for (const q of quarts) n[`${q.code}:${iso}`] = typeQuartActif(semaineType, iso, q.code);
           return n;
         });
         setOv((s) => {
           const n = { ...s };
-          for (const k of Object.keys(n)) if (set.has(k.slice(-10))) delete n[k];
+          for (const k of Object.keys(n)) if (set.has(k.slice(-10))) delete n[k]; // efface les surcharges de la semaine
+          for (const iso of isos) {
+            const dow = dowMon(iso);
+            for (const [key, ouverte] of Object.entries(semaineOuverture)) {
+              if (ouverte) continue; // ouvert = defaut (absence)
+              const [qc, lg, j] = key.split(":");
+              if (Number(j) === dow) n[`${qc}:${lg}:${iso}`] = false;
+            }
+          }
           return n;
         });
       }
@@ -79,8 +95,10 @@ export default function OrdoGrid({
       setSaving(false);
     }
   }
+  // Apres initialisation : ligne ouverte par defaut (absence) tant que le quart
+  // est actif ; les fermetures explicites portent une ligne ouverture_quart=false.
   const ligneOuverte = (code: string, lg: string, iso: string) =>
-    quartActif(code, iso) ? (ov[`${code}:${lg}:${iso}`] ?? typeLigneOuverte(semaineOuverture, iso, code, lg)) : false;
+    quartActif(code, iso) ? (ov[`${code}:${lg}:${iso}`] ?? true) : false;
 
   async function post(body: object) {
     setSaving(true);
@@ -145,10 +163,10 @@ export default function OrdoGrid({
                     type="button"
                     className="btn-sm btn-ghost"
                     onClick={() => resetWeek(blockIsos[i] ?? [])}
-                    title="Réinitialiser cette semaine selon la semaine type"
+                    title="Initialiser cette semaine avec la semaine type (ré-applique / écrase si déjà fait)"
                     style={{ padding: "1px 6px", fontSize: 12, lineHeight: 1.2 }}
                   >
-                    ↺ Réinit.
+                    ⚙️ Initialiser
                   </button>
                 )}
               </span>
@@ -184,9 +202,10 @@ export default function OrdoGrid({
                 <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: 600 }}>{q.libelle}</td>
                 {days.map((d) => {
                   const on = quartActif(q.code, d.iso);
+                  const init = dayInitialized(d.iso);
                   return (
-                    <td key={d.iso} style={{ textAlign: "center", background: on ? undefined : "#fee2e2", ...sep(d) }}>
-                      <input type="checkbox" checked={on} onChange={() => toggleQuart(q.code, d.iso)} style={{ width: "auto", cursor: "pointer" }} />
+                    <td key={d.iso} style={{ textAlign: "center", background: on ? undefined : init ? "#fee2e2" : "#f1f5f9", ...sep(d) }}>
+                      <input type="checkbox" checked={on} onChange={() => toggleQuart(q.code, d.iso)} style={{ width: "auto", cursor: "pointer" }} title={init ? undefined : "Semaine non initialisée"} />
                     </td>
                   );
                 })}
@@ -198,8 +217,9 @@ export default function OrdoGrid({
 
       <h2 style={{ marginTop: 24 }}>Lignes ouvertes par quart</h2>
       <p className="muted" style={{ marginTop: -8 }}>
-        Tout ouvert par défaut. Désactiver un quart (au-dessus) ferme et verrouille
-        ses lignes ce jour-là.
+        Rien n&apos;est rempli par défaut : utilisez <strong>« ⚙️ Initialiser »</strong> en haut d&apos;une semaine
+        pour appliquer la semaine type. Une fois initialisée, désactiver un quart ferme et verrouille ses lignes ce jour-là.
+        Modifier la semaine type ensuite n&apos;affecte pas les semaines déjà initialisées (ré-initialisez pour écraser).
       </p>
       {quarts.map((q) => (
         <div key={q.code} className="card section" style={{ overflowX: "auto" }}>
@@ -214,7 +234,7 @@ export default function OrdoGrid({
                     const active = quartActif(q.code, d.iso);
                     const on = ligneOuverte(q.code, l.id, d.iso);
                     return (
-                      <td key={d.iso} style={{ textAlign: "center", background: on ? undefined : "#fee2e2", ...sep(d) }}>
+                      <td key={d.iso} style={{ textAlign: "center", background: !active ? "#f1f5f9" : on ? undefined : "#fee2e2", ...sep(d) }}>
                         <input
                           type="checkbox"
                           checked={on}
