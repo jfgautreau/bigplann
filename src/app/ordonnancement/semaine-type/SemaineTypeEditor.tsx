@@ -4,6 +4,7 @@ import { useState } from "react";
 import { defaultQuartActif } from "@/lib/week";
 
 type Quart = { code: string; libelle: string };
+type Ligne = { id: string; label: string };
 
 const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 // iso de reference par jour de semaine (juste pour le fallback defaultQuartActif :
@@ -12,17 +13,33 @@ const REF_ISO = ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-0
 
 export default function SemaineTypeEditor({
   quarts,
+  lignes = [],
   initial,
+  initialOuverture = {},
 }: {
   quarts: Quart[];
+  lignes?: Ligne[];
   initial: Record<string, boolean>; // `${code}:${jour 0-6}` -> actif
+  initialOuverture?: Record<string, boolean>; // `${code}:${ligne}:${jour 0-6}` -> ouverte
 }) {
   const [state, setState] = useState<Record<string, boolean>>(initial);
+  const [ouv, setOuv] = useState<Record<string, boolean>>(initialOuverture);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const flash = (ok: boolean) => {
+    setSave(ok ? "saved" : "error");
+    setTimeout(() => setSave("idle"), 1500);
+  };
 
   const actif = (code: string, j: number) => {
     const k = `${code}:${j}`;
     return k in state ? state[k] : defaultQuartActif(REF_ISO[j], code);
+  };
+
+  // Ouverture ligne : absente = ouvert (true).
+  const ligneOuverte = (code: string, lg: string, j: number) => {
+    const k = `${code}:${lg}:${j}`;
+    return k in ouv ? ouv[k] : true;
   };
 
   async function toggle(code: string, j: number) {
@@ -35,11 +52,27 @@ export default function SemaineTypeEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quart_code: code, jour_semaine: j, value: next }),
       });
-      setSave(res.ok ? "saved" : "error");
+      flash(res.ok);
     } catch {
-      setSave("error");
+      flash(false);
     }
-    setTimeout(() => setSave("idle"), 1500);
+  }
+
+  async function toggleLigne(code: string, lg: string, j: number) {
+    if (!actif(code, j)) return; // quart inactif -> lignes fermees de toute facon
+    const next = !ligneOuverte(code, lg, j);
+    setOuv((s) => ({ ...s, [`${code}:${lg}:${j}`]: next }));
+    setSave("saving");
+    try {
+      const res = await fetch("/api/ordonnancement/semaine-type-ouverture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quart_code: code, ligne_id: lg, jour_semaine: j, value: next }),
+      });
+      flash(res.ok);
+    } catch {
+      flash(false);
+    }
   }
 
   return (
@@ -90,8 +123,57 @@ export default function SemaineTypeEditor({
       <p className="muted" style={{ marginTop: 10 }}>
         Ce gabarit définit l&apos;état <strong>par défaut</strong> des quarts quand une semaine n&apos;a pas
         encore été éditée, et sert de référence au bouton <strong>« Réinitialiser »</strong> de chaque
-        semaine dans l&apos;ordonnancement. Les lignes (ouvertes/fermées) reviennent, elles, à « tout ouvert ».
+        semaine dans l&apos;ordonnancement.
       </p>
+
+      {/* Ouverture des lignes par defaut, par quart */}
+      <h2 style={{ marginTop: 24 }}>Lignes ouvertes par défaut</h2>
+      <p className="muted" style={{ marginTop: -8 }}>
+        Décochez une case pour fermer une ligne par défaut ce jour-là (sur le quart concerné).
+        Une ligne non listée reste ouverte. Les cases sont verrouillées si le quart est inactif.
+      </p>
+      {quarts.map((q) => (
+        <div key={q.code} className="card section" style={{ overflowX: "auto", marginTop: 12 }}>
+          <h3 style={{ marginTop: 0, fontSize: 14 }}>{q.libelle}</h3>
+          <table className="matrix" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", minWidth: 150 }}>Ligne</th>
+                {JOURS.map((j, i) => (
+                  <th key={j} style={{ textAlign: "center", width: 60, color: i === 6 ? "var(--danger)" : undefined }}>{j}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {lignes.map((l) => (
+                <tr key={l.id}>
+                  <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.label}</td>
+                  {JOURS.map((_, j) => {
+                    const quartOn = actif(q.code, j);
+                    const on = ligneOuverte(q.code, l.id, j);
+                    return (
+                      <td key={j} style={{ textAlign: "center", background: quartOn && !on ? "#fee2e2" : undefined }}>
+                        <input
+                          type="checkbox"
+                          checked={quartOn && on}
+                          disabled={!quartOn}
+                          onChange={() => toggleLigne(q.code, l.id, j)}
+                          style={{ width: "auto", cursor: quartOn ? "pointer" : "not-allowed" }}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+              {lignes.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="muted">Aucune ligne.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ))}
     </div>
   );
 }

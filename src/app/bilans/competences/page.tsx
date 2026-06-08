@@ -4,7 +4,7 @@ import PrintButton from "@/components/PrintButton";
 import { requireModule } from "@/lib/permissions";
 import { getServerClient } from "@/lib/supabase-server";
 import { parseMois, monthDays, isoDate, isoWeekNumber } from "@/lib/week";
-import { getSemaineType, typeQuartActif } from "@/lib/semaine-type";
+import { getSemaineType, getSemaineOuverture, typeQuartActif, typeLigneOuverte } from "@/lib/semaine-type";
 import CompetenceNav from "./CompetenceNav";
 
 type Poste = { id: string; nom: string; actif: boolean; est_conducteur: boolean; effectif_requis: number };
@@ -41,7 +41,7 @@ export default async function CompetencesDispoPage({
   const todayIso = isoDate(new Date());
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, { data: matD }, { data: actifs }, { data: absD }, { data: quartsD }, { data: jqD }, { data: ovD }, semaineType] =
+  const [{ data: lignesD }, { data: matD }, { data: actifs }, { data: absD }, { data: quartsD }, { data: jqD }, { data: ovD }, semaineType, semaineOuverture] =
     await Promise.all([
       supabase
         .from("ligne")
@@ -64,6 +64,7 @@ export default async function CompetencesDispoPage({
         .in("jour", isos)
         .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
       getSemaineType(supabase),
+      getSemaineOuverture(supabase),
     ]);
 
   const actifSet = new Set((actifs ?? []).map((p) => p.id));
@@ -116,7 +117,8 @@ export default async function CompetencesDispoPage({
   const ouvMap = new Map<string, boolean>();
   for (const r of ovD ?? []) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
   const quartActif = (q: string, iso: string) => (actMap.has(`${q}:${iso}`) ? actMap.get(`${q}:${iso}`)! : typeQuartActif(semaineType, iso, q));
-  const ligneOuverte = (lid: string, q: string, iso: string) => (ouvMap.has(`${q}:${lid}:${iso}`) ? ouvMap.get(`${q}:${lid}:${iso}`)! : true);
+  const ligneOuverte = (lid: string, q: string, iso: string) =>
+    ouvMap.has(`${q}:${lid}:${iso}`) ? ouvMap.get(`${q}:${lid}:${iso}`)! : typeLigneOuverte(semaineOuverture, iso, q, lid);
 
   // Besoin par jour et par categorie (slots cumules sur les quarts actifs).
   const besoinOf = (iso: string) => {

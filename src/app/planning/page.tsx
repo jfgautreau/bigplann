@@ -9,7 +9,7 @@ import {
   mondayOf,
   isoWeekNumber,
 } from "@/lib/week";
-import { getSemaineType, typeQuartActif } from "@/lib/semaine-type";
+import { getSemaineType, getSemaineOuverture, typeQuartActif, typeLigneOuverte } from "@/lib/semaine-type";
 import { requireModule } from "@/lib/permissions";
 import PlanningFilters from "./PlanningFilters";
 import QuartSelector from "./QuartSelector";
@@ -69,6 +69,7 @@ export default async function PlanningPage({
     { data: allActiveD },
     { data: chefData },
     semaineType,
+    semaineOuverture,
   ] = await Promise.all([
     supabase.from("equipe").select("id, nom, couleur").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
@@ -89,6 +90,7 @@ export default async function PlanningPage({
       ? Promise.resolve({ data: [] as { equipe_id: string }[] })
       : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
     getSemaineType(supabase),
+    getSemaineOuverture(supabase),
   ]);
   const motifs = motifsD ?? [];
   const quarts = quartsD ?? [];
@@ -141,7 +143,9 @@ export default async function PlanningPage({
 
   const quartActif = (iso: string) => (actMap.has(iso) ? actMap.get(iso)! : typeQuartActif(semaineType, iso, quart));
   const lineOpen = (iso: string, ligneId: string) =>
-    quartActif(iso) ? (ouvMap.has(`${iso}:${ligneId}`) ? ouvMap.get(`${iso}:${ligneId}`)! : true) : false;
+    quartActif(iso)
+      ? (ouvMap.has(`${iso}:${ligneId}`) ? ouvMap.get(`${iso}:${ligneId}`)! : typeLigneOuverte(semaineOuverture, iso, quart, ligneId))
+      : false;
 
   const visible = rawDays
     .map((d) => {

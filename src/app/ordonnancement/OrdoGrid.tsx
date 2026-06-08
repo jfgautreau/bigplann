@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { typeQuartActif, type SemaineType } from "@/lib/semaine-type";
+import { typeQuartActif, typeLigneOuverte, type SemaineType, type SemaineOuverture } from "@/lib/semaine-type";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek?: boolean };
 type Item = { id: string; label: string };
@@ -22,6 +21,7 @@ export default function OrdoGrid({
   jourQuartState,
   ouvertureState,
   semaineType = {},
+  semaineOuverture = {},
 }: {
   days: Jour[];
   weekBlocks?: WeekBlock[];
@@ -32,8 +32,8 @@ export default function OrdoGrid({
   jourQuartState: Record<string, boolean>;
   ouvertureState: Record<string, boolean>;
   semaineType?: SemaineType;
+  semaineOuverture?: SemaineOuverture;
 }) {
-  const router = useRouter();
   const [jq, setJq] = useState<Record<string, boolean>>(jourQuartState);
   const [ov, setOv] = useState<Record<string, boolean>>(ouvertureState);
   const [saving, setSaving] = useState(false);
@@ -52,7 +52,7 @@ export default function OrdoGrid({
 
   async function resetWeek(isos: string[]) {
     if (!isos.length) return;
-    if (!window.confirm("Réinitialiser cette semaine selon la semaine type ? Les quarts reviennent au gabarit et les lignes repassent à « ouvert ».")) return;
+    if (!window.confirm("Réinitialiser cette semaine selon la semaine type ? Les quarts et l'ouverture des lignes reviennent au gabarit.")) return;
     setSaving(true);
     try {
       const res = await fetch("/api/ordonnancement/reset-week", {
@@ -60,13 +60,27 @@ export default function OrdoGrid({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isos }),
       });
-      if (res.ok) router.refresh();
+      if (res.ok) {
+        // Mise a jour immediate de l'affichage : on retire les surcharges locales
+        // de ces jours -> l'affichage retombe sur le gabarit (semaine type).
+        const set = new Set(isos);
+        setJq((s) => {
+          const n = { ...s };
+          for (const k of Object.keys(n)) if (set.has(k.slice(-10))) delete n[k];
+          return n;
+        });
+        setOv((s) => {
+          const n = { ...s };
+          for (const k of Object.keys(n)) if (set.has(k.slice(-10))) delete n[k];
+          return n;
+        });
+      }
     } finally {
       setSaving(false);
     }
   }
   const ligneOuverte = (code: string, lg: string, iso: string) =>
-    quartActif(code, iso) ? (ov[`${code}:${lg}:${iso}`] ?? true) : false;
+    quartActif(code, iso) ? (ov[`${code}:${lg}:${iso}`] ?? typeLigneOuverte(semaineOuverture, iso, code, lg)) : false;
 
   async function post(body: object) {
     setSaving(true);
@@ -94,6 +108,7 @@ export default function OrdoGrid({
 
   const sep = (d: Jour) => (d.firstOfWeek ? { borderLeft: "2px solid #cbd5e1" } : {});
   const currentSet = new Set(currentWeekIsos);
+  const currentBlockIdx = blockIsos.findIndex((isos) => isos.some((iso) => currentSet.has(iso)));
   const dayBg = (iso: string) =>
     iso === todayIso ? "#dbeafe" : currentSet.has(iso) ? "#eff6ff" : undefined;
 
@@ -108,14 +123,23 @@ export default function OrdoGrid({
       {weekBlocks.length > 0 && (
         <tr>
           <th style={{ width: FIRST_W }}></th>
-          {weekBlocks.map((w, i) => (
+          {weekBlocks.map((w, i) => {
+            const isCurrent = i === currentBlockIdx;
+            return (
             <th
               key={i}
               colSpan={w.span}
-              style={{ textAlign: "center", fontSize: 12, borderLeft: "2px solid #cbd5e1", background: "#f8fafc" }}
+              style={{
+                textAlign: "center",
+                fontSize: 12,
+                borderLeft: "2px solid #cbd5e1",
+                background: isCurrent ? "#dbeafe" : "#f8fafc",
+                fontWeight: isCurrent ? 700 : undefined,
+              }}
             >
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                 {w.year} · S{w.num}
+                {isCurrent && <span className="muted" style={{ fontWeight: 400 }}>(en cours)</span>}
                 {showReset && (
                   <button
                     type="button"
@@ -129,7 +153,8 @@ export default function OrdoGrid({
                 )}
               </span>
             </th>
-          ))}
+            );
+          })}
         </tr>
       )}
       <tr>

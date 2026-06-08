@@ -27,3 +27,32 @@ export function typeQuartActif(type: SemaineType, iso: string, code: string): bo
   const k = `${code}:${dowMon(iso)}`;
   return k in type ? type[k] : defaultQuartActif(iso, code);
 }
+
+// Ouverture des lignes par defaut (gabarit).
+// Cle = `${quart_code}:${ligne_id}:${jour_semaine}`. Absence = ouvert (true).
+export type SemaineOuverture = Record<string, boolean>;
+
+export async function getSemaineOuverture(supabase: SupabaseClient): Promise<SemaineOuverture> {
+  try {
+    const { data } = await supabase
+      .from("semaine_type_ouverture")
+      .select("quart_code, ligne_id, jour_semaine, ouverte")
+      .returns<{ quart_code: string; ligne_id: string; jour_semaine: number; ouverte: boolean }[]>();
+    const m: SemaineOuverture = {};
+    for (const r of data ?? []) m[`${r.quart_code}:${r.ligne_id}:${r.jour_semaine}`] = r.ouverte;
+    return m;
+  } catch {
+    return {};
+  }
+}
+
+// Ligne ouverte par defaut pour (jour, quart, ligne) ; absente = ouvert.
+export function typeLigneOuverte(
+  ouv: SemaineOuverture,
+  iso: string,
+  code: string,
+  ligneId: string
+): boolean {
+  const k = `${code}:${ligneId}:${dowMon(iso)}`;
+  return k in ouv ? ouv[k] : true;
+}

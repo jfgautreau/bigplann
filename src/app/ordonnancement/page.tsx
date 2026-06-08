@@ -3,7 +3,7 @@ import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
 import { parseMois, monthDays, isoDate, mondayOf, addDays, isoWeekNumber } from "@/lib/week";
-import { getSemaineType } from "@/lib/semaine-type";
+import { getSemaineType, getSemaineOuverture } from "@/lib/semaine-type";
 import OrdoGrid from "./OrdoGrid";
 import OrdoMonthNav from "./OrdoMonthNav";
 
@@ -34,7 +34,7 @@ export default async function OrdonnancementPage({
   }
 
   const supabase = await getServerClient();
-  const [{ data: quartsD }, { data: lignesD }, { data: jq }, { data: ov }, semaineType] = await Promise.all([
+  const [{ data: quartsD }, { data: lignesD }, { data: jq }, { data: ov }, semaineType, semaineOuverture] = await Promise.all([
     supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
     supabase
       .from("ligne")
@@ -53,6 +53,7 @@ export default async function OrdonnancementPage({
       .in("jour", isos)
       .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
     getSemaineType(supabase),
+    getSemaineOuverture(supabase),
   ]);
 
   const jourQuartState: Record<string, boolean> = {};
@@ -90,6 +91,7 @@ export default async function OrdonnancementPage({
           jourQuartState={jourQuartState}
           ouvertureState={ouvertureState}
           semaineType={semaineType}
+          semaineOuverture={semaineOuverture}
         />
       </div>
     </>
