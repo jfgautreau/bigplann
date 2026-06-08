@@ -7,7 +7,7 @@ import { getSemaineType, getSemaineOuverture } from "@/lib/semaine-type";
 import OrdoGrid from "./OrdoGrid";
 import OrdoMonthNav from "./OrdoMonthNav";
 
-type Ligne = { id: string; nom: string; atelier: { nom: string } | null };
+type Ligne = { id: string; nom: string; atelier: { nom: string } | null; poste: { id: string; actif: boolean }[] };
 type Quart = { code: string; libelle: string };
 
 export default async function OrdonnancementPage({
@@ -34,11 +34,11 @@ export default async function OrdonnancementPage({
   }
 
   const supabase = await getServerClient();
-  const [{ data: quartsD }, { data: lignesD }, { data: jq }, { data: ov }, semaineType, semaineOuverture] = await Promise.all([
+  const [{ data: quartsD }, { data: lignesD }, { data: jq }, { data: ov }, { data: pqOffD }, semaineType, semaineOuverture] = await Promise.all([
     supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
     supabase
       .from("ligne")
-      .select("id, nom, atelier:atelier_id(nom)")
+      .select("id, nom, atelier:atelier_id(nom), poste(id, actif)")
       .eq("actif", true)
       .order("nom")
       .returns<Ligne[]>(),
@@ -52,6 +52,7 @@ export default async function OrdonnancementPage({
       .select("jour, ligne_id, quart_code, ouverte")
       .in("jour", isos)
       .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
+    supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
     getSemaineType(supabase),
     getSemaineOuverture(supabase),
   ]);
@@ -60,6 +61,17 @@ export default async function OrdonnancementPage({
   for (const r of jq ?? []) jourQuartState[`${r.quart_code}:${r.jour}`] = r.actif;
   const ouvertureState: Record<string, boolean> = {};
   for (const r of ov ?? []) ouvertureState[`${r.quart_code}:${r.ligne_id}:${r.jour}`] = r.ouverte;
+
+  // Lignes proposees PAR QUART = uniquement celles ayant au moins un poste actif
+  // tournant sur ce quart (referentiel poste_quart, defaut actif).
+  const pqOff = new Set((pqOffD ?? []).map((r) => `${r.poste_id}:${r.quart_code}`));
+  const ligneLabel = (l: Ligne) => (l.atelier?.nom ? `${l.atelier.nom} / ${l.nom}` : l.nom);
+  const linesByQuart: Record<string, { id: string; label: string }[]> = {};
+  for (const q of quartsD ?? []) {
+    linesByQuart[q.code] = (lignesD ?? [])
+      .filter((l) => (l.poste ?? []).some((p) => p.actif && !pqOff.has(`${p.id}:${q.code}`)))
+      .map((l) => ({ id: l.id, label: ligneLabel(l) }));
+  }
 
   return (
     <>
@@ -84,10 +96,7 @@ export default async function OrdonnancementPage({
           todayIso={isoDate(new Date())}
           currentWeekIsos={Array.from({ length: 7 }, (_, i) => isoDate(addDays(mondayOf(), i)))}
           quarts={quartsD ?? []}
-          lignes={(lignesD ?? []).map((l) => ({
-            id: l.id,
-            label: l.atelier?.nom ? `${l.atelier.nom} / ${l.nom}` : l.nom,
-          }))}
+          linesByQuart={linesByQuart}
           jourQuartState={jourQuartState}
           ouvertureState={ouvertureState}
           semaineType={semaineType}

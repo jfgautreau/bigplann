@@ -18,7 +18,7 @@ export default function OrdoGrid({
   todayIso,
   currentWeekIsos = [],
   quarts,
-  lignes,
+  linesByQuart,
   jourQuartState,
   ouvertureState,
   semaineType = {},
@@ -29,7 +29,7 @@ export default function OrdoGrid({
   todayIso: string;
   currentWeekIsos?: string[];
   quarts: Quart[];
-  lignes: Item[];
+  linesByQuart: Record<string, Item[]>;
   jourQuartState: Record<string, boolean>;
   ouvertureState: Record<string, boolean>;
   semaineType?: SemaineType;
@@ -221,41 +221,44 @@ export default function OrdoGrid({
         pour appliquer la semaine type. Une fois initialisée, désactiver un quart ferme et verrouille ses lignes ce jour-là.
         Modifier la semaine type ensuite n&apos;affecte pas les semaines déjà initialisées (ré-initialisez pour écraser).
       </p>
-      {quarts.map((q) => (
-        <div key={q.code} className="card section" style={{ overflowX: "auto" }}>
-          <h2 style={{ marginTop: 0 }}>{q.libelle}</h2>
-          <table className="matrix" style={tableStyle}>
-            <Header label="Ligne" />
-            <tbody>
-              {lignes.map((l) => (
-                <tr key={l.id}>
-                  <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.label}</td>
-                  {days.map((d) => {
-                    const active = quartActif(q.code, d.iso);
-                    const on = ligneOuverte(q.code, l.id, d.iso);
-                    return (
-                      <td key={d.iso} style={{ textAlign: "center", background: !active ? "#f1f5f9" : on ? undefined : "#fee2e2", ...sep(d) }}>
-                        <input
-                          type="checkbox"
-                          checked={on}
-                          disabled={!active}
-                          onChange={() => toggleLigne(q.code, l.id, d.iso)}
-                          style={{ width: "auto", cursor: active ? "pointer" : "not-allowed" }}
-                        />
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-              {lignes.length === 0 && (
-                <tr>
-                  <td colSpan={days.length + 1} className="muted">Aucune ligne.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      ))}
+      {quarts.map((q) => {
+        const qLignes = linesByQuart[q.code] ?? [];
+        return (
+          <div key={q.code} className="card section" style={{ overflowX: "auto" }}>
+            <h2 style={{ marginTop: 0 }}>{q.libelle}</h2>
+            <table className="matrix" style={tableStyle}>
+              <Header label="Ligne" />
+              <tbody>
+                {qLignes.map((l) => (
+                  <tr key={l.id}>
+                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.label}</td>
+                    {days.map((d) => {
+                      const active = quartActif(q.code, d.iso);
+                      const on = ligneOuverte(q.code, l.id, d.iso);
+                      return (
+                        <td key={d.iso} style={{ textAlign: "center", background: !active ? "#f1f5f9" : on ? undefined : "#fee2e2", ...sep(d) }}>
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            disabled={!active}
+                            onChange={() => toggleLigne(q.code, l.id, d.iso)}
+                            style={{ width: "auto", cursor: active ? "pointer" : "not-allowed" }}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+                {qLignes.length === 0 && (
+                  <tr>
+                    <td colSpan={days.length + 1} className="muted">Aucune ligne activée sur ce quart (référentiel).</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
       {quarts.length === 0 && <p className="muted">Aucun quart configuré.</p>}
     </>
   );
