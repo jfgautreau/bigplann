@@ -18,7 +18,7 @@
 - `git commit -m "..."` avec accents/guillemets **casse le parsing PS**. Méthode qui marche :
   1. Écrire le message dans `COMMIT_MSG.tmp` (à la racine du repo).
   2. `git add src` (PAS `-A`, pour ne pas committer le tmp).
-  3. `git -c user.name="jfgautreau" -c user.email="jfgautreau@users.noreply.github.com" commit -q -F COMMIT_MSG.tmp`
+  3. `git commit -q -F COMMIT_MSG.tmp` — ⚠️ **NE PAS forcer l'auteur** avec `-c user.email=...noreply...`. Laisser la config locale (`jfgautreau <jf.gautreau@gmail.com>`). L'ancien override `jfgautreau@users.noreply.github.com` **faisait BLOQUER les déploiements Vercel** (plan Hobby : « commit author did not have contributing access » — cet email no-reply n'est pas relié au compte GitHub/Vercel propriétaire). Le bon email auteur pour déployer = **`jf.gautreau@gmail.com`**.
   4. `Remove-Item COMMIT_MSG.tmp -Force`
   5. `git push origin main` — affiche une **RemoteException / exit 255 inoffensive**, le push réussit quand même (voir la ligne `xxuser -> main`).
 - Trailer de commit : `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
