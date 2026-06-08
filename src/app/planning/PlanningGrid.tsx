@@ -315,9 +315,29 @@ export default function PlanningGrid({
   const deltaColor = (d: number) => (d < 0 ? "var(--danger)" : d > 0 ? "#9a3412" : "var(--ok)");
   const sep = (d: Jour): React.CSSProperties => (d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {});
   const isToday = (d: Jour) => d.iso === todayIso;
+  // En-tetes figes : les lignes d'indicateurs (Besoin..Alertes) restent collees sous
+  // les en-tetes de jours quand on descend. Offsets cumulables (a recalibrer si besoin).
+  const HEAD_H = 60; // hauteur des 2 lignes d'en-tete (semaine + jours)
+  const IND_H = 21; // hauteur d'une ligne d'indicateur
+  const STICK_TOP = (rowIdx: number) => HEAD_H + rowIdx * IND_H;
+  const indCellStyle = (rowIdx: number, bg: string): React.CSSProperties => ({
+    position: "sticky",
+    top: STICK_TOP(rowIdx),
+    zIndex: 14,
+    background: bg,
+  });
+  const indLeftStyle = (rowIdx: number, bg: string): React.CSSProperties => ({
+    position: "sticky",
+    left: 0,
+    top: STICK_TOP(rowIdx),
+    zIndex: 16,
+    background: bg,
+    fontWeight: 600,
+    padding: "1px 8px",
+  });
 
   return (
-    <div className="card" style={{ overflow: "auto", maxHeight: "calc(100vh - 190px)", position: "relative", padding: "6px 12px" }}>
+    <div className="card" style={{ overflow: "auto", maxHeight: "calc(100vh - 210px)", position: "relative", padding: "6px 12px" }}>
       <div
         style={{
           position: "absolute",
@@ -400,11 +420,11 @@ export default function PlanningGrid({
                 (i: number) => deltaColor(perDay[i].present - (besoin[i] ?? 0)),
               ],
             ] as [string, (i: number) => string, (i: number) => string][]
-          ).map(([label, get, color]) => (
-            <tr key={label} style={{ background: "#f8fafc" }}>
-              <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600, padding: "1px 8px" }}>{label}</td>
+          ).map(([label, get, color], rowIdx) => (
+            <tr key={label}>
+              <td style={indLeftStyle(rowIdx, "#f8fafc")}>{label}</td>
               {days.map((d, i) => (
-                <td key={d.iso} style={{ textAlign: "center", fontWeight: 700, padding: "1px 4px", color: color(i), ...sep(d), background: isToday(d) ? "#eef2ff" : undefined }}>
+                <td key={d.iso} style={{ ...indCellStyle(rowIdx, isToday(d) ? "#eef2ff" : "#f8fafc"), textAlign: "center", fontWeight: 700, padding: "1px 4px", color: color(i), ...sep(d) }}>
                   {get(i)}
                 </td>
               ))}
@@ -412,46 +432,41 @@ export default function PlanningGrid({
           ))}
 
           {/* Bilans par categorie : presents / requis par jour (quart affiche) */}
-          {CAT_BILANS.map((cat) => (
-            <tr key={cat.key} style={{ background: "#f8fafc" }}>
-              <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600, padding: "1px 8px", whiteSpace: "nowrap" }}>
-                {cat.label}
-              </td>
-              {days.map((d, i) => {
-                const pres = perDay[i].catPresent[cat.key] ?? 0;
-                const req = perDay[i].catRequis[cat.key] ?? 0;
-                const manque = req > 0 && pres < req;
-                return (
-                  <td
-                    key={d.iso}
-                    style={{
-                      textAlign: "center",
-                      fontWeight: 700,
-                      padding: "1px 4px",
-                      color: manque ? "#7f1d1d" : "var(--text)",
-                      background: manque ? "#fee2e2" : isToday(d) ? "#eef2ff" : undefined,
-                      ...sep(d),
-                    }}
-                    title={`${cat.label} : ${pres} présents / ${req} requis`}
-                  >
-                    {pres}
-                    <span style={{ fontWeight: 400, fontSize: 11, opacity: 0.7 }}>/{req}</span>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+          {CAT_BILANS.map((cat, j) => {
+            const rowIdx = 3 + j;
+            return (
+              <tr key={cat.key}>
+                <td style={{ ...indLeftStyle(rowIdx, "#f8fafc"), whiteSpace: "nowrap" }}>{cat.label}</td>
+                {days.map((d, i) => {
+                  const pres = perDay[i].catPresent[cat.key] ?? 0;
+                  const req = perDay[i].catRequis[cat.key] ?? 0;
+                  const manque = req > 0 && pres < req;
+                  const bg = manque ? "#fee2e2" : isToday(d) ? "#eef2ff" : "#f8fafc";
+                  return (
+                    <td
+                      key={d.iso}
+                      style={{ ...indCellStyle(rowIdx, bg), textAlign: "center", fontWeight: 700, padding: "1px 4px", color: manque ? "#7f1d1d" : "var(--text)", ...sep(d) }}
+                      title={`${cat.label} : ${pres} présents / ${req} requis`}
+                    >
+                      {pres}
+                      <span style={{ fontWeight: 400, fontSize: 11, opacity: 0.7 }}>/{req}</span>
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
 
           {/* Ligne d'alertes : puces cliquables (hors-competence / sur-effectif) */}
-          <tr style={{ background: "#f8fafc" }}>
-            <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600, padding: "1px 8px" }}>Alertes</td>
+          <tr>
+            <td style={indLeftStyle(6, "#f8fafc")}>Alertes</td>
             {days.map((d, i) => {
               const hc = perDay[i].alerts;
               const ov = perDay[i].overCount;
               const hcOn = highlight?.iso === d.iso && highlight.type === "hc";
               const ovOn = highlight?.iso === d.iso && highlight.type === "over";
               return (
-                <td key={d.iso} style={{ textAlign: "center", padding: "2px 2px", ...sep(d), background: isToday(d) ? "#eef2ff" : undefined }}>
+                <td key={d.iso} style={{ ...indCellStyle(6, isToday(d) ? "#eef2ff" : "#f8fafc"), textAlign: "center", padding: "2px 2px", ...sep(d) }}>
                   {hc > 0 && (
                     <button
                       type="button"
@@ -515,21 +530,20 @@ export default function PlanningGrid({
                     className={`pcell${alert ? " hc" : ""}${over ? " over" : ""}${matchHi ? " hi" : ""}${dimHi ? " dim" : ""}`}
                     style={{
                       textAlign: "center",
-                      background: alert ? "#fff1f2" : motifColor[v] ? motifColor[v] : over ? "#fffbeb" : isToday(d) ? "#eff6ff" : undefined,
-                      padding: 2,
+                      background: motifColor[v] ? motifColor[v] : isToday(d) ? "#eff6ff" : undefined,
+                      padding: 0,
                       position: "relative",
                       ...sep(d),
                     }}
                     title={[alert ? "Hors compétence" : "", over ? `Sur-effectif (${perDay[i].counts[v]}/${effectif[v] ?? 0})` : ""].filter(Boolean).join(" · ") || undefined}
                   >
-                    {alert && <span className="cell-badge" aria-hidden />}
                     <select
                       className="flat"
                       value={v}
                       disabled={!pers.editable || !!other}
                       title={other ? "Déjà placé sur un autre quart ce jour-là" : undefined}
                       onChange={(e) => change(pers.id, d.iso, pers.equipe_id, e.target.value)}
-                      style={{ width: "100%", fontSize: 12, padding: "3px 1px", opacity: other ? 0.6 : 1 }}
+                      style={{ fontSize: 12, opacity: other ? 0.6 : 1 }}
                     >
                       <option value="">—</option>
                       <option value="X">NT</option>
@@ -560,11 +574,6 @@ export default function PlanningGrid({
                         </optgroup>
                       )}
                     </select>
-                    {over && (
-                      <div className="cell-over" aria-hidden>
-                        {perDay[i].counts[v]}/{effectif[v] ?? 0}
-                      </div>
-                    )}
                     {showFill && (
                       <button
                         type="button"
@@ -643,10 +652,10 @@ export default function PlanningGrid({
       <p className="muted" style={{ marginTop: 10 }}>
         Survolez une case et cliquez sur &raquo; pour recopier sa valeur sur toute la
         semaine (y compris « non-affecté » pour vider la semaine).{" "}
-        <span className="legend-swatch hc" /> hors compétence ·{" "}
-        <span className="legend-swatch over" /> sur-effectif (badge présents/requis) ·
-        cliquez une pastille colorée de la ligne « Alertes » pour surligner les cases
-        concernées · <span style={{ background: "#1d4ed8", color: "#fff", borderRadius: 3, padding: "0 3px", fontSize: 10 }}>🕐</span> horaire
+        <span className="legend-swatch hc" /> barre rouge = hors compétence ·{" "}
+        <span className="legend-swatch over" /> barre jaune = sur-effectif (cumulables) ·
+        cliquez une pastille de la ligne « Alertes » pour surligner les cases concernées ·{" "}
+        <span style={{ background: "#1d4ed8", color: "#fff", borderRadius: 3, padding: "0 3px", fontSize: 10 }}>🕐</span> horaire
         spécifique (survolez une case placée) · jours sans ligne ouverte masqués.
       </p>
     </div>

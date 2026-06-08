@@ -136,10 +136,8 @@ export default async function CompetencesDispoPage({
     return { manager, conducteur, operateur, quarts: activeQuarts.length, openLines };
   };
 
-  // Jours affiches = jours ouverts (au moins un quart actif et une ligne ouverte).
-  const shown = days
-    .map((d) => ({ ...d, b: besoinOf(d.iso), week: isoWeekNumber(new Date(d.iso + "T00:00")) }))
-    .filter((d) => d.b.quarts > 0 && d.b.openLines > 0);
+  // Mois complet : tous les jours du mois sont affiches.
+  const shown = days.map((d) => ({ ...d, b: besoinOf(d.iso), week: isoWeekNumber(new Date(d.iso + "T00:00")) }));
 
   // Marqueurs de debut de semaine + blocs d'en-tete par semaine.
   let prevWeek = -1;
@@ -166,13 +164,6 @@ export default async function CompetencesDispoPage({
           <Link href="/bilans" className="navlink">&larr; Bilans</Link>
           <PrintButton />
         </div>
-        <p className="muted" style={{ marginBottom: 8 }}>
-          Par catégorie et par jour : <strong>disponibles / besoin</strong>. Disponibles = personnes
-          actives compétentes (niveau &ge; {seuil}) et non absentes. Besoin (d&apos;après l&apos;ordonnancement) :
-          Managers / Conducteurs / Opérateurs = effectifs requis des postes de la catégorie sur les
-          lignes ouvertes (cumulé sur les quarts actifs). En <span style={{ color: "#7f1d1d", background: "#fee2e2", padding: "0 4px" }}>rouge</span>
-          {" "}quand les disponibles ne couvrent pas le besoin. Jours fermés (dimanche/fériés) masqués.
-        </p>
         <CompetenceNav year={year} month0={month0} seuil={seuil} />
 
         <div className="card" style={{ overflowX: "auto" }}>
@@ -238,8 +229,17 @@ export default async function CompetencesDispoPage({
               })}
             </tbody>
           </table>
-          {shown.length === 0 && <p className="muted" style={{ padding: 10 }}>Aucun jour ouvert ce mois-ci.</p>}
+          {shown.length === 0 && <p className="muted" style={{ padding: 10 }}>Aucun jour ce mois-ci.</p>}
         </div>
+
+        <p className="muted" style={{ marginTop: 10 }}>
+          Mois complet affiché. Par catégorie et par jour : <strong>disponibles / besoin</strong>.
+          Disponibles = personnes actives compétentes (niveau &ge; {seuil}) et non absentes.
+          Besoin (d&apos;après l&apos;ordonnancement) : Managers / Conducteurs / Opérateurs =
+          effectifs requis des postes de la catégorie sur les lignes ouvertes (cumulé sur les
+          quarts actifs). En <span style={{ color: "#7f1d1d", background: "#fee2e2", padding: "0 4px" }}>rouge</span>
+          {" "}quand les disponibles ne couvrent pas le besoin.
+        </p>
       </div>
     </>
   );

@@ -14,7 +14,7 @@ type PosteRow = {
 type LigneRow = { id: string; nom: string; atelier_id: string; poste: PosteRow[] };
 type Atelier = { id: string; nom: string };
 type Equipe = { id: string; nom: string };
-type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null };
+type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null };
 type MatriceRow = {
   personne_id: string;
   poste_id: string;
@@ -41,13 +41,14 @@ export default async function MatricePage({
     .order("nom");
   if (sp.atelier) ligneQ = ligneQ.eq("atelier_id", sp.atelier);
 
-  // Personnes (filtre equipe)
+  // Personnes : filtre equipe ET filtre atelier (affectation par defaut du module personnel).
   let persQ = supabase
     .from("personne")
-    .select("id, nom, prenom, equipe_id")
+    .select("id, nom, prenom, equipe_id, atelier_id")
     .eq("statut", "ACTIF")
     .order("nom");
   if (sp.equipe) persQ = persQ.eq("equipe_id", sp.equipe);
+  if (sp.atelier) persQ = persQ.eq("atelier_id", sp.atelier);
 
   // Vague 1 : tout ce qui est independant part en parallele.
   const [

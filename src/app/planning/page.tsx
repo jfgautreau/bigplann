@@ -309,25 +309,25 @@ export default async function PlanningPage({
     <>
       <AppHeader role={profile.role} active="/planning" />
       <div className="container" style={{ maxWidth: 1500 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+        <div className="planning-top">
           <PlanningNav base="/planning" semaine={centerIso} extra={extra} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-            <PlanningFilters
-              equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom, couleur: e.couleur }))}
-              equipe={equipe}
-              semaine={centerIso}
-              quart={quart}
-              atelier={atelier}
-            />
-            <AtelierFilter
-              ateliers={ateliers}
-              atelier={atelier}
-              equipe={equipe}
-              quart={quart}
-              semaine={centerIso}
-            />
-            <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} atelier={atelier} />
-            <Link href="/horaires-specifiques" className="navlink" style={{ fontSize: 13 }}>
+          <PlanningFilters
+            equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom, couleur: e.couleur }))}
+            equipe={equipe}
+            semaine={centerIso}
+            quart={quart}
+            atelier={atelier}
+          />
+          <AtelierFilter
+            ateliers={ateliers}
+            atelier={atelier}
+            equipe={equipe}
+            quart={quart}
+            semaine={centerIso}
+          />
+          <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} atelier={atelier} />
+          <div className="filtercol" style={{ justifyContent: "flex-end" }}>
+            <Link href="/horaires-specifiques" className="navlink" style={{ fontSize: 13, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 8 }}>
               🕐 Horaires spécifiques
             </Link>
           </div>

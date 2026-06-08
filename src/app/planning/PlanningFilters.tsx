@@ -30,9 +30,9 @@ export default function PlanningFilters({
   }
 
   return (
-    <div className="toolbar" style={{ alignItems: "center" }}>
-      <span className="muted">Équipe :</span>
-      <div className="segments">
+    <div className="filtercol">
+      <span className="lbl">Équipe</span>
+      <div className="segments col">
         <button type="button" className={equipe === "" ? "seg active" : "seg"} onClick={() => go("")}>
           Toutes
         </button>

@@ -27,9 +27,9 @@ export default function QuartSelector({
     router.push(`/planning?${p.toString()}`);
   }
   return (
-    <div className="toolbar" style={{ alignItems: "center" }}>
-      <span className="muted">Quart :</span>
-      <div className="segments">
+    <div className="filtercol">
+      <span className="lbl">Quart</span>
+      <div className="segments col">
         {quarts.map((q) => (
           <button
             key={q.code}

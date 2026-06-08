@@ -138,13 +138,15 @@ export default async function AffichageAtelier({
   }
 
   const horaireTxt = (personId: string, posteId: string, quartCode: string | null, iso: string) => {
-    // Horaire specifique (exception) prioritaire sur l'horaire standard du poste.
-    const ex = excMap.get(`${personId}:${iso}`);
-    if (ex && (ex.debut || ex.fin)) return `${ex.debut ?? "?"}-${ex.fin ?? "?"}`;
     const q = quartCode ?? "matin";
-    const h = horMap.get(`${posteId}:${q}:${dow(iso)}`);
-    if (!h || (!h.debut && !h.fin)) return "";
-    return `${h.debut ?? "?"}-${h.fin ?? "?"}`;
+    const std = horMap.get(`${posteId}:${q}:${dow(iso)}`);
+    const ex = excMap.get(`${personId}:${iso}`);
+    // Override par champ : un debut/fin rempli dans l'exception remplace le standard ;
+    // un champ vide garde l'horaire standard.
+    const debut = ex?.debut || std?.debut || null;
+    const fin = ex?.fin || std?.fin || null;
+    if (!debut && !fin) return "";
+    return `${debut ?? "?"}-${fin ?? "?"}`;
   };
 
   const FLUO = "#fde047"; // jaune fluo pour le jour

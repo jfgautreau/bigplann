@@ -32,9 +32,9 @@ export default function AtelierFilter({
   if (ateliers.length === 0) return null;
 
   return (
-    <div className="toolbar" style={{ alignItems: "center" }}>
-      <span className="muted">Atelier :</span>
-      <div className="segments">
+    <div className="filtercol">
+      <span className="lbl">Atelier</span>
+      <div className="segments col">
         <button type="button" className={atelier === "" ? "seg active" : "seg"} onClick={() => go("")}>
           Tous
         </button>
