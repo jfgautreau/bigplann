@@ -22,7 +22,7 @@ export default async function SemaineTypePage() {
       <div className="container" style={{ maxWidth: 900 }}>
         <div className="toolbar">
           <h1 style={{ margin: 0 }}>Semaine type</h1>
-          <Link href="/ordonnancement" className="navlink">&larr; Ordonnancement</Link>
+          <Link href="/ordonnancement" className="iconbtn" style={{ padding: "6px 12px" }}>&larr; Ordonnancement</Link>
         </div>
         <p className="muted" style={{ marginTop: -6 }}>
           Configuration du gabarit de quarts qui se charge automatiquement et sert de base à la

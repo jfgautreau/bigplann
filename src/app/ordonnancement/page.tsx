@@ -64,14 +64,16 @@ export default async function OrdonnancementPage({
     <>
       <AppHeader role={profile.role} active="/ordonnancement" />
       <div className="container" style={{ maxWidth: 1500 }}>
-        <div className="toolbar">
+        <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <h1 style={{ margin: 0 }}>Ordonnancement</h1>
-          <Link href="/ordonnancement/semaine-type" className="navlink">
-            Semaine type &rarr;
-          </Link>
-          <Link href="/admin/rotation" className="navlink">
-            Rotation des équipes &rarr;
-          </Link>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Link href="/ordonnancement/semaine-type" className="iconbtn" style={{ padding: "6px 12px" }}>
+              ⚙️ Semaine type
+            </Link>
+            <Link href="/admin/rotation" className="iconbtn" style={{ padding: "6px 12px" }}>
+              Rotation des équipes &rarr;
+            </Link>
+          </div>
         </div>
         <OrdoMonthNav base="/ordonnancement" year={year} month0={month0} />
 
