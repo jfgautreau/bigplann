@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { defaultQuartActif } from "@/lib/week";
+import { useRouter } from "next/navigation";
+import { typeQuartActif, type SemaineType } from "@/lib/semaine-type";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek?: boolean };
 type Item = { id: string; label: string };
@@ -20,6 +21,7 @@ export default function OrdoGrid({
   lignes,
   jourQuartState,
   ouvertureState,
+  semaineType = {},
 }: {
   days: Jour[];
   weekBlocks?: WeekBlock[];
@@ -29,12 +31,40 @@ export default function OrdoGrid({
   lignes: Item[];
   jourQuartState: Record<string, boolean>;
   ouvertureState: Record<string, boolean>;
+  semaineType?: SemaineType;
 }) {
+  const router = useRouter();
   const [jq, setJq] = useState<Record<string, boolean>>(jourQuartState);
   const [ov, setOv] = useState<Record<string, boolean>>(ouvertureState);
   const [saving, setSaving] = useState(false);
 
-  const quartActif = (code: string, iso: string) => jq[`${code}:${iso}`] ?? defaultQuartActif(iso, code);
+  const quartActif = (code: string, iso: string) => jq[`${code}:${iso}`] ?? typeQuartActif(semaineType, iso, code);
+
+  // ISO de chaque bloc-semaine (pour le bouton "Reinitialiser").
+  const blockIsos: string[][] = [];
+  {
+    let idx = 0;
+    for (const w of weekBlocks) {
+      blockIsos.push(days.slice(idx, idx + w.span).map((d) => d.iso));
+      idx += w.span;
+    }
+  }
+
+  async function resetWeek(isos: string[]) {
+    if (!isos.length) return;
+    if (!window.confirm("Réinitialiser cette semaine selon la semaine type ? Les quarts reviennent au gabarit et les lignes repassent à « ouvert ».")) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/ordonnancement/reset-week", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isos }),
+      });
+      if (res.ok) router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  }
   const ligneOuverte = (code: string, lg: string, iso: string) =>
     quartActif(code, iso) ? (ov[`${code}:${lg}:${iso}`] ?? true) : false;
 
@@ -73,7 +103,7 @@ export default function OrdoGrid({
     width: FIRST_W + days.length * DAY_W,
   };
 
-  const Header = ({ label }: { label: string }) => (
+  const Header = ({ label, showReset = false }: { label: string; showReset?: boolean }) => (
     <thead>
       {weekBlocks.length > 0 && (
         <tr>
@@ -84,7 +114,20 @@ export default function OrdoGrid({
               colSpan={w.span}
               style={{ textAlign: "center", fontSize: 12, borderLeft: "2px solid #cbd5e1", background: "#f8fafc" }}
             >
-              {w.year} · S{w.num}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {w.year} · S{w.num}
+                {showReset && (
+                  <button
+                    type="button"
+                    className="btn-sm btn-ghost"
+                    onClick={() => resetWeek(blockIsos[i] ?? [])}
+                    title="Réinitialiser cette semaine selon la semaine type"
+                    style={{ padding: "1px 6px", fontSize: 12, lineHeight: 1.2 }}
+                  >
+                    ↺ Réinit.
+                  </button>
+                )}
+              </span>
             </th>
           ))}
         </tr>
@@ -109,7 +152,7 @@ export default function OrdoGrid({
           Quarts actifs par jour {saving && <span className="muted" style={{ fontSize: 12 }}>· enregistrement…</span>}
         </h2>
         <table className="matrix" style={tableStyle}>
-          <Header label="Quart" />
+          <Header label="Quart" showReset />
           <tbody>
             {quarts.map((q) => (
               <tr key={q.code}>

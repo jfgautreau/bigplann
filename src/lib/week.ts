@@ -61,6 +61,12 @@ export function isSundayIso(iso: string): boolean {
   return new Date(y, m - 1, d).getDay() === 0;
 }
 
+// Jour de la semaine base lundi : 0 = lundi ... 6 = dimanche.
+export function dowMon(iso: string): number {
+  const [y, m, d] = iso.split("-").map(Number);
+  return (new Date(y, m - 1, d).getDay() + 6) % 7;
+}
+
 // Regle de defaut : ouvert/actif sauf le dimanche.
 export function defaultOpenIso(iso: string): boolean {
   return !isSundayIso(iso);

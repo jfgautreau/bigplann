@@ -1,7 +1,8 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { getAdminClient } from "@/lib/supabase-server";
-import { isoDate, mondayOf, parseMonday, weekDays, defaultQuartActif } from "@/lib/week";
+import { isoDate, mondayOf, parseMonday, weekDays } from "@/lib/week";
+import { getSemaineType, typeQuartActif } from "@/lib/semaine-type";
 import AutoRefresh from "@/components/AutoRefresh";
 import PrintButton from "@/components/PrintButton";
 
@@ -80,7 +81,7 @@ export default async function AffichageAtelier({
   const workedDays = new Set<string>(); // jours (iso) ou au moins une personne travaille
 
   if (posteIds.length) {
-    const [{ data: pl }, { data: hor }, { data: jq }, { data: ov }] = await Promise.all([
+    const [{ data: pl }, { data: hor }, { data: jq }, { data: ov }, semaineType] = await Promise.all([
       admin
         .from("placement")
         .select("poste_id, jour, quart_code, personne_id, personne:personne_id(nom, prenom, type_contrat)")
@@ -102,6 +103,7 @@ export default async function AffichageAtelier({
         .select("jour, ligne_id, quart_code, ouverte")
         .in("jour", isos)
         .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
+      getSemaineType(admin),
     ]);
     for (const h of hor ?? []) horMap.set(`${h.poste_id}:${h.quart_code}:${h.jour}`, { debut: h.debut, fin: h.fin });
     for (const r of jq ?? []) actMap.set(`${r.quart_code}:${r.jour}`, r.actif);
@@ -110,7 +112,7 @@ export default async function AffichageAtelier({
     // Une cellule est affichee seulement si la ligne est ouverte ce jour-la pour ce
     // quart (coherent avec le planning / l'ordonnancement).
     const isOpen = (ligneId: string, quart: string, iso: string) => {
-      const a = actMap.has(`${quart}:${iso}`) ? actMap.get(`${quart}:${iso}`)! : defaultQuartActif(iso, quart);
+      const a = actMap.has(`${quart}:${iso}`) ? actMap.get(`${quart}:${iso}`)! : typeQuartActif(semaineType, iso, quart);
       if (!a) return false;
       const k = `${quart}:${ligneId}:${iso}`;
       return ouvMap.has(k) ? ouvMap.get(k)! : true;
