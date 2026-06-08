@@ -25,6 +25,7 @@ export default function PlanningGrid({
   quart = "",
   otherByCell = {},
   quartLabel = {},
+  posteLabelAll = {},
 }: {
   days: Jour[];
   weekBlocks?: WeekBlock[];
@@ -40,6 +41,7 @@ export default function PlanningGrid({
   quart?: string;
   otherByCell?: Record<string, string>;
   quartLabel?: Record<string, string>;
+  posteLabelAll?: Record<string, string>;
 }) {
   const router = useRouter();
   const [vals, setVals] = useState<Record<string, string>>(initial);
@@ -110,7 +112,8 @@ export default function PlanningGrid({
     let alerts = 0;
     for (const pid of indicIds) {
       const v = vals[key(pid, d.iso)] ?? "";
-      if (isPoste(v)) {
+      // On ne compte que les placements sur un poste affiche (cadre l'atelier filtre).
+      if (isPoste(v) && posteLigne[v] !== undefined) {
         present++;
         counts[v] = (counts[v] ?? 0) + 1;
         if (horsComp(pid, v)) alerts++;
@@ -360,7 +363,9 @@ export default function PlanningGrid({
                 const over = isPoste(v) && (perDay[i].counts[v] ?? 0) > (effectif[v] ?? 0);
                 const openSet = new Set(openByIso[d.iso] ?? allLigneIds);
                 const closedCurrent = isPoste(v) && !openSet.has(posteLigne[v] ?? "");
-                const showFill = pers.editable && v !== "";
+                // Bouton de recopie aussi sur une case vide : permet de propager le
+                // « non-affecte » sur la semaine. Masque seulement si placee sur un autre quart.
+                const showFill = pers.editable && !otherByCell[key(pers.id, d.iso)];
                 const other = v === "" ? otherByCell[key(pers.id, d.iso)] : undefined;
                 return (
                   <td
@@ -388,7 +393,10 @@ export default function PlanningGrid({
                       <option value="">—</option>
                       <option value="X">NT</option>
                       {closedCurrent && (
-                        <option value={v}>{posteLabel[v] ?? "?"} (ligne fermée)</option>
+                        <option value={v}>
+                          {posteLabel[v] ?? posteLabelAll[v] ?? "?"}
+                          {posteLigne[v] !== undefined ? " (ligne fermée)" : " (autre atelier)"}
+                        </option>
                       )}
                       {groups
                         .filter((g) => openSet.has(g.ligneId))
@@ -443,9 +451,9 @@ export default function PlanningGrid({
       </table>
 
       <p className="muted" style={{ marginTop: 10 }}>
-        Survolez une case remplie et cliquez sur &raquo; pour recopier la valeur sur toute
-        la semaine. Rouge = hors compétence · contour orange = sur-effectif · jours sans
-        ligne ouverte masqués.
+        Survolez une case et cliquez sur &raquo; pour recopier sa valeur sur toute la
+        semaine (y compris « non-affecté » pour vider la semaine). Rouge = hors compétence ·
+        contour orange = sur-effectif · jours sans ligne ouverte masqués.
       </p>
     </div>
   );

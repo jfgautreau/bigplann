@@ -11,6 +11,7 @@ import {
 } from "@/lib/week";
 import { requireModule } from "@/lib/permissions";
 import PlanningFilters from "./PlanningFilters";
+import AtelierFilter from "./AtelierFilter";
 import QuartSelector from "./QuartSelector";
 import PlanningGrid from "./PlanningGrid";
 
@@ -22,7 +23,7 @@ type PosteRow = {
   effectif_requis: number;
   niveau_min_requis: number;
 };
-type LigneRow = { id: string; nom: string; poste: PosteRow[] };
+type LigneRow = { id: string; nom: string; atelier: { id: string; nom: string } | null; poste: PosteRow[] };
 type Equipe = { id: string; nom: string; couleur: string };
 type Quart = { code: string; libelle: string };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null };
@@ -40,7 +41,7 @@ type Motif = { id: string; code_court: string; libelle: string; couleur: string 
 export default async function PlanningPage({
   searchParams,
 }: {
-  searchParams: Promise<{ equipe?: string; semaine?: string; quart?: string }>;
+  searchParams: Promise<{ equipe?: string; semaine?: string; quart?: string; atelier?: string }>;
 }) {
   const { profile } = await requireModule("planning", "read");
 
@@ -48,6 +49,7 @@ export default async function PlanningPage({
   const center = parseMonday(sp.semaine);
   const centerIso = isoDate(center);
   const equipe = sp.equipe ?? "";
+  const atelier = sp.atelier ?? "";
 
   const weekMondays = [addDays(center, -7), center, addDays(center, 7)];
   const todayMondayIso = isoDate(mondayOf());
@@ -71,7 +73,7 @@ export default async function PlanningPage({
     supabase.from("equipe").select("id, nom, couleur").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
       .from("ligne")
-      .select("id, nom, poste(id, nom, nom_court, actif, effectif_requis, niveau_min_requis)")
+      .select("id, nom, atelier:atelier_id(id, nom), poste(id, nom, nom_court, actif, effectif_requis, niveau_min_requis)")
       .eq("actif", true)
       .order("nom")
       .returns<LigneRow[]>(),
@@ -104,13 +106,31 @@ export default async function PlanningPage({
   }
   if (!quart) quart = quartCodes[0] ?? "matin";
 
-  const groups = (lignesD ?? [])
+  const groupsAll = (lignesD ?? [])
     .map((l) => ({
       ligneNom: l.nom,
       ligneId: l.id,
+      atelierId: l.atelier?.id ?? null,
       postes: [...(l.poste ?? [])].filter((p) => p.actif).sort((a, b) => a.nom.localeCompare(b.nom)),
     }))
     .filter((g) => g.postes.length > 0);
+
+  // Ateliers presents (lignes actives ayant au moins un poste actif) -> segments de filtre.
+  const ateliersMap = new Map<string, string>();
+  for (const g of groupsAll) {
+    const l = (lignesD ?? []).find((x) => x.id === g.ligneId);
+    if (l?.atelier) ateliersMap.set(l.atelier.id, l.atelier.nom);
+  }
+  const ateliers = [...ateliersMap]
+    .map(([id, nom]) => ({ id, label: nom }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  // Etiquettes de tous les postes (pour afficher proprement un placement hors atelier filtre).
+  const posteLabelAll: Record<string, string> = {};
+  for (const g of groupsAll)
+    for (const p of g.postes) posteLabelAll[p.id] = (p.nom_court || p.nom).slice(0, 6);
+
+  const groups = atelier ? groupsAll.filter((g) => g.atelierId === atelier) : groupsAll;
 
   const lineEffectif: Record<string, number> = {};
   for (const g of groups)
@@ -240,6 +260,7 @@ export default async function PlanningPage({
 
   const extra: Record<string, string> = { quart };
   if (equipe) extra.equipe = equipe;
+  if (atelier) extra.atelier = atelier;
 
   return (
     <>
@@ -253,12 +274,20 @@ export default async function PlanningPage({
               equipe={equipe}
               semaine={centerIso}
               quart={quart}
+              atelier={atelier}
             />
-            <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} />
+            <AtelierFilter
+              ateliers={ateliers}
+              atelier={atelier}
+              equipe={equipe}
+              quart={quart}
+              semaine={centerIso}
+            />
+            <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} atelier={atelier} />
           </div>
         </div>
         <PlanningGrid
-          key={`${equipe}|${quart}|${centerIso}`}
+          key={`${equipe}|${atelier}|${quart}|${centerIso}`}
           days={days}
           weekBlocks={weekBlocks}
           todayIso={isoDate(new Date())}
@@ -273,6 +302,7 @@ export default async function PlanningPage({
           quart={quart}
           otherByCell={otherByCell}
           quartLabel={quartLabel}
+          posteLabelAll={posteLabelAll}
         />
       </div>
     </>

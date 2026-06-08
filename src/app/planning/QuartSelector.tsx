@@ -9,16 +9,19 @@ export default function QuartSelector({
   current,
   equipe,
   semaine,
+  atelier = "",
 }: {
   quarts: Quart[];
   current: string;
   equipe: string;
   semaine: string;
+  atelier?: string;
 }) {
   const router = useRouter();
   function go(code: string) {
     const p = new URLSearchParams();
     if (equipe) p.set("equipe", equipe);
+    if (atelier) p.set("atelier", atelier);
     if (semaine) p.set("semaine", semaine);
     p.set("quart", code);
     router.push(`/planning?${p.toString()}`);
