@@ -6,24 +6,19 @@ import { getServerClient } from "@/lib/supabase-server";
 import { parseMois, monthDays, isoDate, isoWeekNumber } from "@/lib/week";
 import CompetenceNav from "./CompetenceNav";
 
-type Poste = { id: string; nom: string; actif: boolean; est_conducteur: boolean; effectif_requis: number };
+type Poste = { id: string; nom: string; actif: boolean; categorie: string; effectif_requis: number };
 type Ligne = { id: string; nom: string; poste: Poste[] };
 type Mat = { poste_id: string; personne_id: string; niveau_actuel: number };
 type Abs = { jour: string; personne_id: string; non_travaille: boolean; motif_absence_id: string | null };
 
-type Cat = "CE" | "COND" | "OP";
+type Cat = "manager" | "conducteur" | "operateur";
 const CATS: { key: Cat; label: string }[] = [
-  { key: "CE", label: "Chefs d'équipe" },
-  { key: "COND", label: "Conducteurs" },
-  { key: "OP", label: "Opérateurs" },
+  { key: "manager", label: "Managers" },
+  { key: "conducteur", label: "Conducteurs" },
+  { key: "operateur", label: "Opérateurs" },
 ];
-
-function catOf(ligneNom: string, posteNom: string, estConducteur: boolean): Cat {
-  const isCE = ligneNom.trim().toUpperCase() === "CE" || /^ce\b|chef/i.test(posteNom.trim());
-  if (isCE) return "CE";
-  if (estConducteur) return "COND";
-  return "OP";
-}
+const asCat = (v: string): Cat =>
+  v === "manager" || v === "conducteur" || v === "operateur" ? v : "operateur";
 
 export default async function CompetencesDispoPage({
   searchParams,
@@ -44,7 +39,7 @@ export default async function CompetencesDispoPage({
     await Promise.all([
       supabase
         .from("ligne")
-        .select("id, nom, poste(id, nom, actif, est_conducteur, effectif_requis)")
+        .select("id, nom, poste(id, nom, actif, categorie, effectif_requis)")
         .eq("actif", true)
         .order("nom")
         .returns<Ligne[]>(),
@@ -68,27 +63,30 @@ export default async function CompetencesDispoPage({
   const quarts = (quartsD ?? []).map((q) => q.code);
   const lignes = lignesD ?? [];
 
-  // Categorie de chaque poste + effectifs conducteur/operateur par ligne (production).
+  // Categorie de chaque poste + effectifs requis par categorie et par ligne.
   const posteCat = new Map<string, Cat>();
-  const lineCondEff = new Map<string, number>();
-  const lineOpEff = new Map<string, number>();
+  const lineCatEff = new Map<string, Record<Cat, number>>();
   for (const l of lignes) {
-    let cond = 0;
-    let op = 0;
+    const eff: Record<Cat, number> = { manager: 0, conducteur: 0, operateur: 0 };
     for (const p of l.poste ?? []) {
       if (!p.actif) continue;
-      const c = catOf(l.nom, p.nom, p.est_conducteur);
+      const c = asCat(p.categorie);
       posteCat.set(p.id, c);
-      if (c === "COND") cond += p.effectif_requis ?? 0;
-      else if (c === "OP") op += p.effectif_requis ?? 0;
+      eff[c] += p.effectif_requis ?? 0;
     }
-    lineCondEff.set(l.id, cond);
-    lineOpEff.set(l.id, op);
+    lineCatEff.set(l.id, eff);
   }
-  const prodLines = lignes.filter((l) => (lineCondEff.get(l.id) ?? 0) > 0 || (lineOpEff.get(l.id) ?? 0) > 0);
+  const prodLines = lignes.filter((l) => {
+    const e = lineCatEff.get(l.id)!;
+    return e.manager + e.conducteur + e.operateur > 0;
+  });
 
   // Competents (niveau >= seuil) actifs, regroupes par categorie.
-  const competentByCat = new Map<Cat, Set<string>>([["CE", new Set()], ["COND", new Set()], ["OP", new Set()]]);
+  const competentByCat = new Map<Cat, Set<string>>([
+    ["manager", new Set()],
+    ["conducteur", new Set()],
+    ["operateur", new Set()],
+  ]);
   for (const r of matD ?? []) {
     if (!actifSet.has(r.personne_id)) continue;
     const c = posteCat.get(r.poste_id);
@@ -117,22 +115,25 @@ export default async function CompetencesDispoPage({
   const ligneOuverte = (lid: string, q: string, iso: string) =>
     ouvMap.has(`${q}:${lid}:${iso}`) ? ouvMap.get(`${q}:${lid}:${iso}`)! : true;
 
-  // Besoin par jour et par categorie (slots cumules sur les quarts actifs).
+  // Besoin par jour et par categorie (effectifs requis cumules sur les quarts actifs).
   const besoinOf = (iso: string) => {
     const activeQuarts = quarts.filter((q) => quartActif(q, iso));
-    let cond = 0;
-    let op = 0;
+    let manager = 0;
+    let conducteur = 0;
+    let operateur = 0;
     let openLines = 0;
     for (const q of activeQuarts) {
       for (const l of prodLines) {
         if (ligneOuverte(l.id, q, iso)) {
           openLines++;
-          cond += lineCondEff.get(l.id) ?? 0;
-          op += lineOpEff.get(l.id) ?? 0;
+          const e = lineCatEff.get(l.id)!;
+          manager += e.manager;
+          conducteur += e.conducteur;
+          operateur += e.operateur;
         }
       }
     }
-    return { CE: activeQuarts.length, COND: cond, OP: op, quarts: activeQuarts.length, openLines };
+    return { manager, conducteur, operateur, quarts: activeQuarts.length, openLines };
   };
 
   // Jours affiches = jours ouverts (au moins un quart actif et une ligne ouverte).
@@ -168,8 +169,8 @@ export default async function CompetencesDispoPage({
         <p className="muted" style={{ marginBottom: 8 }}>
           Par catégorie et par jour : <strong>disponibles / besoin</strong>. Disponibles = personnes
           actives compétentes (niveau &ge; {seuil}) et non absentes. Besoin (d&apos;après l&apos;ordonnancement) :
-          Chefs d&apos;équipe = nb de quarts actifs ; Conducteurs et Opérateurs = effectifs requis sur les
-          lignes ouvertes (cumulé sur les quarts). En <span style={{ color: "#7f1d1d", background: "#fee2e2", padding: "0 4px" }}>rouge</span>
+          Managers / Conducteurs / Opérateurs = effectifs requis des postes de la catégorie sur les
+          lignes ouvertes (cumulé sur les quarts actifs). En <span style={{ color: "#7f1d1d", background: "#fee2e2", padding: "0 4px" }}>rouge</span>
           {" "}quand les disponibles ne couvrent pas le besoin. Jours fermés (dimanche/fériés) masqués.
         </p>
         <CompetenceNav year={year} month0={month0} seuil={seuil} />
