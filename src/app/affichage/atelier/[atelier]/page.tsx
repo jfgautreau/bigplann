@@ -72,6 +72,7 @@ export default async function AffichageAtelier({
 
   const byPoste = new Map<string, PlacementRow[]>(); // `${poste}:${iso}`
   const horMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${poste}:${quart}:${dow}`
+  const excMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${personne}:${iso}` (horaire specifique)
   const actMap = new Map<string, boolean>(); // `${quart}:${iso}`
   const ouvMap = new Map<string, boolean>(); // `${quart}:${ligne}:${iso}`
   type Personne = { nom: string; prenom: string; type_contrat: string };
@@ -80,7 +81,7 @@ export default async function AffichageAtelier({
   const workedDays = new Set<string>(); // jours (iso) ou au moins une personne travaille
 
   if (posteIds.length) {
-    const [{ data: pl }, { data: hor }, { data: jq }, { data: ov }] = await Promise.all([
+    const [{ data: pl }, { data: hor }, { data: jq }, { data: ov }, { data: exc }] = await Promise.all([
       admin
         .from("placement")
         .select("poste_id, jour, quart_code, personne_id, personne:personne_id(nom, prenom, type_contrat)")
@@ -102,8 +103,14 @@ export default async function AffichageAtelier({
         .select("jour, ligne_id, quart_code, ouverte")
         .in("jour", isos)
         .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
+      admin
+        .from("horaire_exception")
+        .select("personne_id, jour, debut, fin")
+        .in("jour", isos)
+        .returns<{ personne_id: string; jour: string; debut: string | null; fin: string | null }[]>(),
     ]);
     for (const h of hor ?? []) horMap.set(`${h.poste_id}:${h.quart_code}:${h.jour}`, { debut: h.debut, fin: h.fin });
+    for (const e of exc ?? []) excMap.set(`${e.personne_id}:${e.jour}`, { debut: e.debut, fin: e.fin });
     for (const r of jq ?? []) actMap.set(`${r.quart_code}:${r.jour}`, r.actif);
     for (const r of ov ?? []) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
 
@@ -130,7 +137,10 @@ export default async function AffichageAtelier({
     }
   }
 
-  const horaireTxt = (posteId: string, quartCode: string | null, iso: string) => {
+  const horaireTxt = (personId: string, posteId: string, quartCode: string | null, iso: string) => {
+    // Horaire specifique (exception) prioritaire sur l'horaire standard du poste.
+    const ex = excMap.get(`${personId}:${iso}`);
+    if (ex && (ex.debut || ex.fin)) return `${ex.debut ?? "?"}-${ex.fin ?? "?"}`;
     const q = quartCode ?? "matin";
     const h = horMap.get(`${posteId}:${q}:${dow(iso)}`);
     if (!h || (!h.debut && !h.fin)) return "";
@@ -149,7 +159,7 @@ export default async function AffichageAtelier({
       const p = r.personne;
       if (!p) return null;
       const interim = p.type_contrat === "INTERIM";
-      const h = horaireTxt(posteId, r.quart_code, iso);
+      const h = horaireTxt(r.personne_id, posteId, r.quart_code, iso);
       return (
         <div key={i} style={{ lineHeight: 1.2, marginBottom: i < rows.length - 1 ? 6 : 0 }}>
           <div>
@@ -169,7 +179,7 @@ export default async function AffichageAtelier({
     if (!rows.length) return <span style={{ color: "#cbd5e1" }}>—</span>;
     return rows.map((r, i) => {
       if (!r.poste_id) return null;
-      const h = horaireTxt(r.poste_id, r.quart_code, iso);
+      const h = horaireTxt(personId, r.poste_id, r.quart_code, iso);
       return (
         <div key={i} style={{ lineHeight: 1.2, marginBottom: i < rows.length - 1 ? 6 : 0 }}>
           <div style={{ fontWeight: 600 }}>{posteNom.get(r.poste_id) ?? "?"}</div>

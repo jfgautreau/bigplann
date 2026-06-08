@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import PlanningNav from "@/components/PlanningNav";
@@ -317,6 +318,9 @@ export default async function PlanningPage({
               semaine={centerIso}
             />
             <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} atelier={atelier} />
+            <Link href="/horaires-specifiques" className="navlink" style={{ fontSize: 13 }}>
+              🕐 Horaires spécifiques
+            </Link>
           </div>
         </div>
         <PlanningGrid
