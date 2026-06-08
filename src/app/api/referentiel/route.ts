@@ -7,7 +7,8 @@ import { getCurrentProfile } from "@/lib/current-user";
 // Ops : create-atelier | create-ligne | create-poste | update-atelier |
 //       update-ligne | update-poste | toggle.
 const POSTE_COLS =
-  "id, nom, nom_court, est_conducteur, effectif_requis, difficulte_formation, niveau_min_requis, actif";
+  "id, nom, nom_court, est_conducteur, categorie, effectif_requis, difficulte_formation, niveau_min_requis, actif";
+const CATEGORIES = ["manager", "conducteur", "operateur"];
 
 type Body = Record<string, unknown>;
 
@@ -22,6 +23,8 @@ function posteValue(key: string, value: unknown) {
       return s(value).slice(0, 6) || null;
     case "est_conducteur":
       return value === true || value === "true";
+    case "categorie":
+      return CATEGORIES.includes(s(value)) ? s(value) : undefined;
     case "effectif_requis":
       return Math.max(0, Math.floor(Number(value) || 0));
     case "niveau_min_requis":
@@ -103,6 +106,28 @@ export async function POST(req: NextRequest) {
         if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Rien à modifier" }, { status: 400 });
         const { error } = await supabase.from("poste").update(patch).eq("id", s(body.id));
         if (error) throw error;
+        return NextResponse.json({ ok: true });
+      }
+      case "poste-quart": {
+        // Activation poste x quart. Defaut actif : actif=true -> on supprime la ligne,
+        // actif=false -> on insere/maj une ligne de desactivation.
+        const poste_id = s(body.poste_id);
+        const quart_code = s(body.quart_code);
+        if (!poste_id || !quart_code) return NextResponse.json({ error: "Champs requis" }, { status: 400 });
+        const actif = body.actif === true || body.actif === "true";
+        if (actif) {
+          const { error } = await supabase
+            .from("poste_quart")
+            .delete()
+            .eq("poste_id", poste_id)
+            .eq("quart_code", quart_code);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("poste_quart")
+            .upsert({ poste_id, quart_code, actif: false }, { onConflict: "poste_id,quart_code" });
+          if (error) throw error;
+        }
         return NextResponse.json({ ok: true });
       }
       case "toggle": {

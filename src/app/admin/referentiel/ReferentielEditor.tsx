@@ -8,6 +8,7 @@ type Poste = {
   nom: string;
   nom_court: string | null;
   est_conducteur: boolean;
+  categorie: string;
   effectif_requis: number;
   difficulte_formation: number | null;
   niveau_min_requis: number;
@@ -15,6 +16,13 @@ type Poste = {
 };
 type Ligne = { id: string; nom: string; actif: boolean; poste: Poste[] };
 type Atelier = { id: string; nom: string; actif: boolean; ligne: Ligne[] };
+type Quart = { code: string; libelle: string };
+
+const CATEGORIES: { value: string; label: string }[] = [
+  { value: "manager", label: "Manager" },
+  { value: "conducteur", label: "Conducteur" },
+  { value: "operateur", label: "Opérateur" },
+];
 
 const byNom = <T extends { nom: string }>(a: T, b: T) => a.nom.localeCompare(b.nom);
 
@@ -37,8 +45,18 @@ function AddInput({ placeholder, onAdd, width = 220 }: { placeholder: string; on
   );
 }
 
-export default function ReferentielEditor({ initial }: { initial: Atelier[] }) {
+export default function ReferentielEditor({
+  initial,
+  quarts = [],
+  pqOff = [],
+}: {
+  initial: Atelier[];
+  quarts?: Quart[];
+  pqOff?: string[];
+}) {
   const [tree, setTree] = useState<Atelier[]>(initial);
+  // Desactivations poste x quart (cle `${poste}:${quart}`). Absent = actif.
+  const [off, setOff] = useState<Set<string>>(new Set(pqOff));
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -113,6 +131,18 @@ export default function ReferentielEditor({ initial }: { initial: Atelier[] }) {
   function togglePoste(aid: string, lid: string, pid: string, actif: boolean) {
     posteField(aid, lid, pid, "actif", actif);
   }
+  // Activation poste x quart (coche = actif). Defaut actif : on ne stocke que les off.
+  const quartOn = (pid: string, q: string) => !off.has(`${pid}:${q}`);
+  function toggleQuart(pid: string, q: string, on: boolean) {
+    setOff((s) => {
+      const n = new Set(s);
+      const k = `${pid}:${q}`;
+      if (on) n.delete(k);
+      else n.add(k);
+      return n;
+    });
+    post("poste-quart", { poste_id: pid, quart_code: q, actif: on });
+  }
   async function addPoste(aid: string, lid: string, nom: string) {
     const j = await post("create-poste", { ligne_id: lid, nom });
     if (j?.row) setLigne(aid, lid, (l) => ({ ...l, poste: [...l.poste, j.row as Poste].sort(byNom) }));
@@ -178,9 +208,14 @@ export default function ReferentielEditor({ initial }: { initial: Atelier[] }) {
                     <th>Poste</th>
                     <th>Code</th>
                     <th>Effectif</th>
-                    <th>Conduc.</th>
+                    <th>Catégorie</th>
                     <th>Diff.</th>
                     <th>Niv. min</th>
+                    {quarts.map((q) => (
+                      <th key={q.code} title={`Tourne en ${q.libelle}`} style={{ fontSize: 11 }}>
+                        {q.libelle.slice(0, 4)}
+                      </th>
+                    ))}
                     <th>Actif</th>
                   </tr>
                 </thead>
@@ -207,13 +242,15 @@ export default function ReferentielEditor({ initial }: { initial: Atelier[] }) {
                           style={{ width: 64 }}
                         />
                       </td>
-                      <td style={{ textAlign: "center" }}>
-                        <input
-                          type="checkbox"
-                          checked={p.est_conducteur}
-                          onChange={(e) => posteField(a.id, l.id, p.id, "est_conducteur", e.target.checked)}
-                          style={{ width: "auto" }}
-                        />
+                      <td>
+                        <select
+                          value={p.categorie ?? "operateur"}
+                          onChange={(e) => posteField(a.id, l.id, p.id, "categorie", e.target.value)}
+                        >
+                          {CATEGORIES.map((c) => (
+                            <option key={c.value} value={c.value}>{c.label}</option>
+                          ))}
+                        </select>
                       </td>
                       <td>
                         <select
@@ -236,6 +273,17 @@ export default function ReferentielEditor({ initial }: { initial: Atelier[] }) {
                           ))}
                         </select>
                       </td>
+                      {quarts.map((q) => (
+                        <td key={q.code} style={{ textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            checked={quartOn(p.id, q.code)}
+                            onChange={(e) => toggleQuart(p.id, q.code, e.target.checked)}
+                            style={{ width: "auto" }}
+                            title={`${p.nom} tourne en ${q.libelle}`}
+                          />
+                        </td>
+                      ))}
                       <td style={{ textAlign: "center" }}>
                         <input
                           type="checkbox"
@@ -248,7 +296,7 @@ export default function ReferentielEditor({ initial }: { initial: Atelier[] }) {
                   ))}
                   {l.poste.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="muted">Aucun poste.</td>
+                      <td colSpan={7 + quarts.length} className="muted">Aucun poste.</td>
                     </tr>
                   )}
                 </tbody>
