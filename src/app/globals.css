@@ -411,6 +411,90 @@ select.flat {
   justify-content: center;
 }
 
+/* --- Alertes planning (Option 1 : pastilles d'angle + accents) --- */
+/* Accent hors-competence : lisere rouge a gauche de la case. */
+.pcell.hc {
+  box-shadow: inset 3px 0 0 0 #dc2626;
+}
+/* Anneau sur-effectif (compose avec l'accent hors-competence). */
+.pcell.over {
+  box-shadow: inset 0 0 0 2px #f97316;
+}
+.pcell.hc.over {
+  box-shadow: inset 3px 0 0 0 #dc2626, inset 0 0 0 2px #f97316;
+}
+/* Badge d'angle hors-competence. */
+.cell-badge {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  font-size: 10px;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 2;
+}
+.cell-badge-inline {
+  font-size: 12px;
+}
+/* Lecture présents/requis du sur-effectif, en pied de case. */
+.cell-over {
+  font-size: 9px;
+  font-weight: 700;
+  color: #9a3412;
+  line-height: 1;
+  margin-top: -1px;
+  pointer-events: none;
+}
+/* Surlignage piloté par les puces de la ligne « Alertes ». */
+.pcell.hi {
+  box-shadow: 0 0 0 3px #6366f1, inset 0 0 0 2px #f97316;
+  z-index: 3;
+}
+.pcell.hi:not(.over) {
+  box-shadow: 0 0 0 3px #6366f1;
+}
+.pcell.dim {
+  opacity: 0.3;
+}
+
+/* Puces de la ligne « Alertes » (cliquables pour surligner). */
+.alert-pill {
+  margin: 0 2px;
+  width: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.alert-pill.hc {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.alert-pill.over {
+  background: #ffedd5;
+  color: #9a3412;
+  border-color: #fdba74;
+}
+.alert-pill.active {
+  box-shadow: 0 0 0 2px currentColor inset;
+  filter: saturate(1.5);
+}
+
+/* Bandeau presse-papier (copier/coller d'horaires de poste). */
+.clip-banner {
+  background: #ecfeff;
+  border: 1px solid #67e8f9;
+  color: #155e75;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* Bascule Actuel / Cible (matrice) */
 .modeswitch {
   display: inline-flex;

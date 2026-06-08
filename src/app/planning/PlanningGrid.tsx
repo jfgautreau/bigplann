@@ -46,6 +46,10 @@ export default function PlanningGrid({
   const router = useRouter();
   const [vals, setVals] = useState<Record<string, string>>(initial);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  // Surlignage d'un type d'anomalie pour un jour donne (clic sur une puce d'en-tete).
+  const [highlight, setHighlight] = useState<{ iso: string; type: "hc" | "over" } | null>(null);
+  const toggleHi = (iso: string, type: "hc" | "over") =>
+    setHighlight((h) => (h && h.iso === iso && h.type === type ? null : { iso, type }));
 
   const key = (pid: string, iso: string) => `${pid}:${iso}`;
   const isPoste = (v: string) => v !== "" && v !== "X" && !v.startsWith("m:");
@@ -119,7 +123,9 @@ export default function PlanningGrid({
         if (horsComp(pid, v)) alerts++;
       }
     }
-    return { counts, present, alerts };
+    let overCount = 0;
+    for (const [pid, c] of Object.entries(counts)) if (c > (effectif[pid] ?? 0)) overCount++;
+    return { counts, present, alerts, overCount };
   });
 
   async function postCell(pid: string, iso: string, equipe_id: string | null, value: string) {
@@ -327,7 +333,6 @@ export default function PlanningGrid({
                 },
                 (i: number) => deltaColor(perDay[i].present - (besoin[i] ?? 0)),
               ],
-              ["Alertes", (i: number) => `${perDay[i].alerts}`, (i: number) => (perDay[i].alerts > 0 ? "var(--danger)" : "var(--muted)")],
             ] as [string, (i: number) => string, (i: number) => string][]
           ).map(([label, get, color]) => (
             <tr key={label} style={{ background: "#f8fafc" }}>
@@ -339,6 +344,42 @@ export default function PlanningGrid({
               ))}
             </tr>
           ))}
+
+          {/* Ligne d'alertes : puces cliquables (hors-competence / sur-effectif) */}
+          <tr style={{ background: "#f8fafc" }}>
+            <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600, padding: "1px 8px" }}>Alertes</td>
+            {days.map((d, i) => {
+              const hc = perDay[i].alerts;
+              const ov = perDay[i].overCount;
+              const hcOn = highlight?.iso === d.iso && highlight.type === "hc";
+              const ovOn = highlight?.iso === d.iso && highlight.type === "over";
+              return (
+                <td key={d.iso} style={{ textAlign: "center", padding: "2px 2px", ...sep(d), background: isToday(d) ? "#eef2ff" : undefined }}>
+                  {hc > 0 && (
+                    <button
+                      type="button"
+                      className={`alert-pill hc${hcOn ? " active" : ""}`}
+                      onClick={() => toggleHi(d.iso, "hc")}
+                      title="Hors compétence — cliquer pour surligner"
+                    >
+                      ⚠ {hc}
+                    </button>
+                  )}
+                  {ov > 0 && (
+                    <button
+                      type="button"
+                      className={`alert-pill over${ovOn ? " active" : ""}`}
+                      onClick={() => toggleHi(d.iso, "over")}
+                      title="Postes en sur-effectif — cliquer pour surligner"
+                    >
+                      ▲ {ov}
+                    </button>
+                  )}
+                  {hc === 0 && ov === 0 && <span className="muted">·</span>}
+                </td>
+              );
+            })}
+          </tr>
 
           {personnes.map((pers) => (
             <tr key={pers.id}>
@@ -367,21 +408,24 @@ export default function PlanningGrid({
                 // « non-affecte » sur la semaine. Masque seulement si placee sur un autre quart.
                 const showFill = pers.editable && !otherByCell[key(pers.id, d.iso)];
                 const other = v === "" ? otherByCell[key(pers.id, d.iso)] : undefined;
+                // Surlignage : cette case correspond-elle au type d'anomalie selectionne ce jour-la ?
+                const hiActive = highlight?.iso === d.iso;
+                const matchHi = !!hiActive && ((highlight!.type === "hc" && alert) || (highlight!.type === "over" && over));
+                const dimHi = !!hiActive && !matchHi;
                 return (
                   <td
                     key={d.iso}
-                    className="pcell"
+                    className={`pcell${alert ? " hc" : ""}${over ? " over" : ""}${matchHi ? " hi" : ""}${dimHi ? " dim" : ""}`}
                     style={{
                       textAlign: "center",
                       background: alert ? "#fee2e2" : motifColor[v] ? motifColor[v] : isToday(d) ? "#eff6ff" : undefined,
-                      outline: over ? "2px solid #f97316" : undefined,
-                      outlineOffset: -2,
                       padding: 2,
                       position: "relative",
                       ...sep(d),
                     }}
-                    title={[alert ? "Hors compétence" : "", over ? "Sur-effectif" : ""].filter(Boolean).join(" · ") || undefined}
+                    title={[alert ? "Hors compétence" : "", over ? `Sur-effectif (${perDay[i].counts[v]}/${effectif[v] ?? 0})` : ""].filter(Boolean).join(" · ") || undefined}
                   >
+                    {alert && <span className="cell-badge" aria-hidden>⚠</span>}
                     <select
                       className="flat"
                       value={v}
@@ -419,6 +463,11 @@ export default function PlanningGrid({
                         </optgroup>
                       )}
                     </select>
+                    {over && (
+                      <div className="cell-over" aria-hidden>
+                        ▲ {perDay[i].counts[v]}/{effectif[v] ?? 0}
+                      </div>
+                    )}
                     {showFill && (
                       <button
                         type="button"
@@ -452,8 +501,10 @@ export default function PlanningGrid({
 
       <p className="muted" style={{ marginTop: 10 }}>
         Survolez une case et cliquez sur &raquo; pour recopier sa valeur sur toute la
-        semaine (y compris « non-affecté » pour vider la semaine). Rouge = hors compétence ·
-        contour orange = sur-effectif · jours sans ligne ouverte masqués.
+        semaine (y compris « non-affecté » pour vider la semaine). <span className="cell-badge-inline">⚠</span> hors
+        compétence · <span style={{ color: "#9a3412", fontWeight: 700 }}>▲</span> sur-effectif (présents/requis) ·
+        cliquez une puce <strong>⚠/▲</strong> dans la ligne « Alertes » pour surligner les cases concernées ·
+        jours sans ligne ouverte masqués.
       </p>
     </div>
   );

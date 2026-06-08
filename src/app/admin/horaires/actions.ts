@@ -6,7 +6,6 @@ import { requireAdmin } from "@/lib/current-user";
 
 export async function saveHoraires(fd: FormData) {
   const supabase = await requireAdmin();
-  const ligne_id = String(fd.get("ligne_id") ?? "");
   const posteIds = String(fd.get("poste_ids") ?? "").split(",").filter(Boolean);
   const quartCodes = String(fd.get("quart_codes") ?? "").split(",").filter(Boolean);
   if (posteIds.length === 0 || quartCodes.length === 0) return;
@@ -27,5 +26,5 @@ export async function saveHoraires(fd: FormData) {
   if (rows.length) await supabase.from("horaire_poste").insert(rows);
 
   revalidatePath("/admin/horaires");
-  redirect(`/admin/horaires?ligne=${ligne_id}`);
+  redirect("/admin/horaires");
 }
