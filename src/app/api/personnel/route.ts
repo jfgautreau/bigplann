@@ -105,6 +105,10 @@ export async function POST(req: NextRequest) {
       } catch {
         /* migration 0017 non appliquee : on garde juste personne */
       }
+      // Affectation atelier (best-effort : colonne ajoutee en 0020). Hors insert/COLS
+      // pour ne pas casser la creation si la migration n'est pas encore appliquee.
+      const atelier_id = orNull(s(body.atelier_id));
+      if (atelier_id) await supabase.from("personne").update({ atelier_id }).eq("id", created.id);
       return NextResponse.json({ ok: true, row: data });
     }
 
@@ -125,6 +129,7 @@ export async function POST(req: NextRequest) {
             patch[k] = orNull(s(v));
             break;
           case "equipe_id":
+          case "atelier_id":
             patch[k] = orNull(s(v));
             break;
           case "type_contrat":

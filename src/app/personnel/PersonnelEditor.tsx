@@ -10,12 +10,14 @@ type Row = {
   nom: string;
   prenom: string;
   equipe_id: string | null;
+  atelier_id: string | null;
   type_contrat: string;
   date_fin: string | null;
   pointure: string | null;
   statut: string;
 };
 type Equipe = { id: string; nom: string };
+type Atelier = { id: string; nom: string };
 
 const CONTRATS = ["CDI", "CDD", "INTERIM"];
 const sortRows = (a: Row, b: Row) => (a.nom + a.prenom).localeCompare(b.nom + b.prenom);
@@ -25,10 +27,12 @@ const fmtDate = (d: string | null) => (d ? d.split("-").reverse().join("/") : "�
 export default function PersonnelEditor({
   initial,
   equipes,
+  ateliers,
   canEdit,
 }: {
   initial: Row[];
   equipes: Equipe[];
+  ateliers: Atelier[];
   canEdit: boolean;
 }) {
   const [rows, setRows] = useState<Row[]>(initial);
@@ -42,6 +46,7 @@ export default function PersonnelEditor({
   const [prenom, setPrenom] = useState("");
   const [matricule, setMatricule] = useState("");
   const [eq, setEq] = useState("");
+  const [at, setAt] = useState("");
   const [contrat, setContrat] = useState("CDI");
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
@@ -50,6 +55,7 @@ export default function PersonnelEditor({
   const [commentaire, setCommentaire] = useState("");
 
   const equipeNom = (id: string | null) => (id ? equipes.find((e) => e.id === id)?.nom ?? "" : "");
+  const atelierNom = (id: string | null) => (id ? ateliers.find((a) => a.id === id)?.nom ?? "" : "");
 
   async function post(op: string, payload: Record<string, unknown>) {
     setSave("saving");
@@ -95,6 +101,7 @@ export default function PersonnelEditor({
       prenom: prenom.trim(),
       matricule,
       equipe_id: eq,
+      atelier_id: at,
       type_contrat: contrat,
       agence_interim: agence,
       date_debut: dateDebut,
@@ -103,11 +110,13 @@ export default function PersonnelEditor({
       commentaire,
     });
     if (j?.row) {
-      setRows((rs) => [...rs, j.row as Row].sort(sortRows));
+      // L'API ne renvoie pas atelier_id : on le reprend du formulaire.
+      setRows((rs) => [...rs, { ...(j.row as Row), atelier_id: at || null }].sort(sortRows));
       setNom("");
       setPrenom("");
       setMatricule("");
       setEq("");
+      setAt("");
       setContrat("CDI");
       setDateDebut("");
       setDateFin("");
@@ -122,6 +131,7 @@ export default function PersonnelEditor({
     { key: "nom", label: "Nom" },
     { key: "prenom", label: "Prénom" },
     { key: "equipe", label: "Équipe" },
+    { key: "atelier", label: "Atelier" },
     { key: "type_contrat", label: "Contrat" },
     { key: "date_fin", label: "Fin contrat" },
     { key: "pointure", label: "Pointure" },
@@ -129,6 +139,7 @@ export default function PersonnelEditor({
   ];
   const cellText = (r: Row, key: string) => {
     if (key === "equipe") return equipeNom(r.equipe_id);
+    if (key === "atelier") return atelierNom(r.atelier_id);
     if (key === "statut") return r.statut === "ACTIF" ? "Actif" : "Parti";
     if (key === "date_fin") return fmtDate(r.date_fin);
     return String((r as unknown as Record<string, unknown>)[key] ?? "");
@@ -169,6 +180,15 @@ export default function PersonnelEditor({
                 <select value={eq} onChange={(e) => setEq(e.target.value)}>
                   <option value="">-</option>
                   {equipes.map((x) => (
+                    <option key={x.id} value={x.id}>{x.nom}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field" style={{ flex: "0 0 110px" }}>
+                <span>Atelier</span>
+                <select value={at} onChange={(e) => setAt(e.target.value)}>
+                  <option value="">-</option>
+                  {ateliers.map((x) => (
                     <option key={x.id} value={x.id}>{x.nom}</option>
                   ))}
                 </select>
@@ -250,6 +270,14 @@ export default function PersonnelEditor({
                       </select>
                     </td>
                     <td>
+                      <select value={r.atelier_id ?? ""} onChange={(e) => field(r.id, "atelier_id", e.target.value, true)} style={inp}>
+                        <option value="">-</option>
+                        {ateliers.map((x) => (
+                          <option key={x.id} value={x.id}>{x.nom}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
                       <select value={r.type_contrat} onChange={(e) => field(r.id, "type_contrat", e.target.value, true)} style={inp}>
                         {CONTRATS.map((c) => (
                           <option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>
@@ -275,6 +303,7 @@ export default function PersonnelEditor({
                     <td>{r.nom}</td>
                     <td>{r.prenom}</td>
                     <td>{equipeNom(r.equipe_id) || "-"}</td>
+                    <td>{atelierNom(r.atelier_id) || "-"}</td>
                     <td>{r.type_contrat}</td>
                     <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>{fmtDate(r.date_fin)}</td>
                     <td>{r.pointure || "-"}</td>

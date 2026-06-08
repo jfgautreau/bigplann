@@ -362,7 +362,7 @@ export default function PlanningGrid({
                       onClick={() => toggleHi(d.iso, "hc")}
                       title="Hors compétence — cliquer pour surligner"
                     >
-                      ⚠ {hc}
+                      {hc}
                     </button>
                   )}
                   {ov > 0 && (
@@ -372,7 +372,7 @@ export default function PlanningGrid({
                       onClick={() => toggleHi(d.iso, "over")}
                       title="Postes en sur-effectif — cliquer pour surligner"
                     >
-                      ▲ {ov}
+                      {ov}
                     </button>
                   )}
                   {hc === 0 && ov === 0 && <span className="muted">·</span>}
@@ -418,14 +418,14 @@ export default function PlanningGrid({
                     className={`pcell${alert ? " hc" : ""}${over ? " over" : ""}${matchHi ? " hi" : ""}${dimHi ? " dim" : ""}`}
                     style={{
                       textAlign: "center",
-                      background: alert ? "#fee2e2" : motifColor[v] ? motifColor[v] : isToday(d) ? "#eff6ff" : undefined,
+                      background: alert ? "#fff1f2" : motifColor[v] ? motifColor[v] : over ? "#fffbeb" : isToday(d) ? "#eff6ff" : undefined,
                       padding: 2,
                       position: "relative",
                       ...sep(d),
                     }}
                     title={[alert ? "Hors compétence" : "", over ? `Sur-effectif (${perDay[i].counts[v]}/${effectif[v] ?? 0})` : ""].filter(Boolean).join(" · ") || undefined}
                   >
-                    {alert && <span className="cell-badge" aria-hidden>⚠</span>}
+                    {alert && <span className="cell-badge" aria-hidden />}
                     <select
                       className="flat"
                       value={v}
@@ -465,7 +465,7 @@ export default function PlanningGrid({
                     </select>
                     {over && (
                       <div className="cell-over" aria-hidden>
-                        ▲ {perDay[i].counts[v]}/{effectif[v] ?? 0}
+                        {perDay[i].counts[v]}/{effectif[v] ?? 0}
                       </div>
                     )}
                     {showFill && (
@@ -501,10 +501,11 @@ export default function PlanningGrid({
 
       <p className="muted" style={{ marginTop: 10 }}>
         Survolez une case et cliquez sur &raquo; pour recopier sa valeur sur toute la
-        semaine (y compris « non-affecté » pour vider la semaine). <span className="cell-badge-inline">⚠</span> hors
-        compétence · <span style={{ color: "#9a3412", fontWeight: 700 }}>▲</span> sur-effectif (présents/requis) ·
-        cliquez une puce <strong>⚠/▲</strong> dans la ligne « Alertes » pour surligner les cases concernées ·
-        jours sans ligne ouverte masqués.
+        semaine (y compris « non-affecté » pour vider la semaine).{" "}
+        <span className="legend-swatch hc" /> hors compétence ·{" "}
+        <span className="legend-swatch over" /> sur-effectif (badge présents/requis) ·
+        cliquez une pastille colorée de la ligne « Alertes » pour surligner les cases
+        concernées · jours sans ligne ouverte masqués.
       </p>
     </div>
   );

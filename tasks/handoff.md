@@ -12,7 +12,7 @@
 - Projet Supabase de l'app : ref **`stcxlsmmnplxpirrnefm`** (cf. `NEXT_PUBLIC_SUPABASE_URL` dans `.env.local`).
 - ⚠️ **Le MCP Supabase est sur un AUTRE compte** (projets visibles : PlanningMission/Questionnaire/assistant) — il **ne voit pas** `stcxlsmmnplxpirrnefm`. Donc **impossible d'écrire en base via le MCP**.
 - Pour modifier la base : soit **donner du SQL** à exécuter par l'utilisateur dans **Supabase → SQL Editor**, soit script Node local lisant `SUPABASE_SERVICE_ROLE_KEY` de `.env.local`.
-- **Migrations** : fichiers dans `supabase/migrations/`, **appliquées MANUELLEMENT par l'utilisateur** dans le SQL Editor. **Dernière appliquée : `0019`** (l'utilisateur confirme « 0019 faite » — table `semaine_type_ouverture` : ouverture des lignes par défaut dans la semaine type).
+- **Migrations** : fichiers dans `supabase/migrations/`, **appliquées MANUELLEMENT par l'utilisateur** dans le SQL Editor. **Dernière appliquée : `0019`** (table `semaine_type_ouverture`). **`0020` À APPLIQUER** (ajoute `personne.atelier_id` : affectation atelier du personnel, filtre souple du planning). Le code est tolérant tant que 0020 n'est pas passée (best-effort), mais le filtre atelier sur les personnes reste vide tant qu'elle n'est pas appliquée.
 
 ## Gotchas environnement (Windows / PowerShell)
 - `git commit -m "..."` avec accents/guillemets **casse le parsing PS**. Méthode qui marche :

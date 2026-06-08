@@ -196,7 +196,23 @@ export default async function PlanningPage({
   // (lignes), mais les indicateurs Present/Delta/Alertes comptent TOUT le quart.
   const allActive = allActiveD ?? [];
   const allIds = allActive.map((p) => p.id);
-  const displayed = equipe ? allActive.filter((p) => p.equipe_id === equipe) : allActive;
+
+  // Filtre souple par atelier : on n'affiche que les personnes affectees a l'atelier
+  // choisi (best-effort : colonne atelier_id ajoutee en 0020 ; si absente -> map vide).
+  // Non bloquant : une personne reste placable sur n'importe quel poste.
+  const persAtelier = new Map<string, string | null>();
+  if (atelier && allIds.length) {
+    const { data: paData, error: paErr } = await supabase
+      .from("personne")
+      .select("id, atelier_id")
+      .in("id", allIds)
+      .returns<{ id: string; atelier_id: string | null }[]>();
+    if (!paErr) for (const r of paData ?? []) persAtelier.set(r.id, r.atelier_id);
+  }
+
+  const displayed = allActive.filter(
+    (p) => (!equipe || p.equipe_id === equipe) && (!atelier || persAtelier.get(p.id) === atelier)
+  );
   const displayedSet = new Set(displayed.map((p) => p.id));
 
   // Une affectation sur poste n'apparait que pour le quart courant ; une absence/NT
