@@ -333,6 +333,9 @@ export default async function PlanningPage({
             <Link href="/horaires-specifiques" className="navlink" style={{ fontSize: 13, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 8, whiteSpace: "nowrap" }}>
               🕐 Horaires spécifiques
             </Link>
+            <Link href="/absences-specifiques" className="navlink" style={{ fontSize: 13, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 8, whiteSpace: "nowrap" }}>
+              🤒 Absences spécifiques
+            </Link>
           </div>
         </div>
         <PlanningGrid

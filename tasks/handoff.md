@@ -30,6 +30,7 @@
 - **Catégorie de poste** : `poste.categorie` ∈ manager/conducteur/operateur (remplace l'usage de `est_conducteur`, conservé en base mais déprécié). Source des 3 bilans planning et du bilan Compétences.
 - **Activation poste×quart** : table `poste_quart`, défaut actif (ne stocke que les désactivations). Filtre les postes proposés/comptés dans le planning du quart affiché.
 - **Horaires spécifiques** : table `horaire_exception` (personne×jour, début/fin/motif). Surcharge l'horaire standard `horaire_poste` à l'affichage (planning + TV). Saisie : case du planning (bouton 🕐) + écran `/horaires-specifiques`. API `/api/horaire-exception`.
+- **Absences spécifiques** (migration 0023) : table `absence` (personne, motif, date_debut..date_fin) = source de vérité des absences longues (arrêt maladie…). Matérialisée en `placement` (un par jour, `motif_absence_id`) via `placement.absence_id` (cascade à la suppression) → s'affiche directement dans le planning. Écran `/absences-specifiques` (lien menu planning 🤒), API `/api/absence` (ops save/delete).
 - **Ordonnancement** : `jour_quart` (quart actif un jour) + `ouverture_quart` (ligne ouverte par jour×quart). Défauts : actif sauf dimanche, ouvert par défaut (`lib/week.ts: defaultQuartActif`).
 - **`horaire_poste`** : depuis 0016, clé **(poste_id, quart_code, jour 0-6)** — l'horaire est au POSTE par quart (avant : par équipe).
 - **Permissions** : `lib/permissions.ts` (MODULES, getPermissions, canRead/canWrite, requireModule). Rôles : `lib/roles.ts`. Écriture référentiel/personnel = **admin** (RLS `is_admin()`).
