@@ -337,7 +337,7 @@ export default function PlanningGrid({
   });
 
   return (
-    <div className="card" style={{ overflow: "auto", maxHeight: "calc(100vh - 210px)", position: "relative", padding: "6px 12px" }}>
+    <div className="card" style={{ overflow: "auto", flex: 1, minHeight: 0, position: "relative", padding: "6px 12px" }}>
       <div
         style={{
           position: "absolute",
@@ -436,7 +436,7 @@ export default function PlanningGrid({
             const rowIdx = 3 + j;
             return (
               <tr key={cat.key}>
-                <td style={{ ...indLeftStyle(rowIdx, "#f8fafc"), whiteSpace: "nowrap" }}>{cat.label}</td>
+                <td style={{ ...indLeftStyle(rowIdx, "#f8fafc"), whiteSpace: "nowrap", fontWeight: 400 }}>{cat.label}</td>
                 {days.map((d, i) => {
                   const pres = perDay[i].catPresent[cat.key] ?? 0;
                   const req = perDay[i].catRequis[cat.key] ?? 0;
@@ -499,11 +499,12 @@ export default function PlanningGrid({
                 <span
                   style={{
                     display: "inline-block",
-                    width: 4,
-                    height: 14,
-                    borderRadius: 2,
-                    background: pers.color ?? "transparent",
-                    marginRight: 6,
+                    width: 11,
+                    height: 11,
+                    borderRadius: "50%",
+                    background: pers.color ?? "#cbd5e1",
+                    boxShadow: "0 0 0 1px rgba(0,0,0,0.15)",
+                    marginRight: 7,
                     verticalAlign: "middle",
                   }}
                 />
@@ -537,13 +538,17 @@ export default function PlanningGrid({
                     }}
                     title={[alert ? "Hors compétence" : "", over ? `Sur-effectif (${perDay[i].counts[v]}/${effectif[v] ?? 0})` : ""].filter(Boolean).join(" · ") || undefined}
                   >
+                    {other ? (
+                      <div className="cell-other" title={`Déjà placé sur le quart ${quartLabel[other] ?? other} ce jour-là`}>
+                        &rarr; {quartLabel[other] ?? other}
+                      </div>
+                    ) : (
                     <select
                       className="flat"
                       value={v}
-                      disabled={!pers.editable || !!other}
-                      title={other ? "Déjà placé sur un autre quart ce jour-là" : undefined}
+                      disabled={!pers.editable}
                       onChange={(e) => change(pers.id, d.iso, pers.equipe_id, e.target.value)}
-                      style={{ fontSize: 12, opacity: other ? 0.6 : 1 }}
+                      style={{ fontSize: 12 }}
                     >
                       <option value="">—</option>
                       <option value="X">NT</option>
@@ -574,6 +579,7 @@ export default function PlanningGrid({
                         </optgroup>
                       )}
                     </select>
+                    )}
                     {showFill && (
                       <button
                         type="button"
@@ -628,14 +634,6 @@ export default function PlanningGrid({
                         </>
                       );
                     })()}
-                    {other && (
-                      <div
-                        style={{ fontSize: 9, color: "#9a3412", marginTop: -1 }}
-                        title={`Placé sur un autre quart : ${quartLabel[other] ?? other}`}
-                      >
-                        &rarr; {quartLabel[other] ?? other}
-                      </div>
-                    )}
                   </td>
                 );
               })}

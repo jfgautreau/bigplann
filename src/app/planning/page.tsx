@@ -308,26 +308,29 @@ export default async function PlanningPage({
   return (
     <>
       <AppHeader role={profile.role} active="/planning" />
-      <div className="container" style={{ maxWidth: 1500 }}>
-        <div className="planning-top">
+      <div
+        className="container"
+        style={{ maxWidth: 1500, margin: "0 auto", padding: "12px 24px", height: "calc(100vh - 46px)", display: "flex", flexDirection: "column", overflow: "hidden" }}
+      >
+        <div className="planning-top" style={{ justifyContent: "space-between" }}>
           <PlanningNav base="/planning" semaine={centerIso} extra={extra} />
-          <PlanningFilters
-            equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom, couleur: e.couleur }))}
-            equipe={equipe}
-            semaine={centerIso}
-            quart={quart}
-            atelier={atelier}
-          />
-          <AtelierFilter
-            ateliers={ateliers}
-            atelier={atelier}
-            equipe={equipe}
-            quart={quart}
-            semaine={centerIso}
-          />
-          <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} atelier={atelier} />
-          <div className="filtercol" style={{ justifyContent: "flex-end" }}>
-            <Link href="/horaires-specifiques" className="navlink" style={{ fontSize: 13, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 8 }}>
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <PlanningFilters
+              equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom, couleur: e.couleur }))}
+              equipe={equipe}
+              semaine={centerIso}
+              quart={quart}
+              atelier={atelier}
+            />
+            <AtelierFilter
+              ateliers={ateliers}
+              atelier={atelier}
+              equipe={equipe}
+              quart={quart}
+              semaine={centerIso}
+            />
+            <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} atelier={atelier} />
+            <Link href="/horaires-specifiques" className="navlink" style={{ fontSize: 13, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 8, whiteSpace: "nowrap" }}>
               🕐 Horaires spécifiques
             </Link>
           </div>
