@@ -77,7 +77,27 @@ export default function PlanningNav({
       {/* 2. Mois (12 sur une ligne) */}
       <div className="segments">{[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(monthBtn)}</div>
 
-      {/* 3. Semaines (bande continue centree) sous les mois */}
+      {/* 3. Semaines (numeros seulement, bande continue centree) sous les mois */}
+      <div className="segments">
+        {weeks.map((w) => {
+          const isCenter = w.iso === centerIso;
+          const isToday = w.iso === todayMonday;
+          return (
+            <button
+              key={w.iso}
+              type="button"
+              className={isCenter ? "seg active" : "seg"}
+              onClick={() => goWeek(w.iso)}
+              title={isToday ? "Semaine en cours" : `Lundi ${w.date}`}
+            >
+              {isToday && !isCenter && greenDot}
+              S{w.num}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 4. Aujourd'hui + fleches de defilement, sous les semaines */}
       <div className="toolbar" style={{ alignItems: "center", gap: 6, margin: 0 }}>
         <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, -7)))} title="Semaine précédente">
           &lsaquo;
@@ -88,27 +108,6 @@ export default function PlanningNav({
         <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, 7)))} title="Semaine suivante">
           &rsaquo;
         </button>
-        <div className="segments">
-          {weeks.map((w) => {
-            const isCenter = w.iso === centerIso;
-            const isToday = w.iso === todayMonday;
-            return (
-              <button
-                key={w.iso}
-                type="button"
-                className={isCenter ? "seg active" : "seg"}
-                onClick={() => goWeek(w.iso)}
-                title={isToday ? "Semaine en cours" : `Lundi ${w.date}`}
-                style={{ lineHeight: 1.1, padding: "4px 8px" }}
-              >
-                {isToday && !isCenter && greenDot}
-                S{w.num}
-                <br />
-                <span style={{ fontSize: 10, fontWeight: 400, opacity: 0.75 }}>{w.date}</span>
-              </button>
-            );
-          })}
-        </div>
       </div>
     </div>
   );
