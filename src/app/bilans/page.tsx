@@ -13,6 +13,7 @@ type Personne = {
   type_contrat: string;
   date_fin: string | null;
   equipe_id: string | null;
+  sexe: string | null;
 };
 type LigneRow = { id: string; nom: string; poste: { id: string; nom: string; actif: boolean }[] };
 type Mat = { personne_id: string; poste_id: string };
@@ -33,7 +34,7 @@ export default async function CockpitPage() {
     await Promise.all([
       supabase
         .from("personne")
-        .select("id, nom, prenom, statut, type_contrat, date_fin, equipe_id")
+        .select("id, nom, prenom, statut, type_contrat, date_fin, equipe_id, sexe")
         .returns<Personne[]>(),
       supabase.from("ligne").select("id, nom, poste(id, nom, actif)").eq("actif", true).returns<LigneRow[]>(),
       supabase.from("matrice").select("personne_id, poste_id").gte("niveau_actuel", 2).returns<Mat[]>(),
@@ -54,6 +55,14 @@ export default async function CockpitPage() {
   const cdd = nb("CDD");
   const cdi = nb("CDI");
   const pctInterim = effectifActif ? Math.round((interim / effectifActif) * 100) : 0;
+
+  // Repartition H / F
+  const hommes = active.filter((p) => p.sexe === "H").length;
+  const femmes = active.filter((p) => p.sexe === "F").length;
+  const sexeRens = hommes + femmes;
+  const pctH = sexeRens ? Math.round((hommes / sexeRens) * 100) : 0;
+  const pctF = sexeRens ? 100 - pctH : 0;
+  const sexeNr = effectifActif - sexeRens;
 
   // Fins de contrat a venir (CDD / interim actifs)
   const finsContrat = active
@@ -112,6 +121,15 @@ export default async function CockpitPage() {
             <div className="v">{pctInterim}<small> %</small></div>
             <div className="l">Part d&apos;intérim</div>
             <div className="s">{interim} intérimaire{interim > 1 ? "s" : ""}</div>
+          </div>
+          <div className="kpi">
+            <div className="v">
+              <span style={{ color: "#1d4ed8" }}>{hommes}</span>
+              <span style={{ color: "var(--muted)", fontSize: 18 }}> / </span>
+              <span style={{ color: "#db2777" }}>{femmes}</span>
+            </div>
+            <div className="l">Hommes / Femmes</div>
+            <div className="s">{pctH}% H · {pctF}% F{sexeNr > 0 ? ` · ${sexeNr} n.r.` : ""}</div>
           </div>
           <div className={`kpi ${fin30 > 0 ? "danger" : finsContrat.length > 0 ? "warn" : "ok"}`}>
             <div className="v">{fin30}</div>

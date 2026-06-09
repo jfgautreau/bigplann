@@ -311,7 +311,7 @@ export default function PersonnelEditor({
                         ))}
                       </select>
                     </td>
-                    <td>
+                    <td style={{ background: r.type_contrat === "INTERIM" ? "#fef9c3" : undefined }}>
                       <select value={r.type_contrat} onChange={(e) => field(r.id, "type_contrat", e.target.value, true)} style={inp}>
                         {CONTRATS.map((c) => (
                           <option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>
@@ -339,7 +339,7 @@ export default function PersonnelEditor({
                     <td><SexePill sexe={r.sexe} /></td>
                     <td>{equipeNom(r.equipe_id) || "-"}</td>
                     <td>{atelierNom(r.atelier_id) || "-"}</td>
-                    <td>{r.type_contrat}</td>
+                    <td style={{ background: r.type_contrat === "INTERIM" ? "#fef9c3" : undefined }}>{r.type_contrat === "INTERIM" ? "Intérim" : r.type_contrat}</td>
                     <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>{fmtDate(r.date_fin)}</td>
                     <td>{r.pointure || "-"}</td>
                     <td>
