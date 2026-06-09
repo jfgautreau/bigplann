@@ -38,6 +38,7 @@ export default function AbsencesEditor({
   const [motif, setMotif] = useState("");
   const [commentaire, setCommentaire] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   const persLabel = (id: string) => {
@@ -69,17 +70,45 @@ export default function AbsencesEditor({
         setMsg({ kind: "err", text: j.error || "Échec (droits insuffisants sur cette personne ?)." });
         return;
       }
+      // En mode modification : on remplace l'ancienne plage (supprime l'ancienne).
+      if (editId) {
+        await fetch("/api/absence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ op: "delete", id: editId }),
+        });
+      }
+      const oldId = editId;
       setList((l) => [
         { id: j.row!.id, personne_id: pid, motif_absence_id: motif, date_debut: debut, date_fin: fin, commentaire, label: persLabel(pid) },
-        ...l,
+        ...l.filter((x) => x.id !== oldId),
       ]);
+      setEditId(null);
       setDebut("");
       setFin("");
       setCommentaire("");
-      setMsg({ kind: "ok", text: "Absence enregistrée et reportée dans le planning." });
+      setMsg({ kind: "ok", text: oldId ? "Absence modifiée." : "Absence enregistrée et reportée dans le planning." });
     } finally {
       setBusy(false);
     }
+  }
+
+  function edit(a: Abs) {
+    setPid(a.personne_id);
+    setDebut(a.date_debut);
+    setFin(a.date_fin);
+    setMotif(a.motif_absence_id);
+    setCommentaire(a.commentaire);
+    setEditId(a.id);
+    setMsg(null);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function cancelEdit() {
+    setEditId(null);
+    setDebut("");
+    setFin("");
+    setCommentaire("");
+    setMsg(null);
   }
 
   async function remove(a: Abs) {
@@ -110,7 +139,7 @@ export default function AbsencesEditor({
   return (
     <div>
       <div className="card" style={{ marginBottom: 20 }}>
-        <h2 style={{ marginTop: 0 }}>Ajouter une absence</h2>
+        <h2 style={{ marginTop: 0 }}>{editId ? "Modifier l'absence" : "Ajouter une absence"}</h2>
         <form onSubmit={add} autoComplete="off">
           <div className="toolbar" style={{ alignItems: "flex-end", flexWrap: "wrap" }}>
             <div className="field" style={{ flex: "1 1 220px" }}>
@@ -144,8 +173,11 @@ export default function AbsencesEditor({
               <input value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
             </div>
             <button type="submit" disabled={busy} style={{ width: "auto", padding: "9px 22px" }}>
-              {busy ? "..." : "Enregistrer"}
+              {busy ? "..." : editId ? "Modifier" : "Enregistrer"}
             </button>
+            {editId && (
+              <button type="button" onClick={cancelEdit} className="btn-sm btn-ghost" style={{ width: "auto" }}>Annuler</button>
+            )}
           </div>
           {debut && fin && fin >= debut && (
             <p className="muted" style={{ marginTop: 6, fontSize: 12 }}>
@@ -180,7 +212,10 @@ export default function AbsencesEditor({
                 <td style={{ whiteSpace: "nowrap" }}>{fmtDate(a.date_fin)}</td>
                 <td style={{ textAlign: "center" }}>{nbJours(a.date_debut, a.date_fin)}</td>
                 <td className="muted">{a.commentaire || "—"}</td>
-                <td><button type="button" className="btn-sm btn-ghost" onClick={() => remove(a)}>Supprimer</button></td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <button type="button" className="btn-sm btn-ghost" title="Modifier" onClick={() => edit(a)} style={{ padding: "4px 8px" }}>✏️</button>
+                  <button type="button" className="btn-sm btn-ghost" title="Supprimer" onClick={() => remove(a)} style={{ padding: "4px 8px", color: "var(--danger)" }}>🗑️</button>
+                </td>
               </tr>
             ))}
             {list.length === 0 && (

@@ -8,7 +8,7 @@ import { getCurrentProfile } from "@/lib/current-user";
 // Ops : create | update | toggle-statut
 //       | periode-list | periode-create | periode-update | periode-delete
 const COLS = "id, matricule, nom, prenom, equipe_id, type_contrat, date_fin, pointure, statut";
-const PERIODE_COLS = "id, personne_id, type_contrat, agence_interim, date_debut, date_fin, commentaire";
+const PERIODE_COLS = "id, personne_id, type_contrat, agence_interim, date_debut, date_fin, commentaire, motif";
 const CONTRATS = ["CDI", "CDD", "INTERIM"];
 
 type Body = Record<string, unknown>;
@@ -112,6 +112,13 @@ export async function POST(req: NextRequest) {
       // Sexe (best-effort : colonne ajoutee en 0022).
       const sexe = s(body.sexe);
       if (sexe === "H" || sexe === "F") await supabase.from("personne").update({ sexe }).eq("id", created.id);
+      // Badge + livret d'accueil (best-effort : colonnes ajoutees en 0024).
+      const ext: Record<string, unknown> = {};
+      const badge = orNull(s(body.numero_badge));
+      const livret = orNull(s(body.date_livret_accueil));
+      if (badge) ext.numero_badge = badge;
+      if (livret) ext.date_livret_accueil = livret;
+      if (Object.keys(ext).length) await supabase.from("personne").update(ext).eq("id", created.id);
       return NextResponse.json({ ok: true, row: data });
     }
 
@@ -140,6 +147,10 @@ export async function POST(req: NextRequest) {
             patch.sexe = sx === "H" || sx === "F" ? sx : null;
             break;
           }
+          case "numero_badge":
+          case "date_livret_accueil":
+            patch[k] = orNull(s(v));
+            break;
           case "type_contrat":
             if (CONTRATS.includes(s(v))) {
               patch.type_contrat = s(v);
@@ -189,6 +200,7 @@ export async function POST(req: NextRequest) {
           date_debut: orNull(s(body.date_debut)),
           date_fin: orNull(s(body.date_fin)),
           commentaire: orNull(s(body.commentaire)),
+          motif: orNull(s(body.motif)),
         })
         .select(PERIODE_COLS)
         .single();
@@ -214,6 +226,7 @@ export async function POST(req: NextRequest) {
             break;
           case "agence_interim":
           case "commentaire":
+          case "motif":
             patch[k] = orNull(s(v));
             break;
           case "date_debut":

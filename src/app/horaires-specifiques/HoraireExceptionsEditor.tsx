@@ -70,6 +70,16 @@ export default function HoraireExceptionsEditor({
     setMsg({ kind: "ok", text: "Enregistré." });
   }
 
+  function edit(x: Exc) {
+    setPid(x.personne_id);
+    setJour(x.jour);
+    setDebut(x.debut);
+    setFin(x.fin);
+    setMotif(x.motif);
+    setMsg(null);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function remove(x: Exc) {
     if (!window.confirm(`Supprimer l'horaire spécifique de ${x.label} le ${fmtDate(x.jour)} ?`)) return;
     const ok = await call({ op: "delete", personne_id: x.personne_id, jour: x.jour });
@@ -141,8 +151,9 @@ export default function HoraireExceptionsEditor({
                 <td>{x.debut || "—"}</td>
                 <td>{x.fin || "—"}</td>
                 <td>{x.motif || "—"}</td>
-                <td>
-                  <button type="button" className="btn-sm btn-ghost" onClick={() => remove(x)}>Supprimer</button>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <button type="button" className="btn-sm btn-ghost" title="Modifier" onClick={() => edit(x)} style={{ padding: "4px 8px" }}>✏️</button>
+                  <button type="button" className="btn-sm btn-ghost" title="Supprimer" onClick={() => remove(x)} style={{ padding: "4px 8px", color: "var(--danger)" }}>🗑️</button>
                 </td>
               </tr>
             ))}
