@@ -901,3 +901,22 @@ select.flat {
 
   a { color: inherit; text-decoration: none; }
 }
+
+/* Pastille sexe : Homme = bleu, Femme = rose */
+.sexe-pill {
+  display: inline-block;
+  min-width: 22px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+.sexe-pill.h {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.sexe-pill.f {
+  background: #fce7f3;
+  color: #db2777;
+}

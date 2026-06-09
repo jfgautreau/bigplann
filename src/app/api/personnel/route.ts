@@ -109,6 +109,9 @@ export async function POST(req: NextRequest) {
       // pour ne pas casser la creation si la migration n'est pas encore appliquee.
       const atelier_id = orNull(s(body.atelier_id));
       if (atelier_id) await supabase.from("personne").update({ atelier_id }).eq("id", created.id);
+      // Sexe (best-effort : colonne ajoutee en 0022).
+      const sexe = s(body.sexe);
+      if (sexe === "H" || sexe === "F") await supabase.from("personne").update({ sexe }).eq("id", created.id);
       return NextResponse.json({ ok: true, row: data });
     }
 
@@ -132,6 +135,11 @@ export async function POST(req: NextRequest) {
           case "atelier_id":
             patch[k] = orNull(s(v));
             break;
+          case "sexe": {
+            const sx = s(v);
+            patch.sexe = sx === "H" || sx === "F" ? sx : null;
+            break;
+          }
           case "type_contrat":
             if (CONTRATS.includes(s(v))) {
               patch.type_contrat = s(v);

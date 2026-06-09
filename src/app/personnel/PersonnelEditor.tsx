@@ -11,6 +11,7 @@ type Row = {
   prenom: string;
   equipe_id: string | null;
   atelier_id: string | null;
+  sexe: string | null;
   type_contrat: string;
   date_fin: string | null;
   pointure: string | null;
@@ -23,6 +24,15 @@ const CONTRATS = ["CDI", "CDD", "INTERIM"];
 const sortRows = (a: Row, b: Row) => (a.nom + a.prenom).localeCompare(b.nom + b.prenom);
 // "2025-06-30" -> "30/06/2025" (sans decalage de fuseau)
 const fmtDate = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
+
+// Sexe : Homme = bleu, Femme = rose.
+const sexeBg = (x: string | null) => (x === "H" ? "#dbeafe" : x === "F" ? "#fce7f3" : undefined);
+const sexeFg = (x: string | null) => (x === "H" ? "#1d4ed8" : x === "F" ? "#db2777" : undefined);
+function SexePill({ sexe }: { sexe: string | null }) {
+  if (sexe === "H") return <span className="sexe-pill h">H</span>;
+  if (sexe === "F") return <span className="sexe-pill f">F</span>;
+  return <span className="muted">—</span>;
+}
 
 export default function PersonnelEditor({
   initial,
@@ -44,6 +54,7 @@ export default function PersonnelEditor({
   // Formulaire de creation
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
+  const [sexe, setSexe] = useState("");
   const [matricule, setMatricule] = useState("");
   const [eq, setEq] = useState("");
   const [at, setAt] = useState("");
@@ -99,6 +110,7 @@ export default function PersonnelEditor({
     const j = await post("create", {
       nom: nom.trim(),
       prenom: prenom.trim(),
+      sexe,
       matricule,
       equipe_id: eq,
       atelier_id: at,
@@ -111,9 +123,10 @@ export default function PersonnelEditor({
     });
     if (j?.row) {
       // L'API ne renvoie pas atelier_id : on le reprend du formulaire.
-      setRows((rs) => [...rs, { ...(j.row as Row), atelier_id: at || null }].sort(sortRows));
+      setRows((rs) => [...rs, { ...(j.row as Row), atelier_id: at || null, sexe: sexe || null }].sort(sortRows));
       setNom("");
       setPrenom("");
+      setSexe("");
       setMatricule("");
       setEq("");
       setAt("");
@@ -130,6 +143,7 @@ export default function PersonnelEditor({
     { key: "matricule", label: "Matricule" },
     { key: "nom", label: "Nom" },
     { key: "prenom", label: "Prénom" },
+    { key: "sexe", label: "H/F" },
     { key: "equipe", label: "Équipe" },
     { key: "atelier", label: "Atelier" },
     { key: "type_contrat", label: "Contrat" },
@@ -138,6 +152,7 @@ export default function PersonnelEditor({
     { key: "statut", label: "Statut" },
   ];
   const cellText = (r: Row, key: string) => {
+    if (key === "sexe") return r.sexe === "H" ? "h homme" : r.sexe === "F" ? "f femme" : "";
     if (key === "equipe") return equipeNom(r.equipe_id);
     if (key === "atelier") return atelierNom(r.atelier_id);
     if (key === "statut") return r.statut === "ACTIF" ? "Actif" : "Parti";
@@ -170,6 +185,14 @@ export default function PersonnelEditor({
               <div className="field" style={{ flex: "1 1 120px" }}>
                 <span>Prénom *</span>
                 <input value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
+              </div>
+              <div className="field" style={{ flex: "0 0 70px" }}>
+                <span>Sexe</span>
+                <select value={sexe} onChange={(e) => setSexe(e.target.value)} style={{ background: sexeBg(sexe || null), color: sexeFg(sexe || null), fontWeight: 600 }}>
+                  <option value="">-</option>
+                  <option value="H">H</option>
+                  <option value="F">F</option>
+                </select>
               </div>
               <div className="field" style={{ flex: "1 1 120px" }}>
                 <span>Matricule</span>
@@ -262,6 +285,17 @@ export default function PersonnelEditor({
                     <td><input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={inp} /></td>
                     <td><input value={r.prenom} onChange={(e) => field(r.id, "prenom", e.target.value)} style={inp} /></td>
                     <td>
+                      <select
+                        value={r.sexe ?? ""}
+                        onChange={(e) => field(r.id, "sexe", e.target.value, true)}
+                        style={{ ...inp, width: 58, background: sexeBg(r.sexe), color: sexeFg(r.sexe), fontWeight: 600 }}
+                      >
+                        <option value="">-</option>
+                        <option value="H">H</option>
+                        <option value="F">F</option>
+                      </select>
+                    </td>
+                    <td>
                       <select value={r.equipe_id ?? ""} onChange={(e) => field(r.id, "equipe_id", e.target.value, true)} style={inp}>
                         <option value="">-</option>
                         {equipes.map((x) => (
@@ -302,6 +336,7 @@ export default function PersonnelEditor({
                     <td>{r.matricule || "-"}</td>
                     <td>{r.nom}</td>
                     <td>{r.prenom}</td>
+                    <td><SexePill sexe={r.sexe} /></td>
                     <td>{equipeNom(r.equipe_id) || "-"}</td>
                     <td>{atelierNom(r.atelier_id) || "-"}</td>
                     <td>{r.type_contrat}</td>

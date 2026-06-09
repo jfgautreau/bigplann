@@ -12,6 +12,7 @@ type Row = {
   prenom: string;
   equipe_id: string | null;
   atelier_id: string | null;
+  sexe: string | null;
   type_contrat: string;
   date_fin: string | null;
   pointure: string | null;
@@ -30,7 +31,7 @@ export default async function PersonnelPage() {
       .from("personne")
       .select("id, matricule, nom, prenom, equipe_id, type_contrat, date_fin, pointure, statut")
       .order("nom")
-      .returns<Omit<Row, "atelier_id">[]>(),
+      .returns<Omit<Row, "atelier_id" | "sexe">[]>(),
   ]);
 
   // Affectation atelier : best-effort (colonne ajoutee en 0020). Si la migration
@@ -42,7 +43,20 @@ export default async function PersonnelPage() {
     .returns<{ id: string; atelier_id: string | null }[]>();
   if (!paErr) for (const r of paData ?? []) persAtelier.set(r.id, r.atelier_id);
 
-  const rows: Row[] = (rowsData ?? []).map((r) => ({ ...r, atelier_id: persAtelier.get(r.id) ?? null }));
+  // Sexe : best-effort (colonne ajoutee en 0022). Requete separee pour ne pas
+  // casser le reste si la migration n'est pas encore appliquee.
+  const persSexe = new Map<string, string | null>();
+  const { data: sxData, error: sxErr } = await supabase
+    .from("personne")
+    .select("id, sexe")
+    .returns<{ id: string; sexe: string | null }[]>();
+  if (!sxErr) for (const r of sxData ?? []) persSexe.set(r.id, r.sexe);
+
+  const rows: Row[] = (rowsData ?? []).map((r) => ({
+    ...r,
+    atelier_id: persAtelier.get(r.id) ?? null,
+    sexe: persSexe.get(r.id) ?? null,
+  }));
 
   return (
     <>
