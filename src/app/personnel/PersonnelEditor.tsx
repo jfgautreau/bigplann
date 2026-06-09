@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import ToggleSwitch from "@/components/ToggleSwitch";
+import TempsPartielModal from "./TempsPartielModal";
 
+type TpConfig = { off?: Record<string, string[]>; horaires?: Record<string, { debut: string; fin: string }> };
 type Row = {
   id: string;
   matricule: string | null;
@@ -20,6 +22,9 @@ type Row = {
   contrat_debut: string | null;
   pointure: string | null;
   statut: string;
+  temps_partiel: boolean;
+  tp_type: string | null;
+  tp_config: TpConfig | null;
 };
 type Equipe = { id: string; nom: string };
 type Atelier = { id: string; nom: string };
@@ -50,7 +55,7 @@ function SexePill({ sexe }: { sexe: string | null }) {
 
 type ColKey =
   | "type_contrat" | "matricule" | "numero_badge" | "nom" | "prenom" | "sexe"
-  | "equipe" | "atelier" | "date_livret_accueil" | "date_fin" | "alerte" | "pointure" | "statut";
+  | "equipe" | "atelier" | "date_livret_accueil" | "date_fin" | "alerte" | "pointure" | "tp" | "statut";
 const COLS: { key: ColKey; label: string; search?: boolean }[] = [
   { key: "type_contrat", label: "Contrat" },
   { key: "matricule", label: "Matricule", search: true },
@@ -64,6 +69,7 @@ const COLS: { key: ColKey; label: string; search?: boolean }[] = [
   { key: "date_fin", label: "Fin contrat" },
   { key: "alerte", label: "⚠ 18 mois" },
   { key: "pointure", label: "Pointure" },
+  { key: "tp", label: "TP" },
   { key: "statut", label: "Statut" },
 ];
 
@@ -81,6 +87,7 @@ export default function PersonnelEditor({
   const [rows, setRows] = useState<Row[]>(initial);
   const [q, setQ] = useState<Record<string, string>>({});
   const [contratFilter, setContratFilter] = useState("");
+  const [tpFor, setTpFor] = useState<Row | null>(null);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -282,6 +289,7 @@ export default function PersonnelEditor({
                 <td><input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={inp} /></td>
                 <td></td>
                 <td><input value={pointure} maxLength={5} onChange={(e) => setPointure(e.target.value)} placeholder="42" style={{ ...inp, width: 56 }} /></td>
+                <td className="muted" style={{ textAlign: "center", fontSize: 11 }}>après création</td>
                 <td></td>
                 <td>
                   <button type="button" onClick={add} disabled={!nom.trim() || !prenom.trim()} className="btn-sm" style={{ width: "auto", whiteSpace: "nowrap" }} title="Créer la personne">
@@ -327,6 +335,13 @@ export default function PersonnelEditor({
                       <td style={{ textAlign: "center", whiteSpace: "nowrap", color: "var(--muted)" }} title="Fin du contrat le plus récent (gérée sur la fiche)">{fmtDate(r.date_fin)}</td>
                       <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Contrat de ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
                       <td><input value={r.pointure ?? ""} maxLength={5} onChange={(e) => field(r.id, "pointure", e.target.value)} style={{ ...inp, width: 56 }} /></td>
+                      <td style={{ textAlign: "center" }}>
+                        {r.temps_partiel ? (
+                          <span className="sexe-pill" style={{ background: "#e0e7ff", color: "#3730a3", cursor: "pointer" }} onClick={() => setTpFor(r)} title="Configurer le temps partiel">TP</span>
+                        ) : (
+                          <button type="button" className="btn-sm btn-ghost" onClick={() => setTpFor(r)} style={{ padding: "2px 8px" }} title="Activer le temps partiel">TP…</button>
+                        )}
+                      </td>
                       <td><ToggleSwitch on={r.statut === "ACTIF"} onChange={(v) => toggleStatut(r.id, v)} onLabel="Actif" offLabel="Parti" title="Actif / Parti" /></td>
                       <td><Link href={`/personnel/${r.id}`}>Modifier</Link></td>
                     </>
@@ -344,6 +359,7 @@ export default function PersonnelEditor({
                       <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>{fmtDate(r.date_fin)}</td>
                       <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Contrat de ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
                       <td>{r.pointure || "-"}</td>
+                      <td style={{ textAlign: "center" }}>{r.temps_partiel ? <span className="sexe-pill" style={{ background: "#e0e7ff", color: "#3730a3" }}>TP</span> : <span className="muted">—</span>}</td>
                       <td><span className={r.statut === "ACTIF" ? "tag" : "tag tag-off"}>{r.statut === "ACTIF" ? "Actif" : "Parti"}</span></td>
                     </>
                   )}
@@ -358,6 +374,17 @@ export default function PersonnelEditor({
           </tbody>
         </table>
       </div>
+
+      {tpFor && (
+        <TempsPartielModal
+          personne={{ id: tpFor.id, label: `${tpFor.nom} ${tpFor.prenom}`, temps_partiel: tpFor.temps_partiel, tp_type: tpFor.tp_type, tp_config: tpFor.tp_config }}
+          onClose={() => setTpFor(null)}
+          onSaved={(u) => {
+            setRow(tpFor.id, (r) => ({ ...r, ...u }));
+            setTpFor(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -20,6 +20,10 @@ type PlacementRow = {
 type HoraireRow = { poste_id: string; quart_code: string; jour: number; debut: string | null; fin: string | null };
 
 const dow = (iso: string) => (new Date(iso + "T00:00").getDay() + 6) % 7;
+const isoDow = (iso: string) => {
+  const d = new Date(iso + "T00:00").getDay();
+  return d === 0 ? 7 : d; // 1=lundi .. 7=dimanche (cle tp_config)
+};
 
 export default async function AffichageAtelier({
   params,
@@ -73,6 +77,7 @@ export default async function AffichageAtelier({
   const byPoste = new Map<string, PlacementRow[]>(); // `${poste}:${iso}`
   const horMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${poste}:${quart}:${dow}`
   const excMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${personne}:${iso}` (horaire specifique)
+  const tpHorMap = new Map<string, Record<string, { debut: string; fin: string }>>(); // personne_id -> { dow: {debut,fin} } (TP horaires)
   const actMap = new Map<string, boolean>(); // `${quart}:${iso}`
   const ouvMap = new Map<string, boolean>(); // `${quart}:${ligne}:${iso}`
   type Personne = { nom: string; prenom: string; type_contrat: string };
@@ -81,7 +86,7 @@ export default async function AffichageAtelier({
   const workedDays = new Set<string>(); // jours (iso) ou au moins une personne travaille
 
   if (posteIds.length) {
-    const [{ data: pl }, { data: hor }, { data: jq }, { data: ov }, { data: exc }] = await Promise.all([
+    const [{ data: pl }, { data: hor }, { data: jq }, { data: ov }, { data: exc }, { data: tpH }] = await Promise.all([
       admin
         .from("placement")
         .select("poste_id, jour, quart_code, personne_id, personne:personne_id(nom, prenom, type_contrat)")
@@ -108,9 +113,16 @@ export default async function AffichageAtelier({
         .select("personne_id, jour, debut, fin")
         .in("jour", isos)
         .returns<{ personne_id: string; jour: string; debut: string | null; fin: string | null }[]>(),
+      admin
+        .from("personne")
+        .select("id, tp_config")
+        .eq("temps_partiel", true)
+        .eq("tp_type", "HORAIRES")
+        .returns<{ id: string; tp_config: { horaires?: Record<string, { debut: string; fin: string }> } | null }[]>(),
     ]);
     for (const h of hor ?? []) horMap.set(`${h.poste_id}:${h.quart_code}:${h.jour}`, { debut: h.debut, fin: h.fin });
     for (const e of exc ?? []) excMap.set(`${e.personne_id}:${e.jour}`, { debut: e.debut, fin: e.fin });
+    for (const r of tpH ?? []) if (r.tp_config?.horaires) tpHorMap.set(r.id, r.tp_config.horaires);
     for (const r of jq ?? []) actMap.set(`${r.quart_code}:${r.jour}`, r.actif);
     for (const r of ov ?? []) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
 
@@ -141,10 +153,11 @@ export default async function AffichageAtelier({
     const q = quartCode ?? "matin";
     const std = horMap.get(`${posteId}:${q}:${dow(iso)}`);
     const ex = excMap.get(`${personId}:${iso}`);
-    // Override par champ : un debut/fin rempli dans l'exception remplace le standard ;
-    // un champ vide garde l'horaire standard.
-    const debut = ex?.debut || std?.debut || null;
-    const fin = ex?.fin || std?.fin || null;
+    // Temps partiel (horaires specifiques) par jour de semaine.
+    const tpHor = tpHorMap.get(personId)?.[String(isoDow(iso))];
+    // Priorite : exception ponctuelle > horaires TP hebdo > horaire standard du poste.
+    const debut = ex?.debut || tpHor?.debut || std?.debut || null;
+    const fin = ex?.fin || tpHor?.fin || std?.fin || null;
     if (!debut && !fin) return "";
     return `${debut ?? "?"}-${fin ?? "?"}`;
   };

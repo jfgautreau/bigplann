@@ -272,6 +272,37 @@ export default async function PlanningPage({
       exceptions[`${r.personne_id}:${r.jour}`] = { debut: r.debut ?? "", fin: r.fin ?? "", motif: r.motif ?? "" };
   }
 
+  // Temps partiel (option JOURS) : creneaux "non travailles" bloques "TP" pour le
+  // quart courant. Best-effort (colonnes 0025). Calcul cote serveur.
+  const tpBlocked: Record<string, boolean> = {};
+  if (allIds.length) {
+    const { data: tpData, error: tpErr } = await supabase
+      .from("personne")
+      .select("id, temps_partiel, tp_type, tp_config")
+      .in("id", allIds)
+      .returns<{ id: string; temps_partiel: boolean; tp_type: string | null; tp_config: { off?: Record<string, string[]> } | null }[]>();
+    if (!tpErr) {
+      const isoDow = (iso: string) => {
+        const d = new Date(iso + "T00:00").getDay();
+        return d === 0 ? 7 : d;
+      };
+      const blocked = (off: string[]) => {
+        if (!off || !off.length) return false;
+        const full = off.includes("matin") && off.includes("aprem");
+        if (quart === "matin") return off.includes("matin");
+        if (quart === "apres_midi") return off.includes("aprem");
+        return full; // journee / nuit : seulement si journee entiere non travaillee
+      };
+      for (const r of tpData ?? []) {
+        if (!r.temps_partiel || r.tp_type !== "JOURS" || !r.tp_config?.off || !displayedSet.has(r.id)) continue;
+        for (const iso of visIsos) {
+          const off = r.tp_config.off[String(isoDow(iso))] ?? [];
+          if (blocked(off)) tpBlocked[`${r.id}:${iso}`] = true;
+        }
+      }
+    }
+  }
+
   // Perimetre chef recupere en vague 1.
   const chefEquipes = new Set((chefData ?? []).map((r) => r.equipe_id));
 
@@ -353,6 +384,7 @@ export default async function PlanningPage({
           matrice={matrice}
           quart={quart}
           otherByCell={otherByCell}
+          tpBlocked={tpBlocked}
           quartLabel={quartLabel}
           posteLabelAll={posteLabelAll}
           exceptions={exceptions}

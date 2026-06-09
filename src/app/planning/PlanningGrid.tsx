@@ -30,6 +30,7 @@ export default function PlanningGrid({
   matrice = {},
   quart = "",
   otherByCell = {},
+  tpBlocked = {},
   quartLabel = {},
   posteLabelAll = {},
   exceptions = {},
@@ -47,6 +48,7 @@ export default function PlanningGrid({
   matrice?: Record<string, number>;
   quart?: string;
   otherByCell?: Record<string, string>;
+  tpBlocked?: Record<string, boolean>;
   quartLabel?: Record<string, string>;
   posteLabelAll?: Record<string, string>;
   exceptions?: Record<string, { debut: string; fin: string; motif: string }>;
@@ -519,7 +521,8 @@ export default function PlanningGrid({
                 const closedCurrent = isPoste(v) && !openSet.has(posteLigne[v] ?? "");
                 // Bouton de recopie aussi sur une case vide : permet de propager le
                 // « non-affecte » sur la semaine. Masque seulement si placee sur un autre quart.
-                const showFill = pers.editable && !otherByCell[key(pers.id, d.iso)];
+                const tpb = !!tpBlocked[key(pers.id, d.iso)];
+                const showFill = pers.editable && !otherByCell[key(pers.id, d.iso)] && !tpb;
                 const other = v === "" ? otherByCell[key(pers.id, d.iso)] : undefined;
                 // Surlignage : cette case correspond-elle au type d'anomalie selectionne ce jour-la ?
                 const hiActive = highlight?.iso === d.iso;
@@ -531,14 +534,16 @@ export default function PlanningGrid({
                     className={`pcell${alert ? " hc" : ""}${over ? " over" : ""}${matchHi ? " hi" : ""}${dimHi ? " dim" : ""}`}
                     style={{
                       textAlign: "center",
-                      background: motifColor[v] ? motifColor[v] : isToday(d) ? "#eff6ff" : undefined,
+                      background: tpb ? "#e0e7ff" : motifColor[v] ? motifColor[v] : isToday(d) ? "#eff6ff" : undefined,
                       padding: 0,
                       position: "relative",
                       ...sep(d),
                     }}
                     title={[alert ? "Hors compétence" : "", over ? `Sur-effectif (${perDay[i].counts[v]}/${effectif[v] ?? 0})` : ""].filter(Boolean).join(" · ") || undefined}
                   >
-                    {other ? (
+                    {tpb ? (
+                      <div className="cell-other" style={{ color: "#3730a3" }} title="Temps partiel — créneau non travaillé">TP</div>
+                    ) : other ? (
                       <div className="cell-other" title={`Déjà placé sur le quart ${quartLabel[other] ?? other} ce jour-là`}>
                         &rarr; {quartLabel[other] ?? other}
                       </div>

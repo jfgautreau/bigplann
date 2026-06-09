@@ -21,7 +21,11 @@ type Row = {
   contrat_debut: string | null; // debut du contrat le plus ancien (alerte 18 mois)
   pointure: string | null;
   statut: string;
+  temps_partiel: boolean;
+  tp_type: string | null;
+  tp_config: TpConfig | null;
 };
+type TpConfig = { off?: Record<string, string[]>; horaires?: Record<string, { debut: string; fin: string }> };
 
 export default async function PersonnelPage() {
   const { profile, perms } = await requireModule("personnel", "read");
@@ -35,7 +39,7 @@ export default async function PersonnelPage() {
       .from("personne")
       .select("id, matricule, nom, prenom, equipe_id, type_contrat, date_debut, date_fin, pointure, statut")
       .order("nom")
-      .returns<Omit<Row, "atelier_id" | "sexe" | "numero_badge" | "date_livret_accueil" | "contrat_debut">[]>(),
+      .returns<Omit<Row, "atelier_id" | "sexe" | "numero_badge" | "date_livret_accueil" | "contrat_debut" | "temps_partiel" | "tp_type" | "tp_config">[]>(),
   ]);
 
   // Affectation atelier : best-effort (colonne ajoutee en 0020). Si la migration
@@ -73,6 +77,14 @@ export default async function PersonnelPage() {
     if (!cur || r.date_debut < cur) minDebut.set(r.personne_id, r.date_debut);
   }
 
+  // Temps partiel : best-effort (colonnes ajoutees en 0025).
+  const persTp = new Map<string, { temps_partiel: boolean; tp_type: string | null; tp_config: TpConfig | null }>();
+  const { data: tpData, error: tpErr } = await supabase
+    .from("personne")
+    .select("id, temps_partiel, tp_type, tp_config")
+    .returns<{ id: string; temps_partiel: boolean; tp_type: string | null; tp_config: TpConfig | null }[]>();
+  if (!tpErr) for (const r of tpData ?? []) persTp.set(r.id, { temps_partiel: r.temps_partiel, tp_type: r.tp_type, tp_config: r.tp_config });
+
   const rows: Row[] = (rowsData ?? []).map((r) => ({
     ...r,
     atelier_id: persAtelier.get(r.id) ?? null,
@@ -80,6 +92,9 @@ export default async function PersonnelPage() {
     numero_badge: persBadge.get(r.id)?.numero_badge ?? null,
     date_livret_accueil: persBadge.get(r.id)?.date_livret_accueil ?? null,
     contrat_debut: minDebut.get(r.id) ?? r.date_debut ?? null,
+    temps_partiel: persTp.get(r.id)?.temps_partiel ?? false,
+    tp_type: persTp.get(r.id)?.tp_type ?? null,
+    tp_config: persTp.get(r.id)?.tp_config ?? null,
   }));
 
   return (
