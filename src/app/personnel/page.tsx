@@ -25,7 +25,8 @@ type Row = {
   tp_type: string | null;
   tp_config: TpConfig | null;
 };
-type TpConfig = { off?: Record<string, string[]>; horaires?: Record<string, { debut: string; fin: string }> };
+type HMap = Record<string, { debut: string; fin: string }>;
+type TpConfig = { demi?: { mode: string; source: string; matin?: HMap; aprem?: HMap }; off?: Record<string, string[]>; horaires?: HMap };
 
 export default async function PersonnelPage() {
   const { profile, perms } = await requireModule("personnel", "read");

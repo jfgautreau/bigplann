@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import ToggleSwitch from "@/components/ToggleSwitch";
 import TempsPartielModal from "./TempsPartielModal";
+import ContratsModal from "./ContratsModal";
 
-type TpConfig = { off?: Record<string, string[]>; horaires?: Record<string, { debut: string; fin: string }> };
+type HMap = Record<string, { debut: string; fin: string }>;
+type TpConfig = { demi?: { mode: string; source: string; matin?: HMap; aprem?: HMap }; off?: Record<string, string[]>; horaires?: HMap };
 type Row = {
   id: string;
   matricule: string | null;
@@ -88,6 +90,7 @@ export default function PersonnelEditor({
   const [q, setQ] = useState<Record<string, string>>({});
   const [contratFilter, setContratFilter] = useState("");
   const [tpFor, setTpFor] = useState<Row | null>(null);
+  const [contratsFor, setContratsFor] = useState<Row | null>(null);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -332,7 +335,10 @@ export default function PersonnelEditor({
                         </select>
                       </td>
                       <td><input type="date" value={r.date_livret_accueil ?? ""} onChange={(e) => field(r.id, "date_livret_accueil", e.target.value, true)} style={inp} /></td>
-                      <td style={{ textAlign: "center", whiteSpace: "nowrap", color: "var(--muted)" }} title="Fin du contrat le plus récent (gérée sur la fiche)">{fmtDate(r.date_fin)}</td>
+                      <td style={{ textAlign: "center", whiteSpace: "nowrap", color: "var(--muted)" }} title="Fin du contrat le plus récent (gérée sur la fiche)">
+                        {fmtDate(r.date_fin)}
+                        <button type="button" onClick={() => setContratsFor(r)} title="Voir tous les contrats" style={{ width: "auto", margin: "0 0 0 4px", padding: "1px 4px", background: "transparent", border: "none", cursor: "pointer", fontSize: 13 }}>🔍</button>
+                      </td>
                       <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Contrat de ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
                       <td><input value={r.pointure ?? ""} maxLength={5} onChange={(e) => field(r.id, "pointure", e.target.value)} style={{ ...inp, width: 56 }} /></td>
                       <td style={{ textAlign: "center" }}>
@@ -356,7 +362,10 @@ export default function PersonnelEditor({
                       <td>{equipeNom(r.equipe_id) || "-"}</td>
                       <td>{atelierNom(r.atelier_id) || "-"}</td>
                       <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>{fmtDate(r.date_livret_accueil)}</td>
-                      <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>{fmtDate(r.date_fin)}</td>
+                      <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                        {fmtDate(r.date_fin)}
+                        <button type="button" onClick={() => setContratsFor(r)} title="Voir tous les contrats" style={{ width: "auto", margin: "0 0 0 4px", padding: "1px 4px", background: "transparent", border: "none", cursor: "pointer", fontSize: 13 }}>🔍</button>
+                      </td>
                       <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Contrat de ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
                       <td>{r.pointure || "-"}</td>
                       <td style={{ textAlign: "center" }}>{r.temps_partiel ? <span className="sexe-pill" style={{ background: "#e0e7ff", color: "#3730a3" }}>TP</span> : <span className="muted">—</span>}</td>
@@ -384,6 +393,10 @@ export default function PersonnelEditor({
             setTpFor(null);
           }}
         />
+      )}
+
+      {contratsFor && (
+        <ContratsModal personne={{ id: contratsFor.id, label: `${contratsFor.nom} ${contratsFor.prenom}` }} onClose={() => setContratsFor(null)} />
       )}
     </div>
   );

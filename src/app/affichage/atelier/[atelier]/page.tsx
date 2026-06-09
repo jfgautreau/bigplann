@@ -77,7 +77,9 @@ export default async function AffichageAtelier({
   const byPoste = new Map<string, PlacementRow[]>(); // `${poste}:${iso}`
   const horMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${poste}:${quart}:${dow}`
   const excMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${personne}:${iso}` (horaire specifique)
-  const tpHorMap = new Map<string, Record<string, { debut: string; fin: string }>>(); // personne_id -> { dow: {debut,fin} } (TP horaires)
+  type TpHM = Record<string, { debut: string; fin: string }>;
+  type TpCfg = { demi?: { source?: string; matin?: TpHM; aprem?: TpHM }; horaires?: TpHM };
+  const tpCfgMap = new Map<string, TpCfg>(); // personne_id -> tp_config (temps partiel)
   const actMap = new Map<string, boolean>(); // `${quart}:${iso}`
   const ouvMap = new Map<string, boolean>(); // `${quart}:${ligne}:${iso}`
   type Personne = { nom: string; prenom: string; type_contrat: string };
@@ -117,12 +119,11 @@ export default async function AffichageAtelier({
         .from("personne")
         .select("id, tp_config")
         .eq("temps_partiel", true)
-        .eq("tp_type", "HORAIRES")
-        .returns<{ id: string; tp_config: { horaires?: Record<string, { debut: string; fin: string }> } | null }[]>(),
+        .returns<{ id: string; tp_config: TpCfg | null }[]>(),
     ]);
     for (const h of hor ?? []) horMap.set(`${h.poste_id}:${h.quart_code}:${h.jour}`, { debut: h.debut, fin: h.fin });
     for (const e of exc ?? []) excMap.set(`${e.personne_id}:${e.jour}`, { debut: e.debut, fin: e.fin });
-    for (const r of tpH ?? []) if (r.tp_config?.horaires) tpHorMap.set(r.id, r.tp_config.horaires);
+    for (const r of tpH ?? []) if (r.tp_config) tpCfgMap.set(r.id, r.tp_config);
     for (const r of jq ?? []) actMap.set(`${r.quart_code}:${r.jour}`, r.actif);
     for (const r of ov ?? []) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
 
@@ -153,9 +154,19 @@ export default async function AffichageAtelier({
     const q = quartCode ?? "matin";
     const std = horMap.get(`${posteId}:${q}:${dow(iso)}`);
     const ex = excMap.get(`${personId}:${iso}`);
-    // Temps partiel (horaires specifiques) par jour de semaine.
-    const tpHor = tpHorMap.get(personId)?.[String(isoDow(iso))];
-    // Priorite : exception ponctuelle > horaires TP hebdo > horaire standard du poste.
+    // Temps partiel : demi-journee a horaires saisis (selon le quart du placement),
+    // sinon horaires "journee entiere". Par jour de semaine (1=lundi..7=dimanche).
+    const cfg = tpCfgMap.get(personId);
+    let tpHor: { debut?: string; fin?: string } | undefined;
+    if (cfg) {
+      const d = String(isoDow(iso));
+      if (cfg.demi?.source === "horaires") {
+        if (q === "matin") tpHor = cfg.demi.matin?.[d];
+        else if (q === "apres_midi") tpHor = cfg.demi.aprem?.[d];
+      }
+      if (!tpHor && cfg.horaires) tpHor = cfg.horaires[d];
+    }
+    // Priorite : exception ponctuelle > horaires TP > horaire standard du poste.
     const debut = ex?.debut || tpHor?.debut || std?.debut || null;
     const fin = ex?.fin || tpHor?.fin || std?.fin || null;
     if (!debut && !fin) return "";

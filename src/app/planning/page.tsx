@@ -272,15 +272,17 @@ export default async function PlanningPage({
       exceptions[`${r.personne_id}:${r.jour}`] = { debut: r.debut ?? "", fin: r.fin ?? "", motif: r.motif ?? "" };
   }
 
-  // Temps partiel (option JOURS) : creneaux "non travailles" bloques "TP" pour le
-  // quart courant. Best-effort (colonnes 0025). Calcul cote serveur.
+  // Temps partiel (best-effort, colonnes 0025). Calcul serveur :
+  //  - tpBlocked : demi-journees non travaillees -> case "TP" pour le quart courant.
+  //  - tpRedirect : demi-journee FIXE (matin/aprem) -> "-> Mat/Apr" sur les autres quarts.
   const tpBlocked: Record<string, boolean> = {};
+  const tpRedirect: Record<string, string> = {};
   if (allIds.length) {
     const { data: tpData, error: tpErr } = await supabase
       .from("personne")
-      .select("id, temps_partiel, tp_type, tp_config")
+      .select("id, temps_partiel, tp_config")
       .in("id", allIds)
-      .returns<{ id: string; temps_partiel: boolean; tp_type: string | null; tp_config: { off?: Record<string, string[]> } | null }[]>();
+      .returns<{ id: string; temps_partiel: boolean; tp_config: { demi?: { mode: string }; off?: Record<string, string[]> } | null }[]>();
     if (!tpErr) {
       const isoDow = (iso: string) => {
         const d = new Date(iso + "T00:00").getDay();
@@ -294,10 +296,14 @@ export default async function PlanningPage({
         return full; // journee / nuit : seulement si journee entiere non travaillee
       };
       for (const r of tpData ?? []) {
-        if (!r.temps_partiel || r.tp_type !== "JOURS" || !r.tp_config?.off || !displayedSet.has(r.id)) continue;
+        if (!r.temps_partiel || !displayedSet.has(r.id)) continue;
+        const cfg = r.tp_config ?? {};
+        const herQuart = cfg.demi?.mode === "matin" ? "matin" : cfg.demi?.mode === "aprem" ? "apres_midi" : null;
+        const herLabel = herQuart === "matin" ? "Mat" : "Apr";
         for (const iso of visIsos) {
-          const off = r.tp_config.off[String(isoDow(iso))] ?? [];
-          if (blocked(off)) tpBlocked[`${r.id}:${iso}`] = true;
+          const dow = String(isoDow(iso));
+          if (cfg.off && blocked(cfg.off[dow] ?? [])) tpBlocked[`${r.id}:${iso}`] = true;
+          if (herQuart && quart !== herQuart) tpRedirect[`${r.id}:${iso}`] = herLabel;
         }
       }
     }
@@ -385,6 +391,7 @@ export default async function PlanningPage({
           quart={quart}
           otherByCell={otherByCell}
           tpBlocked={tpBlocked}
+          tpRedirect={tpRedirect}
           quartLabel={quartLabel}
           posteLabelAll={posteLabelAll}
           exceptions={exceptions}

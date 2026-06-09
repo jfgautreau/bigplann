@@ -256,7 +256,8 @@ export async function POST(req: NextRequest) {
       const id = s(body.id);
       if (!id) return NextResponse.json({ error: "id manquant" }, { status: 400 });
       const enabled = body.temps_partiel === true;
-      const tp_type = enabled ? (s(body.tp_type) === "HORAIRES" ? "HORAIRES" : "JOURS") : null;
+      const tt = s(body.tp_type);
+      const tp_type = enabled && (tt === "JOURS" || tt === "HORAIRES") ? tt : null;
       const tp_config = enabled ? (body.tp_config ?? {}) : null;
       const { error } = await supabase.from("personne").update({ temps_partiel: enabled, tp_type, tp_config }).eq("id", id);
       if (error) throw error;
