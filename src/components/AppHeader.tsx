@@ -61,6 +61,7 @@ export default async function AppHeader({
   const configLinks = MODULES.filter(
     (m) => !MAIN_ORDER.includes(m.key) && m.key !== "habilitations" && visible(m)
   ).map((m) => ({ href: m.href, label: m.label }));
+  if (canWrite(perms, "ordonnancement")) configLinks.push({ href: "/admin/rotation", label: "Rotation des équipes" });
   if (isAdmin) configLinks.push({ href: "/admin/droits", label: "Droits" });
 
   return (
