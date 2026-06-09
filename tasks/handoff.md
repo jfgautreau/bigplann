@@ -70,4 +70,5 @@
 - Horaires : `src/app/admin/horaires/{page,HoraireGrid,actions}.tsx`.
 - Affichage TV : `src/app/affichage/atelier/[atelier]/page.tsx`.
 - Bilan : `src/app/bilans/{page,competences/page,competences/CompetenceNav}.tsx`.
+  - **Refonte CODIR** : `/bilans` = Cockpit (KPIs + cartes). Catégories : `/bilans/personnel`, `/bilans/polyvalence`, `/bilans/couverture`, `/bilans/anticipation`. Composant `Bars` partagé (`src/app/bilans/Bars.tsx`). Styles `.kpi/.report-*/.navcard/.barrow` + `@media print` (PDF) dans `globals.css`. `OrdoMonthNav` réutilisé pour la nav mensuelle.
 - Migrations : `supabase/migrations/0001..0016`.
