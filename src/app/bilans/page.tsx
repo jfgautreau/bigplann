@@ -1,164 +1,201 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
-import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
-import PeriodBand from "@/components/PeriodBand";
 import PrintButton from "@/components/PrintButton";
 import { requireModule } from "@/lib/permissions";
-import { parseMonday, weekDays, isoDate, isoWeekNumber, defaultOpenIso } from "@/lib/week";
+import { isoDate, addDays, monthDays, monthLabel } from "@/lib/week";
 
-type LigneRow = { id: string; poste: { actif: boolean; effectif_requis: number }[] };
-type Placement = { jour: string; poste_id: string | null; motif_absence_id: string | null };
-type Motif = { id: string; code_court: string; libelle: string };
+type Personne = {
+  id: string;
+  nom: string;
+  prenom: string;
+  statut: string;
+  type_contrat: string;
+  date_fin: string | null;
+  equipe_id: string | null;
+};
+type LigneRow = { id: string; nom: string; poste: { id: string; nom: string; actif: boolean }[] };
+type Mat = { personne_id: string; poste_id: string };
 
-export default async function BilansPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ semaine?: string }>;
-}) {
+const fmtDate = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
+
+export default async function CockpitPage() {
   const { profile } = await requireModule("bilans", "read");
 
-  const sp = await searchParams;
-  const monday = parseMonday(sp.semaine);
-  const centerIso = isoDate(monday);
-  const days = weekDays(monday);
-  const isos = days.map((d) => d.iso);
+  const today = new Date();
+  const todayIso = isoDate(today);
+  const in30Iso = isoDate(addDays(today, 30));
+  const in60Iso = isoDate(addDays(today, 60));
+  const monthIsos = monthDays(today.getFullYear(), today.getMonth()).map((d) => d.iso);
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, { data: motifsD }, { data: plD }] = await Promise.all([
-    supabase.from("ligne").select("id, poste(actif, effectif_requis)").eq("actif", true).returns<LigneRow[]>(),
-    supabase.from("motif_absence").select("id, code_court, libelle").order("libelle").returns<Motif[]>(),
-    supabase
-      .from("placement")
-      .select("jour, poste_id, motif_absence_id")
-      .in("jour", isos)
-      .returns<Placement[]>(),
-  ]);
+  const [{ data: persD }, { data: lignesD }, { data: matD }, { data: plD }, { data: eqD }] =
+    await Promise.all([
+      supabase
+        .from("personne")
+        .select("id, nom, prenom, statut, type_contrat, date_fin, equipe_id")
+        .returns<Personne[]>(),
+      supabase.from("ligne").select("id, nom, poste(id, nom, actif)").eq("actif", true).returns<LigneRow[]>(),
+      supabase.from("matrice").select("personne_id, poste_id").gte("niveau_actuel", 2).returns<Mat[]>(),
+      supabase
+        .from("placement")
+        .select("poste_id, motif_absence_id")
+        .in("jour", monthIsos)
+        .returns<{ poste_id: string | null; motif_absence_id: string | null }[]>(),
+      supabase.from("equipe").select("id, nom").returns<{ id: string; nom: string }[]>(),
+    ]);
 
-  // Besoin theorique = effectif total des postes actifs (lignes ouvertes par defaut sauf dimanche)
-  const totalEffectif = (lignesD ?? []).reduce(
-    (s, l) => s + (l.poste ?? []).filter((p) => p.actif).reduce((a, p) => a + (p.effectif_requis ?? 0), 0),
-    0
-  );
+  const persons = persD ?? [];
+  const active = persons.filter((p) => p.statut === "ACTIF");
+  const activeIds = new Set(active.map((p) => p.id));
+  const effectifActif = active.length;
+  const nb = (t: string) => active.filter((p) => p.type_contrat === t).length;
+  const interim = nb("INTERIM");
+  const cdd = nb("CDD");
+  const cdi = nb("CDI");
+  const pctInterim = effectifActif ? Math.round((interim / effectifActif) * 100) : 0;
 
+  // Fins de contrat a venir (CDD / interim actifs)
+  const finsContrat = active
+    .filter((p) => p.type_contrat !== "CDI" && p.date_fin && p.date_fin >= todayIso && p.date_fin <= in60Iso)
+    .sort((a, b) => (a.date_fin ?? "").localeCompare(b.date_fin ?? ""));
+  const fin30 = finsContrat.filter((p) => (p.date_fin ?? "") <= in30Iso).length;
+
+  // Absences du mois
   const placements = plD ?? [];
-  const presentByDay: Record<string, number> = {};
-  const absByMotif: Record<string, number> = {};
-  for (const r of placements) {
-    if (r.poste_id) presentByDay[r.jour] = (presentByDay[r.jour] ?? 0) + 1;
-    if (r.motif_absence_id) absByMotif[r.motif_absence_id] = (absByMotif[r.motif_absence_id] ?? 0) + 1;
-  }
+  const absDays = placements.filter((r) => r.motif_absence_id).length;
+  const presentDays = placements.filter((r) => r.poste_id).length;
+  const tauxAbs = absDays + presentDays > 0 ? Math.round((absDays / (absDays + presentDays)) * 100) : 0;
 
-  const motifs = motifsD ?? [];
-  const totalAbs = Object.values(absByMotif).reduce((a, b) => a + b, 0);
+  // Postes fragiles : nb de personnes actives competentes (niveau >= 2) par poste
+  const postes = (lignesD ?? []).flatMap((l) =>
+    (l.poste ?? []).filter((p) => p.actif).map((p) => ({ id: p.id, nom: p.nom, ligne: l.nom }))
+  );
+  const compByPoste = new Map<string, Set<string>>();
+  for (const r of matD ?? []) {
+    if (!activeIds.has(r.personne_id)) continue;
+    (compByPoste.get(r.poste_id) ?? compByPoste.set(r.poste_id, new Set()).get(r.poste_id)!).add(r.personne_id);
+  }
+  const postesEval = postes.map((p) => ({ ...p, n: compByPoste.get(p.id)?.size ?? 0 }));
+  const fragiles = postesEval.filter((p) => p.n <= 1).sort((a, b) => a.n - b.n);
+  const sansReleve = postesEval.filter((p) => p.n === 0).length;
+
+  const eqNom = (id: string | null) => (id ? (eqD ?? []).find((e) => e.id === id)?.nom ?? "—" : "—");
+
+  const categories = [
+    { href: "/bilans/personnel", ic: "👥", t: "Personnel", d: "Effectif, contrats, absentéisme, mouvements.", on: true },
+    { href: "/matrice/bilan", ic: "🎯", t: "Polyvalence & compétences", d: "Postes fragiles, écarts cible, plan de montée en compétence.", on: true },
+    { href: "/bilans/competences", ic: "🛡️", t: "Couverture de poste", d: "Compétents disponibles vs besoin, jour par jour.", on: true },
+    { href: "#", ic: "🔭", t: "Anticipation", d: "Capacité vs charge à venir, impact des absences et des fins de contrat.", on: false },
+  ];
 
   return (
     <>
       <AppHeader role={profile.role} active="/bilans" />
-      <div className="container" style={{ maxWidth: 1100 }}>
-        <div className="toolbar">
-          <h1 style={{ margin: 0 }}>Bilans</h1>
-          <Link href="/matrice/bilan" className="navlink">Bilan polyvalence &rarr;</Link>
-          <Link href="/bilans/competences" className="navlink">Compétences disponibles &rarr;</Link>
+      <div className="container" style={{ maxWidth: 1200 }}>
+        <div className="report-head">
+          <div>
+            <h1>Cockpit — pilotage d&apos;équipe</h1>
+            <div className="sub">Synthèse au {fmtDate(todayIso)} · absences sur {monthLabel(today.getFullYear(), today.getMonth())}</div>
+          </div>
           <PrintButton />
         </div>
-        <PeriodBand base="/bilans" semaine={centerIso} weekNums={[isoWeekNumber(monday)]} />
 
-        {/* Effectifs */}
-        <div className="card section">
-          <h2 style={{ marginTop: 0 }}>Effectifs (semaine {isoWeekNumber(monday)})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th></th>
-                {days.map((d) => (
-                  <th key={d.iso} style={{ textAlign: "center" }}>
-                    {d.nom.slice(0, 3)}<br />
-                    <span className="muted" style={{ fontWeight: 400 }}>{d.num}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {([
-                ["Besoin", (iso: string) => (defaultOpenIso(iso) ? totalEffectif : 0), () => "var(--muted)"],
-                ["Présent", (iso: string) => presentByDay[iso] ?? 0, () => "var(--text)"],
-                [
-                  "Delta",
-                  (iso: string) => (presentByDay[iso] ?? 0) - (defaultOpenIso(iso) ? totalEffectif : 0),
-                  (iso: string) => {
-                    const d = (presentByDay[iso] ?? 0) - (defaultOpenIso(iso) ? totalEffectif : 0);
-                    return d < 0 ? "var(--danger)" : d > 0 ? "#9a3412" : "var(--ok)";
-                  },
-                ],
-              ] as [string, (iso: string) => number, (iso: string) => string][]).map(([label, fn, col]) => (
-                <tr key={label}>
-                  <td style={{ fontWeight: 600 }}>{label}</td>
-                  {days.map((d) => {
-                    const v = fn(d.iso);
+        {/* KPIs */}
+        <div className="kpi-grid">
+          <div className="kpi">
+            <div className="v">{effectifActif}</div>
+            <div className="l">Effectif actif</div>
+            <div className="s">{cdi} CDI · {cdd} CDD · {interim} intérim</div>
+          </div>
+          <div className={`kpi ${pctInterim >= 25 ? "warn" : ""}`}>
+            <div className="v">{pctInterim}<small> %</small></div>
+            <div className="l">Part d&apos;intérim</div>
+            <div className="s">{interim} intérimaire{interim > 1 ? "s" : ""}</div>
+          </div>
+          <div className={`kpi ${fin30 > 0 ? "danger" : finsContrat.length > 0 ? "warn" : "ok"}`}>
+            <div className="v">{fin30}</div>
+            <div className="l">Contrats &lt; 30 j</div>
+            <div className="s">{finsContrat.length} sur 60 jours</div>
+          </div>
+          <div className={`kpi ${tauxAbs >= 10 ? "danger" : tauxAbs >= 5 ? "warn" : "ok"}`}>
+            <div className="v">{tauxAbs}<small> %</small></div>
+            <div className="l">Taux d&apos;absence (mois)</div>
+            <div className="s">{absDays} j d&apos;absence</div>
+          </div>
+          <div className={`kpi ${fragiles.length > 0 ? "warn" : "ok"}`}>
+            <div className="v">{fragiles.length}</div>
+            <div className="l">Postes fragiles</div>
+            <div className="s">≤ 1 personne compétente</div>
+          </div>
+          <div className={`kpi ${sansReleve > 0 ? "danger" : "ok"}`}>
+            <div className="v">{sansReleve}</div>
+            <div className="l">Postes sans relève</div>
+            <div className="s">aucune personne compétente</div>
+          </div>
+        </div>
+
+        {/* Alertes */}
+        <div className="report-grid2" style={{ marginBottom: 24 }}>
+          <div className="card">
+            <h2 style={{ marginTop: 0, fontSize: 15 }}>Fins de contrat à venir (60 j)</h2>
+            {finsContrat.length === 0 ? (
+              <p className="muted">Aucune fin de contrat dans les 60 jours.</p>
+            ) : (
+              <table>
+                <tbody>
+                  {finsContrat.slice(0, 8).map((p) => {
+                    const urgent = (p.date_fin ?? "") <= in30Iso;
                     return (
-                      <td key={d.iso} style={{ textAlign: "center", fontWeight: 700, color: col(d.iso) }}>
-                        {label === "Delta" && v > 0 ? `+${v}` : v}
-                      </td>
+                      <tr key={p.id}>
+                        <td>{p.nom} {p.prenom}</td>
+                        <td className="muted">{p.type_contrat === "INTERIM" ? "Intérim" : p.type_contrat} · {eqNom(p.equipe_id)}</td>
+                        <td style={{ textAlign: "right" }}>
+                          <span className={`rbadge ${urgent ? "danger" : "warn"}`}>{fmtDate(p.date_fin)}</span>
+                        </td>
+                      </tr>
                     );
                   })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="muted" style={{ marginTop: 6 }}>
-            Besoin = effectif total des postes actifs (capacité pleine, hors dimanche).
-            Présent = personnes placées sur un poste.
-          </p>
+                </tbody>
+              </table>
+            )}
+          </div>
+          <div className="card">
+            <h2 style={{ marginTop: 0, fontSize: 15 }}>Postes fragiles</h2>
+            {fragiles.length === 0 ? (
+              <p className="muted">Aucun poste fragile : chaque poste a au moins 2 personnes compétentes.</p>
+            ) : (
+              <table>
+                <tbody>
+                  {fragiles.slice(0, 8).map((p) => (
+                    <tr key={p.id}>
+                      <td>{p.nom}</td>
+                      <td className="muted">{p.ligne}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <span className={`rbadge ${p.n === 0 ? "danger" : "warn"}`}>
+                          {p.n === 0 ? "aucune relève" : "1 personne"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
 
-        {/* Absences par motif */}
-        <div className="card section">
-          <h2 style={{ marginTop: 0 }}>Absences par motif (semaine {isoWeekNumber(monday)})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Motif</th>
-                <th>Code</th>
-                <th style={{ textAlign: "right" }}>Nombre de jours</th>
-              </tr>
-            </thead>
-            <tbody>
-              {motifs.map((m) => (
-                <tr key={m.id}>
-                  <td>{m.libelle}</td>
-                  <td><strong>{m.code_court}</strong></td>
-                  <td style={{ textAlign: "right" }}>{absByMotif[m.id] ?? 0}</td>
-                </tr>
-              ))}
-              <tr>
-                <td colSpan={2} style={{ fontWeight: 700 }}>Total</td>
-                <td style={{ textAlign: "right", fontWeight: 700 }}>{totalAbs}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Polyvalence */}
-        <div className="card section">
-          <h2 style={{ marginTop: 0 }}>Polyvalence & écarts de compétences</h2>
-          <p>
-            Le détail Existant / Besoin / Écart par poste et par niveau est sur la page{" "}
-            <Link href="/matrice/bilan">Bilan polyvalence</Link>.
-          </p>
-          <p>
-            Couverture jour par jour (compétents disponibles par poste, hors absences) :{" "}
-            <Link href="/bilans/competences">Compétences disponibles</Link>.
-          </p>
-        </div>
-
-        <div className="card section">
-          <h2 style={{ marginTop: 0 }}>Habilitations</h2>
-          <p>
-            Suivi des échéances et alertes sur la page{" "}
-            <Link href="/habilitations">Habilitations à recycler</Link>.
-          </p>
+        {/* Navigation par categorie */}
+        <div className="report-section">
+          <h2>Rapports détaillés</h2>
+          <div className="navcards">
+            {categories.map((c) => (
+              <Link key={c.t} href={c.on ? c.href : "#"} className={`navcard ${c.on ? "" : "disabled"}`}>
+                <div className="ic">{c.ic}</div>
+                <div className="t">{c.t}{!c.on && " · à venir"}</div>
+                <div className="d">{c.d}</div>
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </>
