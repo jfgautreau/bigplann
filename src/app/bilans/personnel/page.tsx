@@ -3,6 +3,7 @@ import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import PrintButton from "@/components/PrintButton";
 import OrdoMonthNav from "@/app/ordonnancement/OrdoMonthNav";
+import Bars from "@/app/bilans/Bars";
 import { requireModule } from "@/lib/permissions";
 import { parseMois, monthDays, monthLabel, isoDate, addDays } from "@/lib/week";
 
@@ -22,25 +23,6 @@ type Motif = { id: string; code_court: string; libelle: string; couleur: string 
 type Placement = { personne_id: string; poste_id: string | null; motif_absence_id: string | null };
 
 const fmtDate = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
-
-// Petit graphe a barres horizontales.
-function Bars({ items, accent }: { items: { label: string; n: number; color?: string }[]; accent?: string }) {
-  const max = Math.max(1, ...items.map((i) => i.n));
-  if (items.length === 0) return <p className="muted">Aucune donnée.</p>;
-  return (
-    <div>
-      {items.map((it, k) => (
-        <div className="barrow" key={k}>
-          <span className="lab">{it.label}</span>
-          <span className="track">
-            <span className="fill" style={{ width: `${(it.n / max) * 100}%`, background: it.color ?? accent ?? "var(--primary)" }} />
-          </span>
-          <span className="n">{it.n}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default async function PersonnelReport({ searchParams }: { searchParams: Promise<{ mois?: string }> }) {
   const { profile } = await requireModule("bilans", "read");
