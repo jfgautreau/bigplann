@@ -269,7 +269,7 @@ export default async function AffichageAtelier({
                       {p.nom}
                     </td>
                     {shownDays.map((d) => (
-                      <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top", background: colBg(d.iso), overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                      <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top", overflowWrap: "anywhere", wordBreak: "break-word" }}>
                         {cellPoste(p.id, d.iso)}
                       </td>
                     ))}
@@ -289,7 +289,7 @@ export default async function AffichageAtelier({
                     </span>
                   </td>
                   {shownDays.map((d) => (
-                    <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top", background: colBg(d.iso), overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                    <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top", overflowWrap: "anywhere", wordBreak: "break-word" }}>
                       {cellNom(p.id, d.iso)}
                     </td>
                   ))}

@@ -32,25 +32,52 @@ export default function PlanningNav({
   };
   const goMonth = (y: number, m: number) => goWeek(isoDate(mondayOf(new Date(y, m, 1))));
 
-  // Semaines dont le lundi tombe dans le mois (une semaine a cheval -> rattachee au mois de son lundi).
-  const last = new Date(navYear, navMonth + 1, 0);
-  const weeks: { num: number; iso: string }[] = [];
-  let mm = mondayOf(new Date(navYear, navMonth, 1));
-  while (mm <= last) {
-    weeks.push({ num: isoWeekNumber(mm), iso: isoDate(mm) });
-    mm = addDays(mm, 7);
+  // Bande continue de semaines centree sur la semaine affichee (decouplee des mois :
+  // plus de probleme de semaine a cheval). Chaque semaine = numero ISO + date du lundi.
+  const weeks: { num: number; iso: string; date: string }[] = [];
+  for (let k = -4; k <= 4; k++) {
+    const m = addDays(center, k * 7);
+    weeks.push({
+      num: isoWeekNumber(m),
+      iso: isoDate(m),
+      date: `${String(m.getDate()).padStart(2, "0")}/${String(m.getMonth() + 1).padStart(2, "0")}`,
+    });
   }
   const years = [navYear - 1, navYear, navYear + 1];
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth();
 
-  const monthBtn = (m: number) => (
-    <button key={m} type="button" className={m === navMonth ? "seg active" : "seg"} onClick={() => goMonth(navYear, m)}>
-      {MOIS[m]}
-    </button>
+  const greenDot = (
+    <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#16a34a", marginRight: 5, verticalAlign: "middle" }} />
   );
+
+  const monthBtn = (m: number) => {
+    const isCur = navYear === curYear && m === curMonth;
+    return (
+      <button key={m} type="button" className={m === navMonth ? "seg active" : "seg"} onClick={() => goMonth(navYear, m)}>
+        {isCur && m !== navMonth && greenDot}
+        {MOIS[m]}
+      </button>
+    );
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
-      {/* 1. Aujourd'hui + defilement + semaines */}
+      {/* 1. Annee */}
+      <div className="segments">
+        {years.map((y) => (
+          <button key={y} type="button" className={y === navYear ? "seg active" : "seg"} onClick={() => goMonth(y, navMonth)}>
+            {y === curYear && y !== navYear && greenDot}
+            {y}
+          </button>
+        ))}
+      </div>
+
+      {/* 2. Mois (12 sur une ligne) */}
+      <div className="segments">{[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(monthBtn)}</div>
+
+      {/* 3. Semaines (bande continue centree) sous les mois */}
       <div className="toolbar" style={{ alignItems: "center", gap: 6, margin: 0 }}>
         <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, -7)))} title="Semaine précédente">
           &lsaquo;
@@ -61,7 +88,6 @@ export default function PlanningNav({
         <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, 7)))} title="Semaine suivante">
           &rsaquo;
         </button>
-        <span className="muted" style={{ marginLeft: 4 }}>Semaines :</span>
         <div className="segments">
           {weeks.map((w) => {
             const isCenter = w.iso === centerIso;
@@ -72,29 +98,18 @@ export default function PlanningNav({
                 type="button"
                 className={isCenter ? "seg active" : "seg"}
                 onClick={() => goWeek(w.iso)}
-                title={isToday ? "Semaine en cours" : undefined}
+                title={isToday ? "Semaine en cours" : `Lundi ${w.date}`}
+                style={{ lineHeight: 1.1, padding: "4px 8px" }}
               >
-                {isToday && !isCenter && (
-                  <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#16a34a", marginRight: 5, verticalAlign: "middle" }} />
-                )}
+                {isToday && !isCenter && greenDot}
                 S{w.num}
+                <br />
+                <span style={{ fontSize: 10, fontWeight: 400, opacity: 0.75 }}>{w.date}</span>
               </button>
             );
           })}
         </div>
       </div>
-
-      {/* 2. Annee */}
-      <div className="segments">
-        {years.map((y) => (
-          <button key={y} type="button" className={y === navYear ? "seg active" : "seg"} onClick={() => goMonth(y, navMonth)}>
-            {y}
-          </button>
-        ))}
-      </div>
-
-      {/* 3. Mois (12 sur une ligne) */}
-      <div className="segments">{[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(monthBtn)}</div>
     </div>
   );
 }

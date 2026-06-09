@@ -133,7 +133,8 @@ export default function OrdoGrid({
   const tableStyle: React.CSSProperties = {
     borderCollapse: "collapse",
     tableLayout: "fixed",
-    width: FIRST_W + days.length * DAY_W,
+    width: "100%",
+    minWidth: FIRST_W + days.length * DAY_W,
   };
 
   const Header = ({ label, showReset = false }: { label: string; showReset?: boolean }) => (
@@ -178,7 +179,7 @@ export default function OrdoGrid({
       <tr>
         <th style={{ width: FIRST_W, textAlign: "left" }}>{label}</th>
         {days.map((d) => (
-          <th key={d.iso} style={{ width: DAY_W, textAlign: "center", ...sep(d), background: dayBg(d.iso) }}>
+          <th key={d.iso} style={{ textAlign: "center", ...sep(d), background: dayBg(d.iso) }}>
             {d.nom.slice(0, 2)}
             <br />
             <span className="muted" style={{ fontWeight: 400, fontSize: 10 }}>{d.num}</span>

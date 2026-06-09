@@ -551,7 +551,7 @@ export default function PlanningGrid({
                       style={{ fontSize: 12 }}
                     >
                       <option value="">—</option>
-                      <option value="X">NT</option>
+                      <option value="X" title="Non travaillé (repos)">NT</option>
                       {closedCurrent && (
                         <option value={v}>
                           {posteLabel[v] ?? posteLabelAll[v] ?? "?"}
