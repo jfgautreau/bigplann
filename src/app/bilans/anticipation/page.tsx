@@ -6,7 +6,14 @@ import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import { requireModule } from "@/lib/permissions";
 import { isoDate, addDays, mondayOf, isoWeekNumber } from "@/lib/week";
 
-type LigneRow = { id: string; nom: string; atelier_id: string | null; poste: { id: string; nom: string; actif: boolean; effectif_requis: number }[] };
+type LigneRow = { id: string; nom: string; atelier_id: string | null; poste: { id: string; nom: string; actif: boolean; effectif_requis: number; categorie: string }[] };
+
+const CATS = [
+  { key: "manager", label: "Managers" },
+  { key: "conducteur", label: "Conducteurs" },
+  { key: "operateur", label: "Opérateurs" },
+] as const;
+const JN = ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"];
 type Personne = { id: string; nom: string; prenom: string; type_contrat: string; date_fin: string | null };
 type Placement = { personne_id: string; jour: string; motif_absence_id: string | null };
 type Mat = { personne_id: string; poste_id: string; niveau_actuel: number };
@@ -33,7 +40,7 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   const supabase = await getServerClient();
   const [{ data: lignesD }, { data: quartsD }, { data: jqD }, { data: ovD }, { data: pqOffD }, { data: persD }, { data: plD }, { data: matD }, { data: atD }] =
     await Promise.all([
-      supabase.from("ligne").select("id, nom, atelier_id, poste(id, nom, actif, effectif_requis)").eq("actif", true).returns<LigneRow[]>(),
+      supabase.from("ligne").select("id, nom, atelier_id, poste(id, nom, actif, effectif_requis, categorie)").eq("actif", true).returns<LigneRow[]>(),
       supabase.from("quart").select("code").returns<{ code: string }[]>(),
       supabase.from("jour_quart").select("jour, quart_code, actif").in("jour", horizonIsos).returns<{ jour: string; quart_code: string; actif: boolean }[]>(),
       supabase.from("ouverture_quart").select("jour, ligne_id, quart_code, ouverte").in("jour", horizonIsos).returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
@@ -80,23 +87,66 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   for (const r of placements) if (r.motif_absence_id && r.jour >= todayIso) (absByDay.get(r.jour) ?? absByDay.set(r.jour, []).get(r.jour)!).push(persNom(r.personne_id));
   const contractEndedBy = (iso: string) => active.filter((p) => p.date_fin && p.date_fin < iso).length;
 
-  // ---- 4.1 Capacite vs charge a venir (par semaine) ----
-  const semaines = weeks.map((w) => {
-    let besoinTot = 0;
-    let tension = 0;
-    let margeMin = Infinity;
-    for (const iso of w.dayIsos) {
-      const besoin = besoinJour(iso);
-      if (besoin <= 0) continue;
-      besoinTot += besoin;
-      const dispo = activeCount - (absByDay.get(iso)?.length ?? 0) - contractEndedBy(iso);
-      const marge = dispo - besoin;
-      if (marge < 0) tension++;
-      margeMin = Math.min(margeMin, marge);
+  // ---- 4.1 Besoin vs competences disponibles, par jour et par categorie ----
+  const posteCat = new Map<string, string>();
+  for (const l of lignes) for (const p of l.poste ?? []) if (p.actif) posteCat.set(p.id, p.categorie ?? "operateur");
+
+  // Competents (niveau >= SEUIL) actifs, par categorie (un poste de la categorie suffit).
+  const competentByCat = new Map<string, Set<string>>(CATS.map((c) => [c.key, new Set<string>()]));
+  for (const r of matD ?? []) {
+    if (!activeIds.has(r.personne_id) || !scopedPosteIds.has(r.poste_id)) continue;
+    const c = posteCat.get(r.poste_id);
+    if (c && competentByCat.has(c)) competentByCat.get(c)!.add(r.personne_id);
+  }
+
+  // Absents (motif) par jour ; fins de contrat par personne.
+  const absSet = new Map<string, Set<string>>();
+  for (const r of placements) if (r.motif_absence_id) (absSet.get(r.jour) ?? absSet.set(r.jour, new Set()).get(r.jour)!).add(r.personne_id);
+  const finMap = new Map(active.map((p) => [p.id, p.date_fin]));
+
+  const besoinCat = (cat: string, iso: string) => {
+    let b = 0;
+    for (const q of quarts) {
+      if (!quartActif(q, iso)) continue;
+      for (const l of lignes) {
+        if (!ligneOuverte(l.id, q, iso)) continue;
+        for (const p of l.poste ?? []) if (p.actif && (p.categorie ?? "operateur") === cat && !pqOff.has(`${p.id}:${q}`)) b += p.effectif_requis ?? 0;
+      }
     }
-    return { ...w, besoinTot, tension, margeMin: margeMin === Infinity ? null : margeMin };
+    return b;
+  };
+  const besoinTotJour = (iso: string) => CATS.reduce((s, c) => s + besoinCat(c.key, iso), 0);
+  const dispoCat = (cat: string, iso: string) => {
+    const abs = absSet.get(iso);
+    let n = 0;
+    for (const id of competentByCat.get(cat) ?? []) {
+      if (abs?.has(id)) continue;
+      const fin = finMap.get(id);
+      if (fin && fin < iso) continue;
+      n++;
+    }
+    return n;
+  };
+
+  const horizonDays = horizonIsos.map((iso) => {
+    const dt = new Date(iso + "T00:00");
+    return { iso, nom: JN[(dt.getDay() + 6) % 7], num: String(dt.getDate()).padStart(2, "0"), week: isoWeekNumber(dt) };
   });
-  const joursTension = semaines.reduce((s, w) => s + w.tension, 0);
+  const openDays = horizonDays.filter((d) => besoinTotJour(d.iso) > 0);
+  const joursTension = openDays.filter((d) => CATS.some((c) => dispoCat(c.key, d.iso) < besoinCat(c.key, d.iso))).length;
+
+  // Blocs-semaine pour l'en-tete du tableau.
+  const weekBlocks: { label: string; span: number }[] = [];
+  const isWeekStart: boolean[] = [];
+  let prevW = -1;
+  openDays.forEach((d, i) => {
+    const start = d.week !== prevW;
+    isWeekStart[i] = start;
+    if (start) weekBlocks.push({ label: `S${d.week}`, span: 1 });
+    else weekBlocks[weekBlocks.length - 1].span++;
+    prevW = d.week;
+  });
+  const sepDay = (i: number): React.CSSProperties => (isWeekStart[i] ? { borderLeft: "2px solid #94a3b8" } : {});
 
   // ---- 4.2 Impact des absences connues (14 prochains jours) ----
   const prochainesAbsences = horizonIsos
@@ -141,31 +191,58 @@ export default async function AnticipationReport({ searchParams }: { searchParam
         <ReportAtelierFilter ateliers={atD ?? []} atelier={atelier} />
 
         <div className="kpi-grid">
-          <div className={`kpi ${joursTension > 0 ? "danger" : "ok"}`}><div className="v">{joursTension}</div><div className="l">Jours en tension</div><div className="s">capacité &lt; besoin (6 sem.)</div></div>
+          <div className={`kpi ${joursTension > 0 ? "danger" : "ok"}`}><div className="v">{joursTension}</div><div className="l">Jours en tension</div><div className="s">compétences dispo &lt; besoin</div></div>
           <div className={`kpi ${prochainesAbsences.length > 0 ? "warn" : "ok"}`}><div className="v">{prochainesAbsences.length}</div><div className="l">Jours avec absences saisies</div></div>
           <div className={`kpi ${postesMisEnRisque > 0 ? "danger" : "ok"}`}><div className="v">{postesMisEnRisque}</div><div className="l">Postes mis en risque</div><div className="s">par fins de contrat</div></div>
         </div>
 
-        {/* 4.1 Capacite vs charge */}
+        {/* 4.1 Besoin vs competences disponibles, par jour */}
         <div className="report-section">
-          <h2>Capacité vs charge à venir</h2>
-          <div className="card">
-            <table>
-              <thead><tr><th>Semaine</th><th style={{ textAlign: "center" }}>Besoin (slots)</th><th style={{ textAlign: "center" }}>Marge mini / jour</th><th style={{ textAlign: "center" }}>Jours en tension</th><th style={{ textAlign: "right" }}>État</th></tr></thead>
-              <tbody>
-                {semaines.map((w) => (
-                  <tr key={w.mon}>
-                    <td><strong>S{w.num}</strong> <span className="muted">· {fmtDate(w.mon)}</span></td>
-                    <td style={{ textAlign: "center" }}>{w.besoinTot || <span className="muted">non planifié</span>}</td>
-                    <td style={{ textAlign: "center", fontWeight: 700, color: w.margeMin !== null && w.margeMin < 0 ? "var(--danger)" : "var(--ok)" }}>{w.margeMin === null ? "—" : w.margeMin > 0 ? `+${w.margeMin}` : w.margeMin}</td>
-                    <td style={{ textAlign: "center" }}>{w.tension || "—"}</td>
-                    <td style={{ textAlign: "right" }}>{w.besoinTot === 0 ? <span className="muted">—</span> : w.tension > 0 ? <span className="rbadge danger">tension</span> : <span className="rbadge ok">ok</span>}</td>
+          <h2>Besoin vs compétences disponibles — par jour</h2>
+          <div className="card" style={{ overflowX: "auto" }}>
+            {openDays.length === 0 ? (
+              <p className="muted">Aucune journée planifiée sur l&apos;horizon (ordonnancement non initialisé).</p>
+            ) : (
+              <table className="matrix" style={{ borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th rowSpan={2} style={{ textAlign: "left", position: "sticky", left: 0, background: "#fff", minWidth: 120 }}>Catégorie</th>
+                    {weekBlocks.map((w, i) => (
+                      <th key={i} colSpan={w.span} style={{ textAlign: "center", borderLeft: "2px solid #94a3b8", background: "#f8fafc", fontSize: 12 }}>{w.label}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="muted" style={{ marginTop: 6 }}>
-              Besoin = ordonnancement (0 si la semaine n&apos;est pas encore initialisée). Capacité = actifs − absences déjà saisies − fins de contrat passées.
+                  <tr>
+                    {openDays.map((d, i) => (
+                      <th key={d.iso} style={{ width: 32, textAlign: "center", ...sepDay(i) }}>{d.nom}<br /><span className="muted" style={{ fontWeight: 400, fontSize: 9 }}>{d.num}</span></th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ background: "#f8fafc" }}>
+                    <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600, color: "var(--muted)" }}>Besoin total</td>
+                    {openDays.map((d, i) => (<td key={d.iso} style={{ textAlign: "center", color: "var(--muted)", fontWeight: 700, ...sepDay(i) }}>{besoinTotJour(d.iso)}</td>))}
+                  </tr>
+                  {CATS.map((c) => (
+                    <tr key={c.key}>
+                      <td style={{ position: "sticky", left: 0, background: "#fff", fontWeight: 600, whiteSpace: "nowrap" }}>{c.label}</td>
+                      {openDays.map((d, i) => {
+                        const disp = dispoCat(c.key, d.iso);
+                        const bes = besoinCat(c.key, d.iso);
+                        const manque = bes > 0 && disp < bes;
+                        return (
+                          <td key={d.iso} title={`${disp} dispo / ${bes} besoin`} style={{ textAlign: "center", fontWeight: 700, ...sepDay(i), color: manque ? "#7f1d1d" : bes === 0 ? "#cbd5e1" : "var(--ok)", background: manque ? "#fee2e2" : undefined }}>
+                            {disp}<span style={{ fontWeight: 400, fontSize: 11, opacity: 0.7 }}>/{bes}</span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="muted" style={{ marginTop: 8 }}>
+              <strong>Disponibles / besoin</strong> par catégorie et par jour. Disponibles = personnes actives compétentes (niveau ≥ {SEUIL}) non absentes (motif saisi) et hors fin de contrat. Besoin = ordonnancement. En{" "}
+              <span style={{ color: "#7f1d1d", background: "#fee2e2", padding: "0 4px" }}>rouge</span> quand les disponibles ne couvrent pas le besoin.
             </p>
           </div>
         </div>
