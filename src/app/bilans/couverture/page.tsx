@@ -3,27 +3,29 @@ import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import PrintButton from "@/components/PrintButton";
 import OrdoMonthNav from "@/app/ordonnancement/OrdoMonthNav";
+import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import { requireModule } from "@/lib/permissions";
 import { parseMois, monthDays, monthLabel } from "@/lib/week";
 
-type LigneRow = { id: string; poste: { id: string; actif: boolean; effectif_requis: number; niveau_min_requis: number }[] };
+type LigneRow = { id: string; atelier_id: string | null; poste: { id: string; actif: boolean; effectif_requis: number; niveau_min_requis: number }[] };
 type Placement = { personne_id: string; jour: string; poste_id: string | null; quart_code: string | null; motif_absence_id: string | null };
 type Named = { id: string; nom: string; prenom: string };
 
 const dow = (iso: string) => new Date(iso + "T00:00").getDay(); // 0 dim .. 6 sam
 const isWeekend = (iso: string) => dow(iso) === 0 || dow(iso) === 6;
 
-export default async function CouvertureReport({ searchParams }: { searchParams: Promise<{ mois?: string }> }) {
+export default async function CouvertureReport({ searchParams }: { searchParams: Promise<{ mois?: string; atelier?: string }> }) {
   const { profile } = await requireModule("bilans", "read");
   const sp = await searchParams;
+  const atelier = sp.atelier ?? "";
   const { year, month0 } = parseMois(sp.mois);
   const days = monthDays(year, month0);
   const isos = days.map((d) => d.iso);
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, { data: ovD }, { data: pqOffD }, { data: plD }, { data: matD }, { data: persD }] =
+  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, { data: ovD }, { data: pqOffD }, { data: plD }, { data: matD }, { data: persD }, { data: atD }] =
     await Promise.all([
-      supabase.from("ligne").select("id, poste(id, actif, effectif_requis, niveau_min_requis)").eq("actif", true).returns<LigneRow[]>(),
+      supabase.from("ligne").select("id, atelier_id, poste(id, actif, effectif_requis, niveau_min_requis)").eq("actif", true).returns<LigneRow[]>(),
       supabase.from("quart").select("code").returns<{ code: string }[]>(),
       supabase.from("jour_quart").select("jour, quart_code, actif").in("jour", isos).returns<{ jour: string; quart_code: string; actif: boolean }[]>(),
       supabase.from("ouverture_quart").select("jour, ligne_id, quart_code, ouverte").in("jour", isos).returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
@@ -31,6 +33,7 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
       supabase.from("placement").select("personne_id, jour, poste_id, quart_code, motif_absence_id").in("jour", isos).returns<Placement[]>(),
       supabase.from("matrice").select("personne_id, poste_id, niveau_actuel").returns<{ personne_id: string; poste_id: string; niveau_actuel: number }[]>(),
       supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").returns<Named[]>(),
+      supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<{ id: string; nom: string }[]>(),
     ]);
 
   const quarts = (quartsD ?? []).map((q) => q.code);
@@ -42,7 +45,8 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
   const quartActif = (q: string, iso: string) => actMap.get(`${q}:${iso}`) ?? false;
   const ligneOuverte = (lid: string, q: string, iso: string) => ouvMap.get(`${q}:${lid}:${iso}`) ?? true;
 
-  const lignes = lignesD ?? [];
+  const lignes = (lignesD ?? []).filter((l) => !atelier || l.atelier_id === atelier);
+  const scopedPosteIds = new Set(lignes.flatMap((l) => (l.poste ?? []).filter((p) => p.actif).map((p) => p.id)));
   // Besoin du jour = somme, sur les quarts actifs et lignes ouvertes, des effectifs
   // requis des postes actifs sur ce quart (poste_quart, defaut actif).
   const besoinJour = (iso: string) => {
@@ -61,7 +65,7 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
 
   const placements = plD ?? [];
   const presentJour = new Map<string, number>();
-  for (const r of placements) if (r.poste_id) presentJour.set(r.jour, (presentJour.get(r.jour) ?? 0) + 1);
+  for (const r of placements) if (r.poste_id && scopedPosteIds.has(r.poste_id)) presentJour.set(r.jour, (presentJour.get(r.jour) ?? 0) + 1);
 
   // ---- 3.1 Couverture vs besoin ----
   const jours = days.map((d) => {
@@ -103,7 +107,7 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
   // ---- 3.3 Equite de charge & rotation ----
   const charge = new Map<string, { jours: number; nuits: number; we: number; postes: Set<string> }>();
   for (const r of placements) {
-    if (!r.poste_id) continue;
+    if (!r.poste_id || !scopedPosteIds.has(r.poste_id)) continue;
     const c = charge.get(r.personne_id) ?? { jours: 0, nuits: 0, we: 0, postes: new Set<string>() };
     c.jours++;
     if (r.quart_code === "nuit") c.nuits++;
@@ -133,6 +137,7 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
           </div>
         </div>
 
+        <ReportAtelierFilter ateliers={atD ?? []} atelier={atelier} />
         <div className="noprint"><OrdoMonthNav base="/bilans/couverture" year={year} month0={month0} /></div>
 
         <div className="kpi-grid">

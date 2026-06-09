@@ -8,7 +8,8 @@ export default function Bars({
   accent?: string;
   suffix?: string;
 }) {
-  if (items.length === 0) return <p className="muted">Aucune donnée.</p>;
+  const total = items.reduce((s, i) => s + i.n, 0);
+  if (items.length === 0 || total === 0) return <p className="muted">Aucune donnée sur cette période / ce périmètre.</p>;
   const max = Math.max(1, ...items.map((i) => i.n));
   return (
     <div>

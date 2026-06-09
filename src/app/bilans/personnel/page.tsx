@@ -4,6 +4,7 @@ import AppHeader from "@/components/AppHeader";
 import PrintButton from "@/components/PrintButton";
 import OrdoMonthNav from "@/app/ordonnancement/OrdoMonthNav";
 import Bars from "@/app/bilans/Bars";
+import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import { requireModule } from "@/lib/permissions";
 import { parseMois, monthDays, monthLabel, isoDate, addDays } from "@/lib/week";
 
@@ -24,9 +25,10 @@ type Placement = { personne_id: string; poste_id: string | null; motif_absence_i
 
 const fmtDate = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
 
-export default async function PersonnelReport({ searchParams }: { searchParams: Promise<{ mois?: string }> }) {
+export default async function PersonnelReport({ searchParams }: { searchParams: Promise<{ mois?: string; atelier?: string }> }) {
   const { profile } = await requireModule("bilans", "read");
   const sp = await searchParams;
+  const atelier = sp.atelier ?? "";
   const { year, month0 } = parseMois(sp.mois);
   const days = monthDays(year, month0);
   const monthIsos = days.map((d) => d.iso);
@@ -42,12 +44,15 @@ export default async function PersonnelReport({ searchParams }: { searchParams: 
       .select("id, nom, prenom, statut, type_contrat, date_debut, date_fin, equipe_id, atelier_id")
       .returns<Personne[]>(),
     supabase.from("equipe").select("id, nom").returns<Named[]>(),
-    supabase.from("atelier").select("id, nom").returns<Named[]>(),
+    supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Named[]>(),
     supabase.from("motif_absence").select("id, code_court, libelle, couleur").order("libelle").returns<Motif[]>(),
     supabase.from("placement").select("personne_id, poste_id, motif_absence_id").in("jour", monthIsos).returns<Placement[]>(),
   ]);
 
-  const persons = persD ?? [];
+  const allPersons = persD ?? [];
+  const inAt = (p: Personne) => !atelier || p.atelier_id === atelier;
+  const persons = allPersons.filter(inAt);
+  const persAtelier = new Map(allPersons.map((p) => [p.id, p.atelier_id]));
   const active = persons.filter((p) => p.statut === "ACTIF");
   const eqNom = (id: string | null) => (id ? (eqD ?? []).find((e) => e.id === id)?.nom ?? "—" : "Sans équipe");
   const atNom = (id: string | null) => (id ? (atD ?? []).find((a) => a.id === id)?.nom ?? "—" : "Sans atelier");
@@ -74,7 +79,7 @@ export default async function PersonnelReport({ searchParams }: { searchParams: 
     .sort((a, b) => (a.date_fin ?? "").localeCompare(b.date_fin ?? ""));
 
   // ---- 1.2 Absentéisme (mois) ----
-  const placements = plD ?? [];
+  const placements = (plD ?? []).filter((r) => !atelier || persAtelier.get(r.personne_id) === atelier);
   const absDays = placements.filter((r) => r.motif_absence_id).length;
   const presentDays = placements.filter((r) => r.poste_id).length;
   const taux = absDays + presentDays > 0 ? Math.round((absDays / (absDays + presentDays)) * 1000) / 10 : 0;
@@ -116,6 +121,7 @@ export default async function PersonnelReport({ searchParams }: { searchParams: 
           </div>
         </div>
 
+        <ReportAtelierFilter ateliers={atD ?? []} atelier={atelier} />
         <div className="noprint">
           <OrdoMonthNav base="/bilans/personnel" year={year} month0={month0} />
         </div>

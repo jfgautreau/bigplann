@@ -3,11 +3,12 @@ import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import PrintButton from "@/components/PrintButton";
 import Bars from "@/app/bilans/Bars";
+import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import { requireModule } from "@/lib/permissions";
 import { isoDate, addDays } from "@/lib/week";
 
 type Named = { id: string; nom: string; prenom?: string };
-type LigneRow = { id: string; nom: string; poste: { id: string; nom: string; actif: boolean }[] };
+type LigneRow = { id: string; nom: string; atelier_id: string | null; poste: { id: string; nom: string; actif: boolean }[] };
 type Mat = { personne_id: string; poste_id: string; niveau_actuel: number; niveau_cible: number };
 type Comp = { id: string; nom: string; a_recycler: boolean };
 type PC = { personne_id: string; competence_id: string; date_expiration: string | null };
@@ -15,19 +16,22 @@ type PC = { personne_id: string; competence_id: string; date_expiration: string 
 const SEUIL = 2;
 const fmtDate = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
 
-export default async function PolyvalenceReport() {
+export default async function PolyvalenceReport({ searchParams }: { searchParams: Promise<{ atelier?: string }> }) {
   const { profile } = await requireModule("matrice", "read");
+  const sp = await searchParams;
+  const atelier = sp.atelier ?? "";
   const todayIso = isoDate(new Date());
   const in30 = isoDate(addDays(new Date(), 30));
   const in60 = isoDate(addDays(new Date(), 60));
 
   const supabase = await getServerClient();
-  const [{ data: persD }, { data: lignesD }, { data: matD }, { data: compD }, { data: pcD }] = await Promise.all([
+  const [{ data: persD }, { data: lignesD }, { data: matD }, { data: compD }, { data: pcD }, { data: atD }] = await Promise.all([
     supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").returns<Named[]>(),
-    supabase.from("ligne").select("id, nom, poste(id, nom, actif)").eq("actif", true).order("nom").returns<LigneRow[]>(),
+    supabase.from("ligne").select("id, nom, atelier_id, poste(id, nom, actif)").eq("actif", true).order("nom").returns<LigneRow[]>(),
     supabase.from("matrice").select("personne_id, poste_id, niveau_actuel, niveau_cible").returns<Mat[]>(),
     supabase.from("competence").select("id, nom, a_recycler").eq("actif", true).returns<Comp[]>(),
     supabase.from("personne_competence").select("personne_id, competence_id, date_expiration").returns<PC[]>(),
+    supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<{ id: string; nom: string }[]>(),
   ]);
 
   const active = persD ?? [];
@@ -37,13 +41,16 @@ export default async function PolyvalenceReport() {
     return p ? `${p.nom} ${p.prenom ?? ""}`.trim() : "?";
   };
 
-  const postes = (lignesD ?? []).flatMap((l) =>
+  // Postes du perimetre (filtre atelier via ligne.atelier_id).
+  const lignesScoped = (lignesD ?? []).filter((l) => !atelier || l.atelier_id === atelier);
+  const postes = lignesScoped.flatMap((l) =>
     (l.poste ?? []).filter((p) => p.actif).map((p) => ({ id: p.id, nom: p.nom, ligne: l.nom }))
   );
   const posteNom = new Map(postes.map((p) => [p.id, p]));
+  const scopedPosteIds = new Set(postes.map((p) => p.id));
 
-  // Matrice cote personnes actives.
-  const mat = (matD ?? []).filter((r) => activeIds.has(r.personne_id));
+  // Matrice cote personnes actives ET postes du perimetre.
+  const mat = (matD ?? []).filter((r) => activeIds.has(r.personne_id) && scopedPosteIds.has(r.poste_id));
 
   // ---- 2.1 Postes fragiles ----
   const compByPoste = new Map<string, string[]>(); // poste -> noms competents (>= seuil)
@@ -119,6 +126,8 @@ export default async function PolyvalenceReport() {
             <PrintButton />
           </div>
         </div>
+
+        <ReportAtelierFilter ateliers={atD ?? []} atelier={atelier} />
 
         <div className="kpi-grid">
           <div className={`kpi ${fragiles.length > 0 ? "warn" : "ok"}`}><div className="v">{fragiles.length}</div><div className="l">Postes fragiles</div><div className="s">≤ 1 personne compétente</div></div>

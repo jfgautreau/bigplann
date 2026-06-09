@@ -816,26 +816,88 @@ select.flat {
 .rbadge.ok { background: #dcfce7; color: #15803d; }
 
 /* Impression PDF propre */
+/* Impression PDF des rapports : compact, one-page A4 paysage, couleurs conservees. */
 @media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-size: 10px;
+  }
   .appheader,
   .noprint {
     display: none !important;
   }
-  body { background: #fff; }
   .container {
     max-width: none !important;
     height: auto !important;
     overflow: visible !important;
-    padding: 0 12px !important;
+    padding: 0 !important;
   }
-  .card,
-  .kpi,
-  .navcard,
-  .report-section,
-  table {
+  .report-head {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+  }
+  .report-head h1 { font-size: 16px; }
+  .report-head .sub { font-size: 9px; }
+
+  .kpi-grid {
+    gap: 6px;
+    margin-bottom: 10px;
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .kpi {
+    padding: 7px 9px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-top-width: 3px;
     box-shadow: none !important;
     break-inside: avoid;
   }
-  .report-section { page-break-inside: avoid; }
+  .kpi .v { font-size: 17px; }
+  .kpi .v small { font-size: 9px; }
+  .kpi .l { font-size: 8px; margin-top: 3px; }
+  .kpi .s { font-size: 8px; margin-top: 2px; }
+
+  .report-section {
+    margin-bottom: 9px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .report-section > h2 {
+    font-size: 12px;
+    margin-bottom: 5px;
+    padding-bottom: 4px;
+  }
+  .report-grid2 { gap: 8px; }
+  .card {
+    padding: 8px 10px;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+  .card h2 { font-size: 12px !important; }
+
+  table { font-size: 8.5px; }
+  th,
+  td { padding: 1.5px 6px !important; }
+
+  .barrow {
+    grid-template-columns: 130px 1fr 40px;
+    margin: 2px 0;
+    font-size: 8.5px;
+  }
+  .barrow .track { height: 12px; }
+
+  .rbadge { font-size: 8px; padding: 1px 6px; }
+
+  /* Cartes de navigation inutiles dans un PDF */
+  .navcards,
+  .navcard { display: none !important; }
+
   a { color: inherit; text-decoration: none; }
 }

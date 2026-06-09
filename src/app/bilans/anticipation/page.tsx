@@ -2,10 +2,11 @@ import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import PrintButton from "@/components/PrintButton";
+import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import { requireModule } from "@/lib/permissions";
 import { isoDate, addDays, mondayOf, isoWeekNumber } from "@/lib/week";
 
-type LigneRow = { id: string; nom: string; poste: { id: string; nom: string; actif: boolean; effectif_requis: number }[] };
+type LigneRow = { id: string; nom: string; atelier_id: string | null; poste: { id: string; nom: string; actif: boolean; effectif_requis: number }[] };
 type Personne = { id: string; nom: string; prenom: string; type_contrat: string; date_fin: string | null };
 type Placement = { personne_id: string; jour: string; motif_absence_id: string | null };
 type Mat = { personne_id: string; poste_id: string; niveau_actuel: number };
@@ -13,8 +14,10 @@ type Mat = { personne_id: string; poste_id: string; niveau_actuel: number };
 const SEUIL = 2;
 const fmtDate = (d: string) => d.split("-").reverse().join("/");
 
-export default async function AnticipationReport() {
+export default async function AnticipationReport({ searchParams }: { searchParams: Promise<{ atelier?: string }> }) {
   const { profile } = await requireModule("bilans", "read");
+  const sp = await searchParams;
+  const atelier = sp.atelier ?? "";
 
   const today = new Date();
   const todayIso = isoDate(today);
@@ -28,9 +31,9 @@ export default async function AnticipationReport() {
   const lastIso = horizonIsos[horizonIsos.length - 1];
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, { data: ovD }, { data: pqOffD }, { data: persD }, { data: plD }, { data: matD }] =
+  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, { data: ovD }, { data: pqOffD }, { data: persD }, { data: plD }, { data: matD }, { data: atD }] =
     await Promise.all([
-      supabase.from("ligne").select("id, nom, poste(id, nom, actif, effectif_requis)").eq("actif", true).returns<LigneRow[]>(),
+      supabase.from("ligne").select("id, nom, atelier_id, poste(id, nom, actif, effectif_requis)").eq("actif", true).returns<LigneRow[]>(),
       supabase.from("quart").select("code").returns<{ code: string }[]>(),
       supabase.from("jour_quart").select("jour, quart_code, actif").in("jour", horizonIsos).returns<{ jour: string; quart_code: string; actif: boolean }[]>(),
       supabase.from("ouverture_quart").select("jour, ligne_id, quart_code, ouverte").in("jour", horizonIsos).returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
@@ -38,6 +41,7 @@ export default async function AnticipationReport() {
       supabase.from("personne").select("id, nom, prenom, type_contrat, date_fin").eq("statut", "ACTIF").returns<Personne[]>(),
       supabase.from("placement").select("personne_id, jour, motif_absence_id").in("jour", horizonIsos).returns<Placement[]>(),
       supabase.from("matrice").select("personne_id, poste_id, niveau_actuel").gte("niveau_actuel", SEUIL).returns<Mat[]>(),
+      supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<{ id: string; nom: string }[]>(),
     ]);
 
   const quarts = (quartsD ?? []).map((q) => q.code);
@@ -48,7 +52,8 @@ export default async function AnticipationReport() {
   for (const r of ovD ?? []) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
   const quartActif = (q: string, iso: string) => actMap.get(`${q}:${iso}`) ?? false;
   const ligneOuverte = (lid: string, q: string, iso: string) => ouvMap.get(`${q}:${lid}:${iso}`) ?? true;
-  const lignes = lignesD ?? [];
+  const lignes = (lignesD ?? []).filter((l) => !atelier || l.atelier_id === atelier);
+  const scopedPosteIds = new Set(lignes.flatMap((l) => (l.poste ?? []).filter((p) => p.actif).map((p) => p.id)));
   const besoinJour = (iso: string) => {
     let b = 0;
     for (const q of quarts) {
@@ -101,11 +106,11 @@ export default async function AnticipationReport() {
 
   // ---- 4.3 Impact des fins de contrat sur la polyvalence ----
   const compByPoste = new Map<string, Set<string>>();
-  for (const r of matD ?? []) if (activeIds.has(r.personne_id)) (compByPoste.get(r.poste_id) ?? compByPoste.set(r.poste_id, new Set()).get(r.poste_id)!).add(r.personne_id);
+  for (const r of matD ?? []) if (activeIds.has(r.personne_id) && scopedPosteIds.has(r.poste_id)) (compByPoste.get(r.poste_id) ?? compByPoste.set(r.poste_id, new Set()).get(r.poste_id)!).add(r.personne_id);
   const posteNom = new Map<string, string>();
   for (const l of lignes) for (const p of l.poste ?? []) if (p.actif) posteNom.set(p.id, p.nom);
   const compByPers = new Map<string, string[]>();
-  for (const r of matD ?? []) if (activeIds.has(r.personne_id)) (compByPers.get(r.personne_id) ?? compByPers.set(r.personne_id, []).get(r.personne_id)!).push(r.poste_id);
+  for (const r of matD ?? []) if (activeIds.has(r.personne_id) && scopedPosteIds.has(r.poste_id)) (compByPers.get(r.personne_id) ?? compByPers.set(r.personne_id, []).get(r.personne_id)!).push(r.poste_id);
 
   const departs = active
     .filter((p) => p.type_contrat !== "CDI" && p.date_fin && p.date_fin >= todayIso && p.date_fin <= lastIso)
@@ -132,6 +137,8 @@ export default async function AnticipationReport() {
             <PrintButton />
           </div>
         </div>
+
+        <ReportAtelierFilter ateliers={atD ?? []} atelier={atelier} />
 
         <div className="kpi-grid">
           <div className={`kpi ${joursTension > 0 ? "danger" : "ok"}`}><div className="v">{joursTension}</div><div className="l">Jours en tension</div><div className="s">capacité &lt; besoin (6 sem.)</div></div>
