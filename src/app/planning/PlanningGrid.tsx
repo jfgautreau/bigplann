@@ -35,6 +35,7 @@ export default function PlanningGrid({
   quartLabel = {},
   posteLabelAll = {},
   exceptions = {},
+  weekNav = null,
 }: {
   days: Jour[];
   weekBlocks?: WeekBlock[];
@@ -54,6 +55,7 @@ export default function PlanningGrid({
   quartLabel?: Record<string, string>;
   posteLabelAll?: Record<string, string>;
   exceptions?: Record<string, { debut: string; fin: string; motif: string }>;
+  weekNav?: React.ReactNode;
 }) {
   const router = useRouter();
   const [vals, setVals] = useState<Record<string, string>>(initial);
@@ -363,7 +365,8 @@ export default function PlanningGrid({
         <Cols />
         <thead>
           <tr>
-            <th rowSpan={2} style={{ position: "sticky", left: 0, top: 0, zIndex: 25, background: "#fff", textAlign: "left", padding: "2px 8px" }}>
+            <th rowSpan={2} style={{ position: "sticky", left: 0, top: 0, zIndex: 25, background: "#fff", textAlign: "center", padding: "2px 6px" }}>
+              {weekNav}
               <button
                 type="button"
                 onClick={() => setShowInd((s) => !s)}

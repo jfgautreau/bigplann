@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import PlanningNav from "@/components/PlanningNav";
+import WeekNav from "@/components/WeekNav";
 import {
   parseMonday,
   weekDays,
@@ -349,7 +350,7 @@ export default async function PlanningPage({
         className="container"
         style={{ maxWidth: 1500, margin: "0 auto", padding: "12px 24px", height: "calc(100vh - 46px)", display: "flex", flexDirection: "column", overflow: "hidden" }}
       >
-        <div className="planning-top" style={{ justifyContent: "space-between", gap: 28, flexWrap: "wrap" }}>
+        <div className="planning-top" style={{ justifyContent: "space-between", gap: 28, flexWrap: "wrap", alignItems: "stretch" }}>
           {/* Partie gauche : Annee / Mois / Semaine */}
           <PlanningNav base="/planning" semaine={centerIso} extra={extra} />
           {/* Partie centrale : Equipe / Atelier / Quart (alignes sur les memes lignes) */}
@@ -364,12 +365,12 @@ export default async function PlanningPage({
             <AtelierFilter ateliers={ateliers} atelier={atelier} equipe={equipe} quart={quart} semaine={centerIso} />
             <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} atelier={atelier} />
           </div>
-          {/* Partie droite : liens */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <Link href="/horaires-specifiques" className="navlink" style={{ fontSize: 15, fontWeight: 600, padding: "10px 16px", border: "1px solid var(--border)", borderRadius: 10, whiteSpace: "nowrap" }}>
+          {/* Partie droite : liens (occupent la hauteur des 3 lignes de filtres) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, alignSelf: "stretch" }}>
+            <Link href="/horaires-specifiques" className="navlink" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 600, padding: "0 16px", border: "1px solid var(--border)", borderRadius: 10, whiteSpace: "nowrap" }}>
               🕐 Horaires spécifiques
             </Link>
-            <Link href="/absences-specifiques" className="navlink" style={{ fontSize: 15, fontWeight: 600, padding: "10px 16px", border: "1px solid var(--border)", borderRadius: 10, whiteSpace: "nowrap" }}>
+            <Link href="/absences-specifiques" className="navlink" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 600, padding: "0 16px", border: "1px solid var(--border)", borderRadius: 10, whiteSpace: "nowrap" }}>
               🤒 Absences spécifiques
             </Link>
           </div>
@@ -394,6 +395,7 @@ export default async function PlanningPage({
           quartLabel={quartLabel}
           posteLabelAll={posteLabelAll}
           exceptions={exceptions}
+          weekNav={<WeekNav base="/planning" semaine={centerIso} extra={extra} />}
         />
       </div>
     </>

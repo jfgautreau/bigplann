@@ -107,15 +107,26 @@ export default function MatrixGrid({
   const accentBg = mode === "actuel" ? "#dbeafe" : "#dcfce7";
   const accentFg = mode === "actuel" ? "#1d4ed8" : "#15803d";
   const sepL = (i: number) => (i === 0 ? "2px solid #d9dce1" : undefined);
+  // Colonne noms adaptative (px) partagee par les 2 tables -> colonnes alignees.
+  const nameW = Math.min(320, Math.max(150, personnes.reduce((m, p) => Math.max(m, p.label.length), 0) * 7.2 + 30));
+  const Cols = () => (
+    <colgroup>
+      <col style={{ width: nameW }} />
+      {groups.flatMap((g) => g.postes).map((p) => <col key={p.id} />)}
+    </colgroup>
+  );
+  const tStyle: React.CSSProperties = { borderCollapse: "collapse", width: "100%", tableLayout: "fixed" };
 
   return (
-    <div>
-      <div className="card" style={{ overflow: "auto", maxHeight: "calc(100vh - 240px)", position: "relative", padding: "6px 10px" }}>
+    <>
+      {/* Tableau 1 : en-tetes + bilan retractable (fixe) */}
+      <div className="card" style={{ overflowX: "hidden", overflowY: "auto", scrollbarGutter: "stable", position: "relative", padding: "6px 10px" }}>
         <div style={{ position: "absolute", top: 6, right: 12, fontSize: 12, fontWeight: 600, color: saveColor, minHeight: 16, zIndex: 30 }}>
           {saveLabel}
         </div>
 
-        <table className="matrix" style={{ borderCollapse: "collapse", width: "auto" }}>
+        <table className="matrix" style={tStyle}>
+          <Cols />
           <thead>
             <tr>
               <th rowSpan={2} style={{ position: "sticky", left: 0, top: 0, zIndex: 26, background: "#fff", textAlign: "left", verticalAlign: "top" }}>
@@ -204,17 +215,20 @@ export default function MatrixGrid({
                     </tr>
                   </Fragment>
                 ))}
-                {/* Separateur visuel bilan / personnes */}
-                <tr aria-hidden>
-                  <td colSpan={allPostes.length + 1} style={{ padding: 0, borderBottom: "2px solid #94a3b8" }} />
-                </tr>
               </>
             )}
+          </tbody>
+        </table>
+      </div>
 
-            {/* ---- Personnes ---- */}
+      {/* Tableau 2 : personnes (defile, hauteur limitee) */}
+      <div className="card" style={{ marginTop: 8, overflowX: "hidden", overflowY: "auto", scrollbarGutter: "stable", maxHeight: "calc(100vh - 250px)", padding: "0 10px" }}>
+        <table className="matrix" style={tStyle}>
+          <Cols />
+          <tbody>
             {personnes.map((pers) => (
               <tr key={pers.id}>
-                <td style={{ position: "sticky", left: 0, background: "#fff", whiteSpace: "nowrap", zIndex: 5 }}>
+                <td style={{ background: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {pers.label}
                   {!pers.editable && <span className="muted"> (lecture)</span>}
                 </td>
@@ -258,6 +272,6 @@ export default function MatrixGrid({
           </tbody>
         </table>
       </div>
-    </div>
+    </>
   );
 }

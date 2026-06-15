@@ -83,12 +83,9 @@ export default function PlanningNav({
         <div className="segments">{[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(monthBtn)}</div>
       </div>
 
-      {/* Semaine : navigation + bande continue centree */}
+      {/* Semaine : bande continue centree (navigation deplacee dans le bandeau dates) */}
       <div className="filterrow">
         <span className="lbl">Semaine</span>
-        <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, -7)))} title="Semaine précédente">&lsaquo;</button>
-        <button type="button" className="btn-sm" style={{ width: "auto" }} onClick={() => goWeek(todayMonday)}>Auj.</button>
-        <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, 7)))} title="Semaine suivante">&rsaquo;</button>
         <div className="segments">
           {weeks.map((w) => {
             const isCenter = w.iso === centerIso;

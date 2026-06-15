@@ -37,8 +37,8 @@ export default function MatricePanel({
 
   return (
     <>
-      {/* Tout sur une ligne : filtres atelier + equipe, mode, legende */}
-      <div className="toolbar" style={{ alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+      {/* Gauche : filtres · Centre : mode · Droite : legende */}
+      <div className="toolbar" style={{ alignItems: "center", gap: 16, flexWrap: "wrap", justifyContent: "space-between" }}>
         <MatriceFilters ateliers={ateliers} equipes={equipes} atelier={atelier} equipe={equipe} />
         <div className="modeswitch">
           <button type="button" className={mode === "actuel" ? "on-actuel" : ""} onClick={() => setMode("actuel")}>
