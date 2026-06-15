@@ -57,6 +57,7 @@ export default async function MatricePage({
     { data: lignesData },
     { data: persData },
     { data: chefData },
+    { data: nivData },
   ] = await Promise.all([
     supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
     supabase.from("equipe").select("id, nom").eq("actif", true).order("nom").returns<Equipe[]>(),
@@ -65,7 +66,9 @@ export default async function MatricePage({
     isAdmin
       ? Promise.resolve({ data: [] as { equipe_id: string }[] })
       : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
+    supabase.from("competence_niveau_libelle").select("niveau, libelle").order("niveau").returns<{ niveau: number; libelle: string }[]>(),
   ]);
+  const niveauLibelles = nivData ?? [];
   const ateliers = ateliersData ?? [];
   const equipes = equipesData ?? [];
   const personnes = persData ?? [];
@@ -130,6 +133,7 @@ export default async function MatricePage({
           equipes={equipes.map((e) => ({ id: e.id, label: e.nom }))}
           atelier={sp.atelier ?? ""}
           equipe={sp.equipe ?? ""}
+          niveauLibelles={niveauLibelles}
         />
       </div>
     </>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import MatriceFilters from "./MatriceFilters";
 import MatrixGrid from "./MatrixGrid";
+import LegendeModal from "./LegendeModal";
 
 type Poste = { id: string; nom: string; objectifActuel?: number; objectifCible?: number };
 type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
@@ -19,6 +20,7 @@ export default function MatricePanel({
   equipes,
   atelier,
   equipe,
+  niveauLibelles,
 }: {
   groups: Group[];
   personnes: Personne[];
@@ -28,16 +30,20 @@ export default function MatricePanel({
   equipes: Opt[];
   atelier: string;
   equipe: string;
+  niveauLibelles: { niveau: number; libelle: string }[];
 }) {
   const [mode, setMode] = useState<"actuel" | "cible">("actuel");
+  const [showLegende, setShowLegende] = useState(false);
 
   return (
     <>
-      {/* Filtres (gauche) + bascule Actuel/Cible (droite), meme ligne */}
-      <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
+      {/* Filtres (gauche) + Legende & bascule Actuel/Cible (droite) */}
+      <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
         <MatriceFilters ateliers={ateliers} equipes={equipes} atelier={atelier} equipe={equipe} />
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className="muted">Je saisis :</span>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <button type="button" className="btn-sm btn-ghost" style={{ width: "auto" }} onClick={() => setShowLegende(true)}>
+            📖 Légende
+          </button>
           <div className="modeswitch">
             <button type="button" className={mode === "actuel" ? "on-actuel" : ""} onClick={() => setMode("actuel")}>
               Niveau actuel
@@ -59,6 +65,8 @@ export default function MatricePanel({
           <MatrixGrid groups={groups} personnes={personnes} initial={initial} canEditObjectif={canEditObjectif} mode={mode} />
         </>
       )}
+
+      {showLegende && <LegendeModal niveauLibelles={niveauLibelles} onClose={() => setShowLegende(false)} />}
     </>
   );
 }
