@@ -342,7 +342,7 @@ export default function PlanningGrid({
   });
 
   return (
-    <div className="card" style={{ overflow: "auto", flex: 1, minHeight: 0, position: "relative", padding: "6px 12px" }}>
+    <div className="card" style={{ overflowX: "hidden", overflowY: "auto", flex: 1, minHeight: 0, position: "relative", padding: "6px 12px" }}>
       <div
         style={{
           position: "absolute",
@@ -356,7 +356,11 @@ export default function PlanningGrid({
         {saving === "saving" ? "Enregistrement..." : saving === "saved" ? "Enregistré" : saving === "error" ? "Échec" : ""}
       </div>
 
-      <table className="matrix" style={{ borderCollapse: "collapse" }}>
+      <table className="matrix" style={{ borderCollapse: "collapse", width: "100%", tableLayout: "fixed" }}>
+        <colgroup>
+          <col style={{ width: "15%" }} />
+          {days.map((d) => <col key={d.iso} style={{ width: `${85 / Math.max(1, days.length)}%` }} />)}
+        </colgroup>
         <thead>
           <tr>
             <th rowSpan={2} style={{ position: "sticky", left: 0, top: 0, zIndex: 25, background: "#fff", textAlign: "left", padding: "2px 8px" }}>
@@ -412,7 +416,7 @@ export default function PlanningGrid({
           </tr>
           <tr>
             {days.map((d) => (
-              <th key={d.iso} style={{ textAlign: "center", minWidth: 58, padding: "2px 4px", position: "sticky", top: 26, zIndex: 20, ...sep(d), borderBottom: "2px solid #94a3b8", background: isToday(d) ? "#dbeafe" : "#fff" }}>
+              <th key={d.iso} style={{ textAlign: "center", padding: "2px 2px", position: "sticky", top: 26, zIndex: 20, ...sep(d), borderBottom: "2px solid #94a3b8", background: isToday(d) ? "#dbeafe" : "#fff" }}>
                 {d.nom.slice(0, 2)}
                 <br />
                 <span className="muted" style={{ fontWeight: 400 }}>{d.num}</span>
@@ -513,7 +517,7 @@ export default function PlanningGrid({
 
           {personnes.map((pers) => (
             <tr key={pers.id}>
-              <td style={{ position: "sticky", left: 0, background: "#fff", whiteSpace: "nowrap" }}>
+              <td style={{ position: "sticky", left: 0, background: "#fff", whiteSpace: "normal", lineHeight: 1.15 }}>
                 <span
                   style={{
                     display: "inline-block",
