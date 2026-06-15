@@ -46,7 +46,6 @@ const monthsBetween = (a: string, b: string) => {
   return m;
 };
 
-// Sexe : Homme = bleu, Femme = rose.
 const sexeBg = (x: string | null) => (x === "H" ? "#dbeafe" : x === "F" ? "#fce7f3" : undefined);
 const sexeFg = (x: string | null) => (x === "H" ? "#1d4ed8" : x === "F" ? "#db2777" : undefined);
 function SexePill({ sexe }: { sexe: string | null }) {
@@ -58,22 +57,24 @@ function SexePill({ sexe }: { sexe: string | null }) {
 type ColKey =
   | "type_contrat" | "matricule" | "numero_badge" | "nom" | "prenom" | "sexe"
   | "equipe" | "atelier" | "date_livret_accueil" | "date_fin" | "alerte" | "pointure" | "tp" | "statut";
-const COLS: { key: ColKey; label: string; search?: boolean }[] = [
-  { key: "type_contrat", label: "Contrat" },
-  { key: "matricule", label: "Matricule", search: true },
-  { key: "numero_badge", label: "Badge", search: true },
-  { key: "nom", label: "Nom", search: true },
-  { key: "prenom", label: "Prénom", search: true },
-  { key: "sexe", label: "H/F" },
-  { key: "equipe", label: "Équipe", search: true },
-  { key: "atelier", label: "Atelier", search: true },
-  { key: "date_livret_accueil", label: "Livret accueil" },
-  { key: "date_fin", label: "Fin contrat" },
-  { key: "alerte", label: "⚠ 18 mois" },
-  { key: "pointure", label: "Pointure" },
-  { key: "tp", label: "TP" },
-  { key: "statut", label: "Statut" },
+const COLS: { key: ColKey; label: string; w: number; search?: boolean }[] = [
+  { key: "type_contrat", label: "Contrat", w: 6, search: true },
+  { key: "matricule", label: "Matricule", w: 7, search: true },
+  { key: "numero_badge", label: "Badge", w: 6, search: true },
+  { key: "nom", label: "Nom", w: 11, search: true },
+  { key: "prenom", label: "Prénom", w: 10, search: true },
+  { key: "sexe", label: "H/F", w: 4, search: true },
+  { key: "equipe", label: "Équipe", w: 6, search: true },
+  { key: "atelier", label: "Atelier", w: 6, search: true },
+  { key: "date_livret_accueil", label: "Livret accueil", w: 8.5 },
+  { key: "date_fin", label: "Fin contrat", w: 8.5 },
+  { key: "alerte", label: "⚠ 18 mois", w: 5 },
+  { key: "pointure", label: "Pointure", w: 5, search: true },
+  { key: "tp", label: "TP", w: 5 },
+  { key: "statut", label: "Statut", w: 6.5, search: true },
 ];
+// Colonnes dont le contenu est centre.
+const CENTER = new Set<ColKey>(["type_contrat", "matricule", "numero_badge", "sexe", "equipe", "atelier", "tp", "pointure"]);
 
 export default function PersonnelEditor({
   initial,
@@ -87,7 +88,7 @@ export default function PersonnelEditor({
   canEdit: boolean;
 }) {
   const [rows, setRows] = useState<Row[]>(initial);
-  const [gq, setGq] = useState("");
+  const [q, setQ] = useState<Record<string, string>>({});
   const [contratFilter, setContratFilter] = useState("");
   const [tpFor, setTpFor] = useState<Row | null>(null);
   const [contratsFor, setContratsFor] = useState<Row | null>(null);
@@ -96,7 +97,7 @@ export default function PersonnelEditor({
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const today = todayStr();
 
-  // Ligne d'insertion (en haut du tableau)
+  // Ligne d'insertion
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
   const [sexe, setSexe] = useState("");
@@ -116,7 +117,6 @@ export default function PersonnelEditor({
     return c ? { background: c, color: "#fff", fontWeight: 600 } : {};
   };
 
-  // Alerte > 18 mois (hors CDI). Reference = fin de contrat si connue, sinon aujourd'hui.
   const alerte18 = (r: Row): number | null => {
     if (r.type_contrat === "CDI" || !r.contrat_debut) return null;
     const m = monthsBetween(r.contrat_debut, r.date_fin ?? today);
@@ -162,28 +162,14 @@ export default function PersonnelEditor({
   async function add() {
     if (!nom.trim() || !prenom.trim()) return;
     const j = await post("create", {
-      nom: nom.trim(),
-      prenom: prenom.trim(),
-      sexe,
-      matricule,
-      numero_badge: badge,
-      equipe_id: eq,
-      atelier_id: at,
-      type_contrat: contrat,
-      date_debut: today,
-      date_fin: dateFin,
-      date_livret_accueil: livret,
-      pointure,
+      nom: nom.trim(), prenom: prenom.trim(), sexe, matricule, numero_badge: badge,
+      equipe_id: eq, atelier_id: at, type_contrat: contrat, date_debut: today,
+      date_fin: dateFin, date_livret_accueil: livret, pointure,
     });
     if (j?.row) {
       const created: Row = {
-        ...(j.row as Row),
-        atelier_id: at || null,
-        sexe: sexe || null,
-        numero_badge: badge || null,
-        date_livret_accueil: livret || null,
-        date_debut: today,
-        contrat_debut: today,
+        ...(j.row as Row), atelier_id: at || null, sexe: sexe || null, numero_badge: badge || null,
+        date_livret_accueil: livret || null, date_debut: today, contrat_debut: today,
       };
       setRows((rs) => [...rs, created].sort(sortRows));
       setNom(""); setPrenom(""); setSexe(""); setMatricule(""); setBadge("");
@@ -191,139 +177,150 @@ export default function PersonnelEditor({
     }
   }
 
-  const needle = gq.trim().toLowerCase();
+  const cellText = (r: Row, key: ColKey): string => {
+    switch (key) {
+      case "type_contrat": return (r.type_contrat === "INTERIM" ? "intérim interim" : r.type_contrat).toLowerCase();
+      case "matricule": return (r.matricule ?? "").toLowerCase();
+      case "numero_badge": return (r.numero_badge ?? "").toLowerCase();
+      case "nom": return r.nom.toLowerCase();
+      case "prenom": return r.prenom.toLowerCase();
+      case "sexe": return (r.sexe ?? "").toLowerCase();
+      case "equipe": return equipeNom(r.equipe_id).toLowerCase();
+      case "atelier": return atelierNom(r.atelier_id).toLowerCase();
+      case "pointure": return (r.pointure ?? "").toLowerCase();
+      case "statut": return (r.statut === "ACTIF" ? "actif" : "parti");
+      default: return "";
+    }
+  };
   const filtered = rows.filter((r) => {
     if (contratFilter && r.type_contrat !== contratFilter) return false;
-    if (!needle) return true;
-    const hay = `${r.nom} ${r.prenom} ${r.matricule ?? ""} ${r.numero_badge ?? ""} ${equipeNom(r.equipe_id)} ${atelierNom(r.atelier_id)} ${r.type_contrat}`.toLowerCase();
-    return hay.includes(needle);
+    return COLS.every((c) => {
+      const needle = (q[c.key] ?? "").trim().toLowerCase();
+      return !needle || cellText(r, c.key).includes(needle);
+    });
   });
 
   const saveLabel =
     save === "saving" ? "Enregistrement…" : save === "saved" ? "Enregistré ✓" : save === "error" ? "Échec d'enregistrement" : "";
   const saveColor = save === "error" ? "var(--danger)" : save === "saved" ? "var(--ok)" : "var(--muted)";
   const inp: React.CSSProperties = { width: "100%", fontSize: 13, padding: "3px 4px" };
+  const C = (k: ColKey): React.CSSProperties => (CENTER.has(k) ? { textAlign: "center", textAlignLast: "center" } : {});
   const interimStyle = (t: string) => (t === "INTERIM" ? { background: "#fde68a", color: "#92400e", fontWeight: 600 } : {});
 
   const counts = { tous: rows.length, ...Object.fromEntries(CONTRATS.map((c) => [c, rows.filter((r) => r.type_contrat === c).length])) } as Record<string, number>;
 
+  const Cols = () => (
+    <colgroup>
+      {COLS.map((c) => <col key={c.key} style={{ width: `${c.w}%` }} />)}
+      {canEdit && <col style={{ width: "5.5%" }} />}
+    </colgroup>
+  );
+  const tableStyle: React.CSSProperties = { width: "100%", tableLayout: "fixed", margin: 0, borderCollapse: "collapse" };
+
   return (
     <div>
       {/* Barre de filtres */}
-      <div className="toolbar" style={{ alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+      <div className="toolbar" style={{ alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span className="muted" style={{ fontWeight: 600 }}>Contrat :</span>
           <div className="segments">
-            <button type="button" className={contratFilter === "" ? "seg active" : "seg"} onClick={() => setContratFilter("")}>
-              Tous ({counts.tous})
-            </button>
+            <button type="button" className={contratFilter === "" ? "seg active" : "seg"} onClick={() => setContratFilter("")}>Tous ({counts.tous})</button>
             {CONTRATS.map((c) => (
               <button key={c} type="button" className={contratFilter === c ? "seg active" : "seg"} onClick={() => setContratFilter(c)}>
                 {c === "INTERIM" ? "Intérim" : c} ({counts[c] ?? 0})
               </button>
             ))}
           </div>
-          <input value={gq} onChange={(e) => setGq(e.target.value)} placeholder="🔍 Rechercher (nom, matricule, équipe…)" style={{ width: 300, fontSize: 13, padding: "5px 8px" }} />
         </div>
         <span style={{ minHeight: 16, fontSize: 12, fontWeight: 600, color: saveColor }}>{saveLabel}</span>
       </div>
 
-      <div className="card" style={{ overflowX: "auto" }}>
-        <table className="sticky-head pers-table">
+      {/* Tableau 1 (fixe) : entetes + recherche + creation */}
+      <div className="card" style={{ padding: "6px 10px", overflowY: "auto", scrollbarGutter: "stable" }}>
+        <table className="pers-table" style={tableStyle}>
+          <Cols />
           <thead>
             <tr>
-              {COLS.map((c) => (<th key={c.key} style={{ whiteSpace: "nowrap", minWidth: c.key === "nom" || c.key === "prenom" ? 130 : undefined }}>{c.label}</th>))}
+              {COLS.map((c) => <th key={c.key} style={{ whiteSpace: "nowrap" }}>{c.label}</th>)}
               {canEdit && <th></th>}
             </tr>
+            <tr>
+              {COLS.map((c) => (
+                <th key={c.key} style={{ padding: "2px 4px" }}>
+                  {c.search && (
+                    <span style={{ position: "relative", display: "block" }}>
+                      <input
+                        value={q[c.key] ?? ""}
+                        onChange={(e) => setQ((s) => ({ ...s, [c.key]: e.target.value }))}
+                        placeholder="🔍"
+                        style={{ width: "100%", fontSize: 11, padding: "3px 16px 3px 4px", fontWeight: 400, ...C(c.key) }}
+                      />
+                      {(q[c.key] ?? "") !== "" && (
+                        <button type="button" onClick={() => setQ((s) => ({ ...s, [c.key]: "" }))} title="Effacer"
+                          style={{ position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)", width: "auto", margin: 0, padding: 0, border: "none", background: "transparent", cursor: "pointer", fontSize: 11, lineHeight: 1, color: "var(--muted)" }}>✕</button>
+                      )}
+                    </span>
+                  )}
+                </th>
+              ))}
+              {canEdit && <th style={{ padding: "2px 4px" }}></th>}
+            </tr>
           </thead>
-          <tbody>
-            {/* Ligne d'insertion d'une nouvelle personne */}
-            {canEdit && (
-              <tr className="pers-add">
-                <td>
-                  <select value={contrat} onChange={(e) => setContrat(e.target.value)} style={{ ...inp, ...interimStyle(contrat) }}>
-                    {CONTRATS.map((c) => (<option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>))}
-                  </select>
-                </td>
-                <td><input value={matricule} onChange={(e) => setMatricule(e.target.value)} placeholder="(auto intérim)" style={inp} /></td>
-                <td><input value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="badge" style={inp} /></td>
-                <td><input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom *" style={{ ...inp, minWidth: 125 }} /></td>
-                <td><input value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Prénom *" style={{ ...inp, minWidth: 125 }} /></td>
-                <td>
-                  <select value={sexe} onChange={(e) => setSexe(e.target.value)} style={{ ...inp, width: 42, background: sexeBg(sexe || null), color: sexeFg(sexe || null), fontWeight: 600 }}>
-                    <option value="">-</option><option value="H">H</option><option value="F">F</option>
-                  </select>
-                </td>
-                <td>
-                  <select value={eq} onChange={(e) => setEq(e.target.value)} style={{ ...inp, ...eqStyle(eq || null) }}>
-                    <option value="">-</option>
-                    {equipes.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}
-                  </select>
-                </td>
-                <td>
-                  <select value={at} onChange={(e) => setAt(e.target.value)} style={inp}>
-                    <option value="">-</option>
-                    {ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}
-                  </select>
-                </td>
+          {canEdit && (
+            <tbody>
+              <tr style={{ background: "#eff6ff" }}>
+                <td><select value={contrat} onChange={(e) => setContrat(e.target.value)} style={{ ...inp, ...C("type_contrat"), ...interimStyle(contrat) }}>{CONTRATS.map((c) => (<option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>))}</select></td>
+                <td><input value={matricule} onChange={(e) => setMatricule(e.target.value)} placeholder="auto" style={{ ...inp, ...C("matricule") }} /></td>
+                <td><input value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="badge" style={{ ...inp, ...C("numero_badge") }} /></td>
+                <td><input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom *" style={inp} /></td>
+                <td><input value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Prénom *" style={inp} /></td>
+                <td><select value={sexe} onChange={(e) => setSexe(e.target.value)} style={{ ...inp, ...C("sexe"), background: sexeBg(sexe || null), color: sexeFg(sexe || null), fontWeight: 600 }}><option value="">-</option><option value="H">H</option><option value="F">F</option></select></td>
+                <td><select value={eq} onChange={(e) => setEq(e.target.value)} style={{ ...inp, ...C("equipe"), ...eqStyle(eq || null) }}><option value="">-</option>{equipes.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
+                <td><select value={at} onChange={(e) => setAt(e.target.value)} style={{ ...inp, ...C("atelier") }}><option value="">-</option>{ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
                 <td><input type="date" value={livret} onChange={(e) => setLivret(e.target.value)} style={inp} /></td>
                 <td><input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={inp} /></td>
                 <td></td>
-                <td><input value={pointure} maxLength={5} onChange={(e) => setPointure(e.target.value)} placeholder="42" style={{ ...inp, width: 56 }} /></td>
-                <td className="muted" style={{ textAlign: "center", fontSize: 11 }}>après création</td>
+                <td><input value={pointure} maxLength={5} onChange={(e) => setPointure(e.target.value)} placeholder="42" style={{ ...inp, ...C("pointure") }} /></td>
+                <td className="muted" style={{ textAlign: "center", fontSize: 11 }}>après</td>
                 <td></td>
-                <td>
-                  <button type="button" onClick={add} disabled={!nom.trim() || !prenom.trim()} className="btn-sm" style={{ width: "auto", whiteSpace: "nowrap" }} title="Créer la personne">
-                    ＋ Créer
-                  </button>
-                </td>
+                <td><button type="button" onClick={add} disabled={!nom.trim() || !prenom.trim()} className="btn-sm" style={{ width: "auto", whiteSpace: "nowrap" }} title="Créer la personne">＋ Créer</button></td>
               </tr>
-            )}
+            </tbody>
+          )}
+        </table>
+      </div>
 
+      {/* Tableau 2 (scrollable) : liste des personnes */}
+      <div className="card" style={{ marginTop: 8, padding: "0 10px", maxHeight: "calc(100vh - 300px)", overflowY: "auto", scrollbarGutter: "stable" }}>
+        <table className="pers-table" style={tableStyle}>
+          <Cols />
+          <tbody>
             {filtered.map((r) => {
               const a18 = alerte18(r);
               return (
                 <tr key={r.id} style={{ opacity: r.statut === "ACTIF" ? 1 : 0.55 }}>
                   {canEdit ? (
                     <>
-                      <td>
-                        <select value={r.type_contrat} onChange={(e) => field(r.id, "type_contrat", e.target.value, true)} style={{ ...inp, ...interimStyle(r.type_contrat) }}>
-                          {CONTRATS.map((c) => (<option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>))}
-                        </select>
-                      </td>
-                      <td><input value={r.matricule ?? ""} onChange={(e) => field(r.id, "matricule", e.target.value)} style={inp} /></td>
-                      <td><input value={r.numero_badge ?? ""} onChange={(e) => field(r.id, "numero_badge", e.target.value)} style={inp} /></td>
-                      <td><input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={{ ...inp, minWidth: 125 }} /></td>
-                      <td><input value={r.prenom} onChange={(e) => field(r.id, "prenom", e.target.value)} style={{ ...inp, minWidth: 125 }} /></td>
-                      <td>
-                        <select value={r.sexe ?? ""} onChange={(e) => field(r.id, "sexe", e.target.value, true)} style={{ ...inp, width: 42, background: sexeBg(r.sexe), color: sexeFg(r.sexe), fontWeight: 600 }}>
-                          <option value="">-</option><option value="H">H</option><option value="F">F</option>
-                        </select>
-                      </td>
-                      <td>
-                        <select value={r.equipe_id ?? ""} onChange={(e) => field(r.id, "equipe_id", e.target.value, true)} style={{ ...inp, ...eqStyle(r.equipe_id) }}>
-                          <option value="">-</option>
-                          {equipes.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}
-                        </select>
-                      </td>
-                      <td>
-                        <select value={r.atelier_id ?? ""} onChange={(e) => field(r.id, "atelier_id", e.target.value, true)} style={inp}>
-                          <option value="">-</option>
-                          {ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}
-                        </select>
-                      </td>
+                      <td><select value={r.type_contrat} onChange={(e) => field(r.id, "type_contrat", e.target.value, true)} style={{ ...inp, ...C("type_contrat"), ...interimStyle(r.type_contrat) }}>{CONTRATS.map((c) => (<option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>))}</select></td>
+                      <td><input value={r.matricule ?? ""} onChange={(e) => field(r.id, "matricule", e.target.value)} style={{ ...inp, ...C("matricule") }} /></td>
+                      <td><input value={r.numero_badge ?? ""} onChange={(e) => field(r.id, "numero_badge", e.target.value)} style={{ ...inp, ...C("numero_badge") }} /></td>
+                      <td><input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={inp} /></td>
+                      <td><input value={r.prenom} onChange={(e) => field(r.id, "prenom", e.target.value)} style={inp} /></td>
+                      <td><select value={r.sexe ?? ""} onChange={(e) => field(r.id, "sexe", e.target.value, true)} style={{ ...inp, ...C("sexe"), background: sexeBg(r.sexe), color: sexeFg(r.sexe), fontWeight: 600 }}><option value="">-</option><option value="H">H</option><option value="F">F</option></select></td>
+                      <td><select value={r.equipe_id ?? ""} onChange={(e) => field(r.id, "equipe_id", e.target.value, true)} style={{ ...inp, ...C("equipe"), ...eqStyle(r.equipe_id) }}><option value="">-</option>{equipes.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
+                      <td><select value={r.atelier_id ?? ""} onChange={(e) => field(r.id, "atelier_id", e.target.value, true)} style={{ ...inp, ...C("atelier") }}><option value="">-</option>{ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
                       <td><input type="date" value={r.date_livret_accueil ?? ""} onChange={(e) => field(r.id, "date_livret_accueil", e.target.value, true)} style={inp} /></td>
                       <td style={{ textAlign: "center", whiteSpace: "nowrap", color: "var(--muted)" }} title="Fin du contrat le plus récent (gérée sur la fiche)">
                         {fmtDate(r.date_fin)}
-                        <button type="button" onClick={() => setContratsFor(r)} title="Voir tous les contrats" style={{ width: "auto", margin: "0 0 0 4px", padding: "1px 4px", background: "transparent", border: "none", cursor: "pointer", fontSize: 13 }}>🔍</button>
+                        <button type="button" onClick={() => setContratsFor(r)} title="Voir tous les contrats" style={{ width: "auto", margin: "0 0 0 3px", padding: "1px 3px", background: "transparent", border: "none", cursor: "pointer", fontSize: 13 }}>🔍</button>
                       </td>
                       <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Contrat de ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
-                      <td><input value={r.pointure ?? ""} maxLength={5} onChange={(e) => field(r.id, "pointure", e.target.value)} style={{ ...inp, width: 56 }} /></td>
+                      <td><input value={r.pointure ?? ""} maxLength={5} onChange={(e) => field(r.id, "pointure", e.target.value)} style={{ ...inp, ...C("pointure") }} /></td>
                       <td style={{ textAlign: "center" }}>
                         {r.temps_partiel ? (
                           <span className="sexe-pill" style={{ background: "#e0e7ff", color: "#3730a3", cursor: "pointer" }} onClick={() => setTpFor(r)} title="Configurer le temps partiel">TP</span>
                         ) : (
-                          <button type="button" className="btn-sm btn-ghost" onClick={() => setTpFor(r)} style={{ padding: "2px 8px" }} title="Activer le temps partiel">TP…</button>
+                          <button type="button" className="btn-sm btn-ghost" onClick={() => setTpFor(r)} style={{ padding: "2px 6px" }} title="Activer le temps partiel">TP…</button>
                         )}
                       </td>
                       <td><ToggleSwitch on={r.statut === "ACTIF"} onChange={(v) => toggleStatut(r.id, v)} onLabel="Actif" offLabel="Parti" title="Actif / Parti" /></td>
@@ -331,21 +328,21 @@ export default function PersonnelEditor({
                     </>
                   ) : (
                     <>
-                      <td>{r.type_contrat === "INTERIM" ? <span className="sexe-pill" style={{ background: "#fde68a", color: "#92400e" }}>Intérim</span> : r.type_contrat}</td>
-                      <td>{r.matricule || "-"}</td>
-                      <td>{r.numero_badge || "-"}</td>
+                      <td style={{ textAlign: "center" }}>{r.type_contrat === "INTERIM" ? <span className="sexe-pill" style={{ background: "#fde68a", color: "#92400e" }}>Intérim</span> : r.type_contrat}</td>
+                      <td style={{ textAlign: "center" }}>{r.matricule || "-"}</td>
+                      <td style={{ textAlign: "center" }}>{r.numero_badge || "-"}</td>
                       <td>{r.nom}</td>
                       <td>{r.prenom}</td>
-                      <td><SexePill sexe={r.sexe} /></td>
-                      <td>{equipeNom(r.equipe_id) || "-"}</td>
-                      <td>{atelierNom(r.atelier_id) || "-"}</td>
+                      <td style={{ textAlign: "center" }}><SexePill sexe={r.sexe} /></td>
+                      <td style={{ textAlign: "center" }}>{equipeNom(r.equipe_id) || "-"}</td>
+                      <td style={{ textAlign: "center" }}>{atelierNom(r.atelier_id) || "-"}</td>
                       <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>{fmtDate(r.date_livret_accueil)}</td>
                       <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                         {fmtDate(r.date_fin)}
-                        <button type="button" onClick={() => setContratsFor(r)} title="Voir tous les contrats" style={{ width: "auto", margin: "0 0 0 4px", padding: "1px 4px", background: "transparent", border: "none", cursor: "pointer", fontSize: 13 }}>🔍</button>
+                        <button type="button" onClick={() => setContratsFor(r)} title="Voir tous les contrats" style={{ width: "auto", margin: "0 0 0 3px", padding: "1px 3px", background: "transparent", border: "none", cursor: "pointer", fontSize: 13 }}>🔍</button>
                       </td>
                       <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Contrat de ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
-                      <td>{r.pointure || "-"}</td>
+                      <td style={{ textAlign: "center" }}>{r.pointure || "-"}</td>
                       <td style={{ textAlign: "center" }}>{r.temps_partiel ? <span className="sexe-pill" style={{ background: "#e0e7ff", color: "#3730a3" }}>TP</span> : <span className="muted">—</span>}</td>
                       <td><span className={r.statut === "ACTIF" ? "tag" : "tag tag-off"}>{r.statut === "ACTIF" ? "Actif" : "Parti"}</span></td>
                     </>
@@ -354,9 +351,7 @@ export default function PersonnelEditor({
               );
             })}
             {filtered.length === 0 && (
-              <tr>
-                <td colSpan={canEdit ? COLS.length + 1 : COLS.length} className="muted">Aucun résultat.</td>
-              </tr>
+              <tr><td colSpan={canEdit ? COLS.length + 1 : COLS.length} className="muted" style={{ padding: 10 }}>Aucun résultat.</td></tr>
             )}
           </tbody>
         </table>
@@ -366,13 +361,9 @@ export default function PersonnelEditor({
         <TempsPartielModal
           personne={{ id: tpFor.id, label: `${tpFor.nom} ${tpFor.prenom}`, temps_partiel: tpFor.temps_partiel, tp_type: tpFor.tp_type, tp_config: tpFor.tp_config }}
           onClose={() => setTpFor(null)}
-          onSaved={(u) => {
-            setRow(tpFor.id, (r) => ({ ...r, ...u }));
-            setTpFor(null);
-          }}
+          onSaved={(u) => { setRow(tpFor.id, (r) => ({ ...r, ...u })); setTpFor(null); }}
         />
       )}
-
       {contratsFor && (
         <ContratsModal personne={{ id: contratsFor.id, label: `${contratsFor.nom} ${contratsFor.prenom}` }} onClose={() => setContratsFor(null)} />
       )}
