@@ -934,3 +934,20 @@ select.flat {
   text-align: center;
   border-bottom: 1px solid var(--border);
 }
+
+/* Personnel : espaces inter-colonnes reduits (tout afficher) */
+.pers-table th,
+.pers-table td {
+  padding: 2px 5px;
+}
+.pers-table thead th {
+  height: 30px;
+}
+/* Ligne de creation toujours visible (collee sous l'en-tete) */
+.pers-table tr.pers-add td {
+  position: sticky;
+  top: calc(var(--appbar) + 31px);
+  z-index: 15;
+  background: #eff6ff;
+  border-bottom: 2px solid #94a3b8;
+}

@@ -202,7 +202,7 @@ export default function PersonnelEditor({
   const saveLabel =
     save === "saving" ? "Enregistrement…" : save === "saved" ? "Enregistré ✓" : save === "error" ? "Échec d'enregistrement" : "";
   const saveColor = save === "error" ? "var(--danger)" : save === "saved" ? "var(--ok)" : "var(--muted)";
-  const inp: React.CSSProperties = { width: "100%", fontSize: 13, padding: "4px 6px" };
+  const inp: React.CSSProperties = { width: "100%", fontSize: 13, padding: "3px 4px" };
   const interimStyle = (t: string) => (t === "INTERIM" ? { background: "#fde68a", color: "#92400e", fontWeight: 600 } : {});
 
   const counts = { tous: rows.length, ...Object.fromEntries(CONTRATS.map((c) => [c, rows.filter((r) => r.type_contrat === c).length])) } as Record<string, number>;
@@ -232,14 +232,14 @@ export default function PersonnelEditor({
         <table className="sticky-head pers-table">
           <thead>
             <tr>
-              {COLS.map((c) => (<th key={c.key} style={{ whiteSpace: "nowrap", minWidth: c.key === "nom" || c.key === "prenom" ? 150 : undefined }}>{c.label}</th>))}
+              {COLS.map((c) => (<th key={c.key} style={{ whiteSpace: "nowrap", minWidth: c.key === "nom" || c.key === "prenom" ? 130 : undefined }}>{c.label}</th>))}
               {canEdit && <th></th>}
             </tr>
           </thead>
           <tbody>
             {/* Ligne d'insertion d'une nouvelle personne */}
             {canEdit && (
-              <tr style={{ background: "#f0f9ff" }}>
+              <tr className="pers-add">
                 <td>
                   <select value={contrat} onChange={(e) => setContrat(e.target.value)} style={{ ...inp, ...interimStyle(contrat) }}>
                     {CONTRATS.map((c) => (<option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>))}
@@ -247,10 +247,10 @@ export default function PersonnelEditor({
                 </td>
                 <td><input value={matricule} onChange={(e) => setMatricule(e.target.value)} placeholder="(auto intérim)" style={inp} /></td>
                 <td><input value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="badge" style={inp} /></td>
-                <td><input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom *" style={{ ...inp, minWidth: 140 }} /></td>
-                <td><input value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Prénom *" style={{ ...inp, minWidth: 140 }} /></td>
+                <td><input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom *" style={{ ...inp, minWidth: 125 }} /></td>
+                <td><input value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Prénom *" style={{ ...inp, minWidth: 125 }} /></td>
                 <td>
-                  <select value={sexe} onChange={(e) => setSexe(e.target.value)} style={{ ...inp, width: 58, background: sexeBg(sexe || null), color: sexeFg(sexe || null), fontWeight: 600 }}>
+                  <select value={sexe} onChange={(e) => setSexe(e.target.value)} style={{ ...inp, width: 42, background: sexeBg(sexe || null), color: sexeFg(sexe || null), fontWeight: 600 }}>
                     <option value="">-</option><option value="H">H</option><option value="F">F</option>
                   </select>
                 </td>
@@ -293,10 +293,10 @@ export default function PersonnelEditor({
                       </td>
                       <td><input value={r.matricule ?? ""} onChange={(e) => field(r.id, "matricule", e.target.value)} style={inp} /></td>
                       <td><input value={r.numero_badge ?? ""} onChange={(e) => field(r.id, "numero_badge", e.target.value)} style={inp} /></td>
-                      <td><input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={{ ...inp, minWidth: 140 }} /></td>
-                      <td><input value={r.prenom} onChange={(e) => field(r.id, "prenom", e.target.value)} style={{ ...inp, minWidth: 140 }} /></td>
+                      <td><input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={{ ...inp, minWidth: 125 }} /></td>
+                      <td><input value={r.prenom} onChange={(e) => field(r.id, "prenom", e.target.value)} style={{ ...inp, minWidth: 125 }} /></td>
                       <td>
-                        <select value={r.sexe ?? ""} onChange={(e) => field(r.id, "sexe", e.target.value, true)} style={{ ...inp, width: 58, background: sexeBg(r.sexe), color: sexeFg(r.sexe), fontWeight: 600 }}>
+                        <select value={r.sexe ?? ""} onChange={(e) => field(r.id, "sexe", e.target.value, true)} style={{ ...inp, width: 42, background: sexeBg(r.sexe), color: sexeFg(r.sexe), fontWeight: 600 }}>
                           <option value="">-</option><option value="H">H</option><option value="F">F</option>
                         </select>
                       </td>
