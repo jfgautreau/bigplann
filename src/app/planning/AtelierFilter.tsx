@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 
 type Opt = { id: string; label: string };
 
@@ -18,6 +19,7 @@ export default function AtelierFilter({
   semaine?: string;
 }) {
   const router = useRouter();
+  const [pending, start] = useTransition();
 
   function go(at: string) {
     const p = new URLSearchParams();
@@ -26,13 +28,13 @@ export default function AtelierFilter({
     if (semaine) p.set("semaine", semaine);
     if (quart) p.set("quart", quart);
     const qs = p.toString();
-    router.push(qs ? `/planning?${qs}` : "/planning");
+    start(() => router.push(qs ? `/planning?${qs}` : "/planning"));
   }
 
   if (ateliers.length === 0) return null;
 
   return (
-    <div className="filterrow">
+    <div className="filterrow" style={{ opacity: pending ? 0.5 : 1, transition: "opacity .1s" }}>
       <span className="lbl">Atelier</span>
       <div className="segments">
         <button type="button" className={atelier === "" ? "seg active" : "seg"} onClick={() => go("")}>

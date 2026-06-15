@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 
 type Quart = { code: string; libelle: string };
 
@@ -18,16 +19,17 @@ export default function QuartSelector({
   atelier?: string;
 }) {
   const router = useRouter();
+  const [pending, start] = useTransition();
   function go(code: string) {
     const p = new URLSearchParams();
     if (equipe) p.set("equipe", equipe);
     if (atelier) p.set("atelier", atelier);
     if (semaine) p.set("semaine", semaine);
     p.set("quart", code);
-    router.push(`/planning?${p.toString()}`);
+    start(() => router.push(`/planning?${p.toString()}`));
   }
   return (
-    <div className="filterrow">
+    <div className="filterrow" style={{ opacity: pending ? 0.5 : 1, transition: "opacity .1s" }}>
       <span className="lbl">Quart</span>
       <div className="segments">
         {quarts.map((q) => (

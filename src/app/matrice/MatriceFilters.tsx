@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 
 type Opt = { id: string; label: string };
 
@@ -16,6 +17,7 @@ export default function MatriceFilters({
   equipe?: string;
 }) {
   const router = useRouter();
+  const [pending, start] = useTransition();
 
   function go(next: { atelier?: string; equipe?: string }) {
     const a = next.atelier ?? atelier;
@@ -24,11 +26,11 @@ export default function MatriceFilters({
     if (a) params.set("atelier", a);
     if (e) params.set("equipe", e);
     const qs = params.toString();
-    router.push(qs ? `/matrice?${qs}` : "/matrice");
+    start(() => router.push(qs ? `/matrice?${qs}` : "/matrice"));
   }
 
   return (
-    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", opacity: pending ? 0.5 : 1, transition: "opacity .1s" }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <span className="muted">Atelier :</span>
         <div className="segments">

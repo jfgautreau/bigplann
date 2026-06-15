@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
+import { getAteliersC, getEquipesC, getNiveauxC } from "@/lib/refdata";
 import MatricePanel from "./MatricePanel";
 
 type PosteRow = {
@@ -51,26 +52,25 @@ export default async function MatricePage({
   if (sp.atelier) persQ = persQ.eq("atelier_id", sp.atelier);
 
   // Vague 1 : tout ce qui est independant part en parallele.
+  // Donnees de reference (atelier / equipe / niveaux) servies par le cache.
   const [
-    { data: ateliersData },
-    { data: equipesData },
+    ateliers,
+    equipesC,
     { data: lignesData },
     { data: persData },
     { data: chefData },
-    { data: nivData },
+    niveauLibelles,
   ] = await Promise.all([
-    supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
-    supabase.from("equipe").select("id, nom").eq("actif", true).order("nom").returns<Equipe[]>(),
+    getAteliersC(),
+    getEquipesC(),
     ligneQ.returns<LigneRow[]>(),
     persQ.returns<Personne[]>(),
     isAdmin
       ? Promise.resolve({ data: [] as { equipe_id: string }[] })
       : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
-    supabase.from("competence_niveau_libelle").select("niveau, libelle").order("niveau").returns<{ niveau: number; libelle: string }[]>(),
+    getNiveauxC(),
   ]);
-  const niveauLibelles = nivData ?? [];
-  const ateliers = ateliersData ?? [];
-  const equipes = equipesData ?? [];
+  const equipes: Equipe[] = equipesC.map((e) => ({ id: e.id, nom: e.nom }));
   const personnes = persData ?? [];
   const chefEquipes = new Set((chefData ?? []).map((r) => r.equipe_id));
 
