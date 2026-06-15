@@ -324,7 +324,7 @@ export default function PersonnelEditor({
                         )}
                       </td>
                       <td><ToggleSwitch on={r.statut === "ACTIF"} onChange={(v) => toggleStatut(r.id, v)} onLabel="Actif" offLabel="Parti" title="Actif / Parti" /></td>
-                      <td><Link href={`/personnel/${r.id}`}>Modifier</Link></td>
+                      <td><Link href={`/personnel/${r.id}`} prefetch={false}>Modifier</Link></td>
                     </>
                   ) : (
                     <>

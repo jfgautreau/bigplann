@@ -26,7 +26,7 @@ export default async function AffichageIndex() {
         <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
           {ateliers.map((a) => (
             <li key={a.id} style={{ marginBottom: 8 }}>
-              <Link href={`/affichage/atelier/${a.id}`} style={{ fontSize: 18 }}>
+              <Link href={`/affichage/atelier/${a.id}`} prefetch={false} style={{ fontSize: 18 }}>
                 {a.nom} &rarr;
               </Link>
             </li>

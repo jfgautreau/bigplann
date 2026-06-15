@@ -139,7 +139,7 @@ export default async function CompetencesPage({
                       </span>
                     </td>
                     <td style={{ whiteSpace: "nowrap" }}>
-                      <Link href={`/admin/competences?edit=competence:${c.id}`} className="navlink">
+                      <Link href={`/admin/competences?edit=competence:${c.id}`} className="navlink" prefetch={false}>
                         Modifier
                       </Link>
                       {"  "}

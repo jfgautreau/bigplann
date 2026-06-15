@@ -86,7 +86,7 @@ export default async function MotifsPage({
                       <span className={m.actif ? "tag" : "tag tag-off"}>{m.actif ? "Actif" : "Désactivé"}</span>
                     </td>
                     <td style={{ whiteSpace: "nowrap" }}>
-                      <Link href={`/admin/motifs?edit=motif:${m.id}`} className="navlink" scroll={false}>Modifier</Link>
+                      <Link href={`/admin/motifs?edit=motif:${m.id}`} className="navlink" scroll={false} prefetch={false}>Modifier</Link>
                       {"  "}
                       <form action={toggleMotif} style={{ display: "inline", margin: 0 }}>
                         <input type="hidden" name="id" value={m.id} />
