@@ -367,12 +367,14 @@ export default async function PlanningPage({
               semaine={centerIso}
             />
             <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} atelier={atelier} />
-            <Link href="/horaires-specifiques" className="navlink" style={{ fontSize: 13, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 8, whiteSpace: "nowrap" }}>
-              🕐 Horaires spécifiques
-            </Link>
-            <Link href="/absences-specifiques" className="navlink" style={{ fontSize: 13, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: 8, whiteSpace: "nowrap" }}>
-              🤒 Absences spécifiques
-            </Link>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <Link href="/horaires-specifiques" className="navlink" style={{ fontSize: 15, fontWeight: 600, padding: "10px 16px", border: "1px solid var(--border)", borderRadius: 10, whiteSpace: "nowrap" }}>
+                🕐 Horaires spécifiques
+              </Link>
+              <Link href="/absences-specifiques" className="navlink" style={{ fontSize: 15, fontWeight: 600, padding: "10px 16px", border: "1px solid var(--border)", borderRadius: 10, whiteSpace: "nowrap" }}>
+                🤒 Absences spécifiques
+              </Link>
+            </div>
           </div>
         </div>
         <PlanningGrid

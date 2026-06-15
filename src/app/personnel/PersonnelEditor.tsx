@@ -28,7 +28,7 @@ type Row = {
   tp_type: string | null;
   tp_config: TpConfig | null;
 };
-type Equipe = { id: string; nom: string };
+type Equipe = { id: string; nom: string; couleur?: string | null };
 type Atelier = { id: string; nom: string };
 
 const CONTRATS = ["CDI", "CDD", "INTERIM"];
@@ -87,7 +87,7 @@ export default function PersonnelEditor({
   canEdit: boolean;
 }) {
   const [rows, setRows] = useState<Row[]>(initial);
-  const [q, setQ] = useState<Record<string, string>>({});
+  const [gq, setGq] = useState("");
   const [contratFilter, setContratFilter] = useState("");
   const [tpFor, setTpFor] = useState<Row | null>(null);
   const [contratsFor, setContratsFor] = useState<Row | null>(null);
@@ -111,6 +111,10 @@ export default function PersonnelEditor({
 
   const equipeNom = (id: string | null) => (id ? equipes.find((e) => e.id === id)?.nom ?? "" : "");
   const atelierNom = (id: string | null) => (id ? ateliers.find((a) => a.id === id)?.nom ?? "" : "");
+  const eqStyle = (id: string | null): React.CSSProperties => {
+    const c = id ? equipes.find((e) => e.id === id)?.couleur : null;
+    return c ? { background: c, color: "#fff", fontWeight: 600 } : {};
+  };
 
   // Alerte > 18 mois (hors CDI). Reference = fin de contrat si connue, sinon aujourd'hui.
   const alerte18 = (r: Row): number | null => {
@@ -187,24 +191,12 @@ export default function PersonnelEditor({
     }
   }
 
-  const cellText = (r: Row, key: ColKey) => {
-    switch (key) {
-      case "equipe": return equipeNom(r.equipe_id);
-      case "atelier": return atelierNom(r.atelier_id);
-      case "matricule": return r.matricule ?? "";
-      case "numero_badge": return r.numero_badge ?? "";
-      case "nom": return r.nom;
-      case "prenom": return r.prenom;
-      case "type_contrat": return r.type_contrat;
-      default: return "";
-    }
-  };
+  const needle = gq.trim().toLowerCase();
   const filtered = rows.filter((r) => {
     if (contratFilter && r.type_contrat !== contratFilter) return false;
-    return COLS.every((c) => {
-      const needle = (q[c.key] ?? "").trim().toLowerCase();
-      return !needle || cellText(r, c.key).toLowerCase().includes(needle);
-    });
+    if (!needle) return true;
+    const hay = `${r.nom} ${r.prenom} ${r.matricule ?? ""} ${r.numero_badge ?? ""} ${equipeNom(r.equipe_id)} ${atelierNom(r.atelier_id)} ${r.type_contrat}`.toLowerCase();
+    return hay.includes(needle);
   });
 
   const saveLabel =
@@ -219,7 +211,7 @@ export default function PersonnelEditor({
     <div>
       {/* Barre de filtres */}
       <div className="toolbar" style={{ alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span className="muted" style={{ fontWeight: 600 }}>Contrat :</span>
           <div className="segments">
             <button type="button" className={contratFilter === "" ? "seg active" : "seg"} onClick={() => setContratFilter("")}>
@@ -231,31 +223,17 @@ export default function PersonnelEditor({
               </button>
             ))}
           </div>
+          <input value={gq} onChange={(e) => setGq(e.target.value)} placeholder="🔍 Rechercher (nom, matricule, équipe…)" style={{ width: 300, fontSize: 13, padding: "5px 8px" }} />
         </div>
         <span style={{ minHeight: 16, fontSize: 12, fontWeight: 600, color: saveColor }}>{saveLabel}</span>
       </div>
 
       <div className="card" style={{ overflowX: "auto" }}>
-        <table className="sticky-head">
+        <table className="sticky-head pers-table">
           <thead>
             <tr>
-              {COLS.map((c) => (<th key={c.key} style={{ whiteSpace: "nowrap" }}>{c.label}</th>))}
+              {COLS.map((c) => (<th key={c.key} style={{ whiteSpace: "nowrap", minWidth: c.key === "nom" || c.key === "prenom" ? 150 : undefined }}>{c.label}</th>))}
               {canEdit && <th></th>}
-            </tr>
-            <tr>
-              {COLS.map((c) => (
-                <th key={c.key} style={{ padding: 4 }}>
-                  {c.search && (
-                    <input
-                      value={q[c.key] ?? ""}
-                      onChange={(e) => setQ((s2) => ({ ...s2, [c.key]: e.target.value }))}
-                      placeholder="rechercher"
-                      style={{ width: "100%", fontSize: 12, padding: "4px 6px", fontWeight: 400 }}
-                    />
-                  )}
-                </th>
-              ))}
-              {canEdit && <th style={{ padding: 4 }}></th>}
             </tr>
           </thead>
           <tbody>
@@ -269,15 +247,15 @@ export default function PersonnelEditor({
                 </td>
                 <td><input value={matricule} onChange={(e) => setMatricule(e.target.value)} placeholder="(auto intérim)" style={inp} /></td>
                 <td><input value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="badge" style={inp} /></td>
-                <td><input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom *" style={inp} /></td>
-                <td><input value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Prénom *" style={inp} /></td>
+                <td><input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom *" style={{ ...inp, minWidth: 140 }} /></td>
+                <td><input value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Prénom *" style={{ ...inp, minWidth: 140 }} /></td>
                 <td>
                   <select value={sexe} onChange={(e) => setSexe(e.target.value)} style={{ ...inp, width: 58, background: sexeBg(sexe || null), color: sexeFg(sexe || null), fontWeight: 600 }}>
                     <option value="">-</option><option value="H">H</option><option value="F">F</option>
                   </select>
                 </td>
                 <td>
-                  <select value={eq} onChange={(e) => setEq(e.target.value)} style={inp}>
+                  <select value={eq} onChange={(e) => setEq(e.target.value)} style={{ ...inp, ...eqStyle(eq || null) }}>
                     <option value="">-</option>
                     {equipes.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}
                   </select>
@@ -315,15 +293,15 @@ export default function PersonnelEditor({
                       </td>
                       <td><input value={r.matricule ?? ""} onChange={(e) => field(r.id, "matricule", e.target.value)} style={inp} /></td>
                       <td><input value={r.numero_badge ?? ""} onChange={(e) => field(r.id, "numero_badge", e.target.value)} style={inp} /></td>
-                      <td><input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={inp} /></td>
-                      <td><input value={r.prenom} onChange={(e) => field(r.id, "prenom", e.target.value)} style={inp} /></td>
+                      <td><input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={{ ...inp, minWidth: 140 }} /></td>
+                      <td><input value={r.prenom} onChange={(e) => field(r.id, "prenom", e.target.value)} style={{ ...inp, minWidth: 140 }} /></td>
                       <td>
                         <select value={r.sexe ?? ""} onChange={(e) => field(r.id, "sexe", e.target.value, true)} style={{ ...inp, width: 58, background: sexeBg(r.sexe), color: sexeFg(r.sexe), fontWeight: 600 }}>
                           <option value="">-</option><option value="H">H</option><option value="F">F</option>
                         </select>
                       </td>
                       <td>
-                        <select value={r.equipe_id ?? ""} onChange={(e) => field(r.id, "equipe_id", e.target.value, true)} style={inp}>
+                        <select value={r.equipe_id ?? ""} onChange={(e) => field(r.id, "equipe_id", e.target.value, true)} style={{ ...inp, ...eqStyle(r.equipe_id) }}>
                           <option value="">-</option>
                           {equipes.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}
                         </select>

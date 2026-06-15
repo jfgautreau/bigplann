@@ -920,3 +920,17 @@ select.flat {
   background: #fce7f3;
   color: #db2777;
 }
+
+/* Table personnel : selects sans fleche (gain de place, fonctionnement inchange) */
+.pers-table select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: none;
+  padding-right: 6px;
+}
+/* En-tetes centres et sans artefact d'encadrement */
+.pers-table thead th {
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}

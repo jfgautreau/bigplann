@@ -64,6 +64,7 @@ export default function PlanningGrid({
     setHighlight((h) => (h && h.iso === iso && h.type === type ? null : { iso, type }));
 
   // Horaires specifiques (exceptions) : etat local + popover d'edition par case.
+  const [showInd, setShowInd] = useState(true); // afficher la zone Bilan & alertes
   const [exc, setExc] = useState(exceptions);
   const [excAt, setExcAt] = useState<string | null>(null); // cle "pid:iso"
   const [draft, setDraft] = useState<{ debut: string; fin: string; motif: string }>({ debut: "", fin: "", motif: "" });
@@ -358,7 +359,16 @@ export default function PlanningGrid({
       <table className="matrix" style={{ borderCollapse: "collapse" }}>
         <thead>
           <tr>
-            <th rowSpan={2} style={{ position: "sticky", left: 0, top: 0, zIndex: 25, background: "#fff", textAlign: "left", padding: "2px 8px" }} />
+            <th rowSpan={2} style={{ position: "sticky", left: 0, top: 0, zIndex: 25, background: "#fff", textAlign: "left", padding: "2px 8px" }}>
+              <button
+                type="button"
+                onClick={() => setShowInd((s) => !s)}
+                title={showInd ? "Masquer le bilan & alertes" : "Afficher le bilan & alertes"}
+                style={{ width: "auto", margin: 0, padding: "1px 7px", fontSize: 12, fontWeight: 700, lineHeight: 1.4, border: "1px solid var(--border)", borderRadius: 6, background: "#fff", color: "var(--primary)", cursor: "pointer" }}
+              >
+                {showInd ? "− Bilan" : "+ Bilan"}
+              </button>
+            </th>
             {weekBlocks.map((w, i) => (
               <th
                 key={i}
@@ -402,7 +412,7 @@ export default function PlanningGrid({
           </tr>
           <tr>
             {days.map((d) => (
-              <th key={d.iso} style={{ textAlign: "center", minWidth: 58, padding: "2px 4px", position: "sticky", top: 26, zIndex: 20, ...sep(d), background: isToday(d) ? "#dbeafe" : "#fff" }}>
+              <th key={d.iso} style={{ textAlign: "center", minWidth: 58, padding: "2px 4px", position: "sticky", top: 26, zIndex: 20, ...sep(d), borderBottom: "2px solid #94a3b8", background: isToday(d) ? "#dbeafe" : "#fff" }}>
                 {d.nom.slice(0, 2)}
                 <br />
                 <span className="muted" style={{ fontWeight: 400 }}>{d.num}</span>
@@ -411,6 +421,8 @@ export default function PlanningGrid({
           </tr>
         </thead>
         <tbody>
+          {showInd && (
+          <>
           {(
             [
               ["Besoin", (i: number) => `${besoin[i] ?? 0}`, () => "var(--muted)"],
@@ -496,6 +508,8 @@ export default function PlanningGrid({
               );
             })}
           </tr>
+          </>
+          )}
 
           {personnes.map((pers) => (
             <tr key={pers.id}>
@@ -506,8 +520,8 @@ export default function PlanningGrid({
                     width: 11,
                     height: 11,
                     borderRadius: "50%",
-                    background: pers.color ?? "#cbd5e1",
-                    boxShadow: "0 0 0 1px rgba(0,0,0,0.15)",
+                    background: pers.color ?? "#fff",
+                    boxShadow: "0 0 0 1px rgba(0,0,0,0.25)",
                     marginRight: 7,
                     verticalAlign: "middle",
                   }}
