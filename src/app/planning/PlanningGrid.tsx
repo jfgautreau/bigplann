@@ -341,26 +341,26 @@ export default function PlanningGrid({
     padding: "1px 8px",
   });
 
-  return (
-    <div className="card" style={{ overflowX: "hidden", overflowY: "auto", flex: 1, minHeight: 0, position: "relative", padding: "6px 12px" }}>
-      <div
-        style={{
-          position: "absolute",
-          top: 8,
-          right: 12,
-          fontSize: 12,
-          fontWeight: 600,
-          color: saving === "error" ? "var(--danger)" : saving === "saved" ? "var(--ok)" : "var(--muted)",
-        }}
-      >
-        {saving === "saving" ? "Enregistrement..." : saving === "saved" ? "Enregistré" : saving === "error" ? "Échec" : ""}
-      </div>
+  // Colonne noms adaptative (px), partagee par les 2 tables -> colonnes alignees.
+  const nameW = Math.min(300, Math.max(140, personnes.reduce((m, p) => Math.max(m, p.label.length), 0) * 7.2 + 30));
+  const Cols = () => (
+    <colgroup>
+      <col style={{ width: nameW }} />
+      {days.map((d) => <col key={d.iso} />)}
+    </colgroup>
+  );
+  const tStyle: React.CSSProperties = { borderCollapse: "collapse", width: "100%", tableLayout: "fixed" };
 
-      <table className="matrix" style={{ borderCollapse: "collapse", width: "100%", tableLayout: "fixed" }}>
-        <colgroup>
-          <col style={{ width: "15%" }} />
-          {days.map((d) => <col key={d.iso} style={{ width: `${85 / Math.max(1, days.length)}%` }} />)}
-        </colgroup>
+  return (
+    <>
+      {/* Tableau 1 : en-tetes (dates) + bilan/alertes retractable (fixe) */}
+      <div className="card" style={{ overflowX: "hidden", overflowY: "auto", scrollbarGutter: "stable", position: "relative", padding: "6px 12px" }}>
+        <div style={{ position: "absolute", top: 8, right: 12, fontSize: 12, fontWeight: 600, color: saving === "error" ? "var(--danger)" : saving === "saved" ? "var(--ok)" : "var(--muted)" }}>
+          {saving === "saving" ? "Enregistrement..." : saving === "saved" ? "Enregistré" : saving === "error" ? "Échec" : ""}
+        </div>
+
+      <table className="matrix" style={tStyle}>
+        <Cols />
         <thead>
           <tr>
             <th rowSpan={2} style={{ position: "sticky", left: 0, top: 0, zIndex: 25, background: "#fff", textAlign: "left", padding: "2px 8px" }}>
@@ -514,10 +514,18 @@ export default function PlanningGrid({
           </tr>
           </>
           )}
+        </tbody>
+      </table>
+      </div>
 
+      {/* Tableau 2 : noms (defile, remplit le reste de la fenetre) */}
+      <div className="card" style={{ marginTop: 8, overflowX: "hidden", overflowY: "auto", scrollbarGutter: "stable", flex: 1, minHeight: 0, padding: "0 12px" }}>
+      <table className="matrix" style={tStyle}>
+        <Cols />
+        <tbody>
           {personnes.map((pers) => (
             <tr key={pers.id}>
-              <td style={{ position: "sticky", left: 0, background: "#fff", whiteSpace: "normal", lineHeight: 1.15 }}>
+              <td style={{ background: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 <span
                   style={{
                     display: "inline-block",
@@ -674,8 +682,9 @@ export default function PlanningGrid({
           )}
         </tbody>
       </table>
+      </div>
 
-      <p className="muted" style={{ marginTop: 10 }}>
+      <p className="muted" style={{ margin: "6px 12px 0", fontSize: 11 }}>
         Survolez une case et cliquez sur &raquo; pour recopier sa valeur sur toute la
         semaine (y compris « non-affecté » pour vider la semaine).{" "}
         <span className="legend-swatch hc" /> barre rouge = hors compétence ·{" "}
@@ -684,6 +693,6 @@ export default function PlanningGrid({
         <span style={{ background: "#1d4ed8", color: "#fff", borderRadius: 3, padding: "0 3px", fontSize: 10 }}>🕐</span> horaire
         spécifique (survolez une case placée) · jours sans ligne ouverte masqués.
       </p>
-    </div>
+    </>
   );
 }

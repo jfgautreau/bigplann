@@ -37,33 +37,26 @@ export default function MatricePanel({
 
   return (
     <>
-      {/* Filtres (gauche) + Legende & bascule Actuel/Cible (droite) */}
-      <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+      {/* Tout sur une ligne : filtres atelier + equipe, mode, legende */}
+      <div className="toolbar" style={{ alignItems: "center", gap: 16, flexWrap: "wrap" }}>
         <MatriceFilters ateliers={ateliers} equipes={equipes} atelier={atelier} equipe={equipe} />
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-          <button type="button" className="btn-sm btn-ghost" style={{ width: "auto" }} onClick={() => setShowLegende(true)}>
-            📖 Légende
+        <div className="modeswitch">
+          <button type="button" className={mode === "actuel" ? "on-actuel" : ""} onClick={() => setMode("actuel")}>
+            Niveau actuel
           </button>
-          <div className="modeswitch">
-            <button type="button" className={mode === "actuel" ? "on-actuel" : ""} onClick={() => setMode("actuel")}>
-              Niveau actuel
-            </button>
-            <button type="button" className={mode === "cible" ? "on-cible" : ""} onClick={() => setMode("cible")}>
-              Niveau cible
-            </button>
-          </div>
+          <button type="button" className={mode === "cible" ? "on-cible" : ""} onClick={() => setMode("cible")}>
+            Niveau cible
+          </button>
         </div>
+        <button type="button" className="btn-sm btn-ghost" style={{ width: "auto" }} onClick={() => setShowLegende(true)}>
+          📖 Légende
+        </button>
       </div>
 
       {groups.length === 0 ? (
         <p className="muted">Aucun poste actif (vérifiez le référentiel / le filtre atelier).</p>
       ) : (
-        <>
-          <p className="muted" style={{ margin: "-6px 0 10px", fontSize: 12, textAlign: "right" }}>
-            Clic = +1 · clic droit = −1 · enregistrement automatique
-          </p>
-          <MatrixGrid groups={groups} personnes={personnes} initial={initial} canEditObjectif={canEditObjectif} mode={mode} />
-        </>
+        <MatrixGrid groups={groups} personnes={personnes} initial={initial} canEditObjectif={canEditObjectif} mode={mode} />
       )}
 
       {showLegende && <LegendeModal niveauLibelles={niveauLibelles} onClose={() => setShowLegende(false)} />}

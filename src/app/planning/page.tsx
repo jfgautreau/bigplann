@@ -349,9 +349,11 @@ export default async function PlanningPage({
         className="container"
         style={{ maxWidth: 1500, margin: "0 auto", padding: "12px 24px", height: "calc(100vh - 46px)", display: "flex", flexDirection: "column", overflow: "hidden" }}
       >
-        <div className="planning-top" style={{ justifyContent: "space-between" }}>
+        <div className="planning-top" style={{ justifyContent: "space-between", gap: 28, flexWrap: "wrap" }}>
+          {/* Partie gauche : Annee / Mois / Semaine */}
           <PlanningNav base="/planning" semaine={centerIso} extra={extra} />
-          <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+          {/* Partie centrale : Equipe / Atelier / Quart (alignes sur les memes lignes) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <PlanningFilters
               equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom, couleur: e.couleur }))}
               equipe={equipe}
@@ -359,22 +361,17 @@ export default async function PlanningPage({
               quart={quart}
               atelier={atelier}
             />
-            <AtelierFilter
-              ateliers={ateliers}
-              atelier={atelier}
-              equipe={equipe}
-              quart={quart}
-              semaine={centerIso}
-            />
+            <AtelierFilter ateliers={ateliers} atelier={atelier} equipe={equipe} quart={quart} semaine={centerIso} />
             <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} atelier={atelier} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <Link href="/horaires-specifiques" className="navlink" style={{ fontSize: 15, fontWeight: 600, padding: "10px 16px", border: "1px solid var(--border)", borderRadius: 10, whiteSpace: "nowrap" }}>
-                🕐 Horaires spécifiques
-              </Link>
-              <Link href="/absences-specifiques" className="navlink" style={{ fontSize: 15, fontWeight: 600, padding: "10px 16px", border: "1px solid var(--border)", borderRadius: 10, whiteSpace: "nowrap" }}>
-                🤒 Absences spécifiques
-              </Link>
-            </div>
+          </div>
+          {/* Partie droite : liens */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <Link href="/horaires-specifiques" className="navlink" style={{ fontSize: 15, fontWeight: 600, padding: "10px 16px", border: "1px solid var(--border)", borderRadius: 10, whiteSpace: "nowrap" }}>
+              🕐 Horaires spécifiques
+            </Link>
+            <Link href="/absences-specifiques" className="navlink" style={{ fontSize: 15, fontWeight: 600, padding: "10px 16px", border: "1px solid var(--border)", borderRadius: 10, whiteSpace: "nowrap" }}>
+              🤒 Absences spécifiques
+            </Link>
           </div>
         </div>
         <PlanningGrid

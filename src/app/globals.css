@@ -951,3 +951,19 @@ select.flat {
   background: #eff6ff;
   border-bottom: 2px solid #94a3b8;
 }
+
+/* Ligne de filtre (label + segments alignes), pour aligner Annee/Mois/Semaine
+   avec Equipe/Atelier/Quart dans le planning. */
+.filterrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+.filterrow > .lbl {
+  width: 64px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}

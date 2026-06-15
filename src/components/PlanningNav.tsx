@@ -63,51 +63,44 @@ export default function PlanningNav({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
-      {/* 1. Annee */}
-      <div className="segments">
-        {years.map((y) => (
-          <button key={y} type="button" className={y === navYear ? "seg active" : "seg"} onClick={() => goMonth(y, navMonth)}>
-            {y === curYear && y !== navYear && greenDot}
-            {y}
-          </button>
-        ))}
-      </div>
-
-      {/* 2. Mois (12 sur une ligne) */}
-      <div className="segments">{[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(monthBtn)}</div>
-
-      {/* 3. Semaines (numeros seulement, bande continue centree) sous les mois */}
-      <div className="segments">
-        {weeks.map((w) => {
-          const isCenter = w.iso === centerIso;
-          const isToday = w.iso === todayMonday;
-          return (
-            <button
-              key={w.iso}
-              type="button"
-              className={isCenter ? "seg active" : "seg"}
-              onClick={() => goWeek(w.iso)}
-              title={isToday ? "Semaine en cours" : `Lundi ${w.date}`}
-            >
-              {isToday && !isCenter && greenDot}
-              S{w.num}
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {/* Annee */}
+      <div className="filterrow">
+        <span className="lbl">Année</span>
+        <div className="segments">
+          {years.map((y) => (
+            <button key={y} type="button" className={y === navYear ? "seg active" : "seg"} onClick={() => goMonth(y, navMonth)}>
+              {y === curYear && y !== navYear && greenDot}
+              {y}
             </button>
-          );
-        })}
+          ))}
+        </div>
       </div>
 
-      {/* 4. Aujourd'hui + fleches de defilement, sous les semaines */}
-      <div className="toolbar" style={{ alignItems: "center", gap: 6, margin: 0 }}>
-        <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, -7)))} title="Semaine précédente">
-          &lsaquo;
-        </button>
-        <button type="button" className="btn-sm" style={{ width: "auto" }} onClick={() => goWeek(todayMonday)}>
-          Aujourd&apos;hui
-        </button>
-        <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, 7)))} title="Semaine suivante">
-          &rsaquo;
-        </button>
+      {/* Mois */}
+      <div className="filterrow">
+        <span className="lbl">Mois</span>
+        <div className="segments">{[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(monthBtn)}</div>
+      </div>
+
+      {/* Semaine : navigation + bande continue centree */}
+      <div className="filterrow">
+        <span className="lbl">Semaine</span>
+        <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, -7)))} title="Semaine précédente">&lsaquo;</button>
+        <button type="button" className="btn-sm" style={{ width: "auto" }} onClick={() => goWeek(todayMonday)}>Auj.</button>
+        <button type="button" className="iconbtn" onClick={() => goWeek(isoDate(addDays(center, 7)))} title="Semaine suivante">&rsaquo;</button>
+        <div className="segments">
+          {weeks.map((w) => {
+            const isCenter = w.iso === centerIso;
+            const isToday = w.iso === todayMonday;
+            return (
+              <button key={w.iso} type="button" className={isCenter ? "seg active" : "seg"} onClick={() => goWeek(w.iso)} title={isToday ? "Semaine en cours" : `Lundi ${w.date}`}>
+                {isToday && !isCenter && greenDot}
+                S{w.num}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -27,9 +27,9 @@ export default function QuartSelector({
     router.push(`/planning?${p.toString()}`);
   }
   return (
-    <div className="filtercol">
+    <div className="filterrow">
       <span className="lbl">Quart</span>
-      <div className="segments col">
+      <div className="segments">
         {quarts.map((q) => (
           <button
             key={q.code}

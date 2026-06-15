@@ -30,9 +30,9 @@ export default function PlanningFilters({
   }
 
   return (
-    <div className="filtercol">
+    <div className="filterrow">
       <span className="lbl">Équipe</span>
-      <div className="segments col">
+      <div className="segments">
         <button type="button" className={equipe === "" ? "seg active" : "seg"} onClick={() => go("")}>
           Toutes
         </button>
