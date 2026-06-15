@@ -67,6 +67,7 @@ export default function PlanningGrid({
 
   // Horaires specifiques (exceptions) : etat local + popover d'edition par case.
   const [showInd, setShowInd] = useState(true); // afficher la zone Bilan & alertes
+  const [openKey, setOpenKey] = useState<string | null>(null); // case dont le select est ouvert (options a la demande)
   const [exc, setExc] = useState(exceptions);
   const [excAt, setExcAt] = useState<string | null>(null); // cle "pid:iso"
   const [draft, setDraft] = useState<{ debut: string; fin: string; motif: string }>({ debut: "", fin: "", motif: "" });
@@ -586,36 +587,49 @@ export default function PlanningGrid({
                       className="flat"
                       value={v}
                       disabled={!pers.editable}
-                      onChange={(e) => change(pers.id, d.iso, pers.equipe_id, e.target.value)}
+                      onMouseDown={() => setOpenKey(key(pers.id, d.iso))}
+                      onFocus={() => setOpenKey(key(pers.id, d.iso))}
+                      onBlur={() => setOpenKey((o) => (o === key(pers.id, d.iso) ? null : o))}
+                      onChange={(e) => { change(pers.id, d.iso, pers.equipe_id, e.target.value); setOpenKey(null); }}
                       style={{ fontSize: 12 }}
                     >
-                      <option value="">—</option>
-                      <option value="X" title="Non travaillé (repos)">NT</option>
-                      {closedCurrent && (
-                        <option value={v}>
-                          {posteLabel[v] ?? posteLabelAll[v] ?? "?"}
-                          {posteLigne[v] !== undefined ? " (ligne fermée)" : " (autre atelier)"}
-                        </option>
-                      )}
-                      {groups
-                        .filter((g) => openSet.has(g.ligneId))
-                        .map((g) => (
-                          <optgroup key={g.ligneNom} label={g.ligneNom}>
-                            {g.postes.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.nom}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ))}
-                      {motifs.length > 0 && (
-                        <optgroup label="Absences">
-                          {motifs.map((mo) => (
-                            <option key={mo.id} value={`m:${mo.id}`}>
-                              {mo.code}
+                      {openKey === key(pers.id, d.iso) ? (
+                        <>
+                          <option value="">—</option>
+                          <option value="X" title="Non travaillé (repos)">NT</option>
+                          {closedCurrent && (
+                            <option value={v}>
+                              {posteLabel[v] ?? posteLabelAll[v] ?? "?"}
+                              {posteLigne[v] !== undefined ? " (ligne fermée)" : " (autre atelier)"}
                             </option>
-                          ))}
-                        </optgroup>
+                          )}
+                          {groups
+                            .filter((g) => openSet.has(g.ligneId))
+                            .map((g) => (
+                              <optgroup key={g.ligneNom} label={g.ligneNom}>
+                                {g.postes.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.nom}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          {motifs.length > 0 && (
+                            <optgroup label="Absences">
+                              {motifs.map((mo) => (
+                                <option key={mo.id} value={`m:${mo.id}`}>
+                                  {mo.code}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </>
+                      ) : (
+                        // Options a la demande : seule la valeur courante est rendue tant que la case n'est pas ouverte.
+                        v === "" ? <option value="">—</option>
+                        : v === "X" ? <option value="X">NT</option>
+                        : v.startsWith("m:") ? <option value={v}>{motifs.find((mo) => `m:${mo.id}` === v)?.code ?? "?"}</option>
+                        : <option value={v}>{posteLabel[v] ?? posteLabelAll[v] ?? "?"}</option>
                       )}
                     </select>
                     )}
