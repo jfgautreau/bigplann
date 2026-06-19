@@ -93,6 +93,7 @@ export default function PersonnelEditor({
   const [tpFor, setTpFor] = useState<Row | null>(null);
   const [contratsFor, setContratsFor] = useState<Row | null>(null);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [showCreate, setShowCreate] = useState(false);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const today = todayStr();
@@ -242,7 +243,20 @@ export default function PersonnelEditor({
           <thead>
             <tr>
               {COLS.map((c) => <th key={c.key} style={{ whiteSpace: "nowrap" }}>{c.label}</th>)}
-              {canEdit && <th></th>}
+              {canEdit && (
+                <th style={{ textAlign: "center" }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreate((v) => !v)}
+                    className="btn-sm"
+                    style={{ width: "auto", whiteSpace: "nowrap", padding: "2px 8px" }}
+                    title={showCreate ? "Masquer la ligne de création" : "Ajouter une personne"}
+                    aria-expanded={showCreate}
+                  >
+                    {showCreate ? "✕" : "＋ Ajouter"}
+                  </button>
+                </th>
+              )}
             </tr>
             <tr>
               {COLS.map((c) => (
@@ -266,7 +280,7 @@ export default function PersonnelEditor({
               {canEdit && <th style={{ padding: "2px 4px" }}></th>}
             </tr>
           </thead>
-          {canEdit && (
+          {canEdit && showCreate && (
             <tbody>
               <tr style={{ background: "#eff6ff" }}>
                 <td><select value={contrat} onChange={(e) => setContrat(e.target.value)} style={{ ...inp, ...C("type_contrat"), ...interimStyle(contrat) }}>{CONTRATS.map((c) => (<option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>))}</select></td>
