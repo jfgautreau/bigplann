@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
@@ -66,7 +66,18 @@ export default function PlanningGrid({
     setHighlight((h) => (h && h.iso === iso && h.type === type ? null : { iso, type }));
 
   // Horaires specifiques (exceptions) : etat local + popover d'edition par case.
+  // Affichage du bilan : persiste dans localStorage car la grille est remontee
+  // (prop `key`) a chaque changement de filtre -> sinon l'etat serait reinitialise.
   const [showInd, setShowInd] = useState(true); // afficher la zone Bilan & alertes
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.localStorage.getItem("planning.showBilan") === "0") setShowInd(false);
+  }, []);
+  const toggleInd = () =>
+    setShowInd((s) => {
+      const next = !s;
+      if (typeof window !== "undefined") window.localStorage.setItem("planning.showBilan", next ? "1" : "0");
+      return next;
+    });
   const [openKey, setOpenKey] = useState<string | null>(null); // case dont le select est ouvert (options a la demande)
   const [exc, setExc] = useState(exceptions);
   const [excAt, setExcAt] = useState<string | null>(null); // cle "pid:iso"
@@ -297,12 +308,13 @@ export default function PlanningGrid({
     const isos = (blockDayIndices[block] ?? []).map((idx) => days[idx].iso);
     const pids = personnes.filter((p) => p.editable).map((p) => p.id);
     if (!isos.length || !pids.length) return;
-    if (!window.confirm("Réinitialiser (vider) tous les placements de cette semaine pour les personnes affichées ?")) {
+    if (!window.confirm("Vider les affectations sur lignes de cette semaine pour les personnes affichées ?\nLes absences et le temps partiel sont conservés.")) {
       return;
     }
     setVals((s) => {
       const n = { ...s };
-      for (const p of pids) for (const iso of isos) delete n[`${p}:${iso}`];
+      // On ne retire localement que les affectations sur poste (les absences/NT restent).
+      for (const p of pids) for (const iso of isos) { const k = `${p}:${iso}`; if (isPoste(n[k] ?? "")) delete n[k]; }
       return n;
     });
     setSaving("saving");
@@ -370,7 +382,7 @@ export default function PlanningGrid({
               {weekNav}
               <button
                 type="button"
-                onClick={() => setShowInd((s) => !s)}
+                onClick={toggleInd}
                 title={showInd ? "Masquer le bilan & alertes" : "Afficher le bilan & alertes"}
                 style={{ width: "auto", margin: 0, padding: "1px 7px", fontSize: 12, fontWeight: 700, lineHeight: 1.4, border: "1px solid var(--border)", borderRadius: 6, background: "#fff", color: "var(--primary)", cursor: "pointer" }}
               >
@@ -410,7 +422,7 @@ export default function PlanningGrid({
                     className="btn-sm btn-ghost"
                     style={{ padding: "2px 6px", fontSize: 11 }}
                     onClick={() => resetWeek(i)}
-                    title="Réinitialiser (vider) la semaine"
+                    title="Vider les affectations sur lignes (absences et TP conservés)"
                   >
                     Vider
                   </button>
