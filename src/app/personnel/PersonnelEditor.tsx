@@ -33,6 +33,9 @@ type Atelier = { id: string; nom: string };
 
 const CONTRATS = ["CDI", "CDD", "INTERIM"];
 const sortRows = (a: Row, b: Row) => (a.nom + a.prenom).localeCompare(b.nom + b.prenom);
+// Normalisation pour comparer des noms : sans accents/casse/ponctuation.
+const normName = (s: string) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const fmtDate = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
 
 const todayStr = () => {
@@ -89,6 +92,9 @@ export default function PersonnelEditor({
 }) {
   const [rows, setRows] = useState<Row[]>(initial);
   const [q, setQ] = useState<Record<string, string>>({});
+  const [gq, setGq] = useState("");
+  const [showColFilters, setShowColFilters] = useState(false);
+  const [dup, setDup] = useState<Row[] | null>(null);
   const [contratFilter, setContratFilter] = useState("");
   const [tpFor, setTpFor] = useState<Row | null>(null);
   const [contratsFor, setContratsFor] = useState<Row | null>(null);
@@ -160,8 +166,8 @@ export default function PersonnelEditor({
     post("toggle-statut", { id, statut });
   }
 
-  async function add() {
-    if (!nom.trim() || !prenom.trim()) return;
+  async function doCreate() {
+    setDup(null);
     const j = await post("create", {
       nom: nom.trim(), prenom: prenom.trim(), sexe, matricule, numero_badge: badge,
       equipe_id: eq, atelier_id: at, type_contrat: contrat, date_debut: today,
@@ -176,6 +182,14 @@ export default function PersonnelEditor({
       setNom(""); setPrenom(""); setSexe(""); setMatricule(""); setBadge("");
       setEq(""); setAt(""); setContrat("INTERIM"); setDateFin(""); setLivret(""); setPointure("");
     }
+  }
+
+  function add() {
+    if (!nom.trim() || !prenom.trim()) return;
+    const key = normName(`${nom} ${prenom}`);
+    const matches = rows.filter((r) => normName(`${r.nom} ${r.prenom}`) === key);
+    if (matches.length) { setDup(matches); return; } // doublon -> on demande confirmation
+    doCreate();
   }
 
   const cellText = (r: Row, key: ColKey): string => {
@@ -193,13 +207,22 @@ export default function PersonnelEditor({
       default: return "";
     }
   };
+  const searchCols = COLS.filter((c) => c.search);
+  const gTerms = gq.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const filtered = rows.filter((r) => {
     if (contratFilter && r.type_contrat !== contratFilter) return false;
+    // Recherche globale : tous les mots doivent apparaitre dans une colonne cherchable.
+    if (gTerms.length) {
+      const hay = searchCols.map((c) => cellText(r, c.key)).join(" ");
+      if (!gTerms.every((t) => hay.includes(t))) return false;
+    }
+    // Filtres par colonne (optionnels).
     return COLS.every((c) => {
       const needle = (q[c.key] ?? "").trim().toLowerCase();
       return !needle || cellText(r, c.key).includes(needle);
     });
   });
+  const activeColFilters = Object.values(q).filter((v) => v.trim()).length;
 
   const saveLabel =
     save === "saving" ? "Enregistrement…" : save === "saved" ? "Enregistré ✓" : save === "error" ? "Échec d'enregistrement" : "";
@@ -221,8 +244,22 @@ export default function PersonnelEditor({
   return (
     <div>
       {/* Barre de filtres */}
-      <div className="toolbar" style={{ alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+      <div className="toolbar" style={{ alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {/* Recherche globale */}
+          <span style={{ position: "relative", display: "inline-block", width: 280, maxWidth: "55vw" }}>
+            <span aria-hidden style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", fontSize: 13, pointerEvents: "none" }}>🔍</span>
+            <input
+              value={gq}
+              onChange={(e) => setGq(e.target.value)}
+              placeholder="Rechercher : nom, matricule, badge, équipe…"
+              style={{ width: "100%", fontSize: 13, padding: "7px 30px 7px 30px" }}
+            />
+            {gq !== "" && (
+              <button type="button" onClick={() => setGq("")} title="Effacer la recherche"
+                style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 18, height: 18, margin: 0, padding: 0, border: "none", borderRadius: "50%", background: "var(--muted)", color: "#fff", cursor: "pointer", fontSize: 11, lineHeight: "18px", textAlign: "center" }}>✕</button>
+            )}
+          </span>
           <span className="muted" style={{ fontWeight: 600 }}>Contrat :</span>
           <div className="segments">
             <button type="button" className={contratFilter === "" ? "seg active" : "seg"} onClick={() => setContratFilter("")}>Tous ({counts.tous})</button>
@@ -232,8 +269,21 @@ export default function PersonnelEditor({
               </button>
             ))}
           </div>
+          {/* Bascule filtres par colonne */}
+          <button type="button" className={showColFilters ? "seg active" : "seg"} onClick={() => setShowColFilters((v) => !v)}
+            style={{ margin: 0 }} title="Afficher un filtre sous chaque colonne">
+            ⛃ Filtres colonnes{activeColFilters > 0 ? ` (${activeColFilters})` : ""}
+          </button>
+          {activeColFilters > 0 && (
+            <button type="button" className="btn-sm btn-ghost" style={{ width: "auto" }} onClick={() => setQ({})} title="Effacer tous les filtres de colonne">Réinitialiser</button>
+          )}
         </div>
-        <span style={{ minHeight: 16, fontSize: 12, fontWeight: 600, color: saveColor }}>{saveLabel}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {filtered.length === rows.length ? `${rows.length} personnes` : `${filtered.length} / ${rows.length}`}
+          </span>
+          <span style={{ minHeight: 16, fontSize: 12, fontWeight: 600, color: saveColor }}>{saveLabel}</span>
+        </div>
       </div>
 
       {/* Tableau 1 (fixe) : entetes + recherche + creation */}
@@ -258,27 +308,30 @@ export default function PersonnelEditor({
                 </th>
               )}
             </tr>
-            <tr>
-              {COLS.map((c) => (
-                <th key={c.key} style={{ padding: "2px 4px" }}>
-                  {c.search && (
-                    <span style={{ position: "relative", display: "block" }}>
-                      <input
-                        value={q[c.key] ?? ""}
-                        onChange={(e) => setQ((s) => ({ ...s, [c.key]: e.target.value }))}
-                        placeholder="🔍"
-                        style={{ width: "100%", fontSize: 11, padding: "3px 16px 3px 4px", fontWeight: 400, ...C(c.key) }}
-                      />
-                      {(q[c.key] ?? "") !== "" && (
-                        <button type="button" onClick={() => setQ((s) => ({ ...s, [c.key]: "" }))} title="Effacer"
-                          style={{ position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)", width: "auto", margin: 0, padding: 0, border: "none", background: "transparent", cursor: "pointer", fontSize: 11, lineHeight: 1, color: "var(--muted)" }}>✕</button>
-                      )}
-                    </span>
-                  )}
-                </th>
-              ))}
-              {canEdit && <th style={{ padding: "2px 4px" }}></th>}
-            </tr>
+            {showColFilters && (
+              <tr>
+                {COLS.map((c) => (
+                  <th key={c.key} style={{ padding: "2px 4px" }}>
+                    {c.search && (
+                      <span style={{ position: "relative", display: "block" }}>
+                        <input
+                          value={q[c.key] ?? ""}
+                          onChange={(e) => setQ((s) => ({ ...s, [c.key]: e.target.value }))}
+                          placeholder="filtrer…"
+                          aria-label={`Filtrer ${c.label}`}
+                          style={{ width: "100%", fontSize: 11, padding: "3px 18px 3px 6px", fontWeight: 400, ...C(c.key) }}
+                        />
+                        {(q[c.key] ?? "") !== "" && (
+                          <button type="button" onClick={() => setQ((s) => ({ ...s, [c.key]: "" }))} title="Effacer"
+                            style={{ position: "absolute", right: 3, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, margin: 0, padding: 0, border: "none", borderRadius: "50%", background: "var(--muted)", color: "#fff", cursor: "pointer", fontSize: 9, lineHeight: "14px", textAlign: "center" }}>✕</button>
+                        )}
+                      </span>
+                    )}
+                  </th>
+                ))}
+                {canEdit && <th style={{ padding: "2px 4px" }}></th>}
+              </tr>
+            )}
           </thead>
           {canEdit && showCreate && (
             <tbody>
@@ -380,6 +433,38 @@ export default function PersonnelEditor({
       )}
       {contratsFor && (
         <ContratsModal personne={{ id: contratsFor.id, label: `${contratsFor.nom} ${contratsFor.prenom}` }} onClose={() => setContratsFor(null)} />
+      )}
+
+      {dup && (
+        <div onClick={() => setDup(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 540, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <h2 style={{ margin: 0, color: "#92400e" }}>⚠ Doublon possible</h2>
+              <button type="button" className="btn-sm btn-ghost" onClick={() => setDup(null)} style={{ width: "auto" }}>✕</button>
+            </div>
+            <p style={{ marginTop: 0 }}>
+              Une personne nommée <strong>{nom.trim()} {prenom.trim()}</strong> existe déjà&nbsp;:
+            </p>
+            <ul style={{ margin: "4px 0 10px", paddingLeft: 18 }}>
+              {dup.map((m) => (
+                <li key={m.id} style={{ marginBottom: 4 }}>
+                  <Link href={`/personnel/${m.id}`} prefetch={false}>{m.nom} {m.prenom}</Link>
+                  {" — "}{m.type_contrat === "INTERIM" ? "Intérim" : m.type_contrat}
+                  {" — "}<span className={m.statut === "ACTIF" ? "tag" : "tag tag-off"}>{m.statut === "ACTIF" ? "Actif" : "Parti"}</span>
+                  {m.matricule ? <span className="muted" style={{ fontSize: 12 }}> · mat. {m.matricule}</span> : null}
+                </li>
+              ))}
+            </ul>
+            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#78350f" }}>
+              <strong>Règle&nbsp;:</strong> on réactive l'ancien profil (bouton <em>Actif/Parti</em> sur sa ligne) plutôt que de créer
+              deux fois la même personne. Cela évite les doublons et conserve l'historique, la matrice de polyvalence et le planning.
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+              <button type="button" className="btn-sm" onClick={() => setDup(null)} style={{ width: "auto" }}>Annuler (recommandé)</button>
+              <button type="button" className="btn-sm btn-ghost" onClick={doCreate} style={{ width: "auto" }}>Créer quand même</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
