@@ -81,6 +81,20 @@ export function NavIcon({ name }: { name: string }): ReactElement | null {
         </Svg>
       );
 
+    // Referentiel : une usine (ateliers / lignes / postes)
+    case "referentiel":
+      return (
+        <Svg>
+          <path d="M3 20.5V11l5 2.6V11l5 2.6V11l5 2.6V20.5z" fill="#fff" />
+          <rect x="17.6" y="4" width="2.4" height="9" rx="0.6" fill="#fff" />
+          <g fill={DETAIL}>
+            <rect x="5" y="15.5" width="2.4" height="3.2" rx="0.5" />
+            <rect x="10" y="15.5" width="2.4" height="3.2" rx="0.5" />
+            <rect x="15" y="15.5" width="2.4" height="3.2" rx="0.5" />
+          </g>
+        </Svg>
+      );
+
     default:
       return null;
   }
