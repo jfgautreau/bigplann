@@ -114,7 +114,7 @@ export default async function PolyvalenceReport({ searchParams }: { searchParams
   return (
     <>
       <AppHeader role={profile.role} active="/bilans" />
-      <div className="container" style={{ maxWidth: 1200 }}>
+      <div className="container" style={{ maxWidth: 1500 }}>
         <div className="report-head">
           <div>
             <h1>Polyvalence &amp; compétences</h1>

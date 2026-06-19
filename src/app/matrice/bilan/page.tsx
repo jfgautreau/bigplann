@@ -77,7 +77,7 @@ export default async function BilanPage({
   return (
     <>
       <AppHeader role={profile.role} active="/matrice" />
-      <div className="container">
+      <div className="container" style={{ maxWidth: 1500 }}>
         <div className="toolbar">
           <h1 style={{ margin: 0 }}>Bilan polyvalence</h1>
           <Link href="/matrice" className="navlink">

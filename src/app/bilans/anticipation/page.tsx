@@ -3,8 +3,9 @@ import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import PrintButton from "@/components/PrintButton";
 import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
+import OrdoMonthNav from "@/app/ordonnancement/OrdoMonthNav";
 import { requireModule } from "@/lib/permissions";
-import { isoDate, addDays, mondayOf, isoWeekNumber } from "@/lib/week";
+import { isoDate, isoWeekNumber, parseMois, monthDays, monthLabel } from "@/lib/week";
 
 type LigneRow = { id: string; nom: string; atelier_id: string | null; poste: { id: string; nom: string; actif: boolean; effectif_requis: number; categorie: string }[] };
 
@@ -21,20 +22,15 @@ type Mat = { personne_id: string; poste_id: string; niveau_actuel: number };
 const SEUIL = 2;
 const fmtDate = (d: string) => d.split("-").reverse().join("/");
 
-export default async function AnticipationReport({ searchParams }: { searchParams: Promise<{ atelier?: string }> }) {
+export default async function AnticipationReport({ searchParams }: { searchParams: Promise<{ atelier?: string; mois?: string }> }) {
   const { profile } = await requireModule("bilans", "read");
   const sp = await searchParams;
   const atelier = sp.atelier ?? "";
+  const { year, month0 } = parseMois(sp.mois);
 
-  const today = new Date();
-  const todayIso = isoDate(today);
-  const startMon = mondayOf(today);
-  const weeks = Array.from({ length: 6 }, (_, w) => {
-    const mon = addDays(startMon, w * 7);
-    const dayIsos = Array.from({ length: 7 }, (_, i) => isoDate(addDays(mon, i)));
-    return { mon: isoDate(mon), num: isoWeekNumber(mon), dayIsos };
-  });
-  const horizonIsos = weeks.flatMap((w) => w.dayIsos);
+  const todayIso = isoDate(new Date());
+  const horizonIsos = monthDays(year, month0).map((d) => d.iso);
+  const firstIso = horizonIsos[0];
   const lastIso = horizonIsos[horizonIsos.length - 1];
 
   const supabase = await getServerClient();
@@ -151,7 +147,6 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   // ---- 4.2 Impact des absences connues (14 prochains jours) ----
   const prochainesAbsences = horizonIsos
     .filter((iso) => iso >= todayIso && (absByDay.get(iso)?.length ?? 0) > 0)
-    .slice(0, 14)
     .map((iso) => ({ iso, noms: absByDay.get(iso)!, besoin: besoinJour(iso), dispo: activeCount - (absByDay.get(iso)?.length ?? 0) - contractEndedBy(iso) }));
 
   // ---- 4.3 Impact des fins de contrat sur la polyvalence ----
@@ -162,8 +157,9 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   const compByPers = new Map<string, string[]>();
   for (const r of matD ?? []) if (activeIds.has(r.personne_id) && scopedPosteIds.has(r.poste_id)) (compByPers.get(r.personne_id) ?? compByPers.set(r.personne_id, []).get(r.personne_id)!).push(r.poste_id);
 
+  const fromIso = firstIso > todayIso ? firstIso : todayIso;
   const departs = active
-    .filter((p) => p.type_contrat !== "CDI" && p.date_fin && p.date_fin >= todayIso && p.date_fin <= lastIso)
+    .filter((p) => p.type_contrat !== "CDI" && p.date_fin && p.date_fin >= fromIso && p.date_fin <= lastIso)
     .map((p) => {
       const postesRisque = (compByPers.get(p.id) ?? [])
         .filter((pid) => (compByPoste.get(pid)?.size ?? 0) - 1 <= 1)
@@ -176,11 +172,11 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   return (
     <>
       <AppHeader role={profile.role} active="/bilans" />
-      <div className="container" style={{ maxWidth: 1200 }}>
+      <div className="container" style={{ maxWidth: 1500 }}>
         <div className="report-head">
           <div>
             <h1>Anticipation</h1>
-            <div className="sub">Horizon 6 semaines (jusqu&apos;au {fmtDate(lastIso)}) · {activeCount} personnes actives</div>
+            <div className="sub">{monthLabel(year, month0)} · projection compétences vs besoin · {activeCount} personnes actives</div>
           </div>
           <div className="noprint" style={{ display: "flex", gap: 8 }}>
             <Link href="/bilans" className="navlink">&larr; Cockpit</Link>
@@ -189,6 +185,7 @@ export default async function AnticipationReport({ searchParams }: { searchParam
         </div>
 
         <ReportAtelierFilter ateliers={atD ?? []} atelier={atelier} />
+        <div className="noprint"><OrdoMonthNav base="/bilans/anticipation" year={year} month0={month0} /></div>
 
         <div className="kpi-grid">
           <div className={`kpi ${joursTension > 0 ? "danger" : "ok"}`}><div className="v">{joursTension}</div><div className="l">Jours en tension</div><div className="s">compétences dispo &lt; besoin</div></div>
