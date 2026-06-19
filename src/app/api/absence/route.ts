@@ -80,6 +80,56 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, row: abs });
     }
 
+    if (op === "update") {
+      const id = s(body.id);
+      const date_debut = s(body.date_debut);
+      const date_fin = s(body.date_fin);
+      const motif_absence_id = orNull(s(body.motif_absence_id));
+      const commentaire = orNull(s(body.commentaire));
+      if (!id || !date_debut || !date_fin) {
+        return NextResponse.json({ error: "id et dates requis." }, { status: 400 });
+      }
+      if (date_fin < date_debut) {
+        return NextResponse.json({ error: "La date de fin doit être après la date de début." }, { status: 400 });
+      }
+      if (!motif_absence_id) {
+        return NextResponse.json({ error: "Motif d'absence requis." }, { status: 400 });
+      }
+
+      // Personne de l'absence (pour rematerialiser les placements).
+      const { data: cur, error: cErr } = await supabase
+        .from("absence")
+        .select("personne_id")
+        .eq("id", id)
+        .single();
+      if (cErr) throw cErr;
+      const personne_id = (cur as { personne_id: string }).personne_id;
+
+      const { error: uErr } = await supabase
+        .from("absence")
+        .update({ motif_absence_id, date_debut, date_fin, commentaire })
+        .eq("id", id);
+      if (uErr) throw uErr;
+
+      // Rematerialise : on retire les anciens jours de cette absence puis on recree
+      // un placement par jour de la nouvelle plage (le motif suit dans le planning).
+      await supabase.from("placement").delete().eq("absence_id", id);
+      const rows = joursRange(date_debut, date_fin).map((jour) => ({
+        personne_id,
+        jour,
+        equipe_id: null,
+        poste_id: null,
+        motif_absence_id,
+        non_travaille: false,
+        quart_code: null,
+        absence_id: id,
+        created_by: profile.authId,
+      }));
+      const { error: pErr } = await supabase.from("placement").upsert(rows, { onConflict: "personne_id,jour" });
+      if (pErr) throw pErr;
+      return NextResponse.json({ ok: true });
+    }
+
     if (op === "delete") {
       const id = s(body.id);
       if (!id) return NextResponse.json({ error: "id manquant" }, { status: 400 });

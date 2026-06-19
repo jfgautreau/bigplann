@@ -45,7 +45,7 @@ export default async function AbsencesSpecifiquesPage() {
   return (
     <>
       <AppHeader role={profile.role} active="/planning" />
-      <div className="container" style={{ maxWidth: 1000 }}>
+      <div className="container" style={{ maxWidth: 1500 }}>
         <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <h1 style={{ margin: 0 }}>Absences spécifiques</h1>
           <Link href="/planning" className="navlink">&larr; Planning</Link>
