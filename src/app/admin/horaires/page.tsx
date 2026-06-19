@@ -57,7 +57,7 @@ export default async function HorairesPage() {
   return (
     <>
       <AppHeader role={profile.role} active="/admin/horaires" />
-      <div className="container" style={{ maxWidth: 1300 }}>
+      <div className="container" style={{ maxWidth: 1500 }}>
         <h1>Horaires des postes</h1>
         <p className="muted" style={{ marginBottom: 12 }}>
           Horaires propres à chaque poste, par quart et par jour de la semaine. Affichés à
