@@ -1,76 +1,73 @@
-# Passation BigPlann' (planning usine) — état au 2026-06-04
+# Passation BigPlann' (planning usine) — état au 2026-06-19
 
 > Fichier de reprise après `/clear`. À lire en début de session.
 
 ## Projet & emplacements
-- **Repo de travail : `C:\dev\planning-usine`** (app usine « BigPlann' »). C'est ICI que tout le code vit.
-- Le dossier `...\AppliSaas\planningmission` est une **autre** app (conseil) — ne pas confondre.
-- Git : remote `github.com/jfgautreau/bigplann`, branche **main**.
-- Stack : **Next.js 16 (App Router, RSC + server actions)**, React 19, TypeScript, **Supabase** (Postgres + Auth + RLS), déploiement **Vercel auto sur `git push origin main`** (pas de lien CLI vercel local).
+- **Repo de travail : `C:\dev\planning-usine`** (app usine « BigPlann' »). Tout le code vit ici.
+- Git : remote `github.com/jfgautreau/bigplann`, branche **main**. **Push = déploiement Vercel auto.**
+- Stack : **Next.js 16 (App Router, RSC + server actions)**, React 19, TypeScript, **Supabase** (Postgres + Auth + RLS).
 
 ## Base de données / Supabase
-- Projet Supabase de l'app : ref **`stcxlsmmnplxpirrnefm`** (cf. `NEXT_PUBLIC_SUPABASE_URL` dans `.env.local`).
-- ⚠️ **Le MCP Supabase est sur un AUTRE compte** (projets visibles : PlanningMission/Questionnaire/assistant) — il **ne voit pas** `stcxlsmmnplxpirrnefm`. Donc **impossible d'écrire en base via le MCP**.
-- Pour modifier la base : soit **donner du SQL** à exécuter par l'utilisateur dans **Supabase → SQL Editor**, soit script Node local lisant `SUPABASE_SERVICE_ROLE_KEY` de `.env.local`.
-- **Migrations** : fichiers dans `supabase/migrations/`, **appliquées MANUELLEMENT par l'utilisateur** dans le SQL Editor. **Dernière appliquée : `0021`** (l'utilisateur confirme « 0021 faite »). Récap récent : `0020` = `personne.atelier_id` (filtre atelier) ; `0021` = Lot C : quart `journee`, `equipe.quart_fixe`, `poste.categorie` (manager/conducteur/operateur, reprise depuis l'existant), table `poste_quart` (activation poste×quart, défaut actif), table `horaire_exception` (horaires spécifiques par personne×jour). Voir `docs/LOT-C-CADRAGE.md`.
+- Projet Supabase : ref **`stcxlsmmnplxpirrnefm`**, région **eu-west-3 (Paris)**.
+- ⚠️ **Le MCP Supabase est sur un AUTRE compte** → il ne voit pas ce projet. Pour modifier la base : **donner du SQL** à exécuter par l'utilisateur (Supabase → SQL Editor), ou script Node local lisant `SUPABASE_SERVICE_ROLE_KEY` de `.env.local`.
+- **Migrations** : `supabase/migrations/`, **appliquées manuellement** par l'utilisateur. **Dernière appliquée : `0025`** (0020→0025 toutes confirmées « faite »).
+  - `0020` personne.atelier_id · `0021` Lot C (quart journee, equipe.quart_fixe, poste.categorie, poste_quart, horaire_exception) · `0022` personne.sexe (H/F) · `0023` table `absence` + placement.absence_id · `0024` personne.numero_badge + date_livret_accueil + contrat_periode.motif · `0025` temps partiel (personne.temps_partiel/tp_type/tp_config jsonb).
 
-## Gotchas environnement (Windows / PowerShell)
-- `git commit -m "..."` avec accents/guillemets **casse le parsing PS**. Méthode qui marche :
-  1. Écrire le message dans `COMMIT_MSG.tmp` (à la racine du repo).
-  2. `git add src` (PAS `-A`, pour ne pas committer le tmp).
-  3. `git commit -q -F COMMIT_MSG.tmp` — ⚠️ **NE PAS forcer l'auteur** avec `-c user.email=...noreply...`. Laisser la config locale (`jfgautreau <jf.gautreau@gmail.com>`). L'ancien override `jfgautreau@users.noreply.github.com` **faisait BLOQUER les déploiements Vercel** (plan Hobby : « commit author did not have contributing access » — cet email no-reply n'est pas relié au compte GitHub/Vercel propriétaire). Le bon email auteur pour déployer = **`jf.gautreau@gmail.com`**.
-  4. `Remove-Item COMMIT_MSG.tmp -Force`
-  5. `git push origin main` — affiche une **RemoteException / exit 255 inoffensive**, le push réussit quand même (voir la ligne `xxuser -> main`).
-- Trailer de commit : `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
-- Toujours `npm run build` avant de committer (vérif TS).
-- Déployer systématiquement à la fin d'une tâche (push = déploiement prod).
+## Git / déploiement (workflow qui marche)
+- Commit via Bash heredoc : `git commit -m "$(cat <<'EOF' … EOF)"`. Trailer : `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`. **Auteur = `jf.gautreau@gmail.com`** (config locale, NE PAS forcer un email no-reply → bloque les déploiements Vercel Hobby).
+- Toujours `npm run build` (et `npx tsc --noEmit`) avant de committer.
+- **Vercel** : région des functions = **`cdg1` (Paris)** forcée via `vercel.json` (`regions`) + `preferredRegion` dans `layout.tsx`. **Fluid Compute = ON** (réduit les cold starts ; activé par l'utilisateur). Pour redéployer sans changement : commit vide `git commit --allow-empty`.
 
 ## Modèle métier clé
-- **Quart (shift) ≠ Équipe (team)** : quarts = `journee` (ordre 0) / `matin` / `apres_midi` / `nuit` (table `quart`). Les équipes tournent par semaine via `equipe_quart_semaine`, SAUF celles à `equipe.quart_fixe` non nul (ne tournent pas, ex. l'équipe « journée »). Défaut planning = `matin` même si `journee` est en tête.
-- **Catégorie de poste** : `poste.categorie` ∈ manager/conducteur/operateur (remplace l'usage de `est_conducteur`, conservé en base mais déprécié). Source des 3 bilans planning et du bilan Compétences.
-- **Activation poste×quart** : table `poste_quart`, défaut actif (ne stocke que les désactivations). Filtre les postes proposés/comptés dans le planning du quart affiché.
-- **Horaires spécifiques** : table `horaire_exception` (personne×jour, début/fin/motif). Surcharge l'horaire standard `horaire_poste` à l'affichage (planning + TV). Saisie : case du planning (bouton 🕐) + écran `/horaires-specifiques`. API `/api/horaire-exception`.
-- **Temps partiel** (migration 0025) : `personne.temps_partiel` + `tp_type` ('JOURS'|'HORAIRES') + `tp_config` jsonb. Saisie : colonne **TP** dans la liste Personnel → modale `TempsPartielModal` (API `/api/personnel` op `tp`). **JOURS** : demi-journées non travaillées (`off` par dow 1-7, `matin`/`aprem`) → cases **bloquées « TP »** dans le planning (calcul serveur `tpBlocked` selon le quart courant, passé à `PlanningGrid`). **HORAIRES** : horaires par jour de semaine → **override** dans l'affichage TV (`horaireTxt` : exception > TP > standard).
-- **Absences spécifiques** (migration 0023) : table `absence` (personne, motif, date_debut..date_fin) = source de vérité des absences longues (arrêt maladie…). Matérialisée en `placement` (un par jour, `motif_absence_id`) via `placement.absence_id` (cascade à la suppression) → s'affiche directement dans le planning. Écran `/absences-specifiques` (lien menu planning 🤒), API `/api/absence` (ops save/delete).
-- **Ordonnancement** : `jour_quart` (quart actif un jour) + `ouverture_quart` (ligne ouverte par jour×quart). Défauts : actif sauf dimanche, ouvert par défaut (`lib/week.ts: defaultQuartActif`).
-- **`horaire_poste`** : depuis 0016, clé **(poste_id, quart_code, jour 0-6)** — l'horaire est au POSTE par quart (avant : par équipe).
-- **Permissions** : `lib/permissions.ts` (MODULES, getPermissions, canRead/canWrite, requireModule). Rôles : `lib/roles.ts`. Écriture référentiel/personnel = **admin** (RLS `is_admin()`).
-- Personnes : table `personne` (statut ACTIF/PARTI, type_contrat CDI/CDD/INTERIM, matricule unique nullable auto-INT pour intérim).
+- **Quart ≠ Équipe** : quarts `journee`/`matin`/`apres_midi`/`nuit` (table `quart`). Équipes tournent par semaine (`equipe_quart_semaine`) sauf `equipe.quart_fixe`. Défaut planning = `matin`.
+- **poste.categorie** ∈ manager/conducteur/operateur (source des bilans). `est_conducteur` déprécié.
+- **poste_quart** : activation poste×quart, défaut actif (ne stocke que désactivations).
+- **horaire_poste** : clé (poste_id, quart_code, jour 0-6).
+- **horaire_exception** (personne×jour) : surcharge horaire à l'affichage. Saisie : bouton 🕐 dans la case planning + écran `/horaires-specifiques`.
+- **Absences longues** (`absence`) : personne + motif + date_debut..date_fin → matérialisées en `placement` (un/jour, `motif_absence_id`) liés par `placement.absence_id` (cascade). Écran `/absences-specifiques` (lien menu planning 🤒), API `/api/absence`.
+- **Temps partiel** (`tp_config` jsonb, options cumulables) — modale `TempsPartielModal` (API `/api/personnel` op `tp`) :
+  - `demi` : `{ mode: matin|aprem|tournant, source: quart|horaires, matin?/aprem?: {dow:{debut,fin}} }`. Fixe matin/aprem → planning affiche **« → Mat / → Apr »** sur l'autre quart (`tpRedirect`). Tournant → suit le quart du placement.
+  - `off` : `{ dow: ["matin","aprem"] }` demi-journées non travaillées → case **« TP »** bloquée (`tpBlocked`).
+  - `horaires` : `{ dow: {debut,fin} }` horaires journée entière.
+  - Affichage TV `horaireTxt` priorité : **exception ponctuelle > TP (demi puis journée) > standard**. Planning : `tpBlocked`/`tpRedirect` calculés serveur (selon quart) et passés à `PlanningGrid`.
+- **personne** : statut ACTIF/PARTI, type_contrat CDI/CDD/INTERIM, sexe H/F, numero_badge, date_livret_accueil, atelier_id. Contrats multiples dans `contrat_periode` (motif inclus).
+- **Permissions** : `lib/permissions.ts` (MODULES, getPermissions, canRead/canWrite, requireModule). Écriture référentiel/personnel = admin.
+
+## Navigation (AppHeader)
+- **Menu principal** (`MAIN_ORDER`) avec pastille colorée + icône (`NAV_TILE` + `NavIcon`) : **Référentiel** (vert, icône usine) → Personnel (bleu) → Matrice (violet) → Ordonnancement (orange) → Planning (teal) → Bilans (rose).
+- Logo « BigPlann' » → **`/bilans`** (Cockpit).
+- **Engrenage** (`SettingsMenu`) = reste des modules admin : Équipes, Compétences, Motifs, Horaires, Affichage, Journal, RGPD, **Rotation des équipes**, Droits.
+- 🔔 cloche = habilitations à recycler (compteur ≤ 90 j).
 
 ## Patterns UI maison
-- **Édition inline auto-enregistrée** : composant client qui tient l'arbre/les lignes en `useState`, sauvegarde en `fetch` debounce (500ms texte, 0 pour selects/toggles) vers un endpoint API, indicateur « Enregistré ✓ / Échec ». Voir `ReferentielEditor.tsx` + `/api/referentiel`, `PersonnelEditor.tsx` + `/api/personnel`.
-- **ToggleSwitch** partagé : `src/components/ToggleSwitch.tsx` (pilule vert/rouge, cadenas, **24px de haut**). Props `on/onChange/onLabel/offLabel/title`.
-- **En-têtes de tableau figés** : classe CSS `.sticky-head` (globals.css) → `thead tr:first-child th` sticky sous la barre d'app (`--appbar: 40px`). La barre d'app `.appheader` est sticky (z-index 50).
-  - ⚠️ `position: sticky; top` **ne marche pas** dans un conteneur `overflow:auto` par rapport à la fenêtre. Pour le **planning**, la grille est une **zone à défilement interne** (`maxHeight: calc(100vh - 190px); overflow:auto`) avec en-têtes `top:0` + colonne gauche `left:0`.
-- Padding tables réduit globalement à `4px 10px` (globals.css).
+- **Édition inline auto-enregistrée** (useState + fetch debounce → API ; indicateur Enregistré ✓). Voir `PersonnelEditor`, `ReferentielEditor`, `MatrixGrid`.
+- **Listes en 2 tableaux** (Personnel, Planning, Matrice) : un 1er tableau **figé** (filtres + en-têtes + bilan rétractable) et un 2e **scrollable** (les lignes/noms, hauteur limitée). Colonnes alignées via **colgroup commun** + `table-layout: fixed` + `scrollbar-gutter: stable`. **Pas de défilement horizontal** (largeurs en % ; colonne noms en px adaptée au plus long nom).
+- **Filtres** : `.filterrow` (label + segments) ; planning = 2 colonnes alignées (Année/Mois/Semaine | Équipe/Atelier/Quart). Filtres en **`useTransition`** (l'UI ne gèle pas, opacité pendant le chargement).
+- **Bilan rétractable** : bouton « − Bilan / + Bilan » (planning & matrice).
+- **Options de `<select>` à la demande** (planning) : la case ne rend que sa valeur ; la liste complète (postes+motifs) n'est construite qu'à l'ouverture (`onMouseDown`/`onFocus`, state `openKey`).
+- **Modales** : overlay `position:fixed` + `.card` (TempsPartielModal, ContratsModal, LegendeModal).
+- **ToggleSwitch** partagé (24px). **`prefetch={false}`** sur les liens répétés en liste (sinon Next précharge des centaines de pages).
 
-## Travaux récents (commits, du + récent au + ancien)
-- `bb5b023` **Perf latence serveur/page** : `getUser()`→`getClaims()` (vérif JWT locale, fallback HS256) dans `current-user.ts` ; `React.cache()` sur `getServerClient`/`getCurrentProfile`/`getPermissions` (1 seul contrôle profil+droits par requête) ; requêtes pages parallélisées (matrice 5→2 vagues, planning : `personne`+`equipe_chef` remontés en vague 1) ; `AutoRefresh` → `router.refresh()`.
-  - ⚠️ **Pour activer le gain auth** : Supabase Dashboard → *Project Settings → JWT Keys* → migrer vers des **clés asymétriques (RS256/ES256)**. Tant que le projet est en HS256, `getClaims()` retombe sur `getUser()` distant (aucune régression, mais pas de speedup).
-  - Pistes non faites (proposées) : P4 `output: "standalone"`, P5 mémoïsation grilles, cache cross-requête des permissions (`unstable_cache` + invalidation dans `droits/actions.ts`), vérif des index DB (`placement(personne_id,jour)`, `matrice(personne_id)`, `ouverture_quart(quart_code,jour)`).
-- `ef5018a` Bilan **Compétences disponibles** refondu : regroupé par **catégorie** (Chefs d'équipe / Conducteurs / Opérateurs=tous les autres), cellule `dispo/besoin`, **bordeaux sur fond rouge pâle** si dispo<besoin, jours fermés masqués, séparateurs + en-tête de semaine. Besoin calculé depuis l'ordonnancement.
-- `00ad873` Personnel : form création complet rétabli ; ToggleSwitch 24px (tout le site) ; lignes resserrées ; en-têtes figés (perso + planning).
-- `9743334` Planning : titre retiré, filtres Équipe/Quart à droite, lignes compactées, cellule « Personne » vidée.
-- `b5d55ba` Personnel : éditeur inline + interrupteur Actif/Parti.
-- `a87f008` / `544d748` Référentiel : interrupteurs Actif/Inactif + saisie inline.
-- `bfa2f90` / `d8697fd` Affichage TV : vues **Par poste** / **Par nom**, horaires sous le nom, respect des fermetures, jours sans travail masqués, anti-chevauchement colonnes.
-- `0df3156` Horaires refonte (poste×quart×jour) + **migration 0016**.
-- `a9bab37`/`a4ada56`/`3a32956` Passe d'**accentuation** de tout le texte affiché (identifiants/colonnes/routes laissés intacts).
-- Insertion **25 personnes** en base via SQL fourni (exécuté par l'utilisateur).
+## Bilans CODIR (`/bilans`)
+- `/bilans` = **Cockpit** (KPIs + cartes). Catégories : `/bilans/personnel`, `/bilans/polyvalence`, `/bilans/couverture`, `/bilans/anticipation`. Composant `Bars` partagé. Styles `.kpi/.report-*/.navcard/.barrow` + `@media print` (PDF). `OrdoMonthNav` pour la nav mensuelle. Filtre atelier : `ReportAtelierFilter`.
 
-## À vérifier / hypothèses ouvertes (points où l'utilisateur peut demander un ajustement)
-- **Bilan compétences** : détection « Chef d'équipe » = ligne nommée `CE` ou poste contenant `CE/Chef`. Besoin Opérateurs basé sur `effectif_requis` du référentiel (souvent 0 → jamais rouge). Besoin Conducteurs = effectif conducteur × lignes ouvertes × quarts. À confirmer avec sa réalité.
-- **Sticky headers** : `--appbar: 40px` (estimation) et planning `100vh - 190px` — à recaler si chevauchement/trait blanc selon écran.
-- ToggleSwitch sur la colonne « Actif » des **postes** : laissé en case à cocher (table compacte) — proposé de basculer aussi.
+## Perf (état : bon — ~300 ms à chaud, ~1,3 s → réglé)
+Causes traitées : (1) **région cdg1** (latence), (2) **Fluid Compute ON** (cold starts), (3) **options de case à la demande** (supprime ~110k `<option>` du planning), (4) **`prefetch={false}`** (fin du flood de préchargements), (5) **cache des données de référence** (`lib/refdata.ts` : ateliers/équipes/quarts/motifs/niveaux via `unstable_cache` revalidate 30 s, client service), (6) **Personnel en 1 vague** de requêtes, (7) `loading.tsx` (planning/matrice/personnel/bilans).
+- En réserve si besoin : **virtualisation** des grandes grilles (planning « Tous », matrice « Tous », personnel) pour passer ~300 → ~150 ms.
 
 ## Fichiers importants
-- `src/lib/week.ts` (dates/quarts/mois), `src/lib/permissions.ts`, `src/lib/roles.ts`.
-- `src/components/{AppHeader,SettingsMenu,ToggleSwitch,PlanningNav,PeriodBand,PrintButton}.tsx`.
-- Planning : `src/app/planning/{page,PlanningGrid,PlanningFilters,QuartSelector}.tsx`.
+- `src/lib/{week,permissions,roles,refdata,supabase-server}.ts`.
+- `src/components/{AppHeader,SettingsMenu,UserMenu,ToggleSwitch,PlanningNav,WeekNav,NavIcons,PrintButton}.tsx`.
+- Planning : `src/app/planning/{page,PlanningGrid,PlanningFilters,AtelierFilter,QuartSelector,loading}.tsx`.
+- Matrice : `src/app/matrice/{page,MatricePanel,MatrixGrid,MatriceFilters,Pie,LegendeModal,loading}.tsx`.
+- Personnel : `src/app/personnel/{page,PersonnelEditor,PeriodesEditor,TempsPartielModal,ContratsModal,[id]/page,actions,loading}.tsx` + `src/app/api/personnel/route.ts`.
 - Référentiel : `src/app/admin/referentiel/{page,ReferentielEditor}.tsx` + `src/app/api/referentiel/route.ts`.
-- Personnel : `src/app/personnel/{page,PersonnelEditor,[id]/page,actions}.tsx` + `src/app/api/personnel/route.ts`.
-- Horaires : `src/app/admin/horaires/{page,HoraireGrid,actions}.tsx`.
+- Horaires/Absences spé : `src/app/{horaires-specifiques,absences-specifiques}/*` + `src/app/api/{horaire-exception,absence}/route.ts`.
 - Affichage TV : `src/app/affichage/atelier/[atelier]/page.tsx`.
-- Bilan : `src/app/bilans/{page,competences/page,competences/CompetenceNav}.tsx`.
-  - **Refonte CODIR** : `/bilans` = Cockpit (KPIs + cartes). Catégories : `/bilans/personnel`, `/bilans/polyvalence`, `/bilans/couverture`, `/bilans/anticipation`. Composant `Bars` partagé (`src/app/bilans/Bars.tsx`). Styles `.kpi/.report-*/.navcard/.barrow` + `@media print` (PDF) dans `globals.css`. `OrdoMonthNav` réutilisé pour la nav mensuelle.
-- Migrations : `supabase/migrations/0001..0016`.
+- Bilans : `src/app/bilans/{page,Bars,ReportAtelierFilter,personnel,polyvalence,couverture,anticipation,competences}/…`.
+- Migrations : `supabase/migrations/0001..0025`.
+
+## Points ouverts / à recaler selon écran
+- Sticky/offsets : `--appbar: 40px`, matrice `top:25` postes, planning hauteurs — à ajuster si chevauchement.
+- Largeur colonne noms planning = `nb caractères × 7,2px` (plafond 300).
+- Règle alerte « > 18 mois » : depuis le début de contrat le plus ancien jusqu'à fin/aujourd'hui, hors CDI.
