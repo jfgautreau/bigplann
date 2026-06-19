@@ -8,8 +8,8 @@ import PrintButton from "@/components/PrintButton";
 export const dynamic = "force-dynamic";
 
 type Atelier = { id: string; nom: string };
-type Poste = { id: string; nom: string; est_conducteur: boolean };
-type Ligne = { id: string; nom: string; poste: (Poste & { actif: boolean })[] };
+type Poste = { id: string; nom: string; est_conducteur: boolean; ordre_affichage: number };
+type Ligne = { id: string; nom: string; ordre_affichage: number; poste: (Poste & { actif: boolean })[] };
 type PlacementRow = {
   poste_id: string | null;
   jour: string;
@@ -57,18 +57,21 @@ export default async function AffichageAtelier({
 
   const { data: lignesD } = await admin
     .from("ligne")
-    .select("id, nom, poste(id, nom, est_conducteur, actif)")
+    .select("id, nom, ordre_affichage, poste(id, nom, est_conducteur, ordre_affichage, actif)")
     .eq("atelier_id", atelier.id)
     .eq("actif", true)
-    .order("nom")
     .returns<Ligne[]>();
 
+  // Ordre d'affichage parametrable (ordre_affichage croissant, puis nom).
+  const byOrdre = <T extends { ordre_affichage?: number; nom: string }>(a: T, b: T) =>
+    (a.ordre_affichage ?? 0) - (b.ordre_affichage ?? 0) || a.nom.localeCompare(b.nom);
   const lignes = (lignesD ?? [])
     .map((l) => ({
       ...l,
-      poste: [...(l.poste ?? [])].filter((p) => p.actif).sort((a, b) => a.nom.localeCompare(b.nom)),
+      poste: [...(l.poste ?? [])].filter((p) => p.actif).sort(byOrdre),
     }))
-    .filter((l) => l.poste.length > 0);
+    .filter((l) => l.poste.length > 0)
+    .sort(byOrdre);
   const posteIds = lignes.flatMap((l) => l.poste.map((p) => p.id));
   const posteLigne = new Map<string, string>();
   const posteNom = new Map<string, string>();
@@ -150,6 +153,26 @@ export default async function AffichageAtelier({
     }
   }
 
+  // Absences (tous motifs) des personnes rattachees a cet atelier -> vue "par nom".
+  // On affiche un simple "Absence" (pas de detail du motif). Les jours affiches
+  // restent ceux ou au moins une personne travaille (semaine de travail).
+  const absByPerson = new Map<string, Set<string>>(); // personne_id -> jours (iso) absents
+  {
+    type AbsP = { personne_id: string; jour: string; personne: { nom: string; prenom: string; type_contrat: string; atelier_id: string | null } | null };
+    const { data: absPl } = await admin
+      .from("placement")
+      .select("personne_id, jour, personne:personne_id(nom, prenom, type_contrat, atelier_id)")
+      .in("jour", isos)
+      .not("motif_absence_id", "is", null)
+      .returns<AbsP[]>();
+    for (const r of absPl ?? []) {
+      const p = r.personne;
+      if (!p || p.atelier_id !== atelier.id) continue; // seulement les gens de cet atelier
+      (absByPerson.get(r.personne_id) ?? absByPerson.set(r.personne_id, new Set()).get(r.personne_id)!).add(r.jour);
+      if (!persons.has(r.personne_id)) persons.set(r.personne_id, { nom: p.nom, prenom: p.prenom, type_contrat: p.type_contrat });
+    }
+  }
+
   const horaireTxt = (personId: string, posteId: string, quartCode: string | null, iso: string) => {
     const q = quartCode ?? "matin";
     const std = horMap.get(`${posteId}:${q}:${dow(iso)}`);
@@ -202,7 +225,14 @@ export default async function AffichageAtelier({
   // Cellule vue "par nom" : sur quel poste cette personne est placee ce jour-la (poste + horaire dessous).
   const cellNom = (personId: string, iso: string) => {
     const rows = byPerson.get(`${personId}:${iso}`) ?? [];
-    if (!rows.length) return <span style={{ color: "#cbd5e1" }}>—</span>;
+    if (!rows.length) {
+      // Aucune affectation poste : si la personne est en absence ce jour-la, on
+      // affiche un simple "Absence" (sans detail du motif).
+      if (absByPerson.get(personId)?.has(iso)) {
+        return <span style={{ fontWeight: 700, color: "#b91c1c" }}>Absence</span>;
+      }
+      return <span style={{ color: "#cbd5e1" }}>—</span>;
+    }
     return rows.map((r, i) => {
       if (!r.poste_id) return null;
       const h = horaireTxt(personId, r.poste_id, r.quart_code, iso);
@@ -337,7 +367,8 @@ export default async function AffichageAtelier({
 
       <div style={{ marginTop: 14, fontSize: 14, color: "#6b7280" }}>
         Légende : <span style={{ background: "#bbf7d0", padding: "0 6px" }}>Intérimaire</span>{" "}
-        · <span style={{ background: FLUO, padding: "0 6px" }}>Aujourd&apos;hui</span> · horaires en bleu ·
+        · <span style={{ background: FLUO, padding: "0 6px" }}>Aujourd&apos;hui</span> · horaires en bleu ·{" "}
+        <span style={{ color: "#b91c1c", fontWeight: 700 }}>Absence</span> (vue par nom) ·
         mise à jour auto toutes les 5 min.
       </div>
     </div>

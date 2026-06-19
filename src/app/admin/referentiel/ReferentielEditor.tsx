@@ -12,9 +12,10 @@ type Poste = {
   effectif_requis: number;
   difficulte_formation: number | null;
   niveau_min_requis: number;
+  ordre_affichage: number;
   actif: boolean;
 };
-type Ligne = { id: string; nom: string; actif: boolean; poste: Poste[] };
+type Ligne = { id: string; nom: string; actif: boolean; ordre_affichage: number; poste: Poste[] };
 type Atelier = { id: string; nom: string; actif: boolean; ligne: Ligne[] };
 type Quart = { code: string; libelle: string };
 
@@ -113,6 +114,10 @@ export default function ReferentielEditor({
     setLigne(aid, lid, (l) => ({ ...l, nom }));
     schedule(`l:${lid}`, () => post("update-ligne", { id: lid, nom }), 500);
   }
+  function ligneOrdre(aid: string, lid: string, ordre_affichage: number) {
+    setLigne(aid, lid, (l) => ({ ...l, ordre_affichage }));
+    schedule(`l:${lid}:ordre`, () => post("update-ligne", { id: lid, ordre_affichage }), 500);
+  }
   function toggleLigne(aid: string, lid: string, actif: boolean) {
     setLigne(aid, lid, (l) => ({ ...l, actif }));
     post("toggle", { entity: "ligne", id: lid, actif });
@@ -125,7 +130,7 @@ export default function ReferentielEditor({
   // -- Poste --
   function posteField(aid: string, lid: string, pid: string, key: keyof Poste, value: unknown) {
     setPoste(aid, lid, pid, (p) => ({ ...p, [key]: value }));
-    const delay = key === "nom" || key === "nom_court" || key === "effectif_requis" ? 500 : 0;
+    const delay = key === "nom" || key === "nom_court" || key === "effectif_requis" || key === "ordre_affichage" ? 500 : 0;
     schedule(`p:${pid}:${key}`, () => post("update-poste", { id: pid, patch: { [key]: value } }), delay);
   }
   function togglePoste(aid: string, lid: string, pid: string, actif: boolean) {
@@ -198,6 +203,16 @@ export default function ReferentielEditor({
                   onChange={(e) => renameLigne(a.id, l.id, e.target.value)}
                   style={{ fontWeight: 600, width: 220 }}
                 />
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--muted)" }} title="N° d'affichage de la ligne sur les TV / PDF (croissant)">
+                  N° aff.
+                  <input
+                    type="number"
+                    min={0}
+                    value={num(l.ordre_affichage)}
+                    onChange={(e) => ligneOrdre(a.id, l.id, Number(e.target.value))}
+                    style={{ width: 60 }}
+                  />
+                </label>
                 <ToggleSwitch on={l.actif} onChange={(v) => toggleLigne(a.id, l.id, v)} title="Activer / désactiver la ligne" />
               </div>
 
@@ -211,6 +226,7 @@ export default function ReferentielEditor({
                     <th>Catégorie</th>
                     <th>Diff.</th>
                     <th>Niv. min</th>
+                    <th title="N° d'affichage du poste sur les TV / PDF (croissant)">N° aff.</th>
                     {quarts.map((q) => (
                       <th key={q.code} title={`Tourne en ${q.libelle}`} style={{ fontSize: 11 }}>
                         {q.libelle.slice(0, 4)}
@@ -273,6 +289,15 @@ export default function ReferentielEditor({
                           ))}
                         </select>
                       </td>
+                      <td>
+                        <input
+                          type="number"
+                          min={0}
+                          value={num(p.ordre_affichage)}
+                          onChange={(e) => posteField(a.id, l.id, p.id, "ordre_affichage", Number(e.target.value))}
+                          style={{ width: 60 }}
+                        />
+                      </td>
                       {quarts.map((q) => (
                         <td key={q.code} style={{ textAlign: "center" }}>
                           <input
@@ -296,7 +321,7 @@ export default function ReferentielEditor({
                   ))}
                   {l.poste.length === 0 && (
                     <tr>
-                      <td colSpan={7 + quarts.length} className="muted">Aucun poste.</td>
+                      <td colSpan={8 + quarts.length} className="muted">Aucun poste.</td>
                     </tr>
                   )}
                 </tbody>

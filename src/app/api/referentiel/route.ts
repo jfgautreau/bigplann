@@ -7,7 +7,7 @@ import { getCurrentProfile } from "@/lib/current-user";
 // Ops : create-atelier | create-ligne | create-poste | update-atelier |
 //       update-ligne | update-poste | toggle.
 const POSTE_COLS =
-  "id, nom, nom_court, est_conducteur, categorie, effectif_requis, difficulte_formation, niveau_min_requis, actif";
+  "id, nom, nom_court, est_conducteur, categorie, effectif_requis, difficulte_formation, niveau_min_requis, ordre_affichage, actif";
 const CATEGORIES = ["manager", "conducteur", "operateur"];
 
 type Body = Record<string, unknown>;
@@ -29,6 +29,8 @@ function posteValue(key: string, value: unknown) {
       return Math.max(0, Math.floor(Number(value) || 0));
     case "niveau_min_requis":
       return Math.max(0, Math.min(4, Math.floor(Number(value) || 0)));
+    case "ordre_affichage":
+      return Math.max(0, Math.floor(Number(value) || 0));
     case "difficulte_formation": {
       const v = s(value);
       return v === "" ? null : Math.max(1, Math.min(3, Number(v)));
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
         const { data, error } = await supabase
           .from("ligne")
           .insert({ nom, atelier_id })
-          .select("id, nom, actif")
+          .select("id, nom, actif, ordre_affichage")
           .single();
         if (error) throw error;
         return NextResponse.json({ ok: true, row: { ...data, poste: [] } });
@@ -92,7 +94,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
       case "update-ligne": {
-        const { error } = await supabase.from("ligne").update({ nom: s(body.nom) }).eq("id", s(body.id));
+        const patch: Record<string, unknown> = {};
+        if (body.nom !== undefined) patch.nom = s(body.nom);
+        if (body.ordre_affichage !== undefined) patch.ordre_affichage = Math.max(0, Math.floor(Number(body.ordre_affichage) || 0));
+        if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Rien à modifier" }, { status: 400 });
+        const { error } = await supabase.from("ligne").update(patch).eq("id", s(body.id));
         if (error) throw error;
         return NextResponse.json({ ok: true });
       }

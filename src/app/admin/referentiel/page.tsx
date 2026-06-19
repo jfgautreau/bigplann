@@ -12,9 +12,10 @@ type Poste = {
   effectif_requis: number;
   difficulte_formation: number | null;
   niveau_min_requis: number;
+  ordre_affichage: number;
   actif: boolean;
 };
-type Ligne = { id: string; nom: string; actif: boolean; poste: Poste[] };
+type Ligne = { id: string; nom: string; actif: boolean; ordre_affichage: number; poste: Poste[] };
 type Atelier = { id: string; nom: string; actif: boolean; ligne: Ligne[] };
 type Quart = { code: string; libelle: string };
 
@@ -26,7 +27,7 @@ export default async function ReferentielPage() {
     supabase
       .from("atelier")
       .select(
-        "id, nom, actif, ligne(id, nom, actif, poste(id, nom, nom_court, est_conducteur, categorie, effectif_requis, difficulte_formation, niveau_min_requis, actif))"
+        "id, nom, actif, ligne(id, nom, actif, ordre_affichage, poste(id, nom, nom_court, est_conducteur, categorie, effectif_requis, difficulte_formation, niveau_min_requis, ordre_affichage, actif))"
       )
       .order("nom")
       .returns<Atelier[]>(),
@@ -41,10 +42,10 @@ export default async function ReferentielPage() {
   const ateliers = (data ?? []).map((a) => ({
     ...a,
     ligne: [...(a.ligne ?? [])]
-      .sort((x, y) => x.nom.localeCompare(y.nom))
+      .sort((x, y) => (x.ordre_affichage ?? 0) - (y.ordre_affichage ?? 0) || x.nom.localeCompare(y.nom))
       .map((l) => ({
         ...l,
-        poste: [...(l.poste ?? [])].sort((x, y) => x.nom.localeCompare(y.nom)),
+        poste: [...(l.poste ?? [])].sort((x, y) => (x.ordre_affichage ?? 0) - (y.ordre_affichage ?? 0) || x.nom.localeCompare(y.nom)),
       })),
   }));
   const pqOff = (pqD ?? []).map((r) => `${r.poste_id}:${r.quart_code}`);
