@@ -48,6 +48,14 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
+  // Affichage couloir (ecran 24/7) : on interdit tout cache en aval (navigateur
+  // de la TV, proxy reseau) pour que le F5 / rafraichissement auto montre
+  // toujours la derniere version. La page est deja "force-dynamic" cote serveur.
+  if (pathname.startsWith("/affichage")) {
+    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    res.headers.set("Pragma", "no-cache");
+  }
+
   return res;
 }
 
