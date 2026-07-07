@@ -80,7 +80,7 @@ export default function PlanningGrid({
     });
   // Selection d'une case (contour) pour la touche Suppr, et panneau d'affectation.
   const [selected, setSelected] = useState<string | null>(null);
-  const [pick, setPick] = useState<{ pid: string; iso: string; eq: string | null; left: number; top: number; bottom: number } | null>(null);
+  const [pick, setPick] = useState<{ pid: string; iso: string; eq: string | null; left: number; right: number; top: number; bottom: number } | null>(null);
   const [exc, setExc] = useState(exceptions);
   const [excAt, setExcAt] = useState<string | null>(null); // cle "pid:iso"
   const [draft, setDraft] = useState<{ debut: string; fin: string; motif: string }>({ debut: "", fin: "", motif: "" });
@@ -649,7 +649,7 @@ export default function PlanningGrid({
                         setSelected(k);
                         if (pick && pick.pid === pers.id && pick.iso === d.iso) { setPick(null); return; }
                         const r = e.currentTarget.getBoundingClientRect();
-                        setPick({ pid: pers.id, iso: d.iso, eq: pers.equipe_id, left: r.left, top: r.top, bottom: r.bottom });
+                        setPick({ pid: pers.id, iso: d.iso, eq: pers.equipe_id, left: r.left, right: r.right, top: r.top, bottom: r.bottom });
                       }}
                     >
                       {valueLabel(v)}
@@ -759,8 +759,12 @@ export default function PlanningGrid({
         const curClosed = isPoste(cur) && !oset.has(posteLigne[cur] ?? "");
         const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
         const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-        const left = Math.max(8, Math.min(pick.left, vw - 360));
-        const maxWidth = vw - left - 8;
+        // Case dans la moitie droite de l'ecran -> on ancre le bord droit du panneau
+        // sur la case et il s'etend vers la gauche (sinon il deborderait a droite).
+        const alignRight = pick.left > vw * 0.5;
+        const hstyle: React.CSSProperties = alignRight
+          ? { right: Math.max(8, vw - pick.right), maxWidth: pick.right - 16 }
+          : { left: Math.max(8, pick.left), maxWidth: vw - Math.max(8, pick.left) - 8 };
         const spaceBelow = vh - pick.bottom;
         // Ouvre vers le haut si peu de place dessous (case en bas de l'ecran).
         const openUp = spaceBelow < 280 && pick.top > spaceBelow;
@@ -770,7 +774,7 @@ export default function PlanningGrid({
         return (
           <div
             className="cellpick"
-            style={{ left, maxWidth, ...vstyle }}
+            style={{ ...hstyle, ...vstyle }}
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="cellpick-head">
@@ -778,8 +782,8 @@ export default function PlanningGrid({
             </div>
             <div className="cellpick-body">
               {curClosed && (
-                <div className="cellpick-ligne">
-                  <span className="cellpick-lg">Actuel</span>
+                <div className="cellpick-at-block">
+                  <div className="cellpick-at">Actuel</div>
                   <span className="pick-chips"><button type="button" className="pick-chip on" onClick={() => setPick(null)}>{posteLabel[cur] ?? posteLabelAll[cur] ?? "?"}</button></span>
                 </div>
               )}
@@ -799,28 +803,28 @@ export default function PlanningGrid({
                 </div>
               ))}
               {og.length === 0 && <div className="muted" style={{ padding: "2px 0" }}>Aucune ligne ouverte ce jour.</div>}
+              {motifs.length > 0 && (
+                <div className="cellpick-abs">
+                  <div className="cellpick-at">Absences</div>
+                  <span className="pick-chips">
+                    {motifs.map((mo) => {
+                      const on = cur === `m:${mo.id}`;
+                      return (
+                        <button
+                          key={mo.id}
+                          type="button"
+                          className={`pick-chip${on ? " on" : ""}`}
+                          style={{ borderColor: mo.couleur, background: on ? mo.couleur : undefined, color: on ? "#fff" : undefined }}
+                          onClick={() => choose(`m:${mo.id}`)}
+                        >
+                          {mo.code}
+                        </button>
+                      );
+                    })}
+                  </span>
+                </div>
+              )}
             </div>
-            {motifs.length > 0 && (
-              <div className="cellpick-abs">
-                <span className="cellpick-lg">Absences</span>
-                <span className="pick-chips">
-                  {motifs.map((mo) => {
-                    const on = cur === `m:${mo.id}`;
-                    return (
-                      <button
-                        key={mo.id}
-                        type="button"
-                        className={`pick-chip${on ? " on" : ""}`}
-                        style={{ borderColor: mo.couleur, background: on ? mo.couleur : undefined, color: on ? "#fff" : undefined }}
-                        onClick={() => choose(`m:${mo.id}`)}
-                      >
-                        {mo.code}
-                      </button>
-                    );
-                  })}
-                </span>
-              </div>
-            )}
           </div>
         );
       })()}

@@ -475,9 +475,10 @@ select.flat {
   border-radius: 6px;
   cursor: pointer;
 }
-/* Ateliers les uns a cote des autres (colonnes qui s'enroulent si trop larges). */
-.cellpick-body { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
-.cellpick-at-block { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+/* Ateliers les uns a cote des autres (colonnes de largeur limitee, postes qui
+   passent a la ligne). La colonne "Absences" est la derniere, tout a droite. */
+.cellpick-body { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.cellpick-at-block { display: flex; flex-direction: column; gap: 4px; width: 150px; flex: 0 0 auto; }
 .cellpick-at { font-weight: 700; color: #0f172a; margin: 0 0 2px; }
 .cellpick-ligne { display: flex; flex-direction: column; gap: 2px; }
 .cellpick-lg { color: #64748b; font-size: 11px; }
@@ -496,7 +497,7 @@ select.flat {
 }
 .pick-chip:hover { background: #dbe3ec; border-color: #94a3b8; }
 .pick-chip.on { background: #2563eb; color: #fff; border-color: #2563eb; }
-.cellpick-abs { display: flex; gap: 8px; align-items: baseline; border-top: 1px solid #e2e8f0; margin-top: 6px; padding-top: 6px; }
+.cellpick-abs { display: flex; flex-direction: column; gap: 4px; width: 130px; flex: 0 0 auto; border-left: 1px solid #e2e8f0; padding-left: 12px; }
 
 /* Case verrouillee : personne deja placee sur un autre quart ce jour-la (-> Mat). */
 .cell-other {

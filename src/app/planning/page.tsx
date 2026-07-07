@@ -25,8 +25,9 @@ type PosteRow = {
   effectif_requis: number;
   niveau_min_requis: number;
   categorie: string;
+  ordre_affichage: number;
 };
-type LigneRow = { id: string; nom: string; atelier: { id: string; nom: string } | null; poste: PosteRow[] };
+type LigneRow = { id: string; nom: string; ordre_affichage: number; atelier: { id: string; nom: string } | null; poste: PosteRow[] };
 type Equipe = { id: string; nom: string; couleur: string; quart_fixe: string | null };
 type Quart = { code: string; libelle: string };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null };
@@ -77,7 +78,7 @@ export default async function PlanningPage({
     supabase.from("equipe").select("id, nom, couleur, quart_fixe").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase
       .from("ligne")
-      .select("id, nom, atelier:atelier_id(id, nom), poste(id, nom, nom_court, actif, effectif_requis, niveau_min_requis, categorie)")
+      .select("id, nom, ordre_affichage, atelier:atelier_id(id, nom), poste(id, nom, nom_court, actif, effectif_requis, niveau_min_requis, categorie, ordre_affichage)")
       .eq("actif", true)
       .order("nom")
       .returns<LigneRow[]>(),
@@ -117,14 +118,26 @@ export default async function PlanningPage({
   }
   if (!quart) quart = quartCodes.includes("matin") ? "matin" : quartCodes[0] ?? "matin";
 
+  // Ordre du referentiel : ateliers regroupes, lignes puis postes par ordre_affichage
+  // (fallback alphabetique). Le meme ordre sert a la grille et au panneau d'affectation.
+  const ordreThenNom = <T extends { ordre_affichage?: number; nom: string }>(a: T, b: T) =>
+    (a.ordre_affichage ?? 0) - (b.ordre_affichage ?? 0) || a.nom.localeCompare(b.nom);
   const groupsAll = (lignesD ?? [])
     .map((l) => ({
       ligneNom: l.nom,
       ligneId: l.id,
+      ligneOrdre: l.ordre_affichage ?? 0,
       atelierId: l.atelier?.id ?? null,
-      postes: [...(l.poste ?? [])].filter((p) => p.actif).sort((a, b) => a.nom.localeCompare(b.nom)),
+      atelierNom: l.atelier?.nom ?? "",
+      postes: [...(l.poste ?? [])].filter((p) => p.actif).sort(ordreThenNom),
     }))
-    .filter((g) => g.postes.length > 0);
+    .filter((g) => g.postes.length > 0)
+    .sort(
+      (a, b) =>
+        a.atelierNom.localeCompare(b.atelierNom) ||
+        a.ligneOrdre - b.ligneOrdre ||
+        a.ligneNom.localeCompare(b.ligneNom)
+    );
 
   // Ateliers presents (lignes actives ayant au moins un poste actif) -> segments de filtre.
   const ateliersMap = new Map<string, string>();
@@ -327,7 +340,7 @@ export default async function PlanningPage({
   const gridGroups = groups.map((g) => ({
     ligneNom: g.ligneNom,
     ligneId: g.ligneId,
-    atelierNom: g.atelierId ? ateliersMap.get(g.atelierId) ?? "" : "",
+    atelierNom: g.atelierNom,
     postes: g.postes.map((p) => ({
       id: p.id,
       nom: (p.nom_court || p.nom).slice(0, 6),
