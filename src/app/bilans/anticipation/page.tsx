@@ -87,13 +87,17 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   const posteCat = new Map<string, string>();
   for (const l of lignes) for (const p of l.poste ?? []) if (p.actif) posteCat.set(p.id, p.categorie ?? "operateur");
 
-  // Competents (niveau >= SEUIL) actifs, par categorie (un poste de la categorie suffit).
-  const competentByCat = new Map<string, Set<string>>(CATS.map((c) => [c.key, new Set<string>()]));
+  // Competences explicites (niveau >= SEUIL) par personne : ensemble des categories
+  // qu'elle peut tenir (un poste actif de la categorie suffit).
+  const CAT_ORDER = ["manager", "conducteur", "operateur"] as const; // priorite hierarchique
+  const compCats = new Map<string, Set<string>>();
   for (const r of matD ?? []) {
     if (!activeIds.has(r.personne_id) || !scopedPosteIds.has(r.poste_id)) continue;
     const c = posteCat.get(r.poste_id);
-    if (c && competentByCat.has(c)) competentByCat.get(c)!.add(r.personne_id);
+    if (!c) continue;
+    (compCats.get(r.personne_id) ?? compCats.set(r.personne_id, new Set<string>()).get(r.personne_id)!).add(c);
   }
+  const competentPeople = [...compCats.keys()];
 
   // Absents (motif) par jour ; fins de contrat par personne.
   const absSet = new Map<string, Set<string>>();
@@ -112,17 +116,43 @@ export default async function AnticipationReport({ searchParams }: { searchParam
     return b;
   };
   const besoinTotJour = (iso: string) => CATS.reduce((s, c) => s + besoinCat(c.key, iso), 0);
-  const dispoCat = (cat: string, iso: string) => {
+
+  // Disponibilite par categorie SANS double comptage : chaque personne disponible est
+  // affectee a une seule categorie. On couvre d'abord les besoins par ordre de priorite
+  // (Manager > Conducteur > Operateur), en consommant les moins polyvalents d'abord
+  // (pour laisser les polyvalents aux categories inferieures qui en ont besoin) ; le
+  // surplus est rattache a la categorie la plus prioritaire de la personne.
+  const allocCache = new Map<string, Record<string, number>>();
+  const getDispo = (iso: string): Record<string, number> => {
+    const cached = allocCache.get(iso);
+    if (cached) return cached;
     const abs = absSet.get(iso);
-    let n = 0;
-    for (const id of competentByCat.get(cat) ?? []) {
+    const pool = new Set<string>();
+    for (const id of competentPeople) {
       if (abs?.has(id)) continue;
       const fin = finMap.get(id);
       if (fin && fin < iso) continue;
-      n++;
+      pool.add(id);
     }
-    return n;
+    const dispo: Record<string, number> = { manager: 0, conducteur: 0, operateur: 0 };
+    // Pass 1 : couvrir les besoins par priorite, specialistes d'abord.
+    CAT_ORDER.forEach((cat, i) => {
+      const need = besoinCat(cat, iso);
+      if (need <= 0) return;
+      const lower = CAT_ORDER.slice(i + 1);
+      const flex = (id: string) => lower.reduce((n, lc) => n + (compCats.get(id)!.has(lc) ? 1 : 0), 0);
+      const cands = [...pool].filter((id) => compCats.get(id)!.has(cat)).sort((a, b) => flex(a) - flex(b));
+      for (const id of cands.slice(0, need)) { pool.delete(id); dispo[cat]++; }
+    });
+    // Pass 2 : surplus -> categorie la plus prioritaire de la personne.
+    for (const id of pool) {
+      const cat = CAT_ORDER.find((c) => compCats.get(id)!.has(c));
+      if (cat) dispo[cat]++;
+    }
+    allocCache.set(iso, dispo);
+    return dispo;
   };
+  const dispoCat = (cat: string, iso: string) => getDispo(iso)[cat] ?? 0;
 
   const horizonDays = horizonIsos.map((iso) => {
     const dt = new Date(iso + "T00:00");
@@ -238,7 +268,7 @@ export default async function AnticipationReport({ searchParams }: { searchParam
               </table>
             )}
             <p className="muted" style={{ marginTop: 8 }}>
-              <strong>Disponibles / besoin</strong> par catégorie et par jour. Disponibles = personnes actives compétentes (niveau ≥ {SEUIL}) non absentes (motif saisi) et hors fin de contrat. Besoin = ordonnancement. En{" "}
+              <strong>Disponibles / besoin</strong> par catégorie et par jour. Disponibles = personnes actives compétentes (niveau ≥ {SEUIL}) non absentes (motif saisi) et hors fin de contrat. <strong>Une personne polyvalente n&apos;est comptée qu&apos;une seule fois</strong> : elle est affectée en priorité au besoin le plus haut (Manager &gt; Conducteur &gt; Opérateur), le surplus étant rattaché à sa catégorie la plus élevée. Besoin = ordonnancement. En{" "}
               <span style={{ color: "#7f1d1d", background: "#fee2e2", padding: "0 4px" }}>rouge</span> quand les disponibles ne couvrent pas le besoin.
             </p>
           </div>
