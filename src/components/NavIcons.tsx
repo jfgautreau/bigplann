@@ -81,6 +81,15 @@ export function NavIcon({ name }: { name: string }): ReactElement | null {
         </Svg>
       );
 
+    // Habilitations : un bouclier avec coche (certification / validite)
+    case "habilitations":
+      return (
+        <Svg>
+          <path d="M12 2.5 4.5 5.5V11c0 5 3.3 8.4 7.5 10 4.2-1.6 7.5-5 7.5-10V5.5z" fill="#fff" />
+          <path d="M8.7 11.8 11 14l4.1-4.5" stroke={DETAIL} strokeWidth="1.9" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+
     // Referentiel : une usine (ateliers / lignes / postes)
     case "referentiel":
       return (

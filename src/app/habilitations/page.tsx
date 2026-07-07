@@ -45,8 +45,14 @@ export default async function HabilitationsPage() {
   return (
     <>
       <AppHeader role={profile.role} active="/habilitations" />
-      <div className="container" style={{ maxWidth: 1100 }}>
-        <h1>Habilitations à recycler</h1>
+      <div className="container" style={{ maxWidth: 1500 }}>
+        <h1>Habilitations</h1>
+        <p className="muted" style={{ marginBottom: 16 }}>
+          Suivi des formations / habilitations à recycler. <strong>Pour saisir l&apos;habilitation
+          d&apos;une personne avec sa date de validation, utilisez le formulaire en bas de page</strong>{" "}
+          (l&apos;expiration est calculée automatiquement). Les <em>types</em> d&apos;habilitation se
+          définissent dans <strong>Compétences</strong> (case « à recycler »).
+        </p>
 
         <div className="card section">
           <table>

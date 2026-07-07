@@ -7,7 +7,7 @@ import SettingsMenu from "@/components/SettingsMenu";
 import UserMenu from "@/components/UserMenu";
 import { NavIcon } from "@/components/NavIcons";
 
-const MAIN_ORDER = ["referentiel", "personnel", "matrice", "ordonnancement", "planning", "bilans"];
+const MAIN_ORDER = ["referentiel", "personnel", "matrice", "habilitations", "ordonnancement", "planning", "bilans"];
 
 // Palette des pastilles (icone blanche dessus). Tons "jewel" niveau 600 :
 // luminosite/saturation homogenes -> la rangee se lit comme un systeme coherent,
@@ -17,6 +17,7 @@ const NAV_TILE: Record<string, string> = {
   referentiel: "#16a34a",    // vert  (structure de l'usine : ateliers/lignes/postes)
   personnel: "#2563eb",      // bleu  (RH / les gens)
   matrice: "#7c3aed",        // violet (rappel discret de la marque)
+  habilitations: "#ca8a04",  // or/ambre (certification / medaille)
   ordonnancement: "#ea580c", // orange (production / industriel)
   planning: "#0d9488",       // teal  (organisation / temps)
   bilans: "#e11d48",         // rose  (resultats / rapport)
@@ -58,9 +59,10 @@ export default async function AppHeader({
     .filter((m): m is (typeof MODULES)[number] => !!m)
     .filter(visible);
 
-  // Reste (parametrage) regroupe sous l'engrenage. Habilitations = la cloche.
+  // Reste (parametrage) regroupe sous l'engrenage. Habilitations est desormais
+  // une tuile du menu principal (plus seulement la cloche d'alerte).
   const configLinks = MODULES.filter(
-    (m) => !MAIN_ORDER.includes(m.key) && m.key !== "habilitations" && visible(m)
+    (m) => !MAIN_ORDER.includes(m.key) && visible(m)
   ).map((m) => ({ href: m.href, label: m.label }));
   if (canWrite(perms, "ordonnancement")) configLinks.push({ href: "/admin/rotation", label: "Rotation des équipes" });
   if (isAdmin) configLinks.push({ href: "/admin/droits", label: "Droits" });
