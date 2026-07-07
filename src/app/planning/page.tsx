@@ -327,6 +327,7 @@ export default async function PlanningPage({
   const gridGroups = groups.map((g) => ({
     ligneNom: g.ligneNom,
     ligneId: g.ligneId,
+    atelierNom: g.atelierId ? ateliersMap.get(g.atelierId) ?? "" : "",
     postes: g.postes.map((p) => ({
       id: p.id,
       nom: (p.nom_court || p.nom).slice(0, 6),

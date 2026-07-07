@@ -12,7 +12,7 @@ const CAT_BILANS: { key: string; label: string }[] = [
   { key: "conducteur", label: "Conducteurs" },
   { key: "operateur", label: "Opérateurs" },
 ];
-type Group = { ligneNom: string; ligneId: string; postes: Poste[] };
+type Group = { ligneNom: string; ligneId: string; atelierNom?: string; postes: Poste[] };
 type Motif = { id: string; code: string; couleur: string };
 type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean; color?: string };
 
@@ -78,7 +78,9 @@ export default function PlanningGrid({
       if (typeof window !== "undefined") window.localStorage.setItem("planning.showBilan", next ? "1" : "0");
       return next;
     });
-  const [openKey, setOpenKey] = useState<string | null>(null); // case dont le select est ouvert (options a la demande)
+  // Selection d'une case (contour) pour la touche Suppr, et panneau d'affectation.
+  const [selected, setSelected] = useState<string | null>(null);
+  const [pick, setPick] = useState<{ pid: string; iso: string; eq: string | null; left: number; top: number } | null>(null);
   const [exc, setExc] = useState(exceptions);
   const [excAt, setExcAt] = useState<string | null>(null); // cle "pid:iso"
   const [draft, setDraft] = useState<{ debut: string; fin: string; motif: string }>({ debut: "", fin: "", motif: "" });
@@ -179,6 +181,46 @@ export default function PlanningGrid({
 
   const horsComp = (pid: string, v: string) =>
     isPoste(v) && (matrice[`${pid}:${v}`] ?? 0) < (niveauMin[v] ?? 0);
+
+  // Libelle compact de la valeur d'une case (poste / motif / NT / vide).
+  const persById = useMemo(() => new Map(personnes.map((p) => [p.id, p])), [personnes]);
+  const valueLabel = (v: string) =>
+    v === "" ? "—"
+    : v === "X" ? "NT"
+    : v.startsWith("m:") ? (motifs.find((mo) => `m:${mo.id}` === v)?.code ?? "?")
+    : (posteLabel[v] ?? posteLabelAll[v] ?? "?");
+
+  // Clavier : Suppr/Retour efface la case selectionnee ; Echap ferme.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "Escape") { setPick(null); setSelected(null); return; }
+      if ((e.key === "Delete" || e.key === "Backspace") && selected) {
+        const [pid, iso] = selected.split(":");
+        const p = persById.get(pid);
+        if (p && p.editable) {
+          e.preventDefault();
+          change(pid, iso, p.equipe_id, "");
+        }
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, persById]);
+
+  // Fermer le panneau au clic en dehors.
+  useEffect(() => {
+    if (!pick) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest(".cellpick") || t.closest(".cellbtn")) return;
+      setPick(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [pick]);
 
   // Indicateurs comptes sur TOUTES les personnes du quart (statIds), pas seulement
   // l'equipe affichee : le besoin et le present concernent l'ensemble du quart.
@@ -565,8 +607,6 @@ export default function PlanningGrid({
                 const over = isPoste(v) && (perDay[i].counts[v] ?? 0) > (effectif[v] ?? 0);
                 // Restriction (medicale/physique) : niveau -1 dans la matrice pour ce poste.
                 const restricted = isPoste(v) && matrice[key(pers.id, v)] === -1;
-                const openSet = new Set(openByIso[d.iso] ?? allLigneIds);
-                const closedCurrent = isPoste(v) && !openSet.has(posteLigne[v] ?? "");
                 // Bouton de recopie aussi sur une case vide : permet de propager le
                 // « non-affecte » sur la semaine. Masque seulement si placee sur un autre quart.
                 const tpb = !!tpBlocked[key(pers.id, d.iso)];
@@ -599,55 +639,21 @@ export default function PlanningGrid({
                         &rarr; {quartLabel[other] ?? other}
                       </div>
                     ) : (
-                    <select
-                      className="flat"
-                      value={v}
+                    <button
+                      type="button"
+                      className={`cellbtn${isPoste(v) ? " poste" : ""}${selected === key(pers.id, d.iso) ? " sel" : ""}`}
                       disabled={!pers.editable}
-                      onMouseDown={() => setOpenKey(key(pers.id, d.iso))}
-                      onFocus={() => setOpenKey(key(pers.id, d.iso))}
-                      onBlur={() => setOpenKey((o) => (o === key(pers.id, d.iso) ? null : o))}
-                      onChange={(e) => { change(pers.id, d.iso, pers.equipe_id, e.target.value); setOpenKey(null); }}
-                      style={{ fontSize: 12 }}
+                      title="Cliquer pour affecter · Suppr pour effacer"
+                      onClick={(e) => {
+                        const k = key(pers.id, d.iso);
+                        setSelected(k);
+                        if (pick && pick.pid === pers.id && pick.iso === d.iso) { setPick(null); return; }
+                        const r = e.currentTarget.getBoundingClientRect();
+                        setPick({ pid: pers.id, iso: d.iso, eq: pers.equipe_id, left: r.left, top: r.bottom });
+                      }}
                     >
-                      {openKey === key(pers.id, d.iso) ? (
-                        <>
-                          <option value="">—</option>
-                          <option value="X" title="Non travaillé (repos)">NT</option>
-                          {closedCurrent && (
-                            <option value={v}>
-                              {posteLabel[v] ?? posteLabelAll[v] ?? "?"}
-                              {posteLigne[v] !== undefined ? " (ligne fermée)" : " (autre atelier)"}
-                            </option>
-                          )}
-                          {groups
-                            .filter((g) => openSet.has(g.ligneId))
-                            .map((g) => (
-                              <optgroup key={g.ligneNom} label={g.ligneNom}>
-                                {g.postes.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.nom}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            ))}
-                          {motifs.length > 0 && (
-                            <optgroup label="Absences">
-                              {motifs.map((mo) => (
-                                <option key={mo.id} value={`m:${mo.id}`}>
-                                  {mo.code}
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                        </>
-                      ) : (
-                        // Options a la demande : seule la valeur courante est rendue tant que la case n'est pas ouverte.
-                        v === "" ? <option value="">—</option>
-                        : v === "X" ? <option value="X">NT</option>
-                        : v.startsWith("m:") ? <option value={v}>{motifs.find((mo) => `m:${mo.id}` === v)?.code ?? "?"}</option>
-                        : <option value={v}>{posteLabel[v] ?? posteLabelAll[v] ?? "?"}</option>
-                      )}
-                    </select>
+                      {valueLabel(v)}
+                    </button>
                     )}
                     {showFill && (
                       <button
@@ -732,8 +738,86 @@ export default function PlanningGrid({
         <span className="legend-swatch over" /> barre jaune = sur-effectif (cumulables) ·
         cliquez une pastille de la ligne « Alertes » pour surligner les cases concernées ·{" "}
         <span style={{ background: "#1d4ed8", color: "#fff", borderRadius: 3, padding: "0 3px", fontSize: 10 }}>🕐</span> horaire
-        spécifique (survolez une case placée) · jours sans ligne ouverte masqués.
+        spécifique (survolez une case placée) · jours sans ligne ouverte masqués ·{" "}
+        cliquez une case puis <kbd>Suppr</kbd> pour l&apos;effacer.
       </p>
+
+      {/* Panneau d'affectation (rendu une seule fois, position fixe -> pas de clipping). */}
+      {pick && (() => {
+        const cur = vals[key(pick.pid, pick.iso)] ?? "";
+        const oset = new Set(openByIso[pick.iso] ?? allLigneIds);
+        const og = groups.filter((g) => oset.has(g.ligneId));
+        const ats: { nom: string; gs: Group[] }[] = [];
+        for (const g of og) {
+          const nom = g.atelierNom ?? "";
+          let a = ats.find((x) => x.nom === nom);
+          if (!a) { a = { nom, gs: [] }; ats.push(a); }
+          a.gs.push(g);
+        }
+        const editable = !!persById.get(pick.pid)?.editable;
+        const choose = (value: string) => { if (editable) change(pick.pid, pick.iso, pick.eq, value); setPick(null); };
+        const curClosed = isPoste(cur) && !oset.has(posteLigne[cur] ?? "");
+        const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
+        const left = Math.max(8, Math.min(pick.left, vw - 372));
+        return (
+          <div
+            className="cellpick"
+            style={{ left, top: pick.top + 2, maxHeight: `calc(100vh - ${pick.top + 16}px)` }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="cellpick-head">
+              <span>Affecter</span>
+              <button type="button" className="cellpick-clear" onClick={() => choose("")}>✕ Effacer</button>
+            </div>
+            <div className="cellpick-body">
+              {curClosed && (
+                <div className="cellpick-ligne">
+                  <span className="cellpick-lg">Actuel</span>
+                  <span className="pick-chips"><button type="button" className="pick-chip on" onClick={() => setPick(null)}>{posteLabel[cur] ?? posteLabelAll[cur] ?? "?"}</button></span>
+                </div>
+              )}
+              {ats.map((a) => (
+                <div key={a.nom || "—"} className="cellpick-at-block">
+                  {a.nom && <div className="cellpick-at">{a.nom}</div>}
+                  {a.gs.map((g) => (
+                    <div key={g.ligneId} className="cellpick-ligne">
+                      <span className="cellpick-lg" title={g.ligneNom}>{g.ligneNom}</span>
+                      <span className="pick-chips">
+                        {g.postes.map((po) => (
+                          <button key={po.id} type="button" className={`pick-chip${cur === po.id ? " on" : ""}`} title={po.nom} onClick={() => choose(po.id)}>{po.nom}</button>
+                        ))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {og.length === 0 && <div className="muted" style={{ padding: "2px 0" }}>Aucune ligne ouverte ce jour.</div>}
+            </div>
+            <button type="button" className={`pick-nt${cur === "X" ? " on" : ""}`} onClick={() => choose("X")}>⏻ NT (repos)</button>
+            {motifs.length > 0 && (
+              <div className="cellpick-abs">
+                <span className="cellpick-lg">Absences</span>
+                <span className="pick-chips">
+                  {motifs.map((mo) => {
+                    const on = cur === `m:${mo.id}`;
+                    return (
+                      <button
+                        key={mo.id}
+                        type="button"
+                        className={`pick-chip${on ? " on" : ""}`}
+                        style={{ borderColor: mo.couleur, background: on ? mo.couleur : undefined, color: on ? "#fff" : undefined }}
+                        onClick={() => choose(`m:${mo.id}`)}
+                      >
+                        {mo.code}
+                      </button>
+                    );
+                  })}
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </>
   );
 }

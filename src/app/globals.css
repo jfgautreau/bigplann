@@ -425,6 +425,95 @@ select.flat {
   text-align-last: center;
 }
 
+/* Bouton-valeur d'une case du planning (ouvre le panneau d'affectation). */
+.cellbtn {
+  width: 100%;
+  height: 100%;
+  min-height: 26px;
+  margin: 0;
+  padding: 5px 2px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  text-align: center;
+  cursor: pointer;
+}
+.cellbtn.poste { font-weight: 600; }
+.cellbtn:disabled { cursor: default; }
+.cellbtn.sel { box-shadow: inset 0 0 0 2px #2563eb; border-radius: 3px; }
+
+/* Panneau d'affectation (atelier -> ligne -> postes, NT, motifs). Position fixe. */
+.cellpick {
+  position: fixed;
+  z-index: 60;
+  min-width: 300px;
+  max-width: 360px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 12px;
+}
+.cellpick-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.cellpick-clear {
+  width: auto;
+  margin: 0;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--danger);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.cellpick-at { font-weight: 700; color: #0f172a; margin: 5px 0 2px; }
+.cellpick-ligne { display: flex; gap: 6px; align-items: baseline; padding: 1px 0; }
+.cellpick-lg {
+  flex: 0 0 72px;
+  color: #64748b;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pick-chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+.pick-chip {
+  width: auto;
+  margin: 0;
+  padding: 2px 8px;
+  font-size: 12px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.pick-chip:hover { background: #e2e8f0; }
+.pick-chip.on { background: #2563eb; color: #fff; border-color: #2563eb; }
+.pick-nt {
+  width: 100%;
+  margin: 6px 0 4px;
+  padding: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.pick-nt.on { background: #334155; color: #fff; border-color: #334155; }
+.cellpick-abs { display: flex; gap: 6px; align-items: baseline; border-top: 1px solid #e2e8f0; padding-top: 5px; }
+
 /* Case verrouillee : personne deja placee sur un autre quart ce jour-la (-> Mat). */
 .cell-other {
   width: 100%;
