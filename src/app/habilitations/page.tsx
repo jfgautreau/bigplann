@@ -4,8 +4,8 @@ import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite } from "@/lib/permissions";
-import { joursRestants, habStatut, HAB_COLOR } from "@/lib/habilitations";
 import { saveHabilitation, deleteHabilitation } from "./actions";
+import HabilitationsList from "./HabilitationsList";
 
 type Comp = { id: string; nom: string; duree_validite_mois: number | null };
 type Personne = { id: string; nom: string; prenom: string };
@@ -49,112 +49,55 @@ export default async function HabilitationsPage() {
       <div className="container" style={{ maxWidth: 1500 }}>
         <PageTitle module="habilitations">Habilitations</PageTitle>
         <p className="muted" style={{ marginBottom: 16 }}>
-          Suivi des formations / habilitations à recycler. <strong>Pour saisir l&apos;habilitation
-          d&apos;une personne avec sa date de validation, utilisez le formulaire en bas de page</strong>{" "}
-          (l&apos;expiration est calculée automatiquement). Les <em>types</em> d&apos;habilitation se
-          définissent dans <strong>Compétences</strong> (case « à recycler »).
+          Suivi des formations / habilitations à recycler. Saisissez l&apos;habilitation d&apos;une
+          personne (personne + date d&apos;obtention, expiration calculée automatiquement) dans le
+          formulaire ci-dessous. Les <em>types</em> d&apos;habilitation se définissent dans{" "}
+          <strong>Compétences</strong> (case « à recycler »).
         </p>
 
-        <div className="card section">
-          <table>
-            <thead>
-              <tr>
-                <th>Personne</th>
-                <th>Habilitation</th>
-                <th>Obtention</th>
-                <th>Expiration</th>
-                <th>Échéance</th>
-                {canEdit && <th></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const j = joursRestants(r.date_expiration);
-                const st = habStatut(j);
-                return (
-                  <tr key={r.id}>
-                    <td>{r.personne ? `${r.personne.nom} ${r.personne.prenom}` : "?"}</td>
-                    <td>{r.competence?.nom ?? "?"}</td>
-                    <td>{r.date_obtention ?? "-"}</td>
-                    <td>{r.date_expiration ?? "-"}</td>
-                    <td>
-                      {st && (
-                        <span
-                          className="tag"
-                          style={{ background: HAB_COLOR[st], color: "#fff" }}
-                        >
-                          {j !== null && j < 0 ? `expirée (${-j} j)` : `${j} j`}
-                        </span>
-                      )}
-                    </td>
-                    {canEdit && (
-                      <td>
-                        <form action={deleteHabilitation} style={{ margin: 0 }}>
-                          <input type="hidden" name="id" value={r.id} />
-                          <button type="submit" className="btn-sm btn-ghost">Supprimer</button>
-                        </form>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={canEdit ? 6 : 5} className="muted">
-                    Aucune habilitation enregistrée.
-                  </td>
-                </tr>
+        <HabilitationsList rows={rows} canEdit={canEdit} deleteHabilitation={deleteHabilitation}>
+          {canEdit && (
+            <div className="card" style={{ marginBottom: 16 }}>
+              <h2 style={{ marginTop: 0 }}>Mise à jour des habilitations</h2>
+              {comps.length === 0 ? (
+                <p className="muted">
+                  Aucune habilitation définie. Crée-en dans Compétences (case « à recycler »).
+                </p>
+              ) : (
+                <form action={saveHabilitation} autoComplete="off" className="inline-form">
+                  <div className="field">
+                    <span>Personne</span>
+                    <select name="personne_id" required defaultValue="">
+                      <option value="" disabled>Choisir...</option>
+                      {personnes.map((p) => (
+                        <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <span>Habilitation</span>
+                    <select name="competence_id" required defaultValue="">
+                      <option value="" disabled>Choisir...</option>
+                      {comps.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nom}{c.duree_validite_mois ? ` (${c.duree_validite_mois} mois)` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <span>Date d&apos;obtention</span>
+                    <input name="date_obtention" type="date" required />
+                  </div>
+                  <button type="submit" className="btn-sm">Enregistrer</button>
+                </form>
               )}
-            </tbody>
-          </table>
-          <p className="muted" style={{ marginTop: 8 }}>
-            <span style={{ color: HAB_COLOR.vert }}>●</span> &gt; 90 j ·{" "}
-            <span style={{ color: HAB_COLOR.orange }}>●</span> 30-90 j ·{" "}
-            <span style={{ color: HAB_COLOR.rouge }}>●</span> &lt; 30 j ou expirée
-          </p>
-        </div>
-
-        {canEdit && (
-          <div className="card">
-            <h2>Enregistrer / mettre à jour une habilitation</h2>
-            {comps.length === 0 ? (
-              <p className="muted">
-                Aucune habilitation définie. Crée-en dans Compétences (case « à recycler »).
+              <p className="muted" style={{ marginTop: 6 }}>
+                L&apos;expiration est calculée automatiquement (obtention + durée de validité).
               </p>
-            ) : (
-              <form action={saveHabilitation} autoComplete="off" className="inline-form">
-                <div className="field">
-                  <span>Personne</span>
-                  <select name="personne_id" required defaultValue="">
-                    <option value="" disabled>Choisir...</option>
-                    {personnes.map((p) => (
-                      <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <span>Habilitation</span>
-                  <select name="competence_id" required defaultValue="">
-                    <option value="" disabled>Choisir...</option>
-                    {comps.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nom}{c.duree_validite_mois ? ` (${c.duree_validite_mois} mois)` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <span>Date d&apos;obtention</span>
-                  <input name="date_obtention" type="date" required />
-                </div>
-                <button type="submit" className="btn-sm">Enregistrer</button>
-              </form>
-            )}
-            <p className="muted" style={{ marginTop: 6 }}>
-              L&apos;expiration est calculée automatiquement (obtention + durée de validité).
-            </p>
-          </div>
-        )}
+            </div>
+          )}
+        </HabilitationsList>
       </div>
     </>
   );
