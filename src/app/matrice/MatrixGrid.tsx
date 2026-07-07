@@ -231,8 +231,9 @@ export default function MatrixGrid({
                         g.postes.map((po, i) => {
                           const c = countAt(po.id, field);
                           const obj = objMap[po.id] ?? 0;
+                          const manque = c < obj; // sous l'objectif -> rouge sur fond rouge
                           return (
-                            <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 700, color: c < obj ? "var(--danger)" : "var(--ok)", borderLeft: sepL(i) }} title={`${c} / objectif ${obj}`}>{c}</td>
+                            <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 700, color: manque ? "#b91c1c" : "var(--ok)", background: manque ? "#fee2e2" : undefined, borderLeft: sepL(i) }} title={`${c} / objectif ${obj}${manque ? ` — manque ${obj - c}` : ""}`}>{c}</td>
                           );
                         })
                       )}
