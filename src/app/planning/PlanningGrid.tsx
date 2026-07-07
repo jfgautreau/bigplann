@@ -211,6 +211,7 @@ export default function PlanningGrid({
           e.preventDefault();
           change(pid, iso, p.equipe_id, "");
         }
+        setPick(null); // referme le panneau d'affectation des l'appui sur Suppr
       }
     };
     document.addEventListener("keydown", onKey);
