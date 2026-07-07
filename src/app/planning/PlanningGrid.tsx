@@ -287,17 +287,18 @@ export default function PlanningGrid({
     setTimeout(() => setSaving("idle"), 1200);
   }
 
-  // Recopie la valeur d'une case sur les jours SUIVANTS de la meme semaine (futur
-  // uniquement) : lundi -> toute la semaine, jeudi -> vendredi/samedi, etc.
+  // Recopie la valeur d'une case sur TOUS les jours suivants affiches (futur),
+  // semaine en cours ET semaines suivantes. Ainsi le vendredi recopie aussi sur
+  // la semaine suivante. On ne touche pas aux jours ou la personne est deja
+  // placee sur un autre quart.
   async function fillWeek(pers: Personne, dayIndex: number) {
     const value = vals[key(pers.id, days[dayIndex].iso)] ?? "";
-    // On ne touche pas aux jours ou la personne est deja placee sur un autre quart.
     const targets = days
-      .filter((_, j) => j > dayIndex && weekIdx[j] === weekIdx[dayIndex])
+      .filter((_, j) => j > dayIndex)
       .filter((t) => !otherByCell[key(pers.id, t.iso)]);
-    if (targets.length === 0) return; // dernier jour de la semaine : rien a recopier
+    if (targets.length === 0) return; // dernier jour affiche : rien a recopier
     const hasExisting = targets.some((t) => (vals[key(pers.id, t.iso)] ?? "") !== "");
-    if (hasExisting && !window.confirm("Des affectations existent déjà sur les jours suivants pour cette personne. Les écraser ?")) {
+    if (hasExisting && !window.confirm("Des affectations existent déjà sur les jours suivants (semaine en cours et suivantes). Les écraser ?")) {
       return;
     }
     setVals((s) => {
@@ -682,7 +683,7 @@ export default function PlanningGrid({
                       <button
                         type="button"
                         className="fillw"
-                        title="Copier cette valeur sur les jours suivants de la semaine"
+                        title="Copier cette valeur sur tous les jours suivants (semaine en cours et suivantes)"
                         onClick={() => fillWeek(pers, i)}
                       >
                         &raquo;
@@ -755,8 +756,8 @@ export default function PlanningGrid({
       </div>
 
       <p className="muted" style={{ margin: "6px 12px 0", fontSize: 11 }}>
-        Survolez une case et cliquez sur &raquo; pour recopier sa valeur sur les
-        jours suivants de la semaine (y compris « non-affecté »).{" "}
+        Survolez une case et cliquez sur &raquo; pour recopier sa valeur sur tous les
+        jours suivants affichés — semaine en cours et suivantes (y compris « non-affecté »).{" "}
         <span className="legend-swatch hc" /> barre rouge = hors compétence ·{" "}
         <span className="legend-swatch over" /> barre jaune = sur-effectif (cumulables) ·
         cliquez une pastille de la ligne « Alertes » pour surligner les cases concernées ·{" "}
