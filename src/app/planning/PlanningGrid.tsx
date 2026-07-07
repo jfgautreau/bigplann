@@ -16,6 +16,8 @@ type Group = { ligneNom: string; ligneId: string; atelierNom?: string; postes: P
 type Motif = { id: string; code: string; couleur: string };
 type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean; color?: string };
 
+const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
 export default function PlanningGrid({
   days,
   weekBlocks = [],
@@ -81,6 +83,12 @@ export default function PlanningGrid({
   // Selection d'une case (contour) pour la touche Suppr, et panneau d'affectation.
   const [selected, setSelected] = useState<string | null>(null);
   const [pick, setPick] = useState<{ pid: string; iso: string; eq: string | null; left: number; right: number; top: number; bottom: number } | null>(null);
+  // Recherche par nom : filtre uniquement les lignes affichees (indicateurs inchanges).
+  const [search, setSearch] = useState("");
+  const shown = useMemo(
+    () => (search.trim() ? personnes.filter((p) => norm(p.label).includes(norm(search))) : personnes),
+    [personnes, search]
+  );
   const [exc, setExc] = useState(exceptions);
   const [excAt, setExcAt] = useState<string | null>(null); // cle "pid:iso"
   const [draft, setDraft] = useState<{ debut: string; fin: string; motif: string }>({ debut: "", fin: "", motif: "" });
@@ -316,7 +324,7 @@ export default function PlanningGrid({
     const srcByDow: Record<string, number> = {};
     for (const j of src) srcByDow[days[j].nom] = j;
 
-    const existing = personnes.some(
+    const existing = shown.some(
       (p) => p.editable && tgt.some((j) => (vals[key(p.id, days[j].iso)] ?? "") !== "")
     );
     if (existing && !window.confirm("Des affectations existent déjà sur cette semaine. Les écraser avec la semaine précédente ?")) {
@@ -325,7 +333,7 @@ export default function PlanningGrid({
 
     const updates: { pid: string; iso: string; eq: string | null; value: string }[] = [];
     const next = { ...vals };
-    for (const p of personnes) {
+    for (const p of shown) {
       if (!p.editable) continue;
       for (const j of tgt) {
         if (otherByCell[key(p.id, days[j].iso)]) continue; // place sur un autre quart : on ne touche pas
@@ -350,7 +358,7 @@ export default function PlanningGrid({
   // Reinitialise (vide) tous les placements de la semaine pour les personnes editables affichees.
   async function resetWeek(block: number) {
     const isos = (blockDayIndices[block] ?? []).map((idx) => days[idx].iso);
-    const pids = personnes.filter((p) => p.editable).map((p) => p.id);
+    const pids = shown.filter((p) => p.editable).map((p) => p.id);
     if (!isos.length || !pids.length) return;
     if (!window.confirm("Vider les affectations sur lignes de cette semaine pour les personnes affichées ?\nLes absences et le temps partiel sont conservés.")) {
       return;
@@ -412,6 +420,21 @@ export default function PlanningGrid({
 
   return (
     <>
+      {/* Recherche par nom (entre les filtres et la grille) */}
+      <div style={{ margin: "2px 0 6px" }}>
+        <span style={{ position: "relative", display: "inline-block", width: "100%", maxWidth: 320 }}>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="🔍 Rechercher un nom…"
+            style={{ width: "100%", padding: "6px 26px 6px 12px", borderRadius: 999, border: "1px solid var(--border)", fontSize: 13 }}
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} title="Effacer" style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: "auto", margin: 0, padding: 0, border: "none", background: "transparent", cursor: "pointer", color: "var(--muted)", fontSize: 13 }}>✕</button>
+          )}
+        </span>
+      </div>
+
       {/* Tableau 1 : en-tetes (dates) + bilan/alertes retractable (fixe) */}
       <div className="card" style={{ overflowX: "hidden", overflowY: "auto", scrollbarGutter: "stable", position: "relative", padding: "6px 12px" }}>
         <div style={{ position: "absolute", top: 8, right: 12, fontSize: 12, fontWeight: 600, color: saving === "error" ? "var(--danger)" : saving === "saved" ? "var(--ok)" : "var(--muted)" }}>
@@ -583,7 +606,7 @@ export default function PlanningGrid({
       <table className="matrix" style={tStyle}>
         <Cols />
         <tbody>
-          {personnes.map((pers) => (
+          {shown.map((pers) => (
             <tr key={pers.id}>
               <td style={{ background: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 <span
@@ -722,9 +745,9 @@ export default function PlanningGrid({
               })}
             </tr>
           ))}
-          {personnes.length === 0 && (
+          {shown.length === 0 && (
             <tr>
-              <td colSpan={days.length + 1} className="muted">Aucune personne (choisissez une équipe).</td>
+              <td colSpan={days.length + 1} className="muted">{personnes.length === 0 ? "Aucune personne (choisissez une équipe)." : "Aucun résultat pour cette recherche."}</td>
             </tr>
           )}
         </tbody>

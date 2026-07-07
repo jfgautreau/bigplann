@@ -6,6 +6,7 @@ import { LevelMark, FILL, RESTRICT } from "./Pie";
 // Cycle de saisie : 0 -> 1 -> 2 -> 3 -> 4 -> ❌ (restriction) -> 0.
 const CYCLE = [0, 1, 2, 3, 4, RESTRICT];
 const lvlTxt = (n: number) => (n === RESTRICT ? "Restriction ❌" : String(n));
+const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 type Poste = { id: string; nom: string; objectifActuel?: number; objectifCible?: number };
 type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
@@ -27,6 +28,7 @@ export default function MatrixGrid({
 }) {
   const [cells, setCells] = useState<Record<string, Cell>>(initial);
   const [showBilan, setShowBilan] = useState(true);
+  const [search, setSearch] = useState("");
   const [objActuel, setObjActuel] = useState<Record<string, number>>(() => {
     const o: Record<string, number> = {};
     for (const g of groups) for (const p of g.postes) o[p.id] = p.objectifActuel ?? 0;
@@ -43,6 +45,9 @@ export default function MatrixGrid({
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allPostes = groups.flatMap((g) => g.postes);
+  // Filtre de recherche sur le nom (accents ignores). N'affecte que les lignes
+  // affichees ; le bilan reste calcule sur l'ensemble.
+  const shown = search.trim() ? personnes.filter((p) => norm(p.label).includes(norm(search))) : personnes;
   const key = (pid: string, poid: string) => `${pid}:${poid}`;
   const get = (k: string): Cell => cells[k] ?? { a: 0, c: 0 };
 
@@ -127,6 +132,21 @@ export default function MatrixGrid({
 
   return (
     <>
+      {/* Recherche par nom (entre les filtres et le tableau) */}
+      <div style={{ margin: "0 0 8px" }}>
+        <span style={{ position: "relative", display: "inline-block", width: "100%", maxWidth: 340 }}>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="🔍 Rechercher un nom…"
+            style={{ width: "100%", padding: "7px 28px 7px 12px", borderRadius: 999, border: "1px solid var(--border)", fontSize: 13 }}
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} title="Effacer" style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: "auto", margin: 0, padding: 0, border: "none", background: "transparent", cursor: "pointer", color: "var(--muted)", fontSize: 13 }}>✕</button>
+          )}
+        </span>
+      </div>
+
       {/* Tableau 1 : en-tetes + bilan retractable (fixe) */}
       <div className="card" style={{ overflowX: "hidden", overflowY: "auto", scrollbarGutter: "stable", position: "relative", padding: "6px 10px" }}>
         <div style={{ position: "absolute", top: 6, right: 12, fontSize: 12, fontWeight: 600, color: saveColor, minHeight: 16, zIndex: 30 }}>
@@ -251,7 +271,7 @@ export default function MatrixGrid({
         <table className="matrix" style={tStyle}>
           <Cols />
           <tbody>
-            {personnes.map((pers) => (
+            {shown.map((pers) => (
               <tr key={pers.id}>
                 <td style={{ background: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {pers.label}
@@ -293,8 +313,8 @@ export default function MatrixGrid({
                 )}
               </tr>
             ))}
-            {personnes.length === 0 && (
-              <tr><td colSpan={allPostes.length + 1} className="muted">Aucune personne active.</td></tr>
+            {shown.length === 0 && (
+              <tr><td colSpan={allPostes.length + 1} className="muted">{personnes.length === 0 ? "Aucune personne active." : "Aucun résultat pour cette recherche."}</td></tr>
             )}
           </tbody>
         </table>
