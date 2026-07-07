@@ -80,7 +80,7 @@ export default function PlanningGrid({
     });
   // Selection d'une case (contour) pour la touche Suppr, et panneau d'affectation.
   const [selected, setSelected] = useState<string | null>(null);
-  const [pick, setPick] = useState<{ pid: string; iso: string; eq: string | null; left: number; top: number } | null>(null);
+  const [pick, setPick] = useState<{ pid: string; iso: string; eq: string | null; left: number; top: number; bottom: number } | null>(null);
   const [exc, setExc] = useState(exceptions);
   const [excAt, setExcAt] = useState<string | null>(null); // cle "pid:iso"
   const [draft, setDraft] = useState<{ debut: string; fin: string; motif: string }>({ debut: "", fin: "", motif: "" });
@@ -649,7 +649,7 @@ export default function PlanningGrid({
                         setSelected(k);
                         if (pick && pick.pid === pers.id && pick.iso === d.iso) { setPick(null); return; }
                         const r = e.currentTarget.getBoundingClientRect();
-                        setPick({ pid: pers.id, iso: d.iso, eq: pers.equipe_id, left: r.left, top: r.bottom });
+                        setPick({ pid: pers.id, iso: d.iso, eq: pers.equipe_id, left: r.left, top: r.top, bottom: r.bottom });
                       }}
                     >
                       {valueLabel(v)}
@@ -758,15 +758,22 @@ export default function PlanningGrid({
         const choose = (value: string) => { if (editable) change(pick.pid, pick.iso, pick.eq, value); setPick(null); };
         const curClosed = isPoste(cur) && !oset.has(posteLigne[cur] ?? "");
         const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
-        const left = Math.max(8, Math.min(pick.left, vw - 372));
+        const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+        const left = Math.max(8, Math.min(pick.left, vw - 360));
+        const maxWidth = vw - left - 8;
+        const spaceBelow = vh - pick.bottom;
+        // Ouvre vers le haut si peu de place dessous (case en bas de l'ecran).
+        const openUp = spaceBelow < 280 && pick.top > spaceBelow;
+        const vstyle: React.CSSProperties = openUp
+          ? { bottom: vh - pick.top + 2, maxHeight: Math.min(pick.top - 12, 560) }
+          : { top: pick.bottom + 2, maxHeight: Math.min(spaceBelow - 12, 560) };
         return (
           <div
             className="cellpick"
-            style={{ left, top: pick.top + 2, maxHeight: `calc(100vh - ${pick.top + 16}px)` }}
+            style={{ left, maxWidth, ...vstyle }}
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="cellpick-head">
-              <span>Affecter</span>
               <button type="button" className="cellpick-clear" onClick={() => choose("")}>✕ Effacer</button>
             </div>
             <div className="cellpick-body">
@@ -793,7 +800,6 @@ export default function PlanningGrid({
               ))}
               {og.length === 0 && <div className="muted" style={{ padding: "2px 0" }}>Aucune ligne ouverte ce jour.</div>}
             </div>
-            <button type="button" className={`pick-nt${cur === "X" ? " on" : ""}`} onClick={() => choose("X")}>⏻ NT (repos)</button>
             {motifs.length > 0 && (
               <div className="cellpick-abs">
                 <span className="cellpick-lg">Absences</span>

@@ -443,13 +443,12 @@ select.flat {
 .cellbtn:disabled { cursor: default; }
 .cellbtn.sel { box-shadow: inset 0 0 0 2px #2563eb; border-radius: 3px; }
 
-/* Panneau d'affectation (atelier -> ligne -> postes, NT, motifs). Position fixe. */
+/* Panneau d'affectation (ateliers cote a cote -> lignes -> postes, motifs). Position fixe. */
 .cellpick {
   position: fixed;
   z-index: 60;
-  min-width: 300px;
-  max-width: 360px;
-  overflow-y: auto;
+  min-width: 220px;
+  overflow: auto;
   background: #fff;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -460,9 +459,8 @@ select.flat {
 }
 .cellpick-head {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  font-weight: 700;
   margin-bottom: 4px;
 }
 .cellpick-clear {
@@ -477,17 +475,13 @@ select.flat {
   border-radius: 6px;
   cursor: pointer;
 }
-.cellpick-at { font-weight: 700; color: #0f172a; margin: 5px 0 2px; }
-.cellpick-ligne { display: flex; gap: 6px; align-items: baseline; padding: 1px 0; }
-.cellpick-lg {
-  flex: 0 0 72px;
-  color: #64748b;
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pick-chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+/* Ateliers les uns a cote des autres (colonnes qui s'enroulent si trop larges). */
+.cellpick-body { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.cellpick-at-block { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+.cellpick-at { font-weight: 700; color: #0f172a; margin: 0 0 2px; }
+.cellpick-ligne { display: flex; flex-direction: column; gap: 2px; }
+.cellpick-lg { color: #64748b; font-size: 11px; }
+.pick-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .pick-chip {
   width: auto;
   margin: 0;
@@ -502,20 +496,7 @@ select.flat {
 }
 .pick-chip:hover { background: #dbe3ec; border-color: #94a3b8; }
 .pick-chip.on { background: #2563eb; color: #fff; border-color: #2563eb; }
-.pick-nt {
-  width: 100%;
-  margin: 6px 0 4px;
-  padding: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #1e293b;
-  border: 1px solid #cbd5e1;
-  background: #f1f5f9;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.pick-nt.on { background: #334155; color: #fff; border-color: #334155; }
-.cellpick-abs { display: flex; gap: 6px; align-items: baseline; border-top: 1px solid #e2e8f0; padding-top: 5px; }
+.cellpick-abs { display: flex; gap: 8px; align-items: baseline; border-top: 1px solid #e2e8f0; margin-top: 6px; padding-top: 6px; }
 
 /* Case verrouillee : personne deja placee sur un autre quart ce jour-la (-> Mat). */
 .cell-other {
