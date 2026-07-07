@@ -4,23 +4,33 @@ import type { ReactElement } from "react";
 // translucide (donc lisibles quelle que soit la couleur de la tuile).
 // viewBox 24x24, rendus a 14px dans une pastille coloree.
 
-const SZ = 14;
 const DETAIL = "rgba(0,0,0,0.24)";
 
-function Svg({ children }: { children: React.ReactNode }) {
+// Palette des pastilles par module (partagee par l'en-tete et les titres de page).
+export const NAV_COLOR: Record<string, string> = {
+  referentiel: "#16a34a",
+  personnel: "#2563eb",
+  matrice: "#7c3aed",
+  habilitations: "#ca8a04",
+  ordonnancement: "#ea580c",
+  planning: "#0d9488",
+  bilans: "#e11d48",
+};
+
+function Svg({ children, size = 14 }: { children: React.ReactNode; size?: number }) {
   return (
-    <svg viewBox="0 0 24 24" width={SZ} height={SZ} aria-hidden="true" style={{ display: "block" }}>
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" style={{ display: "block" }}>
       {children}
     </svg>
   );
 }
 
-export function NavIcon({ name }: { name: string }): ReactElement | null {
+export function NavIcon({ name, size = 14 }: { name: string; size?: number }): ReactElement | null {
   switch (name) {
     // Personnel : un bonhomme
     case "personnel":
       return (
-        <Svg>
+        <Svg size={size}>
           <circle cx="12" cy="8" r="4" fill="#fff" />
           <path d="M4 19.6c0-3.7 3.6-6.6 8-6.6s8 2.9 8 6.6c0 .8-.6 1.4-1.4 1.4H5.4C4.6 21 4 20.4 4 19.6z" fill="#fff" />
         </Svg>
@@ -29,7 +39,7 @@ export function NavIcon({ name }: { name: string }): ReactElement | null {
     // Matrice : chapeau de diplome (mortarboard)
     case "matrice":
       return (
-        <Svg>
+        <Svg size={size}>
           <path d="M12 3 1.5 8 12 13 22.5 8z" fill="#fff" />
           <path d="M6.5 10.2 12 12.8l5.5-2.6V14c0 1.7-2.5 3-5.5 3s-5.5-1.3-5.5-3z" fill="#fff" />
           <path d="M22 8.2v4.3" stroke="#fff" strokeWidth="1.2" fill="none" strokeLinecap="round" />
@@ -40,7 +50,7 @@ export function NavIcon({ name }: { name: string }): ReactElement | null {
     // Ordonnancement : barres de Gantt
     case "ordonnancement":
       return (
-        <Svg>
+        <Svg size={size}>
           <rect x="3" y="5" width="11" height="3.4" rx="1.4" fill="#fff" />
           <rect x="8" y="10.3" width="12" height="3.4" rx="1.4" fill="#fff" />
           <rect x="5" y="15.6" width="9" height="3.4" rx="1.4" fill="#fff" />
@@ -50,7 +60,7 @@ export function NavIcon({ name }: { name: string }): ReactElement | null {
     // Planning : calendrier
     case "planning":
       return (
-        <Svg>
+        <Svg size={size}>
           <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="#fff" />
           <path d="M3.5 7.5a2.5 2.5 0 0 1 2.5-2.5h12a2.5 2.5 0 0 1 2.5 2.5v1.8H3.5z" fill={DETAIL} />
           <rect x="7" y="3" width="2.2" height="4" rx="1.1" fill="#fff" />
@@ -68,7 +78,7 @@ export function NavIcon({ name }: { name: string }): ReactElement | null {
     // Bilans : un rapport (feuille + lignes + mini histogramme)
     case "bilans":
       return (
-        <Svg>
+        <Svg size={size}>
           <path d="M6.5 2.5H14l4 4v13.5A1.5 1.5 0 0 1 16.5 21.5h-10A1.5 1.5 0 0 1 5 20V4A1.5 1.5 0 0 1 6.5 2.5z" fill="#fff" />
           <path d="M14 2.5v4h4z" fill={DETAIL} />
           <g fill={DETAIL}>
@@ -84,7 +94,7 @@ export function NavIcon({ name }: { name: string }): ReactElement | null {
     // Habilitations : un bouclier avec coche (certification / validite)
     case "habilitations":
       return (
-        <Svg>
+        <Svg size={size}>
           <path d="M12 2.5 4.5 5.5V11c0 5 3.3 8.4 7.5 10 4.2-1.6 7.5-5 7.5-10V5.5z" fill="#fff" />
           <path d="M8.7 11.8 11 14l4.1-4.5" stroke={DETAIL} strokeWidth="1.9" fill="none" strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
@@ -93,7 +103,7 @@ export function NavIcon({ name }: { name: string }): ReactElement | null {
     // Referentiel : une usine (ateliers / lignes / postes)
     case "referentiel":
       return (
-        <Svg>
+        <Svg size={size}>
           <path d="M3 20.5V11l5 2.6V11l5 2.6V11l5 2.6V20.5z" fill="#fff" />
           <rect x="17.6" y="4" width="2.4" height="9" rx="0.6" fill="#fff" />
           <g fill={DETAIL}>

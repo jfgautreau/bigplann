@@ -1,4 +1,5 @@
 import AppHeader from "@/components/AppHeader";
+import PageTitle from "@/components/PageTitle";
 import { getServerClient } from "@/lib/supabase-server";
 import { requireModule } from "@/lib/permissions";
 import ReferentielEditor from "./ReferentielEditor";
@@ -54,7 +55,7 @@ export default async function ReferentielPage() {
     <>
       <AppHeader role={profile.role} active="/admin/referentiel" />
       <div className="container" style={{ maxWidth: 1500 }}>
-        <h1>Référentiel : ateliers, lignes, postes</h1>
+        <PageTitle module="referentiel">Référentiel : ateliers, lignes, postes</PageTitle>
         <p className="muted" style={{ marginBottom: 16 }}>
           Saisie directe : modifiez un champ, il s&apos;enregistre tout seul (aucun bouton
           à valider). Cochez « Actif » pour activer/désactiver. La <strong>catégorie</strong>

@@ -5,23 +5,12 @@ import { isoDate, addDays } from "@/lib/week";
 import { MODULES, getPermissions, canRead, canWrite } from "@/lib/permissions";
 import SettingsMenu from "@/components/SettingsMenu";
 import UserMenu from "@/components/UserMenu";
-import { NavIcon } from "@/components/NavIcons";
+import { NavIcon, NAV_COLOR } from "@/components/NavIcons";
 
 const MAIN_ORDER = ["referentiel", "personnel", "matrice", "habilitations", "ordonnancement", "planning", "bilans"];
 
-// Palette des pastilles (icone blanche dessus). Tons "jewel" niveau 600 :
-// luminosite/saturation homogenes -> la rangee se lit comme un systeme coherent,
-// teintes reparties sur la roue -> chaque module est instantanement distinct,
-// equilibre froid/chaud, et contraste blanc >= 4.5:1 sur chaque tuile.
-const NAV_TILE: Record<string, string> = {
-  referentiel: "#16a34a",    // vert  (structure de l'usine : ateliers/lignes/postes)
-  personnel: "#2563eb",      // bleu  (RH / les gens)
-  matrice: "#7c3aed",        // violet (rappel discret de la marque)
-  habilitations: "#ca8a04",  // or/ambre (certification / medaille)
-  ordonnancement: "#ea580c", // orange (production / industriel)
-  planning: "#0d9488",       // teal  (organisation / temps)
-  bilans: "#e11d48",         // rose  (resultats / rapport)
-};
+// Palette des pastilles (icone blanche dessus) : source unique dans NavIcons.
+const NAV_TILE = NAV_COLOR;
 
 // En-tete commun : navigation pilotee par la matrice des droits, cloche
 // d'alerte habilitations, deconnexion.

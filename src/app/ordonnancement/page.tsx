@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
+import PageTitle from "@/components/PageTitle";
 import { requireModule } from "@/lib/permissions";
 import { parseMois, monthDays, isoDate, mondayOf, addDays, isoWeekNumber } from "@/lib/week";
 import { getSemaineType, getSemaineOuverture } from "@/lib/semaine-type";
@@ -78,7 +79,7 @@ export default async function OrdonnancementPage({
       <AppHeader role={profile.role} active="/ordonnancement" />
       <div className="container" style={{ maxWidth: 1500 }}>
         <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
-          <h1 style={{ margin: 0 }}>Ordonnancement</h1>
+          <PageTitle module="ordonnancement">Ordonnancement</PageTitle>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Link href="/ordonnancement/semaine-type" className="iconbtn" style={{ padding: "6px 12px" }}>
               ⚙️ Semaine type

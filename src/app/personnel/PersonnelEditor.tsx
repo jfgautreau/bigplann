@@ -246,20 +246,6 @@ export default function PersonnelEditor({
       {/* Barre de filtres */}
       <div className="toolbar" style={{ alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {/* Recherche globale */}
-          <span style={{ position: "relative", display: "inline-block", width: 280, maxWidth: "55vw" }}>
-            <span aria-hidden style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", fontSize: 13, pointerEvents: "none" }}>🔍</span>
-            <input
-              value={gq}
-              onChange={(e) => setGq(e.target.value)}
-              placeholder="Rechercher : nom, matricule, badge, équipe…"
-              style={{ width: "100%", fontSize: 13, padding: "7px 30px 7px 30px" }}
-            />
-            {gq !== "" && (
-              <button type="button" onClick={() => setGq("")} title="Effacer la recherche"
-                style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 18, height: 18, margin: 0, padding: 0, border: "none", borderRadius: "50%", background: "var(--muted)", color: "#fff", cursor: "pointer", fontSize: 11, lineHeight: "18px", textAlign: "center" }}>✕</button>
-            )}
-          </span>
           <span className="muted" style={{ fontWeight: 600 }}>Contrat :</span>
           <div className="segments">
             <button type="button" className={contratFilter === "" ? "seg active" : "seg"} onClick={() => setContratFilter("")}>Tous ({counts.tous})</button>
@@ -284,6 +270,23 @@ export default function PersonnelEditor({
           </span>
           <span style={{ minHeight: 16, fontSize: 12, fontWeight: 600, color: saveColor }}>{saveLabel}</span>
         </div>
+      </div>
+
+      {/* Recherche globale, centrée, sous les filtres */}
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+        <span style={{ position: "relative", display: "inline-block", width: 360, maxWidth: "90vw" }}>
+          <span aria-hidden style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", fontSize: 13, pointerEvents: "none" }}>🔍</span>
+          <input
+            value={gq}
+            onChange={(e) => setGq(e.target.value)}
+            placeholder="Rechercher : nom, matricule, badge, équipe…"
+            style={{ width: "100%", fontSize: 13, padding: "7px 30px 7px 30px", borderRadius: 999 }}
+          />
+          {gq !== "" && (
+            <button type="button" onClick={() => setGq("")} title="Effacer la recherche"
+              style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 18, height: 18, margin: 0, padding: 0, border: "none", borderRadius: "50%", background: "var(--muted)", color: "#fff", cursor: "pointer", fontSize: 11, lineHeight: "18px", textAlign: "center" }}>✕</button>
+          )}
+        </span>
       </div>
 
       {/* Tableau 1 (fixe) : entetes + recherche + creation */}

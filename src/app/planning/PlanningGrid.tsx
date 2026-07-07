@@ -421,7 +421,7 @@ export default function PlanningGrid({
   return (
     <>
       {/* Recherche par nom (entre les filtres et la grille) */}
-      <div style={{ margin: "2px 0 6px" }}>
+      <div style={{ margin: "2px 0 6px", display: "flex", justifyContent: "center" }}>
         <span style={{ position: "relative", display: "inline-block", width: "100%", maxWidth: 320 }}>
           <input
             value={search}

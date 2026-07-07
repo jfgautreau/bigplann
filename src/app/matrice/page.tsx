@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
+import PageTitle from "@/components/PageTitle";
 import { requireModule } from "@/lib/permissions";
 import { getAteliersC, getEquipesC, getNiveauxC } from "@/lib/refdata";
 import MatricePanel from "./MatricePanel";
@@ -118,7 +119,7 @@ export default async function MatricePage({
       <AppHeader role={profile.role} active="/matrice" />
       <div className="container" style={{ maxWidth: 1500 }}>
         <div className="toolbar">
-          <h1 style={{ margin: 0 }}>Matrice de polyvalence</h1>
+          <PageTitle module="matrice">Matrice de polyvalence</PageTitle>
           <Link href="/matrice/bilan" className="navlink">
             Voir le bilan &rarr;
           </Link>

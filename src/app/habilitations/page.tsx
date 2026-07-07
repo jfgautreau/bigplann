@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
+import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite } from "@/lib/permissions";
 import { joursRestants, habStatut, HAB_COLOR } from "@/lib/habilitations";
 import { saveHabilitation, deleteHabilitation } from "./actions";
@@ -46,7 +47,7 @@ export default async function HabilitationsPage() {
     <>
       <AppHeader role={profile.role} active="/habilitations" />
       <div className="container" style={{ maxWidth: 1500 }}>
-        <h1>Habilitations</h1>
+        <PageTitle module="habilitations">Habilitations</PageTitle>
         <p className="muted" style={{ marginBottom: 16 }}>
           Suivi des formations / habilitations à recycler. <strong>Pour saisir l&apos;habilitation
           d&apos;une personne avec sa date de validation, utilisez le formulaire en bas de page</strong>{" "}

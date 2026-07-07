@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
+import PageTitle from "@/components/PageTitle";
 import PrintButton from "@/components/PrintButton";
 import { requireModule } from "@/lib/permissions";
 import { isoDate, addDays, monthDays, monthLabel } from "@/lib/week";
@@ -104,7 +105,7 @@ export default async function CockpitPage() {
       <div className="container" style={{ maxWidth: 1500 }}>
         <div className="report-head">
           <div>
-            <h1>Cockpit — pilotage d&apos;équipe</h1>
+            <PageTitle module="bilans">Cockpit — pilotage d&apos;équipe</PageTitle>
             <div className="sub">Synthèse au {fmtDate(todayIso)} · absences sur {monthLabel(today.getFullYear(), today.getMonth())}</div>
           </div>
           <PrintButton />

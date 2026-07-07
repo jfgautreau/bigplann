@@ -1,5 +1,6 @@
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
+import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite } from "@/lib/permissions";
 import PersonnelEditor from "./PersonnelEditor";
 
@@ -63,7 +64,7 @@ export default async function PersonnelPage() {
     <>
       <AppHeader role={profile.role} active="/personnel" />
       <div className="container" style={{ maxWidth: 1500 }}>
-        <h1>Personnel</h1>
+        <PageTitle module="personnel">Personnel</PageTitle>
         <PersonnelEditor initial={rows} equipes={equipesData ?? []} ateliers={ateliersData ?? []} canEdit={canEdit} />
       </div>
     </>

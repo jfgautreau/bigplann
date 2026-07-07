@@ -133,7 +133,7 @@ export default function MatrixGrid({
   return (
     <>
       {/* Recherche par nom (entre les filtres et le tableau) */}
-      <div style={{ margin: "0 0 8px" }}>
+      <div style={{ margin: "0 0 8px", display: "flex", justifyContent: "center" }}>
         <span style={{ position: "relative", display: "inline-block", width: "100%", maxWidth: 340 }}>
           <input
             value={search}
