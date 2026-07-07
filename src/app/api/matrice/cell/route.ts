@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
 
   const personne_id = body?.personne_id;
   const poste_id = body?.poste_id;
-  const clamp = (n: unknown) => Math.max(0, Math.min(4, Number(n) || 0));
+  // -1 = restriction (medicale / physique) ; 0..4 = echelle de competence.
+  const clamp = (n: unknown) => Math.max(-1, Math.min(4, Number(n) || 0));
   const niveau_actuel = clamp(body?.niveau_actuel);
   const niveau_cible = clamp(body?.niveau_cible);
 

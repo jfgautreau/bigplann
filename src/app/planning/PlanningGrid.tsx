@@ -563,6 +563,8 @@ export default function PlanningGrid({
                 const v = vals[key(pers.id, d.iso)] ?? "";
                 const alert = horsComp(pers.id, v);
                 const over = isPoste(v) && (perDay[i].counts[v] ?? 0) > (effectif[v] ?? 0);
+                // Restriction (medicale/physique) : niveau -1 dans la matrice pour ce poste.
+                const restricted = isPoste(v) && matrice[key(pers.id, v)] === -1;
                 const openSet = new Set(openByIso[d.iso] ?? allLigneIds);
                 const closedCurrent = isPoste(v) && !openSet.has(posteLigne[v] ?? "");
                 // Bouton de recopie aussi sur une case vide : permet de propager le
@@ -586,7 +588,7 @@ export default function PlanningGrid({
                       position: "relative",
                       ...sep(d),
                     }}
-                    title={[alert ? "Hors compétence" : "", over ? `Sur-effectif (${perDay[i].counts[v]}/${effectif[v] ?? 0})` : ""].filter(Boolean).join(" · ") || undefined}
+                    title={[restricted ? "⛔ Restriction médicale/physique sur ce poste" : alert ? "Hors compétence" : "", over ? `Sur-effectif (${perDay[i].counts[v]}/${effectif[v] ?? 0})` : ""].filter(Boolean).join(" · ") || undefined}
                   >
                     {tpr ? (
                       <div className="cell-other" style={{ color: "#3730a3" }} title={`Temps partiel — travaille ${tpr === "Mat" ? "le matin" : "l'après-midi"}`}>&rarr; {tpr}</div>
@@ -656,6 +658,14 @@ export default function PlanningGrid({
                       >
                         &raquo;
                       </button>
+                    )}
+                    {restricted && (
+                      <span
+                        title="Restriction médicale/physique sur ce poste"
+                        style={{ position: "absolute", left: 1, top: 0, fontSize: 11, fontWeight: 800, color: "#dc2626", lineHeight: 1, pointerEvents: "none" }}
+                      >
+                        ✕
+                      </span>
                     )}
                     {(() => {
                       const ek = excKey(pers.id, d.iso);

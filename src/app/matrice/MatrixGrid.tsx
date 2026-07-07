@@ -1,7 +1,11 @@
 "use client";
 
 import { Fragment, useRef, useState } from "react";
-import { Pie, FILL } from "./Pie";
+import { LevelMark, FILL, RESTRICT } from "./Pie";
+
+// Cycle de saisie : 0 -> 1 -> 2 -> 3 -> 4 -> ❌ (restriction) -> 0.
+const CYCLE = [0, 1, 2, 3, 4, RESTRICT];
+const lvlTxt = (n: number) => (n === RESTRICT ? "Restriction ❌" : String(n));
 
 type Poste = { id: string; nom: string; objectifActuel?: number; objectifCible?: number };
 type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
@@ -47,6 +51,8 @@ export default function MatrixGrid({
   const fieldShown: "a" | "c" = mode === "actuel" ? "a" : "c";
   const countLevel = (poid: string, level: number) =>
     personnes.reduce((n, pe) => n + ((cells[key(pe.id, poid)]?.[fieldShown] ?? 0) === level ? 1 : 0), 0);
+  const countRestrict = (poid: string) =>
+    personnes.reduce((n, pe) => n + ((cells[key(pe.id, poid)]?.[fieldShown] ?? 0) === RESTRICT ? 1 : 0), 0);
 
   function saveObjectif(poid: string, champ: "actuel" | "cible", value: number) {
     if (champ === "actuel") setObjActuel((o) => ({ ...o, [poid]: value }));
@@ -94,7 +100,9 @@ export default function MatrixGrid({
     setCells((prev) => {
       const cur = prev[k] ?? { a: 0, c: 0 };
       const field = mode === "actuel" ? "a" : "c";
-      const next = { ...cur, [field]: (cur[field] + delta + 5) % 5 };
+      const idx = CYCLE.indexOf(cur[field]);
+      const nextVal = CYCLE[(((idx < 0 ? 0 : idx) + delta) % CYCLE.length + CYCLE.length) % CYCLE.length];
+      const next = { ...cur, [field]: nextVal };
       save(k, next, pid, poid);
       return { ...prev, [k]: next };
     });
@@ -184,6 +192,22 @@ export default function MatrixGrid({
                     )}
                   </tr>
                 ))}
+                <tr style={{ background: "#fef2f2" }}>
+                  <td style={{ position: "sticky", left: 0, background: "#fef2f2", fontWeight: 600, fontSize: 12, color: "#b91c1c" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+                      <span style={{ color: "#dc2626", fontWeight: 800 }}>✕</span>
+                      Nb restreint
+                    </span>
+                  </td>
+                  {groups.flatMap((g) =>
+                    g.postes.map((po, i) => {
+                      const c = countRestrict(po.id);
+                      return (
+                        <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 700, color: c > 0 ? "#dc2626" : "#e5c9c9", borderLeft: sepL(i) }}>{c || ""}</td>
+                      );
+                    })
+                  )}
+                </tr>
                 {([
                   ["actuel", "a", "#1d4ed8", objActuel] as const,
                   ["cible", "c", "#16a34a", objCible] as const,
@@ -242,7 +266,7 @@ export default function MatrixGrid({
                     if (!pers.editable) {
                       return (
                         <td key={po.id} style={tdStyle}>
-                          <div style={{ display: "inline-block", opacity: 0.85 }}><Pie level={active} /></div>
+                          <div style={{ display: "inline-block", opacity: 0.85 }}><LevelMark level={active} /></div>
                         </td>
                       );
                     }
@@ -252,13 +276,15 @@ export default function MatrixGrid({
                           type="button"
                           onClick={() => bump(pers.id, po.id, +1)}
                           onContextMenu={(e) => { e.preventDefault(); bump(pers.id, po.id, -1); }}
-                          title={`${pers.label} - ${po.nom}\nActuel ${cell.a} / Cible ${cell.c}\nClic +1, clic droit -1`}
+                          title={`${pers.label} - ${po.nom}\nActuel ${lvlTxt(cell.a)} / Cible ${lvlTxt(cell.c)}\nClic +1, clic droit -1 (❌ = restriction)`}
                           style={{ margin: 0, width: 34, height: 34, padding: 0, background: "transparent", border: "none", cursor: "pointer", position: "relative" }}
                         >
-                          <Pie level={active} />
-                          {other > 0 && (
+                          <LevelMark level={active} />
+                          {other === RESTRICT ? (
+                            <span style={{ position: "absolute", right: -1, bottom: -2, fontSize: 10, fontWeight: 800, color: "#dc2626" }}>✕</span>
+                          ) : other > 0 ? (
                             <span style={{ position: "absolute", right: -1, bottom: -2, fontSize: 9, fontWeight: 600, color: "#6b7280" }}>{other}</span>
-                          )}
+                          ) : null}
                         </button>
                       </td>
                     );

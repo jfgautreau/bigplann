@@ -1,6 +1,6 @@
 "use client";
 
-import { Pie } from "./Pie";
+import { Pie, RestrictionMark } from "./Pie";
 
 const FALLBACK: Record<number, string> = {
   0: "Non formé.",
@@ -32,6 +32,10 @@ export default function LegendeModal({
               <span><strong>Niveau {n}</strong> — {label(n)}</span>
             </li>
           ))}
+          <li style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+            <span style={{ flexShrink: 0 }}><RestrictionMark /></span>
+            <span><strong style={{ color: "#b91c1c" }}>Restriction</strong> — restriction médicale ou physique sur ce poste : la personne ne doit pas y être affectée (exclue des bilans, alerte dans le planning).</span>
+          </li>
         </ul>
         <p className="muted" style={{ marginTop: 10 }}>
           Le petit chiffre dans le coin d&apos;une case = l&apos;autre niveau (la cible quand vous saisissez l&apos;actuel, et inversement).

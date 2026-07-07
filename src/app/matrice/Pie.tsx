@@ -1,3 +1,6 @@
+// Valeur sentinelle : restriction medicale / physique (en plus de l'echelle 0..4).
+export const RESTRICT = -1;
+
 // Pastille de niveau (camembert 0->4) + couleurs, partagee grille / legende.
 export const FILL: Record<number, string | null> = {
   0: null, // contour seul
@@ -30,4 +33,20 @@ export function Pie({ level }: { level: number }) {
       {inner}
     </svg>
   );
+}
+
+// Croix rouge : restriction (medicale / physique) sur ce poste.
+export function RestrictionMark() {
+  const size = 28, r = 11, cx = 14, cy = 14;
+  return (
+    <svg width={size} height={size} style={{ display: "block" }}>
+      <circle cx={cx} cy={cy} r={r} fill="#fee2e2" stroke="#dc2626" strokeWidth={1.5} />
+      <path d="M9,9 L19,19 M19,9 L9,19" stroke="#dc2626" strokeWidth={2.4} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Rend soit la croix de restriction (niveau -1), soit le camembert 0..4.
+export function LevelMark({ level }: { level: number }) {
+  return level === RESTRICT ? <RestrictionMark /> : <Pie level={level} />;
 }
