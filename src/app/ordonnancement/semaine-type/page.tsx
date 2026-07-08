@@ -60,6 +60,7 @@ export default async function SemaineTypePage({ searchParams }: { searchParams: 
           réinitialisation des semaines.
         </p>
         <SemaineTypeEditor
+          key={selectedId ?? "none"}
           quarts={quarts}
           lignes={lignes}
           initial={type}
