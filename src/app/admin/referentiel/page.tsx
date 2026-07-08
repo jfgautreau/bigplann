@@ -54,7 +54,7 @@ export default async function ReferentielPage() {
   return (
     <>
       <AppHeader role={profile.role} active="/admin/referentiel" />
-      <div className="container" style={{ maxWidth: 1500 }}>
+      <div className="container" style={{ maxWidth: "none" }}>
         <PageTitle module="referentiel">Référentiel : ateliers, lignes, postes</PageTitle>
         <p className="muted" style={{ marginBottom: 16 }}>
           Saisie directe : modifiez un champ, il s&apos;enregistre tout seul (aucun bouton
