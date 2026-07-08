@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient } from "@/lib/supabase-server";
+import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
+import { canWriteModule } from "@/lib/permissions";
 
 // POST /api/horaire-exception { op, personne_id, jour, debut?, fin?, motif? }
 //   op = "save"  -> upsert (ou suppression si tout est vide)
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
   }
 
-  const supabase = await getServerClient();
+  const supabase = (await canWriteModule(profile.role, "planning")) ? getAdminClient() : await getServerClient();
 
   if (op === "delete") {
     const { error } = await supabase

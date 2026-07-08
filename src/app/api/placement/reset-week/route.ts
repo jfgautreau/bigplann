@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient } from "@/lib/supabase-server";
+import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
+import { canWriteModule } from "@/lib/permissions";
 
 // POST /api/placement/reset-week { personne_ids: string[], jours: string[] }
 // Vide UNIQUEMENT les affectations sur lignes (placements avec poste_id) des
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Parametres manquants" }, { status: 400 });
   }
 
-  const supabase = await getServerClient();
+  const supabase = (await canWriteModule(profile.role, "planning")) ? getAdminClient() : await getServerClient();
   const { error } = await supabase
     .from("placement")
     .delete()

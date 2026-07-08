@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getServerClient } from "@/lib/supabase-server";
+import { getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
+import { canWriteModule } from "@/lib/permissions";
 
 // POST /api/personnel { op, ... }
 // Saisie inline du personnel. Ecriture admin (RLS personne).
@@ -59,13 +60,16 @@ async function syncPersonneFromPeriodes(supabase: SupabaseClient, personne_id: s
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  if (profile.role !== "admin") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  // Écriture personnel : admin OU droit "personnel: write".
+  if (profile.role !== "admin" && !(await canWriteModule(profile.role, "personnel"))) {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as Body | null;
   const op = s(body?.op);
   if (!body || !op) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
 
-  const supabase = await getServerClient();
+  const supabase = getAdminClient();
 
   try {
     if (op === "create") {

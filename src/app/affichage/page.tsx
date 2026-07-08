@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 type Atelier = { id: string; nom: string };
 
 export default async function AffichageIndex() {
-  await requireModule("affichage", "write");
+  await requireModule("affichage", "read");
   const admin = getAdminClient();
   const { data } = await admin
     .from("atelier")

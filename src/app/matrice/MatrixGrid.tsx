@@ -208,7 +208,7 @@ export default function MatrixGrid({
                       g.postes.map((po, i) => {
                         const c = countLevel(po.id, lvl);
                         return (
-                          <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 600, color: c > 0 ? "var(--text)" : "#cbd5e1", borderLeft: sepL(i) }}>{c}</td>
+                          <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 600, color: c > 0 ? "var(--text)" : "#cbd5e1" }}>{c}</td>
                         );
                       })
                     )}
@@ -225,7 +225,7 @@ export default function MatrixGrid({
                     g.postes.map((po, i) => {
                       const c = countRestrict(po.id);
                       return (
-                        <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 700, color: c > 0 ? "#dc2626" : "#e5c9c9", borderLeft: sepL(i) }}>{c || ""}</td>
+                        <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 700, color: c > 0 ? "#dc2626" : "#e5c9c9" }}>{c || ""}</td>
                       );
                     })
                   )}
@@ -239,7 +239,7 @@ export default function MatrixGrid({
                       <td style={{ position: "sticky", left: 0, background: "#f1f5f9", fontWeight: 700, color: accent }}>Objectif {champ}</td>
                       {groups.flatMap((g) =>
                         g.postes.map((po, i) => (
-                          <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", borderLeft: sepL(i) }}>
+                          <td key={po.id} style={{ textAlign: "center", padding: "3px 2px" }}>
                             {canEditObjectif ? (
                               <input type="number" min={0} value={objMap[po.id] ?? 0} onChange={(e) => saveObjectif(po.id, champ, Math.max(0, Number(e.target.value) || 0))} style={{ width: 30, textAlign: "center", padding: 2 }} />
                             ) : (objMap[po.id] ?? 0)}
@@ -255,7 +255,7 @@ export default function MatrixGrid({
                           const obj = objMap[po.id] ?? 0;
                           const manque = c < obj; // sous l'objectif -> rouge sur fond rouge
                           return (
-                            <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 700, color: manque ? "#b91c1c" : "var(--ok)", background: manque ? "#fee2e2" : undefined, borderLeft: sepL(i) }} title={`${c} / objectif ${obj}${manque ? ` — manque ${obj - c}` : ""}`}>{c}</td>
+                            <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 700, color: manque ? "#b91c1c" : "var(--ok)", background: manque ? "#fee2e2" : undefined }} title={`${c} / objectif ${obj}${manque ? ` — manque ${obj - c}` : ""}`}>{c}</td>
                           );
                         })
                       )}
@@ -285,7 +285,7 @@ export default function MatrixGrid({
                     const cell = get(k);
                     const active = mode === "actuel" ? cell.a : cell.c;
                     const other = mode === "actuel" ? cell.c : cell.a;
-                    const tdStyle = { textAlign: "center" as const, padding: 3, borderLeft: sepL(i) };
+                    const tdStyle = { textAlign: "center" as const, padding: 3 };
                     if (!pers.editable) {
                       return (
                         <td key={po.id} style={tdStyle}>

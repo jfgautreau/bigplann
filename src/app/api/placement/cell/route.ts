@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient } from "@/lib/supabase-server";
+import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
+import { canWriteModule } from "@/lib/permissions";
 
 // POST /api/placement/cell { personne_id, jour, equipe_id, value }
 //   value = ""  -> efface le placement
@@ -25,7 +26,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Parametres manquants" }, { status: 400 });
   }
 
-  const supabase = await getServerClient();
+  // Droit "planning: write" -> client admin (édition complète) ; sinon RLS
+  // (admin ou chef de l'équipe de la personne).
+  const supabase = (await canWriteModule(profile.role, "planning")) ? getAdminClient() : await getServerClient();
 
   if (value === "") {
     const { error } = await supabase

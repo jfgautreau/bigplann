@@ -16,7 +16,7 @@ export const MODULES: { key: string; label: string; href: string; admin: boolean
   { key: "ordonnancement", label: "Ordonnancement", href: "/ordonnancement", admin: true },
   { key: "bilans", label: "Bilans", href: "/bilans", admin: false },
   { key: "journal", label: "Journal", href: "/journal", admin: false },
-  { key: "affichage", label: "Affichage", href: "/affichage", admin: true },
+  { key: "affichage", label: "Affichage", href: "/affichage", admin: false },
   { key: "referentiel", label: "Référentiel", href: "/admin/referentiel", admin: true },
   { key: "equipes", label: "Équipes", href: "/admin/equipes", admin: true },
   { key: "competences", label: "Compétences", href: "/admin/competences", admin: true },
@@ -62,6 +62,13 @@ export function canRead(p: Perms, mod: string): boolean {
 }
 export function canWrite(p: Perms, mod: string): boolean {
   return p[mod] === "write";
+}
+
+// Droit d'écriture d'un module pour un rôle (matrice des droits). Sert aux API
+// pour autoriser l'édition selon les droits configurés (client admin), en plus
+// des chemins RLS existants (admin / chef d'équipe / rôle ordo).
+export async function canWriteModule(role: string, mod: string): Promise<boolean> {
+  return canWrite(await getPermissions(role), mod);
 }
 
 // Droits effectifs d'un role = defauts surchargés par la table role_permission.

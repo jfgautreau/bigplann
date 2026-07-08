@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient } from "@/lib/supabase-server";
+import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
+import { canWriteModule } from "@/lib/permissions";
 
 // POST /api/absence { op, ... }
 // op = "save"   { personne_id, date_debut, date_fin, motif_absence_id, commentaire }
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   const op = s(body?.op);
   if (!body || !op) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
 
-  const supabase = await getServerClient();
+  const supabase = (await canWriteModule(profile.role, "planning")) ? getAdminClient() : await getServerClient();
 
   try {
     if (op === "save") {

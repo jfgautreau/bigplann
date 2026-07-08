@@ -3,7 +3,6 @@ import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import { MODULES, getAllPermissions } from "@/lib/permissions";
 import { ROLES, ROLE_LABELS } from "@/lib/roles";
-import { saveDroits } from "./actions";
 import DroitsMatrix from "./DroitsMatrix";
 
 export default async function DroitsPage() {
@@ -23,21 +22,17 @@ export default async function DroitsPage() {
           <span style={{ background: "#fff", border: "1px solid #cbd5e1", padding: "1px 8px", borderRadius: 5 }}>Aucun</span>{" "}
           &rarr; <span style={{ background: "#1d4ed8", color: "#fff", padding: "1px 8px", borderRadius: 5 }}>Lecture</span>{" "}
           &rarr; <span style={{ background: "#7c3aed", color: "#fff", padding: "1px 8px", borderRadius: 5 }}>Modif.</span>.
-          L&apos;administrateur a tous les droits. La sécurité base (RLS) reste un garde-fou.
+          L&apos;administrateur a tous les droits. Chaque changement est <strong>enregistré
+          automatiquement</strong>. La sécurité base (RLS) reste un garde-fou.
         </p>
 
-        <form action={saveDroits}>
-          <div className="card" style={{ overflowX: "auto" }}>
-            <DroitsMatrix
-              roles={ROLES.map((r) => ({ key: r, label: ROLE_LABELS[r] }))}
-              modules={MODULES.map((m) => ({ key: m.key, label: m.label }))}
-              initial={Object.fromEntries(ROLES.filter((r) => r !== "admin").map((r) => [r, all[r]]))}
-            />
-          </div>
-          <button type="submit" style={{ marginTop: 16, width: "auto", padding: "10px 20px" }}>
-            Enregistrer les droits
-          </button>
-        </form>
+        <div className="card" style={{ overflowX: "auto" }}>
+          <DroitsMatrix
+            roles={ROLES.map((r) => ({ key: r, label: ROLE_LABELS[r] }))}
+            modules={MODULES.map((m) => ({ key: m.key, label: m.label }))}
+            initial={Object.fromEntries(ROLES.filter((r) => r !== "admin").map((r) => [r, all[r]]))}
+          />
+        </div>
       </div>
     </>
   );

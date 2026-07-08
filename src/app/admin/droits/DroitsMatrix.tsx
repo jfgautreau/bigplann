@@ -23,15 +23,32 @@ export default function DroitsMatrix({
   initial: Record<string, Record<string, Niveau>>; // par role (hors admin)
 }) {
   const [m, setM] = useState<Record<string, Record<string, Niveau>>>(initial);
+  const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
-  function cycle(role: string, mod: string) {
-    setM((prev) => {
-      const cur = prev[role]?.[mod] ?? "none";
-      return { ...prev, [role]: { ...(prev[role] ?? {}), [mod]: NEXT[cur] } };
-    });
+  async function cycle(role: string, mod: string) {
+    const cur = m[role]?.[mod] ?? "none";
+    const next = NEXT[cur];
+    setM((prev) => ({ ...prev, [role]: { ...(prev[role] ?? {}), [mod]: next } }));
+    setSave("saving");
+    try {
+      const res = await fetch("/api/droits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, module: mod, niveau: next }),
+      });
+      setSave(res.ok ? "saved" : "error");
+    } catch {
+      setSave("error");
+    }
+    setTimeout(() => setSave("idle"), 1500);
   }
 
+  const saveLabel = save === "saving" ? "Enregistrement…" : save === "saved" ? "Enregistré ✓" : save === "error" ? "Échec" : "";
+  const saveColor = save === "error" ? "var(--danger)" : save === "saved" ? "var(--ok)" : "var(--muted)";
+
   return (
+    <>
+    <div style={{ minHeight: 18, textAlign: "right", fontSize: 12, fontWeight: 600, color: saveColor, marginBottom: 4 }}>{saveLabel}</div>
     <table className="matrix" style={{ borderCollapse: "collapse" }}>
       <thead>
         <tr>
@@ -59,7 +76,6 @@ export default function DroitsMatrix({
               const st = STYLE[niv];
               return (
                 <td key={r.key} style={{ textAlign: "center", padding: 3 }}>
-                  <input type="hidden" name={`cell_${r.key}_${mod.key}`} value={niv} />
                   <button
                     type="button"
                     onClick={() => cycle(r.key, mod.key)}
@@ -86,5 +102,6 @@ export default function DroitsMatrix({
         ))}
       </tbody>
     </table>
+    </>
   );
 }

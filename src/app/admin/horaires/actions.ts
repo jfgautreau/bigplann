@@ -2,10 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/current-user";
+import { getCurrentProfile } from "@/lib/current-user";
+import { getAdminClient } from "@/lib/supabase-server";
+import { canWriteModule } from "@/lib/permissions";
 
 export async function saveHoraires(fd: FormData) {
-  const supabase = await requireAdmin();
+  const profile = await getCurrentProfile();
+  if (!profile || (profile.role !== "admin" && !(await canWriteModule(profile.role, "horaires")))) throw new Error("Accès refusé.");
+  const supabase = getAdminClient();
   const posteIds = String(fd.get("poste_ids") ?? "").split(",").filter(Boolean);
   const quartCodes = String(fd.get("quart_codes") ?? "").split(",").filter(Boolean);
   if (posteIds.length === 0 || quartCodes.length === 0) return;
