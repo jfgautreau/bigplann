@@ -40,6 +40,7 @@ export default async function CompetencesPage({
     supabase
       .from("competence")
       .select("id, nom, type, a_recycler, duree_validite_mois, actif")
+      .eq("a_recycler", false) // les habilitations (a_recycler) se gèrent dans "Param. Habilitation"
       .order("nom")
       .returns<Competence[]>(),
   ]);
@@ -69,20 +70,18 @@ export default async function CompetencesPage({
           </form>
         </div>
 
-        {/* Competences transverses / habilitations */}
+        {/* Competences transverses (les habilitations sont dans Param. Habilitation) */}
         <div className="card section">
-          <h2>Compétences transverses et habilitations</h2>
+          <h2>Compétences transverses</h2>
           <p className="muted">
-            Type NIVEAU (0-4) ou ACQUIS (oui/non). Cocher « à recycler » pour une
-            habilitation à durée de validité (le suivi des échéances arrive au lot suivant).
+            Type NIVEAU (0-4) ou ACQUIS (oui/non). Les <strong>habilitations / formations à
+            recycler</strong> se paramètrent désormais dans <strong>Param. Habilitation</strong>.
           </p>
           <table>
             <thead>
               <tr>
                 <th>Nom</th>
                 <th>Type</th>
-                <th>À recycler</th>
-                <th>Validité (mois)</th>
                 <th>Statut</th>
                 <th></th>
               </tr>
@@ -91,9 +90,10 @@ export default async function CompetencesPage({
               {comps.map((c) =>
                 sp.edit === `competence:${c.id}` ? (
                   <tr key={c.id}>
-                    <td colSpan={6}>
+                    <td colSpan={4}>
                       <form action={updateCompetence} autoComplete="off" className="inline-form">
                         <input type="hidden" name="id" value={c.id} />
+                        <input type="hidden" name="a_recycler" value="false" />
                         <div className="field">
                           <span>Nom</span>
                           <input name="nom" defaultValue={c.nom} autoFocus required />
@@ -105,23 +105,6 @@ export default async function CompetencesPage({
                             <option value="ACQUIS">Acquis (oui/non)</option>
                           </select>
                         </div>
-                        <div className="field">
-                          <span>À recycler</span>
-                          <select name="a_recycler" defaultValue={c.a_recycler ? "true" : "false"}>
-                            <option value="false">Non</option>
-                            <option value="true">Oui</option>
-                          </select>
-                        </div>
-                        <div className="field">
-                          <span>Validité (mois)</span>
-                          <input
-                            name="duree_validite_mois"
-                            type="number"
-                            min={1}
-                            defaultValue={c.duree_validite_mois ?? ""}
-                            style={{ width: 90 }}
-                          />
-                        </div>
                         <button type="submit" className="btn-sm">Enregistrer</button>
                         <Link href="/admin/competences" className="navlink">Annuler</Link>
                       </form>
@@ -131,8 +114,6 @@ export default async function CompetencesPage({
                   <tr key={c.id}>
                     <td>{c.nom}</td>
                     <td>{c.type === "ACQUIS" ? "Acquis" : "Niveau"}</td>
-                    <td>{c.a_recycler ? "Oui" : "-"}</td>
-                    <td>{c.duree_validite_mois ?? "-"}</td>
                     <td>
                       <span className={c.actif ? "tag" : "tag tag-off"}>
                         {c.actif ? "Actif" : "Désactivé"}
@@ -156,16 +137,17 @@ export default async function CompetencesPage({
               )}
               {comps.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="muted">Aucune compétence.</td>
+                  <td colSpan={4} className="muted">Aucune compétence transverse.</td>
                 </tr>
               )}
             </tbody>
           </table>
 
           <form action={createCompetence} autoComplete="off" className="inline-form" style={{ marginTop: 12 }}>
+            <input type="hidden" name="a_recycler" value="false" />
             <div className="field">
-              <span>Nouvelle compétence</span>
-              <input name="nom" placeholder="Ex. Tuteur, EPI, Incendie..." required />
+              <span>Nouvelle compétence transverse</span>
+              <input name="nom" placeholder="Ex. Tuteur, Polyvalence ligne..." required />
             </div>
             <div className="field">
               <span>Type</span>
@@ -173,17 +155,6 @@ export default async function CompetencesPage({
                 <option value="NIVEAU">Niveau (0-4)</option>
                 <option value="ACQUIS">Acquis (oui/non)</option>
               </select>
-            </div>
-            <div className="field">
-              <span>À recycler</span>
-              <select name="a_recycler" defaultValue="false">
-                <option value="false">Non</option>
-                <option value="true">Oui</option>
-              </select>
-            </div>
-            <div className="field">
-              <span>Validité (mois)</span>
-              <input name="duree_validite_mois" type="number" min={1} style={{ width: 90 }} />
             </div>
             <button type="submit" className="btn-sm">Ajouter</button>
           </form>

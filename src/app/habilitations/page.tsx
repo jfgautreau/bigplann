@@ -8,7 +8,7 @@ import { requireModule, canWrite } from "@/lib/permissions";
 import { saveHabilitation } from "./actions";
 import HabilitationsList from "./HabilitationsList";
 
-type Comp = { id: string; nom: string; duree_validite_mois: number | null };
+type Comp = { id: string; nom: string; duree_validite_mois: number | null; categorie: string | null; groupe: string | null; ordre: number; a_autorisation_conduite: boolean };
 type Personne = { id: string; nom: string; prenom: string };
 type Row = {
   id: string;
@@ -16,8 +16,9 @@ type Row = {
   competence_id: string;
   date_obtention: string | null;
   date_expiration: string | null;
+  date_autorisation_conduite: string | null;
   personne: { nom: string; prenom: string } | null;
-  competence: { nom: string; a_recycler: boolean } | null;
+  competence: { nom: string; a_recycler: boolean; a_autorisation_conduite: boolean } | null;
 };
 
 export default async function HabilitationsPage() {
@@ -28,15 +29,16 @@ export default async function HabilitationsPage() {
   const [{ data: compsD }, { data: persD }, { data: pcD }] = await Promise.all([
     supabase
       .from("competence")
-      .select("id, nom, duree_validite_mois")
+      .select("id, nom, duree_validite_mois, categorie, groupe, ordre, a_autorisation_conduite")
       .eq("a_recycler", true)
       .eq("actif", true)
+      .order("ordre")
       .order("nom")
       .returns<Comp[]>(),
     supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
     supabase
       .from("personne_competence")
-      .select("id, personne_id, competence_id, date_obtention, date_expiration, personne:personne_id(nom, prenom), competence:competence_id(nom, a_recycler)")
+      .select("id, personne_id, competence_id, date_obtention, date_expiration, date_autorisation_conduite, personne:personne_id(nom, prenom), competence:competence_id(nom, a_recycler, a_autorisation_conduite)")
       .returns<Row[]>(),
   ]);
 
@@ -58,12 +60,12 @@ export default async function HabilitationsPage() {
         </div>
         <p className="muted" style={{ marginBottom: 16 }}>
           Suivi des formations / habilitations à recycler. Saisissez l&apos;habilitation d&apos;une
-          personne (personne + date d&apos;obtention, expiration calculée automatiquement) dans le
-          formulaire ci-dessous. Les <em>types</em> d&apos;habilitation se définissent dans{" "}
-          <strong>Compétences</strong> (case « à recycler »).
+          personne (personne + date de passage ; échéance calculée automatiquement selon la durée de
+          validité) dans le formulaire ci-dessous. Les <em>formations</em> se définissent dans{" "}
+          <strong>Param. Habilitation</strong> (📜).
         </p>
 
-        <HabilitationsList rows={rows} personnes={personnes} comps={comps.map((c) => ({ id: c.id, nom: c.nom }))}>
+        <HabilitationsList rows={rows} personnes={personnes} comps={comps}>
           {canEdit && (
             <div className="card" style={{ marginBottom: 16 }}>
               <h2 style={{ marginTop: 0 }}>Mise à jour des habilitations</h2>
@@ -94,8 +96,12 @@ export default async function HabilitationsPage() {
                     </select>
                   </div>
                   <div className="field">
-                    <span>Date d&apos;obtention</span>
+                    <span>Date de passage</span>
                     <input name="date_obtention" type="date" required />
+                  </div>
+                  <div className="field">
+                    <span>Autorisation de conduite (si concerné)</span>
+                    <input name="date_autorisation_conduite" type="date" />
                   </div>
                   <button type="submit" className="btn-sm">Enregistrer</button>
                 </form>

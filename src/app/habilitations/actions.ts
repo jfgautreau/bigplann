@@ -25,6 +25,7 @@ export async function saveHabilitation(fd: FormData) {
   const personne_id = s(fd, "personne_id");
   const competence_id = s(fd, "competence_id");
   const date_obtention = s(fd, "date_obtention");
+  const date_autorisation_conduite = s(fd, "date_autorisation_conduite") || null;
   if (!personne_id || !competence_id || !date_obtention) return;
 
   const { data: comp } = await supabase
@@ -43,6 +44,7 @@ export async function saveHabilitation(fd: FormData) {
       competence_id,
       date_obtention,
       date_expiration,
+      date_autorisation_conduite,
       acquis: comp?.type === "ACQUIS" ? true : null,
       auteur_app_user_id: profile.authId,
       date_maj: new Date().toISOString(),
