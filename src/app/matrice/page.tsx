@@ -35,9 +35,9 @@ export default async function MatricePage({
   const sp = await searchParams;
   const supabase = await getServerClient();
   const isAdmin = profile.role === "admin";
-  // Droit d'écriture "matrice" (matrice des droits) : autorise l'édition en plus
-  // du périmètre admin / chef d'équipe.
-  const canEditMatrice = canWrite(perms, "matrice");
+  // Droit "matrice: write" (hors chef) : édition complète. Le chef d'équipe garde
+  // uniquement son périmètre (via chefEquipes ci-dessous).
+  const canEditMatrice = canWrite(perms, "matrice") && profile.role !== "chef_equipe";
 
   // Lignes (+ postes) eventuellement filtrees par atelier
   let ligneQ = supabase

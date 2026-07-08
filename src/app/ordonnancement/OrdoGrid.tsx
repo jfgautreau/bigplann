@@ -21,6 +21,7 @@ export default function OrdoGrid({
   jourQuartState,
   ouvertureState,
   profils = [],
+  canEdit = true,
 }: {
   days: Jour[];
   weekBlocks?: WeekBlock[];
@@ -31,6 +32,7 @@ export default function OrdoGrid({
   jourQuartState: Record<string, boolean>;
   ouvertureState: Record<string, boolean>;
   profils?: Profil[];
+  canEdit?: boolean;
 }) {
   const [jq, setJq] = useState<Record<string, boolean>>(jourQuartState);
   const [ov, setOv] = useState<Record<string, boolean>>(ouvertureState);
@@ -58,7 +60,7 @@ export default function OrdoGrid({
 
   // Clic sur "Initialiser" -> confirmation si deja initialisee, puis modale profil.
   function resetWeek(isos: string[]) {
-    if (!isos.length) return;
+    if (!canEdit || !isos.length) return;
     const dejaInit = isos.some((iso) => dayInitialized(iso));
     if (dejaInit && !window.confirm("Cette semaine est déjà initialisée. La ré-initialiser (écraser) avec un profil de semaine type ?")) return;
     setInitIsos(isos);
@@ -107,12 +109,13 @@ export default function OrdoGrid({
     }
   }
   function toggleQuart(code: string, iso: string) {
+    if (!canEdit) return;
     const next = !quartActif(code, iso);
     setJq((s) => ({ ...s, [`${code}:${iso}`]: next }));
     post({ type: "quart", quart_code: code, jour: iso, value: next });
   }
   function toggleLigne(code: string, lg: string, iso: string) {
-    if (!quartActif(code, iso)) return;
+    if (!canEdit || !quartActif(code, iso)) return;
     const next = !ligneOuverte(code, lg, iso);
     setOv((s) => ({ ...s, [`${code}:${lg}:${iso}`]: next }));
     post({ type: "ligne", quart_code: code, ligne_id: lg, jour: iso, value: next });
@@ -153,7 +156,7 @@ export default function OrdoGrid({
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                 {w.year} · S{w.num}
                 {isCurrent && <span className="muted" style={{ fontWeight: 400 }}>(en cours)</span>}
-                {showReset && (
+                {showReset && canEdit && (
                   <button
                     type="button"
                     className="btn-sm btn-ghost"
@@ -200,7 +203,7 @@ export default function OrdoGrid({
                   const init = dayInitialized(d.iso);
                   return (
                     <td key={d.iso} style={{ textAlign: "center", background: on ? undefined : init ? "#fee2e2" : "#f1f5f9", ...sep(d) }}>
-                      <input type="checkbox" checked={on} onChange={() => toggleQuart(q.code, d.iso)} style={{ width: "auto", cursor: "pointer" }} title={init ? undefined : "Semaine non initialisée"} />
+                      <input type="checkbox" checked={on} disabled={!canEdit} onChange={() => toggleQuart(q.code, d.iso)} style={{ width: "auto", cursor: canEdit ? "pointer" : "default" }} title={init ? undefined : "Semaine non initialisée"} />
                     </td>
                   );
                 })}
@@ -235,9 +238,9 @@ export default function OrdoGrid({
                           <input
                             type="checkbox"
                             checked={on}
-                            disabled={!active}
+                            disabled={!canEdit || !active}
                             onChange={() => toggleLigne(q.code, l.id, d.iso)}
-                            style={{ width: "auto", cursor: active ? "pointer" : "not-allowed" }}
+                            style={{ width: "auto", cursor: canEdit && active ? "pointer" : "not-allowed" }}
                           />
                         </td>
                       );

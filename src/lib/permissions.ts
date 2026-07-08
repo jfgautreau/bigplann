@@ -13,7 +13,7 @@ export const MODULES: { key: string; label: string; href: string; admin: boolean
   { key: "matrice", label: "Matrice", href: "/matrice", admin: false },
   { key: "habilitations", label: "Habilitations", href: "/habilitations", admin: false },
   { key: "planning", label: "Planning", href: "/planning", admin: false },
-  { key: "ordonnancement", label: "Ordonnancement", href: "/ordonnancement", admin: true },
+  { key: "ordonnancement", label: "Ordonnancement", href: "/ordonnancement", admin: false },
   { key: "bilans", label: "Bilans", href: "/bilans", admin: false },
   { key: "journal", label: "Journal", href: "/journal", admin: false },
   { key: "affichage", label: "Affichage", href: "/affichage", admin: false },
@@ -64,10 +64,12 @@ export function canWrite(p: Perms, mod: string): boolean {
   return p[mod] === "write";
 }
 
-// Droit d'écriture d'un module pour un rôle (matrice des droits). Sert aux API
-// pour autoriser l'édition selon les droits configurés (client admin), en plus
-// des chemins RLS existants (admin / chef d'équipe / rôle ordo).
+// Écriture "complète" d'un module (édite tout le monde / global) selon la matrice
+// des droits -> client admin dans les API. Le CHEF D'ÉQUIPE en est exclu : il
+// garde uniquement son périmètre (édition de SON équipe via la RLS
+// can_edit_personne), même si le module est en "write".
 export async function canWriteModule(role: string, mod: string): Promise<boolean> {
+  if (role === "chef_equipe") return false;
   return canWrite(await getPermissions(role), mod);
 }
 

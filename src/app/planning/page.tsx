@@ -11,7 +11,7 @@ import {
   mondayOf,
   isoWeekNumber,
 } from "@/lib/week";
-import { requireModule } from "@/lib/permissions";
+import { requireModule, canWrite } from "@/lib/permissions";
 import PlanningFilters from "./PlanningFilters";
 import AtelierFilter from "./AtelierFilter";
 import QuartSelector from "./QuartSelector";
@@ -47,7 +47,9 @@ export default async function PlanningPage({
 }: {
   searchParams: Promise<{ equipe?: string; semaine?: string; quart?: string; atelier?: string }>;
 }) {
-  const { profile } = await requireModule("planning", "read");
+  const { profile, perms } = await requireModule("planning", "read");
+  // Droit "planning: write" (hors chef) : édition complète ; le chef garde son périmètre.
+  const canEditPlanningFull = canWrite(perms, "planning") && profile.role !== "chef_equipe";
 
   const sp = await searchParams;
   const center = parseMonday(sp.semaine);
@@ -334,7 +336,7 @@ export default async function PlanningPage({
     label: `${p.nom} ${p.prenom}`,
     equipe_id: p.equipe_id,
     color: p.equipe_id ? equipeColor[p.equipe_id] : undefined,
-    editable: isAdmin || (p.equipe_id != null && chefEquipes.has(p.equipe_id)),
+    editable: isAdmin || canEditPlanningFull || (p.equipe_id != null && chefEquipes.has(p.equipe_id)),
   }));
 
   const gridGroups = groups.map((g) => ({

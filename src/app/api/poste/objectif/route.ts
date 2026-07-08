@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
-import { getPermissions, canWrite } from "@/lib/permissions";
+import { canWriteModule } from "@/lib/permissions";
 
 // POST /api/poste/objectif { poste_id, objectif }
 // Met a jour l'objectif de polyvalence d'un poste. Ecriture admin (RLS poste).
@@ -19,9 +19,8 @@ export async function POST(req: NextRequest) {
   const col = body?.champ === "cible" ? "objectif_cible" : "objectif_polyvalence";
   if (!poste_id) return NextResponse.json({ error: "Parametres manquants" }, { status: 400 });
 
-  // Objectifs = admin, ou utilisateur avec droit d'écriture "matrice" (client admin).
-  const perms = await getPermissions(profile.role);
-  if (profile.role !== "admin" && !canWrite(perms, "matrice")) {
+  // Objectifs = global : droit "matrice: write" (hors chef d'équipe).
+  if (!(await canWriteModule(profile.role, "matrice"))) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
   const supabase = getAdminClient();

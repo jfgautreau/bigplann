@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
-import { requireModule } from "@/lib/permissions";
+import { requireModule, canWrite } from "@/lib/permissions";
 import { parseMois, monthDays, isoDate, mondayOf, addDays, isoWeekNumber } from "@/lib/week";
 import { getProfils } from "@/lib/semaine-type";
 import OrdoGrid from "./OrdoGrid";
@@ -16,7 +16,8 @@ export default async function OrdonnancementPage({
 }: {
   searchParams: Promise<{ mois?: string }>;
 }) {
-  const { profile } = await requireModule("ordonnancement", "write");
+  const { profile, perms } = await requireModule("ordonnancement", "read");
+  const canEdit = canWrite(perms, "ordonnancement");
 
   const sp = await searchParams;
   const { year, month0 } = parseMois(sp.mois);
@@ -100,6 +101,7 @@ export default async function OrdonnancementPage({
           jourQuartState={jourQuartState}
           ouvertureState={ouvertureState}
           profils={profils}
+          canEdit={canEdit}
         />
       </div>
     </>

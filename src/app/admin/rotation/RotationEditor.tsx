@@ -7,6 +7,7 @@ type Equipe = { id: string; label: string };
 
 const OPTIONS: [string, string][] = [
   ["", "—"],
+  ["journee", "Journée"],
   ["matin", "Matin"],
   ["apres_midi", "Après-midi"],
   ["nuit", "Nuit"],

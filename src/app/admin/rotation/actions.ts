@@ -1,18 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getServerClient } from "@/lib/supabase-server";
+import { getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
+import { canWriteModule } from "@/lib/permissions";
 
+// admin, rôle ordo, ou droit "ordonnancement: write". Client admin car la RLS
+// des tables quart / equipe_quart_semaine est admin-only (bloquait sinon ordo).
 async function requireOrdoAdmin() {
   const profile = await getCurrentProfile();
-  if (!profile || (profile.role !== "admin" && profile.role !== "ordo")) {
-    throw new Error("Accès refusé.");
-  }
-  return getServerClient();
+  const ok = profile && (profile.role === "admin" || profile.role === "ordo" || (await canWriteModule(profile.role, "ordonnancement")));
+  if (!ok) throw new Error("Accès refusé.");
+  return getAdminClient();
 }
 
-const VALID = ["matin", "apres_midi", "nuit"];
+const VALID = ["journee", "matin", "apres_midi", "nuit"];
 
 // Horaires des quarts (libelle + debut/fin).
 export async function saveQuartHoraires(fd: FormData) {
