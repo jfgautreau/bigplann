@@ -101,6 +101,10 @@ export default function PersonnelEditor({
   const [contratsFor, setContratsFor] = useState<Row | null>(null);
   const [infoFor, setInfoFor] = useState<Row | null>(null);
   const [rgpdFor, setRgpdFor] = useState<Row | null>(null);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [merge, setMerge] = useState<{ a: Row; b: Row } | null>(null);
+  const [keepId, setKeepId] = useState("");
+  const [merging, setMerging] = useState(false);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showCreate, setShowCreate] = useState(false);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -166,6 +170,30 @@ export default function PersonnelEditor({
     const statut = actif ? "ACTIF" : "PARTI";
     setRow(id, (r) => ({ ...r, statut }));
     post("toggle-statut", { id, statut });
+  }
+
+  // Fusion de doublons : selection de 2 lignes max.
+  function toggleSel(id: string) {
+    setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else if (n.size < 2) n.add(id); return n; });
+  }
+  function openMerge() {
+    const ids = [...sel];
+    const a = rows.find((r) => r.id === ids[0]);
+    const b = rows.find((r) => r.id === ids[1]);
+    if (a && b) { setMerge({ a, b }); setKeepId(a.id); }
+  }
+  async function doMerge() {
+    if (!merge) return;
+    const keep_id = keepId;
+    const dup_id = keepId === merge.a.id ? merge.b.id : merge.a.id;
+    setMerging(true);
+    try {
+      const res = await fetch("/api/personnel/merge", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keep_id, dup_id }) });
+      if (res.ok) { window.location.reload(); return; }
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      window.alert(j.error || "Échec de la fusion.");
+    } catch { window.alert("Échec de la fusion."); }
+    setMerging(false);
   }
 
   async function doCreate() {
@@ -272,6 +300,9 @@ export default function PersonnelEditor({
           )}
         </span>
         <span style={{ position: "absolute", right: 0, display: "flex", alignItems: "center", gap: 12 }}>
+          {canEdit && sel.size === 2 && (
+            <button type="button" className="btn-sm" style={{ width: "auto", whiteSpace: "nowrap" }} onClick={openMerge} title="Fusionner les 2 personnes sélectionnées">🔗 Fusionner</button>
+          )}
           <span className="muted" style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
             {filtered.length === rows.length ? `${rows.length} personnes` : `${filtered.length} / ${rows.length}`}
           </span>
@@ -339,8 +370,9 @@ export default function PersonnelEditor({
                       </td>
                       <td><ToggleSwitch on={r.statut === "ACTIF"} onChange={(v) => toggleStatut(r.id, v)} onLabel="Actif" offLabel="Parti" title="Actif / Parti" /></td>
                       <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                        <button type="button" className="btn-sm btn-ghost" title="Informations (commentaire)" onClick={() => setInfoFor(r)} style={{ width: "auto", padding: "2px 6px", fontSize: 15 }}>ⓘ</button>
-                        <button type="button" className="btn-sm btn-ghost" title="RGPD (export / anonymiser / supprimer)" onClick={() => setRgpdFor(r)} style={{ width: "auto", padding: "2px 6px", fontSize: 14 }}>⚙️</button>
+                        <input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleSel(r.id)} disabled={!sel.has(r.id) && sel.size >= 2} title="Sélectionner pour fusionner (2 max)" style={{ width: "auto", marginRight: 3, verticalAlign: "middle" }} />
+                        <button type="button" className="btn-sm btn-ghost" title="Informations (commentaire)" onClick={() => setInfoFor(r)} style={{ width: "auto", padding: "2px 5px", fontSize: 15 }}>ⓘ</button>
+                        <button type="button" className="btn-sm btn-ghost" title="RGPD (export / anonymiser / supprimer)" onClick={() => setRgpdFor(r)} style={{ width: "auto", padding: "2px 5px", fontSize: 14 }}>⚙️</button>
                       </td>
                     </>
                   ) : (
@@ -437,6 +469,40 @@ export default function PersonnelEditor({
             <p className="muted" style={{ marginTop: 8 }}>
               Anonymiser conserve l&apos;historique (bilans) en retirant l&apos;identité. Supprimer efface définitivement la personne et ses données liées.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Modale de fusion de deux personnes. */}
+      {merge && (
+        <div onClick={() => !merging && setMerge(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <h2 style={{ margin: 0 }}>Fusionner deux personnes</h2>
+              <button type="button" className="btn-sm btn-ghost" disabled={merging} onClick={() => setMerge(null)} style={{ width: "auto" }}>✕</button>
+            </div>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Choisis la fiche à <strong>conserver</strong>. L&apos;autre sera supprimée après transfert de tous
+              ses rattachements (planning, matrice, habilitations, contrats, absences, horaires).
+            </p>
+            {[merge.a, merge.b].map((r) => (
+              <label key={r.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px", border: "1px solid var(--border)", borderRadius: 8, marginBottom: 6, cursor: "pointer", background: keepId === r.id ? "#eff6ff" : undefined }}>
+                <input type="radio" name="keep" checked={keepId === r.id} onChange={() => setKeepId(r.id)} style={{ width: "auto" }} />
+                <span>
+                  <strong>{r.nom} {r.prenom}</strong> — {r.type_contrat === "INTERIM" ? "Intérim" : r.type_contrat} · {r.statut === "ACTIF" ? "Actif" : "Parti"}
+                  {r.matricule ? <span className="muted"> · mat. {r.matricule}</span> : null}
+                  {r.numero_badge ? <span className="muted"> · badge {r.numero_badge}</span> : null}
+                </span>
+              </label>
+            ))}
+            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#78350f" }}>
+              Fusion <strong>irréversible</strong>. En cas de doublon d&apos;affectation (même jour/poste/formation), la valeur
+              de la fiche conservée est gardée ; ses champs vides sont complétés par l&apos;autre.
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+              <button type="button" className="btn-sm btn-ghost" disabled={merging} onClick={() => setMerge(null)} style={{ width: "auto" }}>Annuler</button>
+              <button type="button" className="btn-sm" disabled={merging} onClick={doMerge} style={{ width: "auto" }}>{merging ? "Fusion…" : "Fusionner"}</button>
+            </div>
           </div>
         </div>
       )}
