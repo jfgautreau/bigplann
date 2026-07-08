@@ -4,13 +4,15 @@ import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite } from "@/lib/permissions";
-import { saveHabilitation, deleteHabilitation } from "./actions";
+import { saveHabilitation } from "./actions";
 import HabilitationsList from "./HabilitationsList";
 
 type Comp = { id: string; nom: string; duree_validite_mois: number | null };
 type Personne = { id: string; nom: string; prenom: string };
 type Row = {
   id: string;
+  personne_id: string;
+  competence_id: string;
   date_obtention: string | null;
   date_expiration: string | null;
   personne: { nom: string; prenom: string } | null;
@@ -33,7 +35,7 @@ export default async function HabilitationsPage() {
     supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
     supabase
       .from("personne_competence")
-      .select("id, date_obtention, date_expiration, personne:personne_id(nom, prenom), competence:competence_id(nom, a_recycler)")
+      .select("id, personne_id, competence_id, date_obtention, date_expiration, personne:personne_id(nom, prenom), competence:competence_id(nom, a_recycler)")
       .returns<Row[]>(),
   ]);
 
@@ -55,7 +57,7 @@ export default async function HabilitationsPage() {
           <strong>Compétences</strong> (case « à recycler »).
         </p>
 
-        <HabilitationsList rows={rows} canEdit={canEdit} deleteHabilitation={deleteHabilitation}>
+        <HabilitationsList rows={rows} personnes={personnes} comps={comps.map((c) => ({ id: c.id, nom: c.nom }))}>
           {canEdit && (
             <div className="card" style={{ marginBottom: 16 }}>
               <h2 style={{ marginTop: 0 }}>Mise à jour des habilitations</h2>
