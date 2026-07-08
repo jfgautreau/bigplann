@@ -2,16 +2,23 @@ import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
-import { getSemaineType, getSemaineOuverture } from "@/lib/semaine-type";
+import { getSemaineType, getSemaineOuverture, getProfils } from "@/lib/semaine-type";
 import SemaineTypeEditor from "./SemaineTypeEditor";
 
 type Quart = { code: string; libelle: string };
 type Ligne = { id: string; nom: string; atelier: { nom: string } | null; poste: { id: string; actif: boolean }[] };
 
-export default async function SemaineTypePage() {
+export default async function SemaineTypePage({ searchParams }: { searchParams: Promise<{ profil?: string }> }) {
   const { profile } = await requireModule("ordonnancement", "write");
+  const sp = await searchParams;
 
   const supabase = await getServerClient();
+  const profils = await getProfils(supabase);
+  const selectedId =
+    sp.profil && profils.some((p) => p.id === sp.profil)
+      ? sp.profil
+      : (profils.find((p) => p.par_defaut) ?? profils[0])?.id ?? null;
+
   const [{ data: quartsD }, { data: lignesD }, { data: pqOffD }, type, ouverture] = await Promise.all([
     supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
     supabase
@@ -21,8 +28,8 @@ export default async function SemaineTypePage() {
       .order("nom")
       .returns<Ligne[]>(),
     supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
-    getSemaineType(supabase),
-    getSemaineOuverture(supabase),
+    selectedId ? getSemaineType(supabase, selectedId) : Promise.resolve({}),
+    selectedId ? getSemaineOuverture(supabase, selectedId) : Promise.resolve({}),
   ]);
 
   const quarts = quartsD ?? [];
@@ -57,6 +64,8 @@ export default async function SemaineTypePage() {
           lignes={lignes}
           initial={type}
           initialOuverture={ouverture}
+          profils={profils}
+          profilId={selectedId}
         />
       </div>
     </>

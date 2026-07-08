@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { defaultQuartActif } from "@/lib/week";
 
 type Quart = { code: string; libelle: string };
 type Ligne = { id: string; label: string; quarts?: string[] };
+type Profil = { id: string; nom: string; par_defaut: boolean };
 
 const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 // iso de reference par jour de semaine (juste pour le fallback defaultQuartActif :
@@ -16,15 +18,53 @@ export default function SemaineTypeEditor({
   lignes = [],
   initial,
   initialOuverture = {},
+  profils = [],
+  profilId = null,
 }: {
   quarts: Quart[];
   lignes?: Ligne[];
   initial: Record<string, boolean>; // `${code}:${jour 0-6}` -> actif
   initialOuverture?: Record<string, boolean>; // `${code}:${ligne}:${jour 0-6}` -> ouverte
+  profils?: Profil[];
+  profilId?: string | null;
 }) {
+  const router = useRouter();
   const [state, setState] = useState<Record<string, boolean>>(initial);
   const [ouv, setOuv] = useState<Record<string, boolean>>(initialOuverture);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const goProfil = (id: string) => router.push(`/ordonnancement/semaine-type?profil=${id}`);
+  async function profilOp(op: string, payload: Record<string, unknown>) {
+    const res = await fetch("/api/ordonnancement/semaine-type-profil", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op, ...payload }),
+    });
+    return res.ok ? ((await res.json().catch(() => ({}))) as { row?: Profil }) : null;
+  }
+  async function newProfil() {
+    const nom = window.prompt("Nom du nouveau profil (ex. Été) :", "")?.trim();
+    if (!nom) return;
+    const j = await profilOp("create", { nom });
+    if (j?.row) goProfil(j.row.id);
+  }
+  async function renameProfil() {
+    if (!profilId) return;
+    const cur = profils.find((p) => p.id === profilId);
+    const nom = window.prompt("Renommer le profil :", cur?.nom ?? "")?.trim();
+    if (!nom) return;
+    if (await profilOp("rename", { id: profilId, nom })) router.refresh();
+  }
+  async function deleteProfil() {
+    if (!profilId) return;
+    if (profils.length <= 1) { window.alert("Impossible de supprimer le dernier profil."); return; }
+    if (!window.confirm("Supprimer ce profil de semaine type ? Son gabarit sera perdu.")) return;
+    if (await profilOp("delete", { id: profilId })) router.push("/ordonnancement/semaine-type");
+  }
+  async function setDefaultProfil() {
+    if (!profilId) return;
+    if (await profilOp("set-default", { id: profilId })) router.refresh();
+  }
 
   const flash = (ok: boolean) => {
     setSave(ok ? "saved" : "error");
@@ -43,6 +83,7 @@ export default function SemaineTypeEditor({
   };
 
   async function toggle(code: string, j: number) {
+    if (!profilId) return;
     const next = !actif(code, j);
     setState((s) => ({ ...s, [`${code}:${j}`]: next }));
     setSave("saving");
@@ -50,7 +91,7 @@ export default function SemaineTypeEditor({
       const res = await fetch("/api/ordonnancement/semaine-type", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quart_code: code, jour_semaine: j, value: next }),
+        body: JSON.stringify({ profil_id: profilId, quart_code: code, jour_semaine: j, value: next }),
       });
       flash(res.ok);
     } catch {
@@ -59,7 +100,7 @@ export default function SemaineTypeEditor({
   }
 
   async function toggleLigne(code: string, lg: string, j: number) {
-    if (!actif(code, j)) return; // quart inactif -> lignes fermees de toute facon
+    if (!profilId || !actif(code, j)) return; // quart inactif -> lignes fermees de toute facon
     const next = !ligneOuverte(code, lg, j);
     setOuv((s) => ({ ...s, [`${code}:${lg}:${j}`]: next }));
     setSave("saving");
@@ -67,7 +108,7 @@ export default function SemaineTypeEditor({
       const res = await fetch("/api/ordonnancement/semaine-type-ouverture", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quart_code: code, ligne_id: lg, jour_semaine: j, value: next }),
+        body: JSON.stringify({ profil_id: profilId, quart_code: code, ligne_id: lg, jour_semaine: j, value: next }),
       });
       flash(res.ok);
     } catch {
@@ -77,6 +118,26 @@ export default function SemaineTypeEditor({
 
   return (
     <div className="card section" style={{ overflowX: "auto" }}>
+      {/* Sélecteur de profil de semaine type + gestion */}
+      <div className="toolbar" style={{ alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        <span className="muted" style={{ fontWeight: 600 }}>Profil :</span>
+        <select value={profilId ?? ""} onChange={(e) => e.target.value && goProfil(e.target.value)} disabled={profils.length === 0} style={{ width: "auto", minWidth: 180 }}>
+          {profils.length === 0 && <option value="">Aucun profil</option>}
+          {profils.map((p) => (
+            <option key={p.id} value={p.id}>{p.nom}{p.par_defaut ? " · défaut" : ""}</option>
+          ))}
+        </select>
+        <button type="button" className="btn-sm btn-ghost" style={{ width: "auto" }} onClick={newProfil}>＋ Nouveau</button>
+        <button type="button" className="btn-sm btn-ghost" style={{ width: "auto" }} onClick={renameProfil} disabled={!profilId}>Renommer</button>
+        <button type="button" className="btn-sm btn-ghost" style={{ width: "auto" }} onClick={setDefaultProfil} disabled={!profilId || !!profils.find((p) => p.id === profilId)?.par_defaut}>Définir par défaut</button>
+        <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", color: "var(--danger)" }} onClick={deleteProfil} disabled={!profilId || profils.length <= 1}>Supprimer</button>
+      </div>
+      {profils.length === 0 && (
+        <p className="muted" style={{ marginTop: -4 }}>
+          Aucun profil : créez-en un (« ＋ Nouveau ») pour commencer. (Migration 0028 requise.)
+        </p>
+      )}
+
       <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={{ margin: 0 }}>Quarts actifs par jour</h2>
         <span style={{ fontSize: 12, fontWeight: 600, color: save === "error" ? "var(--danger)" : save === "saved" ? "var(--ok)" : "var(--muted)" }}>

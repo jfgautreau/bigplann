@@ -14,8 +14,9 @@ export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
 
-  const body = (await req.json().catch(() => null)) as { isos?: string[] } | null;
+  const body = (await req.json().catch(() => null)) as { isos?: string[]; profil_id?: string } | null;
   const isos = (body?.isos ?? []).filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s));
+  const profil_id = body?.profil_id || undefined;
   if (isos.length === 0) return NextResponse.json({ error: "Aucun jour" }, { status: 400 });
 
   const supabase = await getServerClient();
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
   const quarts = (quartsD ?? []).map((q) => q.code);
   if (quarts.length === 0) return NextResponse.json({ error: "Aucun quart" }, { status: 400 });
 
-  const [type, ouvType] = await Promise.all([getSemaineType(supabase), getSemaineOuverture(supabase)]);
+  const [type, ouvType] = await Promise.all([getSemaineType(supabase, profil_id), getSemaineOuverture(supabase, profil_id)]);
 
   // 1) Quarts actifs <- gabarit.
   const rows = isos.flatMap((iso) =>
@@ -59,5 +60,9 @@ export async function POST(req: NextRequest) {
     if (e3) return NextResponse.json({ error: e3.message }, { status: 403 });
   }
 
-  return NextResponse.json({ ok: true });
+  // Instantané applique (pour la mise a jour immediate cote client, selon le profil).
+  const jq: Record<string, boolean> = {};
+  for (const r of rows) jq[`${r.quart_code}:${r.jour}`] = r.actif;
+  const fermeturesKeys = fermetures.map((f) => `${f.quart_code}:${f.ligne_id}:${f.jour}`);
+  return NextResponse.json({ ok: true, jq, fermetures: fermeturesKeys });
 }

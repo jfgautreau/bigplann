@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { typeQuartActif, type SemaineType, type SemaineOuverture } from "@/lib/semaine-type";
-import { dowMon } from "@/lib/week";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek?: boolean };
 type Item = { id: string; label: string };
 type Quart = { code: string; libelle: string };
 type WeekBlock = { num: number; year: number; span: number };
+type Profil = { id: string; nom: string; par_defaut: boolean };
 
 const FIRST_W = 150;
 const DAY_W = 34;
@@ -21,8 +20,7 @@ export default function OrdoGrid({
   linesByQuart,
   jourQuartState,
   ouvertureState,
-  semaineType = {},
-  semaineOuverture = {},
+  profils = [],
 }: {
   days: Jour[];
   weekBlocks?: WeekBlock[];
@@ -32,12 +30,13 @@ export default function OrdoGrid({
   linesByQuart: Record<string, Item[]>;
   jourQuartState: Record<string, boolean>;
   ouvertureState: Record<string, boolean>;
-  semaineType?: SemaineType;
-  semaineOuverture?: SemaineOuverture;
+  profils?: Profil[];
 }) {
   const [jq, setJq] = useState<Record<string, boolean>>(jourQuartState);
   const [ov, setOv] = useState<Record<string, boolean>>(ouvertureState);
   const [saving, setSaving] = useState(false);
+  // Semaine en cours d'initialisation -> modale de choix du profil.
+  const [initIsos, setInitIsos] = useState<string[] | null>(null);
 
   // Plus de remplissage par defaut : un jour sans ligne explicite est FERME.
   // La semaine type ne s'applique qu'a l'initialisation (bouton), donc modifier
@@ -57,37 +56,32 @@ export default function OrdoGrid({
     }
   }
 
-  async function resetWeek(isos: string[]) {
+  // Clic sur "Initialiser" -> confirmation si deja initialisee, puis modale profil.
+  function resetWeek(isos: string[]) {
     if (!isos.length) return;
     const dejaInit = isos.some((iso) => dayInitialized(iso));
-    if (dejaInit && !window.confirm("Cette semaine est déjà initialisée. L'écraser avec la semaine type actuelle ?")) return;
+    if (dejaInit && !window.confirm("Cette semaine est déjà initialisée. La ré-initialiser (écraser) avec un profil de semaine type ?")) return;
+    setInitIsos(isos);
+  }
+
+  // Applique un profil a la semaine choisie ; le serveur renvoie l'instantané.
+  async function applyProfil(isos: string[], profilId?: string) {
+    setInitIsos(null);
     setSaving(true);
     try {
       const res = await fetch("/api/ordonnancement/reset-week", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isos }),
+        body: JSON.stringify({ isos, profil_id: profilId }),
       });
+      const j = (await res.json().catch(() => ({}))) as { jq?: Record<string, boolean>; fermetures?: string[] };
       if (res.ok) {
-        // Mise a jour immediate : on ecrit l'instantané (snapshot) de la semaine
-        // type dans l'etat local, comme le serveur vient de le faire en base.
         const set = new Set(isos);
-        setJq((s) => {
-          const n = { ...s };
-          for (const iso of isos) for (const q of quarts) n[`${q.code}:${iso}`] = typeQuartActif(semaineType, iso, q.code);
-          return n;
-        });
+        setJq((s) => ({ ...s, ...(j.jq ?? {}) }));
         setOv((s) => {
           const n = { ...s };
           for (const k of Object.keys(n)) if (set.has(k.slice(-10))) delete n[k]; // efface les surcharges de la semaine
-          for (const iso of isos) {
-            const dow = dowMon(iso);
-            for (const [key, ouverte] of Object.entries(semaineOuverture)) {
-              if (ouverte) continue; // ouvert = defaut (absence)
-              const [qc, lg, j] = key.split(":");
-              if (Number(j) === dow) n[`${qc}:${lg}:${iso}`] = false;
-            }
-          }
+          for (const key of j.fermetures ?? []) n[key] = false;
           return n;
         });
       }
@@ -261,6 +255,35 @@ export default function OrdoGrid({
         );
       })}
       {quarts.length === 0 && <p className="muted">Aucun quart configuré.</p>}
+
+      {/* Modale : choix du profil de semaine type à appliquer. */}
+      {initIsos && (
+        <div onClick={() => setInitIsos(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <h2 style={{ margin: 0 }}>Initialiser — choisir un profil</h2>
+              <button type="button" className="btn-sm btn-ghost" onClick={() => setInitIsos(null)} style={{ width: "auto" }}>✕</button>
+            </div>
+            {profils.length === 0 ? (
+              <>
+                <p className="muted">Aucun profil de semaine type défini.</p>
+                <button type="button" className="btn-sm" style={{ width: "auto" }} onClick={() => applyProfil(initIsos)}>Appliquer le défaut</button>
+              </>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {profils.map((p) => (
+                  <button key={p.id} type="button" className="btn-sm" style={{ width: "auto", textAlign: "left" }} onClick={() => applyProfil(initIsos, p.id)}>
+                    {p.nom}{p.par_defaut ? "  · par défaut" : ""}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+              La semaine sélectionnée sera (ré)initialisée avec le profil choisi.
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 }
