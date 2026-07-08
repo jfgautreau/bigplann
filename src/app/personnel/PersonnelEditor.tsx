@@ -94,9 +94,7 @@ export default function PersonnelEditor({
   canEdit: boolean;
 }) {
   const [rows, setRows] = useState<Row[]>(initial);
-  const [q, setQ] = useState<Record<string, string>>({});
   const [gq, setGq] = useState("");
-  const [showColFilters, setShowColFilters] = useState(false);
   const [dup, setDup] = useState<Row[] | null>(null);
   const [contratFilter, setContratFilter] = useState("");
   const [tpFor, setTpFor] = useState<Row | null>(null);
@@ -118,7 +116,6 @@ export default function PersonnelEditor({
   const [eq, setEq] = useState("");
   const [at, setAt] = useState("");
   const [contrat, setContrat] = useState("INTERIM");
-  const [dateFin, setDateFin] = useState("");
   const [livret, setLivret] = useState("");
   const [pointure, setPointure] = useState("");
 
@@ -176,7 +173,7 @@ export default function PersonnelEditor({
     const j = await post("create", {
       nom: nom.trim(), prenom: prenom.trim(), sexe, matricule, numero_badge: badge,
       equipe_id: eq, atelier_id: at, type_contrat: contrat, date_debut: today,
-      date_fin: dateFin, date_livret_accueil: livret, pointure,
+      date_livret_accueil: livret, pointure,
     });
     if (j?.row) {
       const created: Row = {
@@ -185,7 +182,8 @@ export default function PersonnelEditor({
       };
       setRows((rs) => [...rs, created].sort(sortRows));
       setNom(""); setPrenom(""); setSexe(""); setMatricule(""); setBadge("");
-      setEq(""); setAt(""); setContrat("INTERIM"); setDateFin(""); setLivret(""); setPointure("");
+      setEq(""); setAt(""); setContrat("INTERIM"); setLivret(""); setPointure("");
+      setShowCreate(false);
     }
   }
 
@@ -221,13 +219,8 @@ export default function PersonnelEditor({
       const hay = searchCols.map((c) => cellText(r, c.key)).join(" ");
       if (!gTerms.every((t) => hay.includes(t))) return false;
     }
-    // Filtres par colonne (optionnels).
-    return COLS.every((c) => {
-      const needle = (q[c.key] ?? "").trim().toLowerCase();
-      return !needle || cellText(r, c.key).includes(needle);
-    });
+    return true;
   });
-  const activeColFilters = Object.values(q).filter((v) => v.trim()).length;
 
   const saveLabel =
     save === "saving" ? "Enregistrement…" : save === "saved" ? "Enregistré ✓" : save === "error" ? "Échec d'enregistrement" : "";
@@ -260,14 +253,6 @@ export default function PersonnelEditor({
               </button>
             ))}
           </div>
-          {/* Bascule filtres par colonne */}
-          <button type="button" className={showColFilters ? "seg active" : "seg"} onClick={() => setShowColFilters((v) => !v)}
-            style={{ margin: 0 }} title="Afficher un filtre sous chaque colonne">
-            ⛃ Filtres colonnes{activeColFilters > 0 ? ` (${activeColFilters})` : ""}
-          </button>
-          {activeColFilters > 0 && (
-            <button type="button" className="btn-sm btn-ghost" style={{ width: "auto" }} onClick={() => setQ({})} title="Effacer tous les filtres de colonne">Réinitialiser</button>
-          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span className="muted" style={{ fontSize: 12 }}>
@@ -305,63 +290,17 @@ export default function PersonnelEditor({
                 <th style={{ textAlign: "center" }}>
                   <button
                     type="button"
-                    onClick={() => setShowCreate((v) => !v)}
+                    onClick={() => setShowCreate(true)}
                     className="btn-sm"
                     style={{ width: "auto", whiteSpace: "nowrap", padding: "2px 8px" }}
-                    title={showCreate ? "Masquer la ligne de création" : "Ajouter une personne"}
-                    aria-expanded={showCreate}
+                    title="Ajouter une personne"
                   >
-                    {showCreate ? "✕" : "＋ Ajouter"}
+                    ＋ Ajouter
                   </button>
                 </th>
               )}
             </tr>
-            {showColFilters && (
-              <tr>
-                {COLS.map((c) => (
-                  <th key={c.key} style={{ padding: "2px 4px" }}>
-                    {c.search && (
-                      <span style={{ position: "relative", display: "block" }}>
-                        <input
-                          value={q[c.key] ?? ""}
-                          onChange={(e) => setQ((s) => ({ ...s, [c.key]: e.target.value }))}
-                          placeholder="filtrer…"
-                          aria-label={`Filtrer ${c.label}`}
-                          style={{ width: "100%", fontSize: 11, padding: "3px 18px 3px 6px", fontWeight: 400, ...C(c.key) }}
-                        />
-                        {(q[c.key] ?? "") !== "" && (
-                          <button type="button" onClick={() => setQ((s) => ({ ...s, [c.key]: "" }))} title="Effacer"
-                            style={{ position: "absolute", right: 3, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, margin: 0, padding: 0, border: "none", borderRadius: "50%", background: "var(--muted)", color: "#fff", cursor: "pointer", fontSize: 9, lineHeight: "14px", textAlign: "center" }}>✕</button>
-                        )}
-                      </span>
-                    )}
-                  </th>
-                ))}
-                {canEdit && <th style={{ padding: "2px 4px" }}></th>}
-              </tr>
-            )}
           </thead>
-          {canEdit && showCreate && (
-            <tbody>
-              <tr style={{ background: "#eff6ff" }}>
-                <td><select value={contrat} onChange={(e) => setContrat(e.target.value)} style={{ ...inp, ...C("type_contrat"), ...interimStyle(contrat) }}>{CONTRATS.map((c) => (<option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>))}</select></td>
-                <td><input value={matricule} onChange={(e) => setMatricule(e.target.value)} placeholder="auto" style={{ ...inp, ...C("matricule") }} /></td>
-                <td><input value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="badge" style={{ ...inp, ...C("numero_badge") }} /></td>
-                <td><input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom *" style={inp} /></td>
-                <td><input value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Prénom *" style={inp} /></td>
-                <td><select value={sexe} onChange={(e) => setSexe(e.target.value)} style={{ ...inp, ...C("sexe"), background: sexeBg(sexe || null), color: sexeFg(sexe || null), fontWeight: 600 }}><option value="">-</option><option value="H">H</option><option value="F">F</option></select></td>
-                <td><select value={eq} onChange={(e) => setEq(e.target.value)} style={{ ...inp, ...C("equipe"), ...eqStyle(eq || null) }}><option value="">-</option>{equipes.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
-                <td><select value={at} onChange={(e) => setAt(e.target.value)} style={{ ...inp, ...C("atelier") }}><option value="">-</option>{ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
-                <td><input type="date" value={livret} onChange={(e) => setLivret(e.target.value)} style={inp} /></td>
-                <td><input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={inp} /></td>
-                <td></td>
-                <td><input value={pointure} maxLength={5} onChange={(e) => setPointure(e.target.value)} placeholder="42" style={{ ...inp, ...C("pointure") }} /></td>
-                <td className="muted" style={{ textAlign: "center", fontSize: 11 }}>après</td>
-                <td></td>
-                <td><button type="button" onClick={add} disabled={!nom.trim() || !prenom.trim()} className="btn-sm" style={{ width: "auto", whiteSpace: "nowrap" }} title="Créer la personne">＋ Créer</button></td>
-              </tr>
-            </tbody>
-          )}
         </table>
       </div>
 
@@ -498,6 +437,72 @@ export default function PersonnelEditor({
             <p className="muted" style={{ marginTop: 8 }}>
               Anonymiser conserve l&apos;historique (bilans) en retirant l&apos;identité. Supprimer efface définitivement la personne et ses données liées.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Modale de création d'une nouvelle personne (centrée). */}
+      {canEdit && showCreate && (
+        <div onClick={() => setShowCreate(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <h2 style={{ margin: 0 }}>Nouvelle personne</h2>
+              <button type="button" className="btn-sm btn-ghost" onClick={() => setShowCreate(false)} style={{ width: "auto" }}>✕</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+              <div className="field">
+                <span>Contrat</span>
+                <select value={contrat} onChange={(e) => setContrat(e.target.value)} style={interimStyle(contrat)}>
+                  {CONTRATS.map((c) => (<option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>))}
+                </select>
+              </div>
+              <div className="field">
+                <span>Matricule</span>
+                <input value={matricule} onChange={(e) => setMatricule(e.target.value)} placeholder="auto (intérim)" />
+              </div>
+              <div className="field">
+                <span>Badge</span>
+                <input value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="badge" />
+              </div>
+              <div className="field">
+                <span>Nom *</span>
+                <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom" />
+              </div>
+              <div className="field">
+                <span>Prénom *</span>
+                <input value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Prénom" />
+              </div>
+              <div className="field">
+                <span>H/F</span>
+                <select value={sexe} onChange={(e) => setSexe(e.target.value)} style={{ background: sexeBg(sexe || null), color: sexeFg(sexe || null), fontWeight: 600 }}>
+                  <option value="">-</option><option value="H">H</option><option value="F">F</option>
+                </select>
+              </div>
+              <div className="field">
+                <span>Équipe</span>
+                <select value={eq} onChange={(e) => setEq(e.target.value)} style={eqStyle(eq || null)}>
+                  <option value="">-</option>{equipes.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}
+                </select>
+              </div>
+              <div className="field">
+                <span>Atelier</span>
+                <select value={at} onChange={(e) => setAt(e.target.value)}>
+                  <option value="">-</option>{ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}
+                </select>
+              </div>
+              <div className="field">
+                <span>Livret accueil</span>
+                <input type="date" value={livret} onChange={(e) => setLivret(e.target.value)} />
+              </div>
+              <div className="field">
+                <span>Pointure</span>
+                <input value={pointure} maxLength={5} onChange={(e) => setPointure(e.target.value)} placeholder="42" />
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <button type="button" className="btn-sm btn-ghost" onClick={() => setShowCreate(false)} style={{ width: "auto" }}>Annuler</button>
+              <button type="button" onClick={add} disabled={!nom.trim() || !prenom.trim()} className="btn-sm" style={{ width: "auto" }} title="Créer la personne">＋ Créer</button>
+            </div>
           </div>
         </div>
       )}
