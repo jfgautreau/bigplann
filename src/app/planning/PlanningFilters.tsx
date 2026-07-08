@@ -46,7 +46,7 @@ export default function PlanningFilters({
             onClick={() => go(e.id)}
             style={
               equipe === e.id && e.couleur
-                ? { background: e.couleur, color: "#fff", borderColor: e.couleur }
+                ? { background: e.couleur, color: "#1e293b", borderColor: e.couleur }
                 : undefined
             }
           >

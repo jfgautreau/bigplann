@@ -127,7 +127,7 @@ export default function PersonnelEditor({
   const atelierNom = (id: string | null) => (id ? ateliers.find((a) => a.id === id)?.nom ?? "" : "");
   const eqStyle = (id: string | null): React.CSSProperties => {
     const c = id ? equipes.find((e) => e.id === id)?.couleur : null;
-    return c ? { background: c, color: "#fff", fontWeight: 600 } : {};
+    return c ? { background: c, color: "#1e293b", fontWeight: 600 } : {};
   };
 
   const alerte18 = (r: Row): number | null => {
