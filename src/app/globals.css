@@ -448,7 +448,7 @@ select.flat {
   position: fixed;
   z-index: 60;
   min-width: 220px;
-  overflow: auto;
+  overflow: visible;
   background: #fff;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -480,7 +480,8 @@ select.flat {
 .cellpick-body { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
 .cellpick-at-block { display: flex; flex-direction: column; gap: 4px; width: 150px; flex: 0 0 auto; }
 .cellpick-at { font-weight: 700; color: #0f172a; margin: 0 0 2px; }
-.cellpick-ligne { display: flex; flex-direction: column; gap: 2px; }
+.cellpick-at-lignes { column-gap: 14px; }
+.cellpick-ligne { display: flex; flex-direction: column; gap: 2px; margin-bottom: 5px; break-inside: avoid; -webkit-column-break-inside: avoid; }
 .cellpick-lg { color: #64748b; font-size: 11px; }
 .pick-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .pick-chip {

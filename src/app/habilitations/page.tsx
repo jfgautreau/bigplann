@@ -58,17 +58,9 @@ export default async function HabilitationsPage() {
             <Link href="/admin/habilitations-param" className="navlink" title="Param. Habilitation — définir les formations" style={{ fontSize: 22, textDecoration: "none", lineHeight: 1 }}>📜</Link>
           )}
         </div>
-        <p className="muted" style={{ marginBottom: 16 }}>
-          Suivi des formations / habilitations à recycler. Saisissez l&apos;habilitation d&apos;une
-          personne (personne + date de passage ; échéance calculée automatiquement selon la durée de
-          validité) dans le formulaire ci-dessous. Les <em>formations</em> se définissent dans{" "}
-          <strong>Param. Habilitation</strong> (📜).
-        </p>
-
         <HabilitationsList rows={rows} personnes={personnes} comps={comps}>
           {canEdit && (
-            <div className="card" style={{ marginBottom: 16 }}>
-              <h2 style={{ marginTop: 0 }}>Mise à jour des habilitations</h2>
+            <>
               {comps.length === 0 ? (
                 <p className="muted">
                   Aucune habilitation définie. Crée-en dans Compétences (case « à recycler »).
@@ -109,7 +101,7 @@ export default async function HabilitationsPage() {
               <p className="muted" style={{ marginTop: 6 }}>
                 L&apos;expiration est calculée automatiquement (obtention + durée de validité).
               </p>
-            </div>
+            </>
           )}
         </HabilitationsList>
       </div>

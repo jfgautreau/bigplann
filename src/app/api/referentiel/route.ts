@@ -79,7 +79,9 @@ export async function POST(req: NextRequest) {
       case "create-poste": {
         const nom = s(body.nom);
         const ligne_id = s(body.ligne_id);
-        if (!nom || !ligne_id) return NextResponse.json({ error: "Champs requis" }, { status: 400 });
+        // nom facultatif à la création : la ligne apparaît vide (placeholder gris),
+        // l'utilisateur saisit le nom ensuite.
+        if (!ligne_id) return NextResponse.json({ error: "Champs requis" }, { status: 400 });
         const { data, error } = await supabase
           .from("poste")
           .insert({ ligne_id, nom })

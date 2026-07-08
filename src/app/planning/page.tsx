@@ -120,6 +120,17 @@ export default async function PlanningPage({
   }
   if (!quart) quart = quartCodes.includes("matin") ? "matin" : quartCodes[0] ?? "matin";
 
+  // Équipe par défaut de chaque quart cette semaine (rotation + quart fixe) : sert
+  // à auto-sélectionner l'équipe quand on clique un quart (forçage possible ensuite).
+  const { data: rotWeek } = await supabase
+    .from("equipe_quart_semaine")
+    .select("equipe_id, quart_code")
+    .eq("semaine", centerIso)
+    .returns<{ equipe_id: string; quart_code: string }[]>();
+  const quartToEquipe: Record<string, string> = {};
+  for (const r of rotWeek ?? []) if (!(r.quart_code in quartToEquipe)) quartToEquipe[r.quart_code] = r.equipe_id;
+  for (const e of equipesD ?? []) if (e.quart_fixe && !(e.quart_fixe in quartToEquipe)) quartToEquipe[e.quart_fixe] = e.id;
+
   // Ordre du referentiel : ateliers regroupes, lignes puis postes par ordre_affichage
   // (fallback alphabetique). Le meme ordre sert a la grille et au panneau d'affectation.
   const ordreThenNom = <T extends { ordre_affichage?: number; nom: string }>(a: T, b: T) =>
@@ -371,6 +382,8 @@ export default async function PlanningPage({
           <PlanningNav base="/planning" semaine={centerIso} extra={extra} />
           {/* Partie centrale : Equipe / Atelier / Quart (alignes sur les memes lignes) */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <QuartSelector quarts={quarts} current={quart} semaine={centerIso} atelier={atelier} quartToEquipe={quartToEquipe} />
+            <AtelierFilter ateliers={ateliers} atelier={atelier} equipe={equipe} quart={quart} semaine={centerIso} />
             <PlanningFilters
               equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom, couleur: e.couleur }))}
               equipe={equipe}
@@ -378,8 +391,6 @@ export default async function PlanningPage({
               quart={quart}
               atelier={atelier}
             />
-            <AtelierFilter ateliers={ateliers} atelier={atelier} equipe={equipe} quart={quart} semaine={centerIso} />
-            <QuartSelector quarts={quarts} current={quart} equipe={equipe} semaine={centerIso} atelier={atelier} />
           </div>
           {/* Partie droite : liens (occupent la hauteur des 3 lignes de filtres) */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, alignSelf: "stretch" }}>

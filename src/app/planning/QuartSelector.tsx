@@ -8,21 +8,24 @@ type Quart = { code: string; libelle: string };
 export default function QuartSelector({
   quarts,
   current,
-  equipe,
   semaine,
   atelier = "",
+  quartToEquipe = {},
 }: {
   quarts: Quart[];
   current: string;
-  equipe: string;
   semaine: string;
   atelier?: string;
+  quartToEquipe?: Record<string, string>;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   function go(code: string) {
     const p = new URLSearchParams();
-    if (equipe) p.set("equipe", equipe);
+    // Auto-sélection de l'équipe par défaut du quart (rotation de la semaine) ;
+    // l'utilisateur peut ensuite forcer une autre équipe via le filtre Équipe.
+    const eq = quartToEquipe[code] ?? "";
+    if (eq) p.set("equipe", eq);
     if (atelier) p.set("atelier", atelier);
     if (semaine) p.set("semaine", semaine);
     p.set("quart", code);

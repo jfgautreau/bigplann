@@ -19,15 +19,17 @@ export default function MatrixGrid({
   initial = {},
   canEditObjectif = false,
   mode = "actuel",
+  onShowLegende,
 }: {
   groups?: Group[];
   personnes?: Personne[];
   initial?: Record<string, Cell>;
   canEditObjectif?: boolean;
   mode?: "actuel" | "cible";
+  onShowLegende?: () => void;
 }) {
   const [cells, setCells] = useState<Record<string, Cell>>(initial);
-  const [showBilan, setShowBilan] = useState(true);
+  const [showBilan, setShowBilan] = useState(false);
   const [search, setSearch] = useState("");
   const [objActuel, setObjActuel] = useState<Record<string, number>>(() => {
     const o: Record<string, number> = {};
@@ -134,8 +136,8 @@ export default function MatrixGrid({
 
   return (
     <>
-      {/* Recherche par nom (entre les filtres et le tableau) */}
-      <div style={{ margin: "0 0 8px", display: "flex", justifyContent: "center" }}>
+      {/* Recherche par nom (à gauche/centre) + légende (à droite, même ligne) */}
+      <div style={{ margin: "0 0 8px", display: "flex", justifyContent: "center", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
         <span style={{ position: "relative", display: "inline-block", width: "100%", maxWidth: 340 }}>
           <input
             value={search}
@@ -147,6 +149,11 @@ export default function MatrixGrid({
             <button type="button" onClick={() => setSearch("")} title="Effacer" style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: "auto", margin: 0, padding: 0, border: "none", background: "transparent", cursor: "pointer", color: "var(--muted)", fontSize: 13 }}>✕</button>
           )}
         </span>
+        {onShowLegende && (
+          <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", marginLeft: "auto" }} onClick={onShowLegende}>
+            📖 Légende
+          </button>
+        )}
       </div>
 
       {/* Tableau 1 : en-tetes + bilan retractable (fixe) */}
@@ -183,8 +190,8 @@ export default function MatrixGrid({
                     title={p.nom}
                     style={{ position: "sticky", top: 25, zIndex: 21, fontWeight: 500, borderLeft: sepL(i), padding: "4px 0", height: 96, verticalAlign: "bottom", background: accentBg }}
                   >
-                    {/* Nom de poste vertical, sur 2 lignes si trop long. */}
-                    <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", whiteSpace: "normal", maxHeight: 86, margin: "0 auto", fontSize: 12, lineHeight: 1.15, overflowWrap: "anywhere", color: accentFg }}>
+                    {/* Nom de poste vertical, sur une seule ligne (table plus haute mais lisible). */}
+                    <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", whiteSpace: "nowrap", margin: "0 auto", fontSize: 12, lineHeight: 1.15, color: accentFg }}>
                       {p.nom}
                     </div>
                   </th>

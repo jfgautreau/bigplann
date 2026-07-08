@@ -37,26 +37,27 @@ export default function MatricePanel({
 
   return (
     <>
-      {/* Gauche : filtres · Centre : mode · Droite : legende */}
+      {/* Gauche : filtres · Droite : bascule Actuel / Cible (slide) */}
       <div className="toolbar" style={{ alignItems: "center", gap: 16, flexWrap: "wrap", justifyContent: "space-between" }}>
         <MatriceFilters ateliers={ateliers} equipes={equipes} atelier={atelier} equipe={equipe} />
-        <div className="modeswitch">
-          <button type="button" className={mode === "actuel" ? "on-actuel" : ""} onClick={() => setMode("actuel")}>
-            Niveau actuel
-          </button>
-          <button type="button" className={mode === "cible" ? "on-cible" : ""} onClick={() => setMode("cible")}>
-            Niveau cible
-          </button>
-        </div>
-        <button type="button" className="btn-sm btn-ghost" style={{ width: "auto" }} onClick={() => setShowLegende(true)}>
-          📖 Légende
+        <button
+          type="button"
+          role="switch"
+          aria-checked={mode === "cible"}
+          onClick={() => setMode((m) => (m === "actuel" ? "cible" : "actuel"))}
+          title="Basculer entre niveau actuel et niveau cible"
+          style={{ position: "relative", width: 156, height: 28, flex: "0 0 auto", margin: 0, padding: 0, border: "1px solid var(--border)", borderRadius: 999, background: "#eef2f7", cursor: "pointer", display: "flex" }}
+        >
+          <span style={{ position: "absolute", top: 2, bottom: 2, width: "calc(50% - 3px)", left: mode === "actuel" ? 3 : "auto", right: mode === "cible" ? 3 : "auto", borderRadius: 999, background: mode === "actuel" ? "#1d4ed8" : "#16a34a", transition: "left 0.18s ease, right 0.18s ease" }} />
+          <span style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mode === "actuel" ? "#fff" : "#64748b" }}>Actuel</span>
+          <span style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mode === "cible" ? "#fff" : "#64748b" }}>Cible</span>
         </button>
       </div>
 
       {groups.length === 0 ? (
         <p className="muted">Aucun poste actif (vérifiez le référentiel / le filtre atelier).</p>
       ) : (
-        <MatrixGrid groups={groups} personnes={personnes} initial={initial} canEditObjectif={canEditObjectif} mode={mode} />
+        <MatrixGrid groups={groups} personnes={personnes} initial={initial} canEditObjectif={canEditObjectif} mode={mode} onShowLegende={() => setShowLegende(true)} />
       )}
 
       {showLegende && <LegendeModal niveauLibelles={niveauLibelles} onClose={() => setShowLegende(false)} />}

@@ -239,7 +239,7 @@ export default function ReferentielEditor({
                   {l.poste.map((p) => (
                     <tr key={p.id} style={{ opacity: p.actif ? 1 : 0.5 }}>
                       <td>
-                        <input value={p.nom} onChange={(e) => posteField(a.id, l.id, p.id, "nom", e.target.value)} style={{ width: "100%", minWidth: 170 }} />
+                        <input value={p.nom} placeholder="Nouveau poste" onChange={(e) => posteField(a.id, l.id, p.id, "nom", e.target.value)} style={{ width: "100%", minWidth: 170 }} />
                       </td>
                       <td>
                         <input
@@ -327,7 +327,7 @@ export default function ReferentielEditor({
                 </tbody>
               </table>
               <div style={{ marginTop: 6 }}>
-                <button type="button" className="btn-sm btn-ghost" onClick={() => addPoste(a.id, l.id, "Nouveau poste")} title="Ajouter un poste (à compléter ensuite)">
+                <button type="button" className="btn-sm btn-ghost" onClick={() => addPoste(a.id, l.id, "")} title="Ajouter un poste (à compléter ensuite)">
                   ＋ Ajouter un poste
                 </button>
               </div>

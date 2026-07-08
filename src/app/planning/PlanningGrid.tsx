@@ -794,8 +794,8 @@ export default function PlanningGrid({
         // Ouvre vers le haut si peu de place dessous (case en bas de l'ecran).
         const openUp = spaceBelow < 280 && pick.top > spaceBelow;
         const vstyle: React.CSSProperties = openUp
-          ? { bottom: vh - pick.top + 2, maxHeight: Math.min(pick.top - 12, 560) }
-          : { top: pick.bottom + 2, maxHeight: Math.min(spaceBelow - 12, 560) };
+          ? { bottom: vh - pick.top + 2 }
+          : { top: pick.bottom + 2 };
         return (
           <div
             className="cellpick"
@@ -812,21 +812,28 @@ export default function PlanningGrid({
                   <span className="pick-chips"><button type="button" className="pick-chip on" onClick={() => setPick(null)}>{posteLabel[cur] ?? posteLabelAll[cur] ?? "?"}</button></span>
                 </div>
               )}
-              {ats.map((a) => (
-                <div key={a.nom || "—"} className="cellpick-at-block">
-                  {a.nom && <div className="cellpick-at">{a.nom}</div>}
-                  {a.gs.map((g) => (
-                    <div key={g.ligneId} className="cellpick-ligne">
-                      <span className="cellpick-lg" title={g.ligneNom}>{g.ligneNom}</span>
-                      <span className="pick-chips">
-                        {g.postes.map((po) => (
-                          <button key={po.id} type="button" className={`pick-chip${cur === po.id ? " on" : ""}`} title={po.nom} onClick={() => choose(po.id)}>{po.nom}</button>
-                        ))}
-                      </span>
+              {ats.map((a) => {
+                // Ateliers longs (ex. CONDI, ~13 lignes) répartis sur plusieurs colonnes
+                // (jusqu'à 3) pour éviter un panneau trop haut / un ascenseur.
+                const cols = Math.min(3, Math.max(1, Math.ceil(a.gs.length / 6)));
+                return (
+                  <div key={a.nom || "—"} className="cellpick-at-block" style={cols > 1 ? { width: cols * 150 + (cols - 1) * 14 } : undefined}>
+                    {a.nom && <div className="cellpick-at">{a.nom}</div>}
+                    <div className="cellpick-at-lignes" style={{ columnCount: cols }}>
+                      {a.gs.map((g) => (
+                        <div key={g.ligneId} className="cellpick-ligne">
+                          <span className="cellpick-lg" title={g.ligneNom}>{g.ligneNom}</span>
+                          <span className="pick-chips">
+                            {g.postes.map((po) => (
+                              <button key={po.id} type="button" className={`pick-chip${cur === po.id ? " on" : ""}`} title={po.nom} onClick={() => choose(po.id)}>{po.nom}</button>
+                            ))}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
               {og.length === 0 && <div className="muted" style={{ padding: "2px 0" }}>Aucune ligne ouverte ce jour.</div>}
               {motifs.length > 0 && (
                 <div className="cellpick-abs">

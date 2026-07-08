@@ -9,6 +9,16 @@ export function joursRestants(iso: string | null): number | null {
   return Math.round((exp.getTime() - today.getTime()) / 86400000);
 }
 
+// Ajoute des mois a une date ISO (AAAA-MM-JJ). Sert a recalculer l'echeance quand
+// date_expiration n'a pas ete stockee (ex. habilitations saisies avant que la duree
+// de validite de la formation ne soit renseignee).
+export function addMonthsIso(iso: string | null, months: number | null | undefined): string | null {
+  if (!iso || !months) return null;
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1 + months, d);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+
 export type HabStatut = "vert" | "orange" | "rouge";
 
 // Vert > 90 j ; Orange 30-90 j ; Rouge < 30 j ou expire.

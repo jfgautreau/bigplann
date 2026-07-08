@@ -69,7 +69,7 @@ export default function HabilitationsParamEditor({ initial }: { initial: Row[] }
   const saveColor = save === "error" ? "var(--danger)" : save === "saved" ? "var(--ok)" : "var(--muted)";
   const inp: React.CSSProperties = { width: "100%", fontSize: 13, padding: "3px 5px" };
   const sortRows = (a: Row, b: Row) =>
-    (a.groupe ?? "").localeCompare(b.groupe ?? "") || a.ordre - b.ordre || a.nom.localeCompare(b.nom);
+    a.ordre - b.ordre || (a.groupe ?? "").localeCompare(b.groupe ?? "") || a.nom.localeCompare(b.nom);
 
   return (
     <div>

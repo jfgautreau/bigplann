@@ -59,7 +59,7 @@ export default async function AppHeader({
   return (
     <header className="appheader">
       <nav className="appnav">
-        <Link href="/bilans" className="brand" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 9 }}>
+        <Link href="/" className="brand" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 9 }}>
           <svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true" style={{ display: "block" }}>
             <defs>
               <linearGradient id="bpLogo" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
