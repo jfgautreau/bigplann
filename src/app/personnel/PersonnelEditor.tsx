@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import ToggleSwitch from "@/components/ToggleSwitch";
+import ConfirmForm from "@/components/ConfirmForm";
 import TempsPartielModal from "./TempsPartielModal";
 import ContratsModal from "./ContratsModal";
+import { anonymiserPersonne, supprimerPersonne } from "./actions";
 
 type HMap = Record<string, { debut: string; fin: string }>;
 type TpConfig = { demi?: { mode: string; source: string; matin?: HMap; aprem?: HMap }; off?: Record<string, string[]>; horaires?: HMap };
@@ -23,6 +25,7 @@ type Row = {
   date_fin: string | null;
   contrat_debut: string | null;
   pointure: string | null;
+  commentaire: string | null;
   statut: string;
   temps_partiel: boolean;
   tp_type: string | null;
@@ -98,6 +101,8 @@ export default function PersonnelEditor({
   const [contratFilter, setContratFilter] = useState("");
   const [tpFor, setTpFor] = useState<Row | null>(null);
   const [contratsFor, setContratsFor] = useState<Row | null>(null);
+  const [infoFor, setInfoFor] = useState<Row | null>(null);
+  const [rgpdFor, setRgpdFor] = useState<Row | null>(null);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showCreate, setShowCreate] = useState(false);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -394,7 +399,10 @@ export default function PersonnelEditor({
                         )}
                       </td>
                       <td><ToggleSwitch on={r.statut === "ACTIF"} onChange={(v) => toggleStatut(r.id, v)} onLabel="Actif" offLabel="Parti" title="Actif / Parti" /></td>
-                      <td><Link href={`/personnel/${r.id}`} prefetch={false}>Modifier</Link></td>
+                      <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                        <button type="button" className="btn-sm btn-ghost" title="Informations (commentaire)" onClick={() => setInfoFor(r)} style={{ width: "auto", padding: "2px 6px", fontSize: 15 }}>ⓘ</button>
+                        <button type="button" className="btn-sm btn-ghost" title="RGPD (export / anonymiser / supprimer)" onClick={() => setRgpdFor(r)} style={{ width: "auto", padding: "2px 6px", fontSize: 14 }}>⚙️</button>
+                      </td>
                     </>
                   ) : (
                     <>
@@ -436,6 +444,62 @@ export default function PersonnelEditor({
       )}
       {contratsFor && (
         <ContratsModal personne={{ id: contratsFor.id, label: `${contratsFor.nom} ${contratsFor.prenom}` }} onClose={() => setContratsFor(null)} />
+      )}
+
+      {/* Modale Informations : commentaire (enregistrement auto, reflété sur la ligne). */}
+      {infoFor && (
+        <div onClick={() => setInfoFor(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <h2 style={{ margin: 0 }}>Informations — {infoFor.nom} {infoFor.prenom}</h2>
+              <button type="button" className="btn-sm btn-ghost" onClick={() => setInfoFor(null)} style={{ width: "auto" }}>✕</button>
+            </div>
+            <label htmlFor="pers-commentaire" style={{ fontWeight: 600 }}>Commentaire</label>
+            <textarea
+              id="pers-commentaire"
+              value={rows.find((r) => r.id === infoFor.id)?.commentaire ?? ""}
+              onChange={(e) => field(infoFor.id, "commentaire", e.target.value)}
+              rows={4}
+              style={{ width: "100%", fontSize: 13, padding: "6px 8px", marginTop: 4 }}
+            />
+            <p className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+              Ne pas saisir d&apos;information médicale. Enregistrement automatique.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Modale RGPD : export / anonymiser / supprimer (admin). */}
+      {rgpdFor && (
+        <div onClick={() => setRgpdFor(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, width: "100%", maxHeight: "90vh", overflow: "auto", borderColor: "#fca5a5" }}>
+            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <h2 style={{ margin: 0 }}>RGPD — {rgpdFor.nom} {rgpdFor.prenom}</h2>
+              <button type="button" className="btn-sm btn-ghost" onClick={() => setRgpdFor(null)} style={{ width: "auto" }}>✕</button>
+            </div>
+            <div className="toolbar" style={{ alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <a href={`/api/personnel/${rgpdFor.id}/export`} className="btn-sm btn-ghost" style={{ textDecoration: "none" }}>
+                Exporter les données (JSON)
+              </a>
+              <ConfirmForm
+                action={anonymiserPersonne}
+                hidden={{ id: rgpdFor.id }}
+                label="Anonymiser"
+                confirm="Anonymiser cette personne ? Le nom est remplacé, l'historique de placement est conservé."
+              />
+              <ConfirmForm
+                action={supprimerPersonne}
+                hidden={{ id: rgpdFor.id }}
+                label="Supprimer (droit à l'oubli)"
+                className="btn-sm"
+                confirm="Supprimer DÉFINITIVEMENT cette personne et tout son historique ? Action irréversible."
+              />
+            </div>
+            <p className="muted" style={{ marginTop: 8 }}>
+              Anonymiser conserve l&apos;historique (bilans) en retirant l&apos;identité. Supprimer efface définitivement la personne et ses données liées.
+            </p>
+          </div>
+        </div>
       )}
 
       {dup && (

@@ -21,6 +21,7 @@ type Row = {
   date_fin: string | null;
   contrat_debut: string | null; // debut du contrat le plus ancien (alerte 18 mois)
   pointure: string | null;
+  commentaire: string | null;
   statut: string;
   temps_partiel: boolean;
   tp_type: string | null;
@@ -41,7 +42,7 @@ export default async function PersonnelPage() {
     supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
     supabase
       .from("personne")
-      .select("id, matricule, nom, prenom, equipe_id, atelier_id, sexe, numero_badge, date_livret_accueil, type_contrat, date_debut, date_fin, pointure, statut, temps_partiel, tp_type, tp_config")
+      .select("id, matricule, nom, prenom, equipe_id, atelier_id, sexe, numero_badge, date_livret_accueil, type_contrat, date_debut, date_fin, pointure, commentaire, statut, temps_partiel, tp_type, tp_config")
       .order("nom")
       .returns<Omit<Row, "contrat_debut">[]>(),
     supabase.from("contrat_periode").select("personne_id, date_debut").returns<{ personne_id: string; date_debut: string | null }[]>(),

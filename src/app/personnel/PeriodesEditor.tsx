@@ -15,7 +15,7 @@ type Periode = {
 
 const CONTRATS = ["CDI", "CDD", "INTERIM"];
 
-export default function PeriodesEditor({ personneId }: { personneId: string }) {
+export default function PeriodesEditor({ personneId, bare = false }: { personneId: string; bare?: boolean }) {
   const [rows, setRows] = useState<Periode[]>([]);
   const [loading, setLoading] = useState(true);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -90,9 +90,9 @@ export default function PeriodesEditor({ personneId }: { personneId: string }) {
   const inp: React.CSSProperties = { width: "100%", fontSize: 13, padding: "4px 6px" };
 
   return (
-    <div className="card" style={{ marginTop: 24 }}>
+    <div className={bare ? undefined : "card"} style={bare ? undefined : { marginTop: 24 }}>
       <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ margin: 0 }}>Contrats / périodes</h2>
+        {bare ? <span /> : <h2 style={{ margin: 0 }}>Contrats / périodes</h2>}
         <span style={{ fontSize: 12, fontWeight: 600, color: save === "error" ? "var(--danger)" : save === "saved" ? "var(--ok)" : "var(--muted)" }}>
           {save === "saving" ? "Enregistrement…" : save === "saved" ? "Enregistré ✓" : save === "error" ? "Échec" : ""}
         </span>

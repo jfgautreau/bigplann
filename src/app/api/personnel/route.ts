@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
           }
           case "numero_badge":
           case "date_livret_accueil":
+          case "commentaire":
             patch[k] = orNull(s(v));
             break;
           case "type_contrat":
