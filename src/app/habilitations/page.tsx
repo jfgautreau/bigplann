@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
@@ -49,7 +50,12 @@ export default async function HabilitationsPage() {
     <>
       <AppHeader role={profile.role} active="/habilitations" />
       <div className="container" style={{ maxWidth: 1500 }}>
-        <PageTitle module="habilitations">Habilitations</PageTitle>
+        <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
+          <PageTitle module="habilitations">Habilitations</PageTitle>
+          {profile.role === "admin" && (
+            <Link href="/admin/habilitations-param" className="navlink" title="Param. Habilitation — définir les formations" style={{ fontSize: 22, textDecoration: "none", lineHeight: 1 }}>📜</Link>
+          )}
+        </div>
         <p className="muted" style={{ marginBottom: 16 }}>
           Suivi des formations / habilitations à recycler. Saisissez l&apos;habilitation d&apos;une
           personne (personne + date d&apos;obtention, expiration calculée automatiquement) dans le
