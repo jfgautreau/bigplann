@@ -4,7 +4,7 @@ import { useState } from "react";
 import { defaultQuartActif } from "@/lib/week";
 
 type Quart = { code: string; libelle: string };
-type Ligne = { id: string; label: string };
+type Ligne = { id: string; label: string; quarts?: string[] };
 
 const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 // iso de reference par jour de semaine (juste pour le fallback defaultQuartActif :
@@ -132,7 +132,10 @@ export default function SemaineTypeEditor({
         Décochez une case pour fermer une ligne par défaut ce jour-là (sur le quart concerné).
         Une ligne non listée reste ouverte. Les cases sont verrouillées si le quart est inactif.
       </p>
-      {quarts.map((q) => (
+      {quarts.map((q) => {
+        // On ne propose que les lignes qui tournent sur ce quart (référentiel).
+        const lignesQuart = lignes.filter((l) => !l.quarts || l.quarts.includes(q.code));
+        return (
         <div key={q.code} className="card section" style={{ overflowX: "auto", marginTop: 12 }}>
           <h3 style={{ marginTop: 0, fontSize: 14 }}>{q.libelle}</h3>
           <table className="matrix" style={{ borderCollapse: "collapse" }}>
@@ -145,7 +148,7 @@ export default function SemaineTypeEditor({
               </tr>
             </thead>
             <tbody>
-              {lignes.map((l) => (
+              {lignesQuart.map((l) => (
                 <tr key={l.id}>
                   <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.label}</td>
                   {JOURS.map((_, j) => {
@@ -165,15 +168,16 @@ export default function SemaineTypeEditor({
                   })}
                 </tr>
               ))}
-              {lignes.length === 0 && (
+              {lignesQuart.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="muted">Aucune ligne.</td>
+                  <td colSpan={8} className="muted">Aucune ligne ne tourne sur ce quart (référentiel).</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -6,23 +6,39 @@ import { getSemaineType, getSemaineOuverture } from "@/lib/semaine-type";
 import SemaineTypeEditor from "./SemaineTypeEditor";
 
 type Quart = { code: string; libelle: string };
-type Ligne = { id: string; nom: string; atelier: { nom: string } | null };
+type Ligne = { id: string; nom: string; atelier: { nom: string } | null; poste: { id: string; actif: boolean }[] };
 
 export default async function SemaineTypePage() {
   const { profile } = await requireModule("ordonnancement", "write");
 
   const supabase = await getServerClient();
-  const [{ data: quartsD }, { data: lignesD }, type, ouverture] = await Promise.all([
+  const [{ data: quartsD }, { data: lignesD }, { data: pqOffD }, type, ouverture] = await Promise.all([
     supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
     supabase
       .from("ligne")
-      .select("id, nom, atelier:atelier_id(nom)")
+      .select("id, nom, atelier:atelier_id(nom), poste(id, actif)")
       .eq("actif", true)
       .order("nom")
       .returns<Ligne[]>(),
+    supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
     getSemaineType(supabase),
     getSemaineOuverture(supabase),
   ]);
+
+  const quarts = quartsD ?? [];
+  // poste_quart ne stocke que les DESACTIVATIONS (defaut actif). Une ligne tourne
+  // sur un quart si elle a au moins un poste actif, actif sur ce quart -> coherent
+  // avec le referentiel. C'est ce qui filtre les lignes proposees par quart.
+  const pqOff = new Set((pqOffD ?? []).map((r) => `${r.poste_id}:${r.quart_code}`));
+  const lignes = (lignesD ?? []).map((l) => {
+    const actifs = (l.poste ?? []).filter((p) => p.actif);
+    const runsOn = quarts.filter((q) => actifs.some((p) => !pqOff.has(`${p.id}:${q.code}`))).map((q) => q.code);
+    return {
+      id: l.id,
+      label: l.atelier?.nom ? `${l.atelier.nom} / ${l.nom}` : l.nom,
+      quarts: runsOn,
+    };
+  });
 
   return (
     <>
@@ -37,11 +53,8 @@ export default async function SemaineTypePage() {
           réinitialisation des semaines.
         </p>
         <SemaineTypeEditor
-          quarts={quartsD ?? []}
-          lignes={(lignesD ?? []).map((l) => ({
-            id: l.id,
-            label: l.atelier?.nom ? `${l.atelier.nom} / ${l.nom}` : l.nom,
-          }))}
+          quarts={quarts}
+          lignes={lignes}
           initial={type}
           initialOuverture={ouverture}
         />
