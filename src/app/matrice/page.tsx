@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
-import { requireModule } from "@/lib/permissions";
+import { requireModule, canWrite } from "@/lib/permissions";
 import { getAteliersC, getEquipesC, getNiveauxC } from "@/lib/refdata";
 import MatricePanel from "./MatricePanel";
 
@@ -12,8 +12,9 @@ type PosteRow = {
   actif: boolean;
   objectif_polyvalence: number;
   objectif_cible: number;
+  ordre_affichage: number;
 };
-type LigneRow = { id: string; nom: string; atelier_id: string; poste: PosteRow[] };
+type LigneRow = { id: string; nom: string; atelier_id: string; ordre_affichage: number; poste: PosteRow[] };
 type Atelier = { id: string; nom: string };
 type Equipe = { id: string; nom: string };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null };
@@ -29,16 +30,19 @@ export default async function MatricePage({
 }: {
   searchParams: Promise<{ atelier?: string; equipe?: string }>;
 }) {
-  const { profile } = await requireModule("matrice", "read");
+  const { profile, perms } = await requireModule("matrice", "read");
 
   const sp = await searchParams;
   const supabase = await getServerClient();
   const isAdmin = profile.role === "admin";
+  // Droit d'écriture "matrice" (matrice des droits) : autorise l'édition en plus
+  // du périmètre admin / chef d'équipe.
+  const canEditMatrice = canWrite(perms, "matrice");
 
   // Lignes (+ postes) eventuellement filtrees par atelier
   let ligneQ = supabase
     .from("ligne")
-    .select("id, nom, atelier_id, poste(id, nom, actif, objectif_polyvalence, objectif_cible)")
+    .select("id, nom, atelier_id, ordre_affichage, poste(id, nom, actif, objectif_polyvalence, objectif_cible, ordre_affichage)")
     .eq("actif", true)
     .order("nom");
   if (sp.atelier) ligneQ = ligneQ.eq("atelier_id", sp.atelier);
@@ -75,13 +79,17 @@ export default async function MatricePage({
   const personnes = persData ?? [];
   const chefEquipes = new Set((chefData ?? []).map((r) => r.equipe_id));
 
+  // Ordre du referentiel : lignes puis postes par ordre_affichage (fallback nom).
+  const byOrdre = <T extends { ordre_affichage?: number; nom: string }>(a: T, b: T) =>
+    (a.ordre_affichage ?? 0) - (b.ordre_affichage ?? 0) || a.nom.localeCompare(b.nom);
   const groups = (lignesData ?? [])
     .map((l) => ({
       ligneId: l.id,
       ligneNom: l.nom,
+      ligneOrdre: l.ordre_affichage ?? 0,
       postes: [...(l.poste ?? [])]
         .filter((p) => p.actif)
-        .sort((a, b) => a.nom.localeCompare(b.nom))
+        .sort(byOrdre)
         .map((p) => ({
           id: p.id,
           nom: p.nom,
@@ -89,7 +97,8 @@ export default async function MatricePage({
           objectifCible: p.objectif_cible ?? 0,
         })),
     }))
-    .filter((g) => g.postes.length > 0);
+    .filter((g) => g.postes.length > 0)
+    .sort((a, b) => a.ligneOrdre - b.ligneOrdre || a.ligneNom.localeCompare(b.ligneNom));
 
   const posteIds = groups.flatMap((g) => g.postes.map((p) => p.id));
 
@@ -111,7 +120,7 @@ export default async function MatricePage({
   const gridPersonnes = personnes.map((p) => ({
     id: p.id,
     label: `${p.nom} ${p.prenom}`,
-    editable: isAdmin || (p.equipe_id != null && chefEquipes.has(p.equipe_id)),
+    editable: isAdmin || canEditMatrice || (p.equipe_id != null && chefEquipes.has(p.equipe_id)),
   }));
 
   return (
@@ -129,7 +138,7 @@ export default async function MatricePage({
           groups={groups}
           personnes={gridPersonnes}
           initial={initial}
-          canEditObjectif={isAdmin}
+          canEditObjectif={isAdmin || canEditMatrice}
           ateliers={ateliers.map((a) => ({ id: a.id, label: a.nom }))}
           equipes={equipes.map((e) => ({ id: e.id, label: e.nom }))}
           atelier={sp.atelier ?? ""}

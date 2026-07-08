@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient } from "@/lib/supabase-server";
+import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
+import { getPermissions, canWrite } from "@/lib/permissions";
 
 // POST /api/matrice/cell { personne_id, poste_id, niveau_actuel, niveau_cible }
 // Upsert d'une cellule de matrice. La RLS (can_edit_personne) autorise admin
@@ -29,7 +30,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Parametres manquants" }, { status: 400 });
   }
 
-  const supabase = await getServerClient();
+  // Droit d'écriture "matrice" -> client admin (contourne la RLS admin/chef).
+  // Sinon RLS : admin ou chef de l'équipe de la personne.
+  const perms = await getPermissions(profile.role);
+  const supabase = canWrite(perms, "matrice") ? getAdminClient() : await getServerClient();
   const { error } = await supabase.from("matrice").upsert(
     {
       personne_id,

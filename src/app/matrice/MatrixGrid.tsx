@@ -119,7 +119,9 @@ export default function MatrixGrid({
 
   const accentBg = mode === "actuel" ? "#dbeafe" : "#dcfce7";
   const accentFg = mode === "actuel" ? "#1d4ed8" : "#15803d";
-  const sepL = (i: number) => (i === 0 ? "2px solid #d9dce1" : undefined);
+  // Séparateur entre postes : barre de la couleur du texte (accent). Plus épaisse
+  // au début d'une ligne (i===0), plus fine entre les postes d'une même ligne.
+  const sepL = (i: number) => (i === 0 ? `2px solid ${accentFg}` : `1px solid ${accentFg}55`);
   // Colonne noms adaptative (px) partagee par les 2 tables -> colonnes alignees.
   const nameW = Math.min(320, Math.max(150, personnes.reduce((m, p) => Math.max(m, p.label.length), 0) * 7.2 + 30));
   const Cols = () => (
