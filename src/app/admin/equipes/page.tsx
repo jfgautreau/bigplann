@@ -10,6 +10,7 @@ import {
   addChef,
   removeChef,
 } from "./actions";
+import TeamColorPicker from "./TeamColorPicker";
 
 type Chef = { id: string; app_user_id: string };
 type Equipe = { id: string; nom: string; actif: boolean; couleur: string; quart_fixe: string | null; equipe_chef: Chef[] };
@@ -56,7 +57,7 @@ export default async function EquipesPage() {
             </div>
             <div className="field">
               <span>Couleur</span>
-              <input name="couleur" type="color" defaultValue="#16a34a" style={{ width: 48, padding: 2 }} />
+              <TeamColorPicker name="couleur" defaultValue="#16a34a" />
             </div>
             <button type="submit">Ajouter</button>
           </form>
@@ -73,7 +74,7 @@ export default async function EquipesPage() {
                   style={{ display: "inline-block", width: 16, height: 16, borderRadius: 4, background: e.couleur, border: "1px solid #cbd5e1" }}
                 />
                 <input name="nom" defaultValue={e.nom} />
-                <input name="couleur" type="color" defaultValue={e.couleur} style={{ width: 44, padding: 2 }} />
+                <TeamColorPicker name="couleur" defaultValue={e.couleur} />
                 <div className="field" style={{ margin: 0 }}>
                   <span>Quart fixe</span>
                   <select name="quart_fixe" defaultValue={e.quart_fixe ?? ""}>
