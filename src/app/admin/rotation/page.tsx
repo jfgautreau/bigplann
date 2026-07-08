@@ -4,7 +4,7 @@ import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
 import { parseMonday, isoDate, addDays, isoWeekNumber } from "@/lib/week";
 import RotationEditor from "./RotationEditor";
-import { saveQuartHoraires, saveRotation } from "./actions";
+import { saveQuartHoraires } from "./actions";
 
 type Quart = { code: string; libelle: string; debut: string | null; fin: string | null };
 type Equipe = { id: string; nom: string; quart_fixe: string | null };
@@ -98,16 +98,11 @@ export default async function RotationPage({
               </>
             )}
           </p>
-          <form action={saveRotation}>
-            <RotationEditor
-              weeks={weeks}
-              equipes={equipes.map((e) => ({ id: e.id, label: e.nom }))}
-              initial={initial}
-            />
-            <button type="submit" style={{ marginTop: 12, width: "auto", padding: "9px 20px" }}>
-              Enregistrer la rotation
-            </button>
-          </form>
+          <RotationEditor
+            weeks={weeks}
+            equipes={equipes.map((e) => ({ id: e.id, label: e.nom }))}
+            initial={initial}
+          />
         </div>
       </div>
     </>

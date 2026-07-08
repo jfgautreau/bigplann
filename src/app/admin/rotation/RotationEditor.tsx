@@ -23,7 +23,24 @@ export default function RotationEditor({
   initial: Record<string, string>; // `${equipe}|${semaine}` -> quart
 }) {
   const [vals, setVals] = useState<Record<string, string>>(initial);
+  const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const key = (eq: string, iso: string) => `cell|${eq}|${iso}`;
+
+  async function saveRotation() {
+    const cells = weeks.flatMap((w) => equipes.map((e) => ({ equipe_id: e.id, semaine: w.iso, quart_code: vals[key(e.id, w.iso)] ?? "" })));
+    setSave("saving");
+    try {
+      const res = await fetch("/api/ordonnancement/rotation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cells }),
+      });
+      setSave(res.ok ? "saved" : "error");
+    } catch {
+      setSave("error");
+    }
+    setTimeout(() => setSave("idle"), 2000);
+  }
 
   // Pre-remplissage : nuit pour les equipes "nuit", alternance Matin/AM pour les autres.
   function prefill() {
@@ -41,6 +58,9 @@ export default function RotationEditor({
     }
     setVals(next);
   }
+
+  const saveLabel = save === "saving" ? "Enregistrement…" : save === "saved" ? "Enregistré ✓" : save === "error" ? "Échec" : "";
+  const saveColor = save === "error" ? "var(--danger)" : save === "saved" ? "var(--ok)" : "var(--muted)";
 
   return (
     <div>
@@ -81,6 +101,12 @@ export default function RotationEditor({
             ))}
           </tbody>
         </table>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12 }}>
+        <button type="button" onClick={saveRotation} disabled={save === "saving"} style={{ width: "auto", padding: "9px 20px" }}>
+          Enregistrer la rotation
+        </button>
+        <span style={{ fontSize: 12, fontWeight: 600, color: saveColor }}>{saveLabel}</span>
       </div>
     </div>
   );
