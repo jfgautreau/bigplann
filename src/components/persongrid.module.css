@@ -21,11 +21,11 @@
   --col-hover: #f6f8fb;
   /* Largeur minimale d'une colonne avant apparition du scroll horizontal. */
   --col-min: 36px;
-  /* Hauteur d'une ligne et de sa case cliquable : tout se regle ici.
-     `--row-h` fixe la hauteur reelle de la ligne, `--cell` la cible du clic.
-     La pastille elle-meme reste dessinee a 28 px. */
-  --row-h: 38px;
-  --cell: 30px;
+  /* Hauteur d'une ligne : la pastille (28 px) plus 2 px d'air au-dessus et
+     en dessous. `--cell` epouse la pastille, si bien que le `padding` de 2 px
+     de la cellule est le seul espace vertical. */
+  --row-h: 32px;
+  --cell: 28px;
   /* Decalages verticaux des rangees d'en-tete collantes. */
   --sub-top: 22px;
   --col-top: 25px;
