@@ -1,0 +1,344 @@
+/* =====================================================================
+   Matrice de polyvalence — styles extraits des styles inline.
+   L'accent de mode (Actuel = bleu, Cible = vert) est porte par des
+   variables CSS posees une fois sur `.grid[data-mode]`, ce qui evite
+   de brancher sur `mode` dans chaque element du JSX.
+   ===================================================================== */
+
+/* --- Ossature de la page : la grille occupe la hauteur restante ------- */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+/* Bandeau haut (titre, filtres) : reste dans la colonne centree 1500px. */
+.headBand {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.headBandTop {
+  padding-top: 24px;
+}
+
+/* La grille, elle, prend toute la largeur de la fenetre. */
+.gridBand {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 16px;
+}
+
+@media print {
+  .page {
+    display: block;
+    height: auto;
+  }
+  .gridBand {
+    display: block;
+    padding: 0;
+  }
+}
+
+/* --- Grille ---------------------------------------------------------- */
+.grid {
+  --accent: #1d4ed8;
+  --accent-bg: #dbeafe;
+  --accent-soft: #1d4ed855;
+
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.grid[data-mode="cible"] {
+  --accent: #15803d;
+  --accent-bg: #dcfce7;
+  --accent-soft: #15803d55;
+}
+
+/* --- Ligne recherche + legende --------------------------------------- */
+.searchRow {
+  flex: 0 0 auto;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.searchWrap {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  max-width: 340px;
+}
+.searchInput {
+  width: 100%;
+  padding: 7px 28px 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+.searchClear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+.legendBtn {
+  width: auto;
+  margin-left: auto;
+}
+
+/* --- Les deux panneaux ------------------------------------------------ */
+.grid .headCard {
+  flex: 0 0 auto;
+  position: relative;
+  padding: 6px 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.grid .rowsCard {
+  flex: 1 1 auto;
+  min-height: 120px;
+  margin-top: 8px;
+  padding: 0 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+}
+
+/* Indicateur d'enregistrement (coin haut droit du panneau d'en-tetes). */
+.saveState {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 16px;
+  z-index: 30;
+  color: var(--muted);
+}
+.saveState[data-state="saved"] {
+  color: var(--ok);
+}
+.saveState[data-state="error"] {
+  color: var(--danger);
+}
+
+/* --- En-tetes --------------------------------------------------------- */
+.cornerHead {
+  position: sticky;
+  left: 0;
+  top: 0;
+  z-index: 26;
+  background: #fff;
+  text-align: left;
+  vertical-align: top;
+}
+.bilanToggle {
+  width: auto;
+  margin: 0;
+  padding: 1px 7px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--primary);
+  cursor: pointer;
+}
+
+.groupHead {
+  position: sticky;
+  top: 0;
+  z-index: 22;
+  text-align: center;
+  border-left: 2px solid #d9dce1;
+  background: #f8fafc;
+}
+/* Un `th` ignore `overflow` : on borne le texte dans un bloc interne pour
+   qu'un nom trop long soit rogne proprement au lieu de deborder sur la
+   colonne voisine. */
+.groupLabel {
+  overflow: hidden;
+}
+
+.posteHead {
+  position: sticky;
+  top: 25px;
+  z-index: 21;
+  font-weight: 500;
+  padding: 4px 0;
+  height: 96px;
+  vertical-align: bottom;
+  background: var(--accent-bg);
+  border-left: 1px solid var(--accent-soft);
+}
+/* Premier poste d'une ligne : separateur plus marque. */
+.posteHead.groupStart {
+  border-left: 2px solid var(--accent);
+}
+.posteLabel {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  margin: 0 auto;
+  font-size: 12px;
+  line-height: 1.15;
+  color: var(--accent);
+}
+
+/* --- Bilan ------------------------------------------------------------ */
+.bilanTd {
+  text-align: center;
+  padding: 3px 2px;
+}
+.bilanLabel {
+  position: sticky;
+  left: 0;
+  font-weight: 600;
+}
+.bilanSwatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.bilanDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid #94a3b8;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.rowNiveau {
+  background: #fbfcfe;
+}
+.rowNiveau .bilanLabel {
+  background: #fbfcfe;
+  color: #475569;
+  font-size: 12px;
+}
+.rowNiveau .bilanTd {
+  font-weight: 600;
+  color: #cbd5e1;
+}
+.rowNiveau .bilanTd[data-some="1"] {
+  color: var(--text);
+}
+
+.rowRestrict {
+  background: #fef2f2;
+}
+.rowRestrict .bilanLabel {
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 12px;
+}
+.rowRestrict .bilanTd {
+  font-weight: 700;
+  color: #e5c9c9;
+}
+.rowRestrict .bilanTd[data-some="1"] {
+  color: #dc2626;
+}
+.restrictMark {
+  color: #dc2626;
+  font-weight: 800;
+}
+
+.rowObjectif {
+  background: #f1f5f9;
+}
+.rowObjectif .bilanLabel {
+  background: #f1f5f9;
+  font-weight: 700;
+}
+.rowObjectif.objActuel .bilanLabel {
+  color: #1d4ed8;
+}
+.rowObjectif.objCible .bilanLabel {
+  color: #16a34a;
+}
+.objInput {
+  width: 30px;
+  text-align: center;
+  padding: 2px;
+}
+
+.rowCouverture {
+  background: #f8fafc;
+}
+.rowCouverture .bilanLabel {
+  background: #f8fafc;
+}
+.rowCouverture .bilanTd {
+  font-weight: 700;
+  color: var(--ok);
+}
+.rowCouverture .bilanTd[data-manque="1"] {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+/* --- Lignes de personnes ---------------------------------------------- */
+.nameCell {
+  background: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cellTd {
+  text-align: center;
+  padding: 3px;
+}
+.cellReadonly {
+  display: inline-block;
+  opacity: 0.85;
+}
+.cellBtn {
+  margin: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  position: relative;
+}
+.otherMark {
+  position: absolute;
+  right: -1px;
+  bottom: -2px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #6b7280;
+}
+.otherMark.restrict {
+  font-size: 10px;
+  font-weight: 800;
+  color: #dc2626;
+}

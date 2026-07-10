@@ -5,6 +5,7 @@ import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite } from "@/lib/permissions";
 import { getAteliersC, getEquipesC, getNiveauxC } from "@/lib/refdata";
 import MatricePanel from "./MatricePanel";
+import s from "./matrice.module.css";
 
 type PosteRow = {
   id: string;
@@ -125,15 +126,20 @@ export default async function MatricePage({
 
   return (
     <>
-      <AppHeader role={profile.role} active="/matrice" />
-      <div className="container" style={{ maxWidth: 1500 }}>
-        <div className="toolbar">
-          <PageTitle module="matrice">Matrice de polyvalence</PageTitle>
-          <Link href="/matrice/bilan" className="navlink">
-            Voir le bilan &rarr;
-          </Link>
+      <div className={s.page}>
+        <AppHeader role={profile.role} active="/matrice" />
+
+        {/* Bandeau titre : reste aligne sur la colonne centree de 1500 px. */}
+        <div className={`${s.headBand} ${s.headBandTop}`}>
+          <div className="toolbar">
+            <PageTitle module="matrice">Matrice de polyvalence</PageTitle>
+            <Link href="/matrice/bilan" className="navlink">
+              Voir le bilan &rarr;
+            </Link>
+          </div>
         </div>
 
+        {/* La grille, elle, s'etale sur toute la largeur de la fenetre. */}
         <MatricePanel
           groups={groups}
           personnes={gridPersonnes}

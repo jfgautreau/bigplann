@@ -1,17 +1,22 @@
 "use client";
 
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { LevelMark, FILL, RESTRICT } from "./Pie";
+import s from "./matrice.module.css";
 
 // Cycle de saisie : 0 -> 1 -> 2 -> 3 -> 4 -> ❌ (restriction) -> 0.
 const CYCLE = [0, 1, 2, 3, 4, RESTRICT];
 const lvlTxt = (n: number) => (n === RESTRICT ? "Restriction ❌" : String(n));
-const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const norm = (s2: string) => s2.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 type Poste = { id: string; nom: string; objectifActuel?: number; objectifCible?: number };
 type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
 type Personne = { id: string; label: string; editable: boolean };
 type Cell = { a: number; c: number };
+// Agregat par poste, calcule en une seule passe sur toutes les personnes.
+type Stat = { lvl: number[]; restrict: number; geA: number; geC: number };
+
+const EMPTY_STAT: Stat = { lvl: [0, 0, 0, 0, 0], restrict: 0, geA: 0, geC: 0 };
 
 export default function MatrixGrid({
   groups = [],
@@ -46,20 +51,36 @@ export default function MatrixGrid({
   const objTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const allPostes = groups.flatMap((g) => g.postes);
+  const allPostes = useMemo(() => groups.flatMap((g) => g.postes), [groups]);
   // Filtre de recherche sur le nom (accents ignores). N'affecte que les lignes
   // affichees ; le bilan reste calcule sur l'ensemble.
   const shown = search.trim() ? personnes.filter((p) => norm(p.label).includes(norm(search))) : personnes;
   const key = (pid: string, poid: string) => `${pid}:${poid}`;
   const get = (k: string): Cell => cells[k] ?? { a: 0, c: 0 };
 
-  const countAt = (poid: string, field: "a" | "c") =>
-    personnes.reduce((n, pe) => n + ((cells[key(pe.id, poid)]?.[field] ?? 0) >= 2 ? 1 : 0), 0);
-  const fieldShown: "a" | "c" = mode === "actuel" ? "a" : "c";
-  const countLevel = (poid: string, level: number) =>
-    personnes.reduce((n, pe) => n + ((cells[key(pe.id, poid)]?.[fieldShown] ?? 0) === level ? 1 : 0), 0);
-  const countRestrict = (poid: string) =>
-    personnes.reduce((n, pe) => n + ((cells[key(pe.id, poid)]?.[fieldShown] ?? 0) === RESTRICT ? 1 : 0), 0);
+  // Une seule passe personnes x postes alimente les 9 lignes du bilan, au lieu
+  // d'un balayage complet par ligne et par colonne.
+  const stats = useMemo(() => {
+    const m = new Map<string, Stat>();
+    for (const p of allPostes) m.set(p.id, { lvl: [0, 0, 0, 0, 0], restrict: 0, geA: 0, geC: 0 });
+    const useActuel = mode === "actuel";
+    for (const pe of personnes) {
+      for (const p of allPostes) {
+        const st = m.get(p.id)!;
+        const cell = cells[key(pe.id, p.id)];
+        const a = cell?.a ?? 0;
+        const c = cell?.c ?? 0;
+        const affiche = useActuel ? a : c;
+        if (affiche === RESTRICT) st.restrict++;
+        else if (affiche >= 0 && affiche <= 4) st.lvl[affiche]++;
+        if (a >= 2) st.geA++;
+        if (c >= 2) st.geC++;
+      }
+    }
+    return m;
+  }, [allPostes, personnes, cells, mode]);
+
+  const statOf = (poid: string): Stat => stats.get(poid) ?? EMPTY_STAT;
 
   function saveObjectif(poid: string, champ: "actuel" | "cible", value: number) {
     if (champ === "actuel") setObjActuel((o) => ({ ...o, [poid]: value }));
@@ -117,83 +138,79 @@ export default function MatrixGrid({
 
   const saveLabel =
     saveState === "saving" ? "Enregistrement..." : saveState === "saved" ? "Enregistré" : saveState === "error" ? "Échec d'enregistrement" : "";
-  const saveColor = saveState === "error" ? "var(--danger)" : saveState === "saved" ? "var(--ok)" : "var(--muted)";
 
-  const accentBg = mode === "actuel" ? "#dbeafe" : "#dcfce7";
-  const accentFg = mode === "actuel" ? "#1d4ed8" : "#15803d";
-  // Séparateur entre postes : barre de la couleur du texte (accent). Plus épaisse
-  // au début d'une ligne (i===0), plus fine entre les postes d'une même ligne.
-  const sepL = (i: number) => (i === 0 ? `2px solid ${accentFg}` : `1px solid ${accentFg}55`);
   // Colonne noms adaptative (px) partagee par les 2 tables -> colonnes alignees.
   const nameW = Math.min(320, Math.max(150, personnes.reduce((m, p) => Math.max(m, p.label.length), 0) * 7.2 + 30));
-  const Cols = () => (
-    <colgroup>
-      <col style={{ width: nameW }} />
-      {groups.flatMap((g) => g.postes).map((p) => <col key={p.id} />)}
-    </colgroup>
+  // `colgroup` construit une fois : le meme element est reutilise par les deux
+  // tables, ce qui garantit des colonnes alignees sans le recreer a chaque rendu.
+  const cols = useMemo(
+    () => (
+      <colgroup>
+        <col style={{ width: nameW }} />
+        {allPostes.map((p) => (
+          <col key={p.id} />
+        ))}
+      </colgroup>
+    ),
+    [nameW, allPostes]
   );
-  const tStyle: React.CSSProperties = { borderCollapse: "collapse", width: "100%", tableLayout: "fixed" };
 
   return (
-    <>
-      {/* Recherche par nom (à gauche/centre) + légende (à droite, même ligne) */}
-      <div style={{ margin: "0 0 8px", display: "flex", justifyContent: "center", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <span style={{ position: "relative", display: "inline-block", width: "100%", maxWidth: 340 }}>
+    <div className={s.grid} data-mode={mode}>
+      {/* Recherche par nom (à gauche) + légende (à droite, même ligne) */}
+      <div className={s.searchRow}>
+        <span className={s.searchWrap}>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="🔍 Rechercher un nom…"
-            style={{ width: "100%", padding: "7px 28px 7px 12px", borderRadius: 999, border: "1px solid var(--border)", fontSize: 13 }}
+            className={s.searchInput}
           />
           {search && (
-            <button type="button" onClick={() => setSearch("")} title="Effacer" style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: "auto", margin: 0, padding: 0, border: "none", background: "transparent", cursor: "pointer", color: "var(--muted)", fontSize: 13 }}>✕</button>
+            <button type="button" onClick={() => setSearch("")} title="Effacer" className={s.searchClear}>
+              ✕
+            </button>
           )}
         </span>
         {onShowLegende && (
-          <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", marginLeft: "auto" }} onClick={onShowLegende}>
+          <button type="button" className={`btn-sm btn-ghost ${s.legendBtn}`} onClick={onShowLegende}>
             📖 Légende
           </button>
         )}
       </div>
 
       {/* Tableau 1 : en-tetes + bilan retractable (fixe) */}
-      <div className="card" style={{ overflowX: "hidden", overflowY: "auto", scrollbarGutter: "stable", position: "relative", padding: "6px 10px" }}>
-        <div style={{ position: "absolute", top: 6, right: 12, fontSize: 12, fontWeight: 600, color: saveColor, minHeight: 16, zIndex: 30 }}>
+      <div className={`card ${s.headCard}`}>
+        <div className={s.saveState} data-state={saveState}>
           {saveLabel}
         </div>
 
-        <table className="matrix" style={tStyle}>
-          <Cols />
+        <table className={`matrix ${s.table}`}>
+          {cols}
           <thead>
             <tr>
-              <th rowSpan={2} style={{ position: "sticky", left: 0, top: 0, zIndex: 26, background: "#fff", textAlign: "left", verticalAlign: "top" }}>
+              <th rowSpan={2} className={s.cornerHead}>
                 <button
                   type="button"
-                  onClick={() => setShowBilan((s) => !s)}
+                  onClick={() => setShowBilan((b) => !b)}
                   title={showBilan ? "Masquer le bilan" : "Afficher le bilan"}
-                  style={{ width: "auto", margin: 0, padding: "1px 7px", fontSize: 12, fontWeight: 700, lineHeight: 1.4, border: "1px solid var(--border)", borderRadius: 6, background: "#fff", color: "var(--primary)", cursor: "pointer" }}
+                  className={s.bilanToggle}
                 >
                   {showBilan ? "− Bilan" : "+ Bilan"}
                 </button>
               </th>
               {groups.map((g) => (
-                <th key={g.ligneId} colSpan={g.postes.length} style={{ position: "sticky", top: 0, zIndex: 22, textAlign: "center", borderLeft: "2px solid #d9dce1", background: "#f8fafc" }}>
-                  {g.ligneNom}
+                <th key={g.ligneId} colSpan={g.postes.length} className={s.groupHead} title={g.ligneNom}>
+                  <div className={s.groupLabel}>{g.ligneNom}</div>
                 </th>
               ))}
             </tr>
             <tr>
               {groups.flatMap((g) =>
                 g.postes.map((p, i) => (
-                  <th
-                    key={p.id}
-                    title={p.nom}
-                    style={{ position: "sticky", top: 25, zIndex: 21, fontWeight: 500, borderLeft: sepL(i), padding: "4px 0", height: 96, verticalAlign: "bottom", background: accentBg }}
-                  >
+                  <th key={p.id} title={p.nom} className={i === 0 ? `${s.posteHead} ${s.groupStart}` : s.posteHead}>
                     {/* Nom de poste vertical, sur une seule ligne (table plus haute mais lisible). */}
-                    <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", whiteSpace: "nowrap", margin: "0 auto", fontSize: 12, lineHeight: 1.15, color: accentFg }}>
-                      {p.nom}
-                    </div>
+                    <div className={s.posteLabel}>{p.nom}</div>
                   </th>
                 ))
               )}
@@ -204,68 +221,79 @@ export default function MatrixGrid({
             {showBilan && (
               <>
                 {[1, 2, 3, 4].map((lvl) => (
-                  <tr key={`niv${lvl}`} style={{ background: "#fbfcfe" }}>
-                    <td style={{ position: "sticky", left: 0, background: "#fbfcfe", fontWeight: 600, fontSize: 12, color: "#475569" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-                        <span style={{ width: 10, height: 10, borderRadius: "50%", background: FILL[lvl] ?? "#999", border: "1px solid #94a3b8", display: "inline-block", flexShrink: 0 }} />
+                  <tr key={`niv${lvl}`} className={s.rowNiveau}>
+                    <td className={s.bilanLabel}>
+                      <span className={s.bilanSwatch}>
+                        <span className={s.bilanDot} style={{ background: FILL[lvl] ?? "#999" }} />
                         Nb de Niv. {lvl}
                       </span>
                     </td>
-                    {groups.flatMap((g) =>
-                      g.postes.map((po, i) => {
-                        const c = countLevel(po.id, lvl);
-                        return (
-                          <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 600, color: c > 0 ? "var(--text)" : "#cbd5e1" }}>{c}</td>
-                        );
-                      })
-                    )}
+                    {allPostes.map((po) => {
+                      const c = statOf(po.id).lvl[lvl];
+                      return (
+                        <td key={po.id} className={s.bilanTd} data-some={c > 0 ? "1" : "0"}>
+                          {c}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
-                <tr style={{ background: "#fef2f2" }}>
-                  <td style={{ position: "sticky", left: 0, background: "#fef2f2", fontWeight: 600, fontSize: 12, color: "#b91c1c" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-                      <span style={{ color: "#dc2626", fontWeight: 800 }}>✕</span>
+                <tr className={s.rowRestrict}>
+                  <td className={s.bilanLabel}>
+                    <span className={s.bilanSwatch}>
+                      <span className={s.restrictMark}>✕</span>
                       Nb restreint
                     </span>
                   </td>
-                  {groups.flatMap((g) =>
-                    g.postes.map((po, i) => {
-                      const c = countRestrict(po.id);
-                      return (
-                        <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 700, color: c > 0 ? "#dc2626" : "#e5c9c9" }}>{c || ""}</td>
-                      );
-                    })
-                  )}
+                  {allPostes.map((po) => {
+                    const c = statOf(po.id).restrict;
+                    return (
+                      <td key={po.id} className={s.bilanTd} data-some={c > 0 ? "1" : "0"}>
+                        {c || ""}
+                      </td>
+                    );
+                  })}
                 </tr>
                 {([
-                  ["actuel", "a", "#1d4ed8", objActuel] as const,
-                  ["cible", "c", "#16a34a", objCible] as const,
-                ]).map(([champ, field, accent, objMap]) => (
+                  ["actuel", "geA", s.objActuel, objActuel] as const,
+                  ["cible", "geC", s.objCible, objCible] as const,
+                ]).map(([champ, field, cls, objMap]) => (
                   <Fragment key={champ}>
-                    <tr style={{ background: "#f1f5f9" }}>
-                      <td style={{ position: "sticky", left: 0, background: "#f1f5f9", fontWeight: 700, color: accent }}>Objectif {champ}</td>
-                      {groups.flatMap((g) =>
-                        g.postes.map((po, i) => (
-                          <td key={po.id} style={{ textAlign: "center", padding: "3px 2px" }}>
-                            {canEditObjectif ? (
-                              <input type="number" min={0} value={objMap[po.id] ?? 0} onChange={(e) => saveObjectif(po.id, champ, Math.max(0, Number(e.target.value) || 0))} style={{ width: 30, textAlign: "center", padding: 2 }} />
-                            ) : (objMap[po.id] ?? 0)}
-                          </td>
-                        ))
-                      )}
+                    <tr className={`${s.rowObjectif} ${cls}`}>
+                      <td className={s.bilanLabel}>Objectif {champ}</td>
+                      {allPostes.map((po) => (
+                        <td key={po.id} className={s.bilanTd}>
+                          {canEditObjectif ? (
+                            <input
+                              type="number"
+                              min={0}
+                              value={objMap[po.id] ?? 0}
+                              onChange={(e) => saveObjectif(po.id, champ, Math.max(0, Number(e.target.value) || 0))}
+                              className={s.objInput}
+                            />
+                          ) : (
+                            objMap[po.id] ?? 0
+                          )}
+                        </td>
+                      ))}
                     </tr>
-                    <tr style={{ background: "#f8fafc" }}>
-                      <td style={{ position: "sticky", left: 0, background: "#f8fafc", fontWeight: 600 }}>Compétences {champ} (≥2)</td>
-                      {groups.flatMap((g) =>
-                        g.postes.map((po, i) => {
-                          const c = countAt(po.id, field);
-                          const obj = objMap[po.id] ?? 0;
-                          const manque = c < obj; // sous l'objectif -> rouge sur fond rouge
-                          return (
-                            <td key={po.id} style={{ textAlign: "center", padding: "3px 2px", fontWeight: 700, color: manque ? "#b91c1c" : "var(--ok)", background: manque ? "#fee2e2" : undefined }} title={`${c} / objectif ${obj}${manque ? ` — manque ${obj - c}` : ""}`}>{c}</td>
-                          );
-                        })
-                      )}
+                    <tr className={s.rowCouverture}>
+                      <td className={s.bilanLabel}>Compétences {champ} (≥2)</td>
+                      {allPostes.map((po) => {
+                        const c = statOf(po.id)[field];
+                        const obj = objMap[po.id] ?? 0;
+                        const manque = c < obj; // sous l'objectif -> rouge sur fond rouge
+                        return (
+                          <td
+                            key={po.id}
+                            className={s.bilanTd}
+                            data-manque={manque ? "1" : "0"}
+                            title={`${c} / objectif ${obj}${manque ? ` — manque ${obj - c}` : ""}`}
+                          >
+                            {c}
+                          </td>
+                        );
+                      })}
                     </tr>
                   </Fragment>
                 ))}
@@ -275,59 +303,65 @@ export default function MatrixGrid({
         </table>
       </div>
 
-      {/* Tableau 2 : personnes (defile, hauteur limitee) */}
-      <div className="card" style={{ marginTop: 8, overflowX: "hidden", overflowY: "auto", scrollbarGutter: "stable", maxHeight: "calc(100vh - 250px)", padding: "0 10px" }}>
-        <table className="matrix" style={tStyle}>
-          <Cols />
+      {/* Tableau 2 : personnes (defile, occupe la hauteur restante) */}
+      <div className={`card ${s.rowsCard}`}>
+        <table className={`matrix ${s.table}`}>
+          {cols}
           <tbody>
             {shown.map((pers) => (
               <tr key={pers.id}>
-                <td style={{ background: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <td className={s.nameCell}>
                   {pers.label}
                   {!pers.editable && <span className="muted"> (lecture)</span>}
                 </td>
-                {groups.flatMap((g) =>
-                  g.postes.map((po, i) => {
-                    const k = key(pers.id, po.id);
-                    const cell = get(k);
-                    const active = mode === "actuel" ? cell.a : cell.c;
-                    const other = mode === "actuel" ? cell.c : cell.a;
-                    const tdStyle = { textAlign: "center" as const, padding: 3 };
-                    if (!pers.editable) {
-                      return (
-                        <td key={po.id} style={tdStyle}>
-                          <div style={{ display: "inline-block", opacity: 0.85 }}><LevelMark level={active} /></div>
-                        </td>
-                      );
-                    }
+                {allPostes.map((po) => {
+                  const k = key(pers.id, po.id);
+                  const cell = get(k);
+                  const active = mode === "actuel" ? cell.a : cell.c;
+                  const other = mode === "actuel" ? cell.c : cell.a;
+                  if (!pers.editable) {
                     return (
-                      <td key={po.id} style={tdStyle}>
-                        <button
-                          type="button"
-                          onClick={() => bump(pers.id, po.id, +1)}
-                          onContextMenu={(e) => { e.preventDefault(); bump(pers.id, po.id, -1); }}
-                          title={`${pers.label} - ${po.nom}\nActuel ${lvlTxt(cell.a)} / Cible ${lvlTxt(cell.c)}\nClic +1, clic droit -1 (❌ = restriction)`}
-                          style={{ margin: 0, width: 34, height: 34, padding: 0, background: "transparent", border: "none", cursor: "pointer", position: "relative" }}
-                        >
+                      <td key={po.id} className={s.cellTd}>
+                        <div className={s.cellReadonly}>
                           <LevelMark level={active} />
-                          {other === RESTRICT ? (
-                            <span style={{ position: "absolute", right: -1, bottom: -2, fontSize: 10, fontWeight: 800, color: "#dc2626" }}>✕</span>
-                          ) : other > 0 ? (
-                            <span style={{ position: "absolute", right: -1, bottom: -2, fontSize: 9, fontWeight: 600, color: "#6b7280" }}>{other}</span>
-                          ) : null}
-                        </button>
+                        </div>
                       </td>
                     );
-                  })
-                )}
+                  }
+                  return (
+                    <td key={po.id} className={s.cellTd}>
+                      <button
+                        type="button"
+                        onClick={() => bump(pers.id, po.id, +1)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          bump(pers.id, po.id, -1);
+                        }}
+                        title={`${pers.label} - ${po.nom}\nActuel ${lvlTxt(cell.a)} / Cible ${lvlTxt(cell.c)}\nClic +1, clic droit -1 (❌ = restriction)`}
+                        className={s.cellBtn}
+                      >
+                        <LevelMark level={active} />
+                        {other === RESTRICT ? (
+                          <span className={`${s.otherMark} ${s.restrict}`}>✕</span>
+                        ) : other > 0 ? (
+                          <span className={s.otherMark}>{other}</span>
+                        ) : null}
+                      </button>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
             {shown.length === 0 && (
-              <tr><td colSpan={allPostes.length + 1} className="muted">{personnes.length === 0 ? "Aucune personne active." : "Aucun résultat pour cette recherche."}</td></tr>
+              <tr>
+                <td colSpan={allPostes.length + 1} className="muted">
+                  {personnes.length === 0 ? "Aucune personne active." : "Aucun résultat pour cette recherche."}
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
-    </>
+    </div>
   );
 }

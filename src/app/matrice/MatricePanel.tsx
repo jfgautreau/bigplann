@@ -4,6 +4,7 @@ import { useState } from "react";
 import MatriceFilters from "./MatriceFilters";
 import MatrixGrid from "./MatrixGrid";
 import LegendeModal from "./LegendeModal";
+import s from "./matrice.module.css";
 
 type Poste = { id: string; nom: string; objectifActuel?: number; objectifCible?: number };
 type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
@@ -38,6 +39,7 @@ export default function MatricePanel({
   return (
     <>
       {/* Gauche : filtres · Droite : bascule Actuel / Cible (slide) */}
+      <div className={s.headBand}>
       <div className="toolbar" style={{ alignItems: "center", gap: 16, flexWrap: "wrap", justifyContent: "space-between" }}>
         <MatriceFilters ateliers={ateliers} equipes={equipes} atelier={atelier} equipe={equipe} />
         <button
@@ -53,12 +55,15 @@ export default function MatricePanel({
           <span style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mode === "cible" ? "#fff" : "#64748b" }}>Cible</span>
         </button>
       </div>
+      </div>
 
-      {groups.length === 0 ? (
-        <p className="muted">Aucun poste actif (vérifiez le référentiel / le filtre atelier).</p>
-      ) : (
-        <MatrixGrid groups={groups} personnes={personnes} initial={initial} canEditObjectif={canEditObjectif} mode={mode} onShowLegende={() => setShowLegende(true)} />
-      )}
+      <div className={s.gridBand}>
+        {groups.length === 0 ? (
+          <p className="muted">Aucun poste actif (vérifiez le référentiel / le filtre atelier).</p>
+        ) : (
+          <MatrixGrid groups={groups} personnes={personnes} initial={initial} canEditObjectif={canEditObjectif} mode={mode} onShowLegende={() => setShowLegende(true)} />
+        )}
+      </div>
 
       {showLegende && <LegendeModal niveauLibelles={niveauLibelles} onClose={() => setShowLegende(false)} />}
     </>
