@@ -139,13 +139,14 @@
 }
 .cellBtn {
   margin: 0;
-  width: 34px;
-  height: 34px;
+  width: var(--cell);
+  height: var(--cell);
   padding: 0;
   background: transparent;
   border: none;
   cursor: pointer;
   position: relative;
+  vertical-align: middle;
 }
 .otherMark {
   position: absolute;

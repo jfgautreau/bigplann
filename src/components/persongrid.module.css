@@ -21,6 +21,11 @@
   --col-hover: #f6f8fb;
   /* Largeur minimale d'une colonne avant apparition du scroll horizontal. */
   --col-min: 36px;
+  /* Hauteur d'une ligne et de sa case cliquable : tout se regle ici.
+     `--row-h` fixe la hauteur reelle de la ligne, `--cell` la cible du clic.
+     La pastille elle-meme reste dessinee a 28 px. */
+  --row-h: 38px;
+  --cell: 30px;
   /* Decalages verticaux des rangees d'en-tete collantes. */
   --sub-top: 22px;
   --col-top: 25px;
@@ -217,15 +222,15 @@
    cliquable de la matrice (inline-block, donc alignee sur la ligne de base)
    gagne 3 px de descendante que la case inerte des habilitations n'a pas. */
 .cellTd {
-  height: 44px;
+  height: var(--row-h);
   text-align: center;
-  padding: 3px;
+  padding: 2px;
 }
-/* Boite de 34 px, taille de la case cliquable de la matrice. */
+/* Boite de la case : cible du clic dans la matrice, simple cadre ailleurs. */
 .cellMark {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  width: var(--cell);
+  height: var(--cell);
   align-items: center;
   justify-content: center;
   vertical-align: middle;
