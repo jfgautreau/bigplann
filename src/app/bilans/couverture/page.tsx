@@ -5,6 +5,7 @@ import PrintButton from "@/components/PrintButton";
 import OrdoMonthNav from "@/app/ordonnancement/OrdoMonthNav";
 import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import { requireModule } from "@/lib/permissions";
+import { fetchAll } from "@/lib/fetch-all";
 import { parseMois, monthDays, monthLabel } from "@/lib/week";
 
 type LigneRow = { id: string; atelier_id: string | null; poste: { id: string; actif: boolean; effectif_requis: number; niveau_min_requis: number }[] };
@@ -23,7 +24,7 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
   const isos = days.map((d) => d.iso);
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, { data: ovD }, { data: pqOffD }, { data: plD }, { data: matD }, { data: persD }, { data: atD }] =
+  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, { data: ovD }, { data: pqOffD }, { data: plD }, matD, { data: persD }, { data: atD }] =
     await Promise.all([
       supabase.from("ligne").select("id, atelier_id, poste(id, actif, effectif_requis, niveau_min_requis)").eq("actif", true).returns<LigneRow[]>(),
       supabase.from("quart").select("code, libelle").order("ordre").returns<{ code: string; libelle: string }[]>(),
@@ -31,7 +32,9 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
       supabase.from("ouverture_quart").select("jour, ligne_id, quart_code, ouverte").in("jour", isos).returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
       supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
       supabase.from("placement").select("personne_id, jour, poste_id, quart_code, motif_absence_id").in("jour", isos).returns<Placement[]>(),
-      supabase.from("matrice").select("personne_id, poste_id, niveau_actuel").returns<{ personne_id: string; poste_id: string; niveau_actuel: number }[]>(),
+      fetchAll<{ personne_id: string; poste_id: string; niveau_actuel: number }>(() =>
+        supabase.from("matrice").select("personne_id, poste_id, niveau_actuel").order("id").returns<{ personne_id: string; poste_id: string; niveau_actuel: number }[]>()
+      ),
       supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").returns<Named[]>(),
       supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<{ id: string; nom: string }[]>(),
     ]);
@@ -129,7 +132,7 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
   const posteIds = new Set<string>();
   for (const l of lignes) for (const p of l.poste ?? []) if (p.actif) { niveauMin.set(p.id, p.niveau_min_requis); posteIds.add(p.id); }
   const matNiveau = new Map<string, number>();
-  for (const r of matD ?? []) matNiveau.set(`${r.personne_id}:${r.poste_id}`, r.niveau_actuel);
+  for (const r of matD) matNiveau.set(`${r.personne_id}:${r.poste_id}`, r.niveau_actuel);
   const persNom = (id: string) => {
     const p = (persD ?? []).find((x) => x.id === id);
     return p ? `${p.nom} ${p.prenom}` : "?";

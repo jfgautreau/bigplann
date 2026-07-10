@@ -46,3 +46,13 @@ colonnes dérivées figées à l'écriture.
 ## L7 — Le build échoue sur le code mort
 `next build` fait échouer les imports et variables inutilisés. En supprimant une section
 d'écran, penser à retirer imports, types, requêtes et props devenus orphelins.
+
+## L8 — PostgREST tronque silencieusement à 1000 lignes
+Une modification de la matrice partait bien en base mais ne se réaffichait jamais : la
+lecture de `matrice` (1276 lignes) renvoyait `data` de longueur 1000 et `error` à `null`.
+Le réglage `db-max-rows` de Supabase plafonne **chaque** réponse, sans le signaler. Toutes
+les lectures non paginées de `matrice` et `personne_competence` étaient donc fausses —
+matrice, planning, habilitations et les cinq bilans.
+**Règle** : dès qu'une table peut dépasser 1000 lignes, passer par `fetchAll()`
+(`src/lib/fetch-all.ts`), qui pagine par tranches de 1000. La fabrique de requête doit
+poser un `.order(...)` déterministe, sinon deux tranches peuvent se recouvrir.

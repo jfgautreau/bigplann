@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
+import { fetchAll } from "@/lib/fetch-all";
 import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite } from "@/lib/permissions";
 import { saveHabilitation } from "./actions";
@@ -26,7 +27,7 @@ export default async function HabilitationsPage() {
   const canEdit = canWrite(perms, "habilitations");
 
   const supabase = await getServerClient();
-  const [{ data: compsD }, { data: persD }, { data: pcD }] = await Promise.all([
+  const [{ data: compsD }, { data: persD }, pcD] = await Promise.all([
     supabase
       .from("competence")
       .select("id, nom, duree_validite_mois, categorie, groupe, ordre, a_autorisation_conduite")
@@ -36,15 +37,18 @@ export default async function HabilitationsPage() {
       .order("nom")
       .returns<Comp[]>(),
     supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
-    supabase
-      .from("personne_competence")
-      .select("id, personne_id, competence_id, date_obtention, date_expiration, date_autorisation_conduite, personne:personne_id(nom, prenom), competence:competence_id(nom, a_recycler, a_autorisation_conduite)")
-      .returns<Row[]>(),
+    fetchAll<Row>(() =>
+      supabase
+        .from("personne_competence")
+        .select("id, personne_id, competence_id, date_obtention, date_expiration, date_autorisation_conduite, personne:personne_id(nom, prenom), competence:competence_id(nom, a_recycler, a_autorisation_conduite)")
+        .order("id")
+        .returns<Row[]>()
+    ),
   ]);
 
   const comps = compsD ?? [];
   const personnes = persD ?? [];
-  const rows = (pcD ?? [])
+  const rows = pcD
     .filter((r) => r.competence?.a_recycler)
     .sort((a, b) => (a.date_expiration ?? "9999").localeCompare(b.date_expiration ?? "9999"));
 

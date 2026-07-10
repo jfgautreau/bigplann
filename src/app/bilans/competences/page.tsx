@@ -2,6 +2,7 @@ import Link from "next/link";
 import AppHeader from "@/components/AppHeader";
 import PrintButton from "@/components/PrintButton";
 import { requireModule } from "@/lib/permissions";
+import { fetchAll } from "@/lib/fetch-all";
 import { getServerClient } from "@/lib/supabase-server";
 import { parseMois, monthDays, isoDate, isoWeekNumber } from "@/lib/week";
 import CompetenceNav from "./CompetenceNav";
@@ -35,7 +36,7 @@ export default async function CompetencesDispoPage({
   const todayIso = isoDate(new Date());
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, { data: matD }, { data: actifs }, { data: absD }, { data: quartsD }, { data: jqD }, { data: ovD }] =
+  const [{ data: lignesD }, matD, { data: actifs }, { data: absD }, { data: quartsD }, { data: jqD }, { data: ovD }] =
     await Promise.all([
       supabase
         .from("ligne")
@@ -43,7 +44,7 @@ export default async function CompetencesDispoPage({
         .eq("actif", true)
         .order("nom")
         .returns<Ligne[]>(),
-      supabase.from("matrice").select("poste_id, personne_id, niveau_actuel").gte("niveau_actuel", seuil).returns<Mat[]>(),
+      fetchAll<Mat>(() => supabase.from("matrice").select("poste_id, personne_id, niveau_actuel").gte("niveau_actuel", seuil).order("id").returns<Mat[]>()),
       supabase.from("personne").select("id").eq("statut", "ACTIF").returns<{ id: string }[]>(),
       supabase
         .from("placement")
@@ -87,7 +88,7 @@ export default async function CompetencesDispoPage({
     ["conducteur", new Set()],
     ["operateur", new Set()],
   ]);
-  for (const r of matD ?? []) {
+  for (const r of matD) {
     if (!actifSet.has(r.personne_id)) continue;
     const c = posteCat.get(r.poste_id);
     if (c) competentByCat.get(c)!.add(r.personne_id);

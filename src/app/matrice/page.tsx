@@ -4,6 +4,7 @@ import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite } from "@/lib/permissions";
 import { getAteliersC, getEquipesC, getNiveauxC } from "@/lib/refdata";
+import { fetchAll } from "@/lib/fetch-all";
 import MatricePanel from "./MatricePanel";
 import s from "./matrice.module.css";
 
@@ -106,13 +107,16 @@ export default async function MatricePage({
   // Niveaux existants (vague 2 : depend des postes affiches et des personnes)
   const initial: Record<string, { a: number; c: number }> = {};
   if (posteIds.length && personnes.length) {
-    const { data: m } = await supabase
-      .from("matrice")
-      .select("personne_id, poste_id, niveau_actuel, niveau_cible")
-      .in("personne_id", personnes.map((p) => p.id))
-      .in("poste_id", posteIds)
-      .returns<MatriceRow[]>();
-    for (const r of m ?? []) {
+    const m = await fetchAll<MatriceRow>(() =>
+      supabase
+        .from("matrice")
+        .select("personne_id, poste_id, niveau_actuel, niveau_cible")
+        .in("personne_id", personnes.map((p) => p.id))
+        .in("poste_id", posteIds)
+        .order("id")
+        .returns<MatriceRow[]>()
+    );
+    for (const r of m) {
       initial[`${r.personne_id}:${r.poste_id}`] = { a: r.niveau_actuel, c: r.niveau_cible };
     }
   }

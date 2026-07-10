@@ -4,6 +4,7 @@ import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
+import { fetchAll } from "@/lib/fetch-all";
 
 type Atelier = { id: string; nom: string };
 type Ligne = { id: string; nom: string; atelier_id: string };
@@ -61,12 +62,15 @@ export default async function BilanPage({
   // Matrice pour ces postes
   const matriceByPoste = new Map<string, MatriceRow[]>();
   if (postes.length && personneIds.size) {
-    const { data: m } = await supabase
-      .from("matrice")
-      .select("poste_id, personne_id, niveau_actuel, niveau_cible")
-      .in("poste_id", postes.map((p) => p.id))
-      .returns<MatriceRow[]>();
-    for (const r of m ?? []) {
+    const m = await fetchAll<MatriceRow>(() =>
+      supabase
+        .from("matrice")
+        .select("poste_id, personne_id, niveau_actuel, niveau_cible")
+        .in("poste_id", postes.map((p) => p.id))
+        .order("id")
+        .returns<MatriceRow[]>()
+    );
+    for (const r of m) {
       if (!personneIds.has(r.personne_id)) continue;
       const arr = matriceByPoste.get(r.poste_id) ?? [];
       arr.push(r);

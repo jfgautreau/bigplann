@@ -6,6 +6,7 @@ import Bars from "@/app/bilans/Bars";
 import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import { requireModule } from "@/lib/permissions";
 import { isoDate, addDays } from "@/lib/week";
+import { fetchAll } from "@/lib/fetch-all";
 
 type Named = { id: string; nom: string; prenom?: string };
 type LigneRow = { id: string; nom: string; atelier_id: string | null; poste: { id: string; nom: string; actif: boolean }[] };
@@ -25,12 +26,16 @@ export default async function PolyvalenceReport({ searchParams }: { searchParams
   const in60 = isoDate(addDays(new Date(), 60));
 
   const supabase = await getServerClient();
-  const [{ data: persD }, { data: lignesD }, { data: matD }, { data: compD }, { data: pcD }, { data: atD }] = await Promise.all([
+  const [{ data: persD }, { data: lignesD }, matD, { data: compD }, pcD, { data: atD }] = await Promise.all([
     supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").returns<Named[]>(),
     supabase.from("ligne").select("id, nom, atelier_id, poste(id, nom, actif)").eq("actif", true).order("nom").returns<LigneRow[]>(),
-    supabase.from("matrice").select("personne_id, poste_id, niveau_actuel, niveau_cible").returns<Mat[]>(),
+    fetchAll<Mat>(() =>
+      supabase.from("matrice").select("personne_id, poste_id, niveau_actuel, niveau_cible").order("id").returns<Mat[]>()
+    ),
     supabase.from("competence").select("id, nom, a_recycler").eq("actif", true).returns<Comp[]>(),
-    supabase.from("personne_competence").select("personne_id, competence_id, date_expiration").returns<PC[]>(),
+    fetchAll<PC>(() =>
+      supabase.from("personne_competence").select("personne_id, competence_id, date_expiration").order("id").returns<PC[]>()
+    ),
     supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<{ id: string; nom: string }[]>(),
   ]);
 
@@ -50,7 +55,7 @@ export default async function PolyvalenceReport({ searchParams }: { searchParams
   const scopedPosteIds = new Set(postes.map((p) => p.id));
 
   // Matrice cote personnes actives ET postes du perimetre.
-  const mat = (matD ?? []).filter((r) => activeIds.has(r.personne_id) && scopedPosteIds.has(r.poste_id));
+  const mat = matD.filter((r) => activeIds.has(r.personne_id) && scopedPosteIds.has(r.poste_id));
 
   // ---- 2.1 Postes fragiles ----
   const compByPoste = new Map<string, string[]>(); // poste -> noms competents (>= seuil)
@@ -91,7 +96,7 @@ export default async function PolyvalenceReport({ searchParams }: { searchParams
   // ---- 2.4 Habilitations a echeance ----
   const recyclables = new Set((compD ?? []).filter((c) => c.a_recycler).map((c) => c.id));
   const compNom = new Map((compD ?? []).map((c) => [c.id, c.nom]));
-  const echeances = (pcD ?? [])
+  const echeances = pcD
     .filter((r) => activeIds.has(r.personne_id) && recyclables.has(r.competence_id) && r.date_expiration && r.date_expiration <= in60)
     .map((r) => ({
       personne: persNom(r.personne_id),

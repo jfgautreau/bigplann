@@ -5,6 +5,7 @@ import PrintButton from "@/components/PrintButton";
 import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import OrdoMonthNav from "@/app/ordonnancement/OrdoMonthNav";
 import { requireModule } from "@/lib/permissions";
+import { fetchAll } from "@/lib/fetch-all";
 import { isoDate, isoWeekNumber, parseMois, monthDays, monthLabel } from "@/lib/week";
 
 type LigneRow = { id: string; nom: string; atelier_id: string | null; poste: { id: string; nom: string; actif: boolean; effectif_requis: number; categorie: string }[] };
@@ -34,7 +35,7 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   const lastIso = horizonIsos[horizonIsos.length - 1];
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, { data: ovD }, { data: pqOffD }, { data: persD }, { data: plD }, { data: matD }, { data: atD }] =
+  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, { data: ovD }, { data: pqOffD }, { data: persD }, { data: plD }, matD, { data: atD }] =
     await Promise.all([
       supabase.from("ligne").select("id, nom, atelier_id, poste(id, nom, actif, effectif_requis, categorie)").eq("actif", true).returns<LigneRow[]>(),
       supabase.from("quart").select("code").returns<{ code: string }[]>(),
@@ -43,7 +44,7 @@ export default async function AnticipationReport({ searchParams }: { searchParam
       supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
       supabase.from("personne").select("id, nom, prenom, type_contrat, date_fin").eq("statut", "ACTIF").returns<Personne[]>(),
       supabase.from("placement").select("personne_id, jour, motif_absence_id").in("jour", horizonIsos).returns<Placement[]>(),
-      supabase.from("matrice").select("personne_id, poste_id, niveau_actuel").gte("niveau_actuel", SEUIL).returns<Mat[]>(),
+      fetchAll<Mat>(() => supabase.from("matrice").select("personne_id, poste_id, niveau_actuel").gte("niveau_actuel", SEUIL).order("id").returns<Mat[]>()),
       supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<{ id: string; nom: string }[]>(),
     ]);
 
@@ -91,7 +92,7 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   // qu'elle peut tenir (un poste actif de la categorie suffit).
   const CAT_ORDER = ["manager", "conducteur", "operateur"] as const; // priorite hierarchique
   const compCats = new Map<string, Set<string>>();
-  for (const r of matD ?? []) {
+  for (const r of matD) {
     if (!activeIds.has(r.personne_id) || !scopedPosteIds.has(r.poste_id)) continue;
     const c = posteCat.get(r.poste_id);
     if (!c) continue;
@@ -181,11 +182,11 @@ export default async function AnticipationReport({ searchParams }: { searchParam
 
   // ---- 4.3 Impact des fins de contrat sur la polyvalence ----
   const compByPoste = new Map<string, Set<string>>();
-  for (const r of matD ?? []) if (activeIds.has(r.personne_id) && scopedPosteIds.has(r.poste_id)) (compByPoste.get(r.poste_id) ?? compByPoste.set(r.poste_id, new Set()).get(r.poste_id)!).add(r.personne_id);
+  for (const r of matD) if (activeIds.has(r.personne_id) && scopedPosteIds.has(r.poste_id)) (compByPoste.get(r.poste_id) ?? compByPoste.set(r.poste_id, new Set()).get(r.poste_id)!).add(r.personne_id);
   const posteNom = new Map<string, string>();
   for (const l of lignes) for (const p of l.poste ?? []) if (p.actif) posteNom.set(p.id, p.nom);
   const compByPers = new Map<string, string[]>();
-  for (const r of matD ?? []) if (activeIds.has(r.personne_id) && scopedPosteIds.has(r.poste_id)) (compByPers.get(r.personne_id) ?? compByPers.set(r.personne_id, []).get(r.personne_id)!).push(r.poste_id);
+  for (const r of matD) if (activeIds.has(r.personne_id) && scopedPosteIds.has(r.poste_id)) (compByPers.get(r.personne_id) ?? compByPers.set(r.personne_id, []).get(r.personne_id)!).push(r.poste_id);
 
   const fromIso = firstIso > todayIso ? firstIso : todayIso;
   const departs = active

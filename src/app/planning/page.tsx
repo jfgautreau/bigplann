@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
+import { fetchAll } from "@/lib/fetch-all";
 import AppHeader from "@/components/AppHeader";
 import PlanningNav from "@/components/PlanningNav";
 import WeekNav from "@/components/WeekNav";
@@ -268,18 +269,21 @@ export default async function PlanningPage({
   const matrice: Record<string, number> = {};
   const exceptions: Record<string, { debut: string; fin: string; motif: string }> = {};
   if (allIds.length && visIsos.length) {
-    const [{ data: pl }, { data: mat }, { data: exc }] = await Promise.all([
+    const [{ data: pl }, mat, { data: exc }] = await Promise.all([
       supabase
         .from("placement")
         .select("personne_id, jour, poste_id, motif_absence_id, non_travaille, quart_code")
         .in("jour", visIsos)
         .in("personne_id", allIds)
         .returns<Placement[]>(),
-      supabase
-        .from("matrice")
-        .select("personne_id, poste_id, niveau_actuel")
-        .in("personne_id", allIds)
-        .returns<MatRow[]>(),
+      fetchAll<MatRow>(() =>
+        supabase
+          .from("matrice")
+          .select("personne_id, poste_id, niveau_actuel")
+          .in("personne_id", allIds)
+          .order("id")
+          .returns<MatRow[]>()
+      ),
       supabase
         .from("horaire_exception")
         .select("personne_id, jour, debut, fin, motif")
@@ -294,7 +298,7 @@ export default async function PlanningPage({
       else if (r.poste_id && matchQuart(r.quart_code)) initial[k] = r.poste_id;
       else if (r.poste_id && displayedSet.has(r.personne_id)) otherByCell[k] = r.quart_code ?? (quartCodes[0] ?? "matin");
     }
-    for (const r of mat ?? []) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
+    for (const r of mat) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
     for (const r of exc ?? [])
       exceptions[`${r.personne_id}:${r.jour}`] = { debut: r.debut ?? "", fin: r.fin ?? "", motif: r.motif ?? "" };
   }

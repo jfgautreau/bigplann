@@ -4,6 +4,7 @@ import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
 import PrintButton from "@/components/PrintButton";
 import { requireModule } from "@/lib/permissions";
+import { fetchAll } from "@/lib/fetch-all";
 import { isoDate, addDays, monthDays, monthLabel } from "@/lib/week";
 
 type Personne = {
@@ -31,14 +32,14 @@ export default async function CockpitPage() {
   const monthIsos = monthDays(today.getFullYear(), today.getMonth()).map((d) => d.iso);
 
   const supabase = await getServerClient();
-  const [{ data: persD }, { data: lignesD }, { data: matD }, { data: plD }, { data: eqD }] =
+  const [{ data: persD }, { data: lignesD }, matD, { data: plD }, { data: eqD }] =
     await Promise.all([
       supabase
         .from("personne")
         .select("id, nom, prenom, statut, type_contrat, date_fin, equipe_id, sexe")
         .returns<Personne[]>(),
       supabase.from("ligne").select("id, nom, poste(id, nom, actif)").eq("actif", true).returns<LigneRow[]>(),
-      supabase.from("matrice").select("personne_id, poste_id").gte("niveau_actuel", 2).returns<Mat[]>(),
+      fetchAll<Mat>(() => supabase.from("matrice").select("personne_id, poste_id").gte("niveau_actuel", 2).order("id").returns<Mat[]>()),
       supabase
         .from("placement")
         .select("poste_id, motif_absence_id")
@@ -82,7 +83,7 @@ export default async function CockpitPage() {
     (l.poste ?? []).filter((p) => p.actif).map((p) => ({ id: p.id, nom: p.nom, ligne: l.nom }))
   );
   const compByPoste = new Map<string, Set<string>>();
-  for (const r of matD ?? []) {
+  for (const r of matD) {
     if (!activeIds.has(r.personne_id)) continue;
     (compByPoste.get(r.poste_id) ?? compByPoste.set(r.poste_id, new Set()).get(r.poste_id)!).add(r.personne_id);
   }
