@@ -80,8 +80,9 @@ export default async function OrdonnancementPage({
 
   return (
     <>
+      <div className="pagecol">
       <AppHeader role={profile.role} active="/ordonnancement" />
-      <div className="container" style={{ maxWidth: 1500 }}>
+        <div className="headband headband-top">
         <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <PageTitle module="ordonnancement">Ordonnancement</PageTitle>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -94,6 +95,7 @@ export default async function OrdonnancementPage({
           </div>
         </div>
         <OrdoMonthNav base="/ordonnancement" year={year} month0={month0} />
+        </div>
 
         <OrdoGrid
           days={days}

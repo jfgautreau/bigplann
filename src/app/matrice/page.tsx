@@ -6,7 +6,6 @@ import { requireModule, canWrite } from "@/lib/permissions";
 import { getAteliersC, getEquipesC, getNiveauxC } from "@/lib/refdata";
 import { fetchAll } from "@/lib/fetch-all";
 import MatricePanel from "./MatricePanel";
-import s from "./matrice.module.css";
 
 type PosteRow = {
   id: string;
@@ -130,11 +129,11 @@ export default async function MatricePage({
 
   return (
     <>
-      <div className={s.page}>
+      <div className="pagecol">
         <AppHeader role={profile.role} active="/matrice" />
 
         {/* Bandeau titre : reste aligne sur la colonne centree de 1500 px. */}
-        <div className={`${s.headBand} ${s.headBandTop}`}>
+        <div className="headband headband-top">
           <div className="toolbar">
             <PageTitle module="matrice">Matrice de polyvalence</PageTitle>
             <Link href="/matrice/bilan" className="navlink">

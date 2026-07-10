@@ -4,7 +4,6 @@ import { useState } from "react";
 import MatriceFilters from "./MatriceFilters";
 import MatrixGrid from "./MatrixGrid";
 import LegendeModal from "./LegendeModal";
-import s from "./matrice.module.css";
 
 type Poste = { id: string; nom: string; objectifActuel?: number; objectifCible?: number };
 type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
@@ -39,7 +38,7 @@ export default function MatricePanel({
   return (
     <>
       {/* Gauche : filtres · Droite : bascule Actuel / Cible (slide) */}
-      <div className={s.headBand}>
+      <div className="headband">
       <div className="toolbar" style={{ alignItems: "center", gap: 16, flexWrap: "wrap", justifyContent: "space-between" }}>
         <MatriceFilters ateliers={ateliers} equipes={equipes} atelier={atelier} equipe={equipe} />
         <button
@@ -57,7 +56,7 @@ export default function MatricePanel({
       </div>
       </div>
 
-      <div className={s.gridBand}>
+      <div className="gridband">
         {groups.length === 0 ? (
           <p className="muted">Aucun poste actif (vérifiez le référentiel / le filtre atelier).</p>
         ) : (

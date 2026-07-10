@@ -63,9 +63,11 @@ export default async function PersonnelPage() {
 
   return (
     <>
-      <AppHeader role={profile.role} active="/personnel" />
-      <div className="container" style={{ maxWidth: 1500 }}>
-        <PageTitle module="personnel">Personnel</PageTitle>
+      <div className="pagecol">
+        <AppHeader role={profile.role} active="/personnel" />
+        <div className="headband headband-top">
+          <PageTitle module="personnel">Personnel</PageTitle>
+        </div>
         <PersonnelEditor initial={rows} equipes={equipesData ?? []} ateliers={ateliersData ?? []} canEdit={canEdit} />
       </div>
     </>

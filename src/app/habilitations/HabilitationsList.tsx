@@ -100,9 +100,9 @@ export default function HabilitationsList({
   const seg = (v: "grille" | "liste") => ({ className: view === v ? "seg active" : "seg", onClick: () => setView(v), type: "button" as const });
 
   return (
-    <>
+    <div className="gridband">
       {/* Recherche multi-critères + bascule de vue + bouton MàJ */}
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 14, margin: "0 0 14px", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 14, margin: "0 0 14px", flexWrap: "wrap", flex: "0 0 auto" }}>
         <span style={{ position: "relative", display: "inline-block", width: 320, maxWidth: "90vw" }}>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Rechercher (nom, formation, groupe…)"
             style={{ width: "100%", padding: "7px 28px 7px 12px", borderRadius: 999, border: "1px solid var(--border)", fontSize: 13 }} />
@@ -123,7 +123,7 @@ export default function HabilitationsList({
       </div>
 
       {view === "grille" ? (
-        <div className="card" style={{ overflow: "auto", maxHeight: "calc(100vh - 300px)", padding: "6px 10px" }}>
+        <div className="card grow" style={{ overflow: "auto", padding: "6px 10px" }}>
           <table className="matrix" style={{ borderCollapse: "collapse", width: "auto" }}>
             <thead>
               <tr>
@@ -164,7 +164,7 @@ export default function HabilitationsList({
           </table>
         </div>
       ) : (
-        <div className="card section">
+        <div className="card section grow" style={{ overflow: "auto" }}>
           <table>
             <thead>
               <tr>
@@ -207,7 +207,7 @@ export default function HabilitationsList({
       )}
 
       {/* Légende */}
-      <p className="muted" style={{ marginTop: 10 }}>
+      <p className="muted" style={{ marginTop: 10, flex: "0 0 auto" }}>
         <span style={{ color: HAB_COLOR.vert }}>●</span> valable (&gt; 90 j ou sans date de validité) ·{" "}
         <span style={{ color: HAB_COLOR.orange }}>●</span> bientôt dépassée (30-90 j) ·{" "}
         <span style={{ color: HAB_COLOR.rouge }}>●</span> plus valide (&lt; 30 j ou expirée) ·{" "}
@@ -231,6 +231,6 @@ export default function HabilitationsList({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

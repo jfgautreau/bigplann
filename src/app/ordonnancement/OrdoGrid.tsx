@@ -8,7 +8,7 @@ type Quart = { code: string; libelle: string };
 type WeekBlock = { num: number; year: number; span: number };
 type Profil = { id: string; nom: string; par_defaut: boolean };
 
-const FIRST_W = 150;
+const FIRST_W = 240; // assez large pour « Support · Sécurité / Environnement » (34 car.)
 const DAY_W = 34;
 
 export default function OrdoGrid({
@@ -187,7 +187,7 @@ export default function OrdoGrid({
   );
 
   return (
-    <>
+    <div className="gridband scroll">
       <div className="card section" style={{ overflowX: "auto" }}>
         <h2 style={{ marginTop: 0 }}>
           Quarts actifs par jour {saving && <span className="muted" style={{ fontSize: 12 }}>· enregistrement…</span>}
@@ -197,7 +197,7 @@ export default function OrdoGrid({
           <tbody>
             {quarts.map((q) => (
               <tr key={q.code}>
-                <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: 600 }}>{q.libelle}</td>
+                <td style={{ whiteSpace: "nowrap", fontWeight: 600 }}>{q.libelle}</td>
                 {days.map((d) => {
                   const on = quartActif(q.code, d.iso);
                   const init = dayInitialized(d.iso);
@@ -229,7 +229,7 @@ export default function OrdoGrid({
               <tbody>
                 {qLignes.map((l) => (
                   <tr key={l.id}>
-                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.label}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>{l.label}</td>
                     {days.map((d) => {
                       const active = quartActif(q.code, d.iso);
                       const on = ligneOuverte(q.code, l.id, d.iso);
@@ -287,6 +287,6 @@ export default function OrdoGrid({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

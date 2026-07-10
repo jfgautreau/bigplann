@@ -379,11 +379,10 @@ export default async function PlanningPage({
 
   return (
     <>
+      <div className="pagecol">
       <AppHeader role={profile.role} active="/planning" />
-      <div
-        className="container"
-        style={{ maxWidth: 1500, margin: "0 auto", padding: "12px 24px", height: "calc(100vh - 46px)", display: "flex", flexDirection: "column", overflow: "hidden" }}
-      >
+        {/* Filtres : colonne centree de 1500 px. */}
+        <div className="headband" style={{ paddingTop: 12 }}>
         <div className="planning-top" style={{ justifyContent: "space-between", gap: 28, flexWrap: "wrap", alignItems: "stretch" }}>
           {/* Partie gauche : Annee / Mois / Semaine */}
           <PlanningNav base="/planning" semaine={centerIso} extra={extra} />
@@ -409,6 +408,10 @@ export default async function PlanningPage({
             </Link>
           </div>
         </div>
+        </div>
+
+        {/* La grille prend toute la largeur de la fenetre. */}
+        <div className="gridband" style={{ paddingBottom: 12 }}>
         <PlanningGrid
           key={`${equipe}|${atelier}|${quart}|${centerIso}`}
           days={days}
@@ -431,6 +434,7 @@ export default async function PlanningPage({
           exceptions={exceptions}
           weekNav={<WeekNav base="/planning" semaine={centerIso} extra={extra} />}
         />
+        </div>
       </div>
     </>
   );

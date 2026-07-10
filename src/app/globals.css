@@ -39,6 +39,61 @@ body {
   margin: 64px auto;
 }
 
+/* ---------------------------------------------------------------------
+   Ecrans "grille" (Matrice, Personnel, Planning, Habilitations,
+   Ordonnancement) : le titre et les filtres restent dans une colonne
+   centree de 1500 px, la grille occupe toute la largeur de la fenetre.
+   La page tient dans la hauteur de la fenetre : seule la grille defile,
+   ce qui evite le double ascenseur et les hauteurs en `calc(100vh - N)`.
+   --------------------------------------------------------------------- */
+.pagecol {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+.headband {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.headband-top {
+  padding-top: 24px;
+}
+.gridband {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 16px;
+}
+/* Cartes d'une grille : la derniere prend la hauteur restante et defile. */
+.gridband > .card {
+  flex: 0 0 auto;
+}
+.gridband > .card.grow {
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+/* Variante : c'est la bande entiere qui defile (plusieurs cartes empilees,
+   comme l'Ordonnancement) plutot qu'une seule carte scrollable. */
+.gridband.scroll {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+@media print {
+  .pagecol {
+    display: block;
+    height: auto;
+  }
+  .gridband {
+    display: block;
+    padding: 0;
+  }
+}
+
 h1 {
   font-size: 20px;
   margin: 0 0 16px;

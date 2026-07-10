@@ -54,13 +54,15 @@ export default async function HabilitationsPage() {
 
   return (
     <>
+      <div className="pagecol">
       <AppHeader role={profile.role} active="/habilitations" />
-      <div className="container" style={{ maxWidth: 1500 }}>
+        <div className="headband headband-top">
         <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <PageTitle module="habilitations">Habilitations</PageTitle>
           {profile.role === "admin" && (
             <Link href="/admin/habilitations-param" className="navlink" title="Param. Habilitation — définir les formations" style={{ fontSize: 22, textDecoration: "none", lineHeight: 1 }}>📜</Link>
           )}
+        </div>
         </div>
         <HabilitationsList rows={rows} personnes={personnes} comps={comps}>
           {canEdit && (

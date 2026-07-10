@@ -268,8 +268,9 @@ export default function PersonnelEditor({
   const tableStyle: React.CSSProperties = { width: "100%", tableLayout: "fixed", margin: 0, borderCollapse: "collapse" };
 
   return (
-    <div>
-      {/* Barre de filtres : contrat aligné à droite */}
+    <>
+      {/* Barre de filtres : contrat aligné à droite (colonne centrée 1500 px) */}
+      <div className="headband">
       <div className="toolbar" style={{ alignItems: "center", justifyContent: "flex-end", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span className="muted" style={{ fontWeight: 600 }}>Contrat :</span>
@@ -283,9 +284,12 @@ export default function PersonnelEditor({
           </div>
         </div>
       </div>
+      </div>
 
+      {/* La grille occupe toute la largeur de la fenêtre. */}
+      <div className="gridband">
       {/* Recherche centrée (fixe) + nombre de personnes ancré à droite (n'affecte pas le centrage) */}
-      <div style={{ position: "relative", display: "flex", justifyContent: "center", alignItems: "center", marginBottom: 8, minHeight: 34 }}>
+      <div style={{ position: "relative", display: "flex", justifyContent: "center", alignItems: "center", marginBottom: 8, minHeight: 34, flex: "0 0 auto" }}>
         <span style={{ position: "relative", display: "inline-block", width: 360, maxWidth: "90vw" }}>
           <span aria-hidden style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", fontSize: 13, pointerEvents: "none" }}>🔍</span>
           <input
@@ -336,7 +340,7 @@ export default function PersonnelEditor({
       </div>
 
       {/* Tableau 2 (scrollable) : liste des personnes */}
-      <div className="card" style={{ marginTop: 8, padding: "0 10px", maxHeight: "calc(100vh - 300px)", overflowY: "auto", scrollbarGutter: "stable" }}>
+      <div className="card grow" style={{ marginTop: 8, padding: "0 10px", overflowY: "auto", scrollbarGutter: "stable" }}>
         <table className="pers-table" style={tableStyle}>
           <Cols />
           <tbody>
@@ -404,6 +408,7 @@ export default function PersonnelEditor({
             )}
           </tbody>
         </table>
+      </div>
       </div>
 
       {tpFor && (
@@ -604,6 +609,6 @@ export default function PersonnelEditor({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
