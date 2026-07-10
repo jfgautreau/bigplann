@@ -20,6 +20,10 @@ placement journalier, habilitations, affichage couloir, bilans).
 - `src/lib/permissions.ts` — matrice de droits par module (`MODULES`, `defaultsFor`,
   `getPermissions`, `canRead`/`canWrite`, `canWriteModule`, `requireModule`).
 - `src/lib/refdata.ts` — cache des données de référence (`unstable_cache`, 30 s).
+- `src/lib/fetch-all.ts` — `fetchAll()`. PostgREST plafonne **chaque réponse à 1000 lignes**
+  (`db-max-rows`) sans lever d'erreur. Toute lecture d'une table qui peut dépasser ce
+  seuil (`matrice`, `personne_competence`, `placement`, `ouverture_quart`) doit passer
+  par cet utilitaire, avec un `.order()` déterministe.
 - `src/proxy.ts` — protège les routes (redirige vers /login). Public : `/login`, `/forgot`,
   `/reset`, `/auth/*`, `/affichage/*`.
 - `src/components/AppHeader.tsx` — navigation par rôle + cloche d'alerte habilitations.

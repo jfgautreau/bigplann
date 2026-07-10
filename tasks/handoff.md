@@ -5,6 +5,10 @@
 > détail : à consulter quand on touche précisément un des sujets ci-dessous.
 >
 > État au 2026-07-10 · migrations appliquées jusqu'à **0029**.
+>
+> Dernier chantier : ossature de page partagée (`.pagecol` / `.headband` / `.gridband`),
+> grille « personnes × colonnes » mutualisée entre Matrice et Habilitations, et pagination
+> des lectures Supabase (`fetchAll`).
 
 ## Migrations récentes (rappel)
 `0020` personne.atelier_id · `0021` Lot C (quart `journee`, `equipe.quart_fixe`,
@@ -39,19 +43,40 @@ Modale `TempsPartielModal`, API `/api/personnel` op `tp`.
 - Largeur de la colonne noms = `nb caractères × 7,2 px` (plafond 300).
 
 ## Matrice de polyvalence
-- Bilan **plié par défaut** (bouton « + Bilan / − Bilan »).
-- Bascule **Actuel / Cible** = interrupteur qui slide, aligné à droite dans la barre de
-  filtres (bleu = actuel, vert = cible). Légende à droite, sur la ligne de recherche.
+- Bilan **plié par défaut** (bouton « + Bilan / − Bilan »). Ses 9 lignes sont alimentées
+  par **une seule passe** `useMemo` sur personnes × postes, pas par un balayage par cellule.
+- Bascule **Actuel / Cible** = interrupteur qui slide, aligné à droite dans le bandeau de
+  filtres (bleu = actuel, vert = cible). Recherche **centrée**, légende à droite.
 - Noms de poste en en-tête : verticaux, **sur une seule ligne** (`white-space: nowrap`).
+  Ils répètent le nom de leur ligne (« Conducteur Thermo 1 » sous « Thermo 1 »), ce qui
+  impose une bande d'en-tête de 170 px. Retirer ce suffixe à l'affichage a été **écarté**
+  par l'utilisateur (2026-07-10) : la règle naïve « se termine par le nom de la ligne » ne
+  couvre que 38 des 82 postes et produirait un rendu incohérent.
 - Saisie : clic = +1, clic droit = −1, cycle `0→1→2→3→4→❌ (restriction)→0`.
+  ⚠️ Non découvrable et impossible au tactile (pas de clic droit) ; la cible du clic fait
+  28 px, sous le seuil de confort tactile. Un popover de choix reste à faire si besoin.
+- La grille elle-même vient du module partagé (cf. `CLAUDE.md`), pas de code local.
 
 ## Habilitations
-- Grille personne × formation (pastilles) ou vue liste. Recherche **multi-critères** :
-  si la saisie matche des personnes on filtre les lignes, si elle matche des formations
-  on filtre les colonnes.
+- **Même grille que la matrice**, au composant près (`persongrid.module.css`,
+  `usePersonGrid`). Deux pages distinctes parce que les droits d'écriture diffèrent :
+  `chef_equipe` écrit dans la matrice, pas dans les habilitations.
+- Vue **Grille** (pastilles) ou **Liste**, bascule dans le bandeau du titre avec le bouton
+  « MàJ », là où la matrice a sa bascule Actuel/Cible.
+- Pastille de 28 px comme la matrice. « Non habilité » = **cercle vide**, exactement comme
+  le niveau 0 : un cercle vide veut dire « rien » dans les deux écrans.
+- Accent des en-têtes **neutre** (gris) : sur la matrice la couleur encode le mode
+  Actuel/Cible ; ici il n'y a pas de mode, et l'ambre de la tuile de nav se confondrait
+  avec la pastille orange « bientôt dépassée ».
+- Les en-têtes de formation ne sont **plus rognés** (ils l'étaient à 112 px). La plus
+  longue (« Gestion de crise - Retrait / Rappel », 35 car.) porte la bande d'en-tête à
+  243 px, contre 170 px sur la matrice.
+- Légende = modale `HabLegendeModal` ouverte depuis la ligne de recherche.
+- Recherche **multi-critères** : si la saisie matche des personnes on filtre les lignes,
+  si elle matche des formations on filtre les colonnes.
 - La mise à jour se fait dans une **modale** ouverte par le bouton « MàJ ».
 - Formation sans durée de validité → échéance affichée « **-** ».
-- Paramétrage dans `/admin/habilitations-param` (📜), trié par **ordre d'affichage**.
+- Paramétrage dans `/admin/habilitations-param`, atteint par un lien texte dans le bandeau.
 
 ## Navigation (AppHeader)
 - **Menu principal** (`MAIN_ORDER`) avec pastille colorée + icône (`NAV_TILE` + `NavIcon`) :
@@ -74,13 +99,25 @@ partagé. Styles `.kpi / .report-* / .navcard / .barrow` + `@media print` (expor
 (5) cache des données de référence (`lib/refdata.ts`, `unstable_cache` 30 s),
 (6) Personnel en **une vague** de requêtes, (7) `loading.tsx` sur planning/matrice/
 personnel/bilans.
-En réserve : **virtualisation** des grandes grilles (~300 → ~150 ms).
+(8) `fetchAll()` fait **deux** allers-retours au lieu d'un sur `matrice` : c'est le prix
+de l'exactitude (cf. `lessons.md` L8), négligeable devant le rendu.
+
+⚠️ **Plafond structurel** : `/matrice` sans filtre atelier construit ~22 000 cellules
+(268 × 82), HTML de 1,8 Mo, hydratation très lourde — dans un navigateur headless elle ne
+se termine pas. `/habilitations` est du même ordre (231 × 31 = 7 200 cases).
+La **virtualisation** des grandes grilles n'est plus une optimisation « en réserve » mais
+le prochain chantier nécessaire.
 
 Redéployer sans changement de code : `git commit --allow-empty`.
 
 ## Points ouverts / à recaler selon écran
-- Sticky/offsets : `--appbar: 40px`, matrice `top:25` pour les postes — à ajuster en cas
-  de chevauchement.
+- Sticky/offsets : `--appbar: 40px`. Les rangées d'en-tête collantes se règlent par
+  `--sub-top` / `--col-top` sur `.grid` (matrice : 25 px, habilitations : 22 et 44 px).
+- Cible de clic de la matrice à 28 px : à élargir à toute la cellule si la saisie passe
+  un jour sur tablette.
+- Enregistrement d'une cellule de matrice : l'état local est **optimiste** et l'indicateur
+  « Enregistré » s'affiche en haut du panneau, hors champ quand on édite en bas de liste.
+  Un retour à la cellule + rollback en cas d'échec reste à faire.
 - Règle d'alerte « > 18 mois » : depuis le début du contrat le plus ancien jusqu'à la fin
   (ou aujourd'hui), hors CDI.
 - Les enregistrements `personne_competence` créés avant le paramétrage d'une durée de

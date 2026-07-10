@@ -61,3 +61,22 @@ atteint déjà 764 lignes pour un seul mois.
 poser un `.order(...)` déterministe, sinon deux tranches peuvent se recouvrir. Attention
 à la clé de tri : `matrice`, `personne_competence` et `placement` ont un `id`, mais
 `ouverture_quart` et `jour_quart` n'en ont pas — il faut y trier sur la clé composite.
+
+## L9 — `scrollbar-gutter: stable` ampute la course sur un axe `overflow: hidden`
+Le panneau d'en-têtes de la matrice suit le `scrollLeft` de la liste. Il s'arrêtait
+**15 px trop tôt** en fin de course, décalant les noms de poste d'une demi-colonne.
+Chrome retranche la gouttière réservée de la zone défilable quand l'axe est en
+`overflow: hidden` : `scrollWidth - clientWidth` annonce 331 px, mais `scrollLeft`
+plafonne à 316.
+**Règle** : sur un panneau dont un axe est masqué et l'autre asservi, utiliser
+`overflow-y: scroll` (une vraie piste vide réserve la même largeur) plutôt que
+`overflow-y: auto` + `scrollbar-gutter: stable`.
+
+## L10 — La hauteur de ligne d'un tableau dépend de la ligne de base
+À contenu identique (une pastille de 28 px), la matrice affichait des lignes de 44 px et
+les habilitations de 41 px : la case de la matrice est un `<button>` (`inline-block`, donc
+aligné sur la ligne de base, ce qui ajoute la place de la descendante), celle des
+habilitations un `<span>` inerte.
+**Règle** : pour deux grilles jumelles, fixer explicitement `height` sur la cellule et
+`vertical-align: middle` sur son contenu, plutôt que de laisser la typographie décider.
+Aujourd'hui : `--row-h: 32px`, `--cell: 28px` dans `persongrid.module.css`.

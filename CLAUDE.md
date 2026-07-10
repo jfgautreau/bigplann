@@ -29,6 +29,13 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0029`.**
 5. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
+6. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
+   (`src/lib/fetch-all.ts`). PostgREST plafonne chaque réponse à 1000 lignes **sans
+   erreur** : `data` en contient 1000, `error` vaut `null`, la page affiche des données
+   incomplètes. Concernées : `matrice` (1600+), `personne_competence` (1400+),
+   `placement` et `ouverture_quart` (croissantes). La fabrique de requête doit poser un
+   `.order()` déterministe ; `ouverture_quart` et `jour_quart` n'ont pas d'`id` → trier
+   sur la clé composite. Cf. `tasks/lessons.md` L8.
 
 ## Sécurité / permissions — les 2 couches à ne pas confondre
 - **Couche A — matrice de modules** : table `role_permission` surchargeant `defaultsFor()`
@@ -63,7 +70,35 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
   Le planning calcule `tpBlocked` / `tpRedirect` **côté serveur** selon le quart.
 - **Horaires affichés** (TV), par priorité : exception ponctuelle > temps partiel > standard.
 
-## Patterns UI maison (réutilise-les, n'invente pas)
+## Ossature des écrans « grille » (globals.css)
+Matrice, Personnel, Planning, Habilitations, Ordonnancement partagent trois classes :
+- `.pagecol` — page à la hauteur de la fenêtre (`100dvh`). **Aucun défilement de page** :
+  seule la grille défile. Remplace les hauteurs magiques `calc(100vh - N)`.
+- `.headband` (+ `.headband-top`) — titre et filtres dans la colonne centrée de 1500 px.
+- `.gridband` — la grille prend **toute la largeur** de la fenêtre. Variante
+  `.gridband.scroll` quand plusieurs cartes s'empilent (Ordonnancement).
+  Dernière carte scrollable : lui donner la classe `grow`.
+
+⚠️ **Les 6 pages de Bilans et `/matrice/bilan` restent à 1500 px** : ce sont des rapports
+imprimables (A4 paysage, KPI, barres) que la pleine largeur dégraderait.
+
+## Grille « personnes × colonnes » (partagée Matrice ↔ Habilitations)
+`src/components/persongrid.module.css` + `usePersonGrid()`. **Ne pas la dupliquer.**
+- Deux tableaux (en-têtes figés + liste scrollable), colonnes alignées par un `colgroup`
+  commun + `table-layout: fixed`.
+- Colonne des noms **figée** (`position: sticky; left: 0`).
+- Colonnes **élastiques** : `min-width: calc(var(--name-w) + var(--n-cols) * var(--col-min))`
+  (36 px mini) → scroll horizontal seulement quand la fenêtre est trop étroite.
+- **Survol en croix** : la colonne est peinte via le fond du `<col>` + une classe sur son
+  en-tête, écrits directement dans le DOM (aucun rendu React, gratuit sur 20 000 cellules).
+- Réglages en un seul endroit : `--row-h: 32px`, `--cell: 28px` (la pastille fait 28 px,
+  l'écart vertical 2 px), `--col-min: 36px`. `--accent*` teinte les en-têtes (la Matrice
+  les surcharge selon Actuel/Cible via `.matrice.matrice[data-mode]`).
+- ⚠️ Le panneau d'en-têtes est en `overflow-y: scroll` (pas `auto` + `scrollbar-gutter`) :
+  sur un axe `overflow: hidden`, Chrome retranche la gouttière de la zone défilable et le
+  `scrollLeft` asservi s'arrête 15 px trop tôt. Cf. `tasks/lessons.md` L9.
+
+## Autres patterns UI (réutilise-les, n'invente pas)
 - **Édition inline auto-enregistrée** : `useState` + `fetch` debouncé → route API,
   avec indicateur « Enregistré ✓ ». Cf. `PersonnelEditor`, `ReferentielEditor`, `MatrixGrid`.
 - ⚠️ **Un `<select>` contrôlé dans un composant client ne se sérialise pas de façon
@@ -71,30 +106,37 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
   poster explicitement en JSON vers une route API (cf. `/api/ordonnancement/rotation`).
 - ⚠️ **Jamais d'`<input type="color">`** : la boîte de dialogue OS fait planter le
   navigateur ici. Utiliser une palette de pastilles (`TeamColorPicker`).
-- **Listes en 2 tableaux** (Personnel, Planning, Matrice) : un tableau figé (en-têtes +
-  bilan rétractable) et un tableau scrollable. Colonnes alignées via `colgroup` commun +
-  `table-layout: fixed` + `scrollbar-gutter: stable`. **Pas de scroll horizontal.**
 - **Filtres** : `.filterrow` (label + segments), navigation en `useTransition`.
   Planning : ordre **Quart / Atelier / Équipe**.
 - **Modales** : overlay `position:fixed` + `.card` (`TempsPartielModal`, `LegendeModal`,
-  modale MàJ des habilitations).
+  `HabLegendeModal`, modale MàJ des habilitations).
+- **Ne pas rogner les libellés** : préférer une colonne plus large à un `text-overflow`.
 - `ToggleSwitch` partagé. **`prefetch={false}`** sur tout lien répété en liste.
 
 ## Performance (état : bon, ~300 ms à chaud — ne pas régresser)
 Acquis à préserver : région `cdg1` + Fluid Compute · options de `<select>` construites
 **à l'ouverture seulement** (planning) · `prefetch={false}` · cache des données de
-référence (`src/lib/refdata.ts`, `unstable_cache` 30 s) · `loading.tsx` sur les gros écrans.
-En réserve : virtualisation des grandes grilles.
+référence (`src/lib/refdata.ts`, `unstable_cache` 30 s) · `loading.tsx` sur les gros écrans ·
+compteurs du bilan matrice agrégés **en une passe** (`useMemo`, pas un balayage par cellule).
+
+⚠️ **Plafond connu** : `/matrice` sans filtre atelier construit **~22 000 cellules**
+(268 personnes × 82 postes), chacune un `<button>` + un `<svg>` ; le HTML dépasse 1,8 Mo
+et l'hydratation devient très lourde. Les habilitations sont dans le même ordre de grandeur
+(231 × 31). La **virtualisation** des grandes grilles est la seule sortie — c'est le
+prochain gros chantier, pas une optimisation cosmétique.
 
 ## Carte des fichiers
-- Socle : `src/lib/{permissions,roles,current-user,week,refdata,habilitations,supabase-server}.ts`, `src/proxy.ts`.
+- Socle : `src/lib/{permissions,roles,current-user,week,refdata,habilitations,supabase-server,fetch-all}.ts`, `src/proxy.ts`.
 - Nav : `src/components/{AppHeader,SettingsMenu,UserMenu,ToggleSwitch,NavIcons}.tsx`.
   Logo → `/` (page d'accueil : logo centré + titre « planning »).
+- Grille partagée : `src/components/{persongrid.module.css,usePersonGrid.ts}`.
 - Planning : `src/app/planning/{page,PlanningGrid,PlanningFilters,AtelierFilter,QuartSelector}.tsx`.
-- Matrice : `src/app/matrice/{page,MatricePanel,MatrixGrid,Pie,LegendeModal}.tsx`.
+- Matrice : `src/app/matrice/{page,MatricePanel,MatrixGrid,Pie,LegendeModal}.tsx` + `matrice.module.css`
+  (ce qui lui est propre : accent de mode, lignes de bilan, cellule éditable).
 - Personnel : `src/app/personnel/*` + `src/app/api/personnel/route.ts`.
 - Référentiel : `src/app/admin/referentiel/*` + `src/app/api/referentiel/route.ts`.
-- Habilitations : `src/app/habilitations/*` + `src/app/admin/habilitations-param/*`.
+- Habilitations : `src/app/habilitations/{page,HabilitationsList,HabMark,HabLegendeModal}.tsx`
+  + `src/app/admin/habilitations-param/*`.
 - Bilans : `src/app/bilans/*` (Cockpit + 4 catégories, impression PDF via `@media print`).
 - Affichage TV : `src/app/affichage/atelier/[atelier]/page.tsx` (public, refresh 60 s).
 - Migrations : `supabase/migrations/0001..0029`.

@@ -34,3 +34,6 @@ yarn-error.log*
 Thumbs.db
 .idea/
 .vscode/
+
+# claude code (reglages personnels ; launch.json est partage)
+.claude/settings.local.json
