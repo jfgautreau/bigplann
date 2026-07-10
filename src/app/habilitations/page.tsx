@@ -60,7 +60,9 @@ export default async function HabilitationsPage() {
         <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <PageTitle module="habilitations">Habilitations</PageTitle>
           {profile.role === "admin" && (
-            <Link href="/admin/habilitations-param" className="navlink" title="Param. Habilitation — définir les formations" style={{ fontSize: 22, textDecoration: "none", lineHeight: 1 }}>📜</Link>
+            <Link href="/admin/habilitations-param" className="navlink" title="Définir les formations et leurs durées de validité">
+              📜 Paramétrer les formations &rarr;
+            </Link>
           )}
         </div>
         </div>

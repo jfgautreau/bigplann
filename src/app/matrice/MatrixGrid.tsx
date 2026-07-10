@@ -2,6 +2,8 @@
 
 import { Fragment, useMemo, useRef, useState } from "react";
 import { LevelMark, FILL, RESTRICT } from "./Pie";
+import { usePersonGrid } from "@/components/usePersonGrid";
+import g from "@/components/persongrid.module.css";
 import s from "./matrice.module.css";
 
 // Cycle de saisie : 0 -> 1 -> 2 -> 3 -> 4 -> ❌ (restriction) -> 0.
@@ -38,24 +40,21 @@ export default function MatrixGrid({
   const [search, setSearch] = useState("");
   const [objActuel, setObjActuel] = useState<Record<string, number>>(() => {
     const o: Record<string, number> = {};
-    for (const g of groups) for (const p of g.postes) o[p.id] = p.objectifActuel ?? 0;
+    for (const gr of groups) for (const p of gr.postes) o[p.id] = p.objectifActuel ?? 0;
     return o;
   });
   const [objCible, setObjCible] = useState<Record<string, number>>(() => {
     const o: Record<string, number> = {};
-    for (const g of groups) for (const p of g.postes) o[p.id] = p.objectifCible ?? 0;
+    for (const gr of groups) for (const p of gr.postes) o[p.id] = p.objectifCible ?? 0;
     return o;
   });
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const objTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const headCardRef = useRef<HTMLDivElement>(null);
-  const headTableRef = useRef<HTMLTableElement>(null);
-  const rowsTableRef = useRef<HTMLTableElement>(null);
-  const hoverCol = useRef(-1);
+  const { headCardRef, headTableRef, rowsTableRef, rowsCardProps } = usePersonGrid(g.colHover, 2);
 
-  const allPostes = useMemo(() => groups.flatMap((g) => g.postes), [groups]);
+  const allPostes = useMemo(() => groups.flatMap((gr) => gr.postes), [groups]);
   // Filtre de recherche sur le nom (accents ignores). N'affecte que les lignes
   // affichees ; le bilan reste calcule sur l'ensemble.
   const shown = search.trim() ? personnes.filter((p) => norm(p.label).includes(norm(search))) : personnes;
@@ -143,31 +142,6 @@ export default function MatrixGrid({
   const saveLabel =
     saveState === "saving" ? "Enregistrement..." : saveState === "saved" ? "Enregistré" : saveState === "error" ? "Échec d'enregistrement" : "";
 
-  // Surlignage de la colonne survolee. Ecrit directement dans le DOM (fond du
-  // <col>, classe sur l'en-tete) : aucun rendu React, donc aucun cout sur une
-  // grille de plusieurs milliers de cellules.
-  function paintCol(index: number, on: boolean) {
-    for (const t of [headTableRef.current, rowsTableRef.current]) {
-      const col = t?.querySelector("colgroup")?.children[index] as HTMLElement | undefined;
-      if (col) col.style.background = on ? "var(--col-hover)" : "";
-    }
-    const th = headTableRef.current?.querySelectorAll("thead tr:nth-child(2) th")[index - 1];
-    th?.classList.toggle(s.colHover, on);
-  }
-
-  function hoverAt(index: number) {
-    if (hoverCol.current === index) return;
-    if (hoverCol.current > 0) paintCol(hoverCol.current, false);
-    hoverCol.current = index;
-    if (index > 0) paintCol(index, true);
-  }
-
-  // Le panneau d'en-tetes suit horizontalement la liste (seul ascenseur visible).
-  function syncScroll(e: React.UIEvent<HTMLDivElement>) {
-    const head = headCardRef.current;
-    if (head) head.scrollLeft = e.currentTarget.scrollLeft;
-  }
-
   // Colonne noms adaptative (px) partagee par les 2 tables -> colonnes alignees.
   const nameW = Math.min(320, Math.max(150, personnes.reduce((m, p) => Math.max(m, p.label.length), 0) * 7.2 + 30));
   // `colgroup` construit une fois : le meme element est reutilise par les deux
@@ -186,43 +160,43 @@ export default function MatrixGrid({
 
   return (
     <div
-      className={s.grid}
+      className={`${g.grid} ${s.matrice}`}
       data-mode={mode}
       style={{ "--name-w": `${nameW}px`, "--n-cols": allPostes.length } as React.CSSProperties}
     >
       {/* Recherche par nom (à gauche) + légende (à droite, même ligne) */}
-      <div className={s.searchRow}>
-        <span className={s.searchWrap}>
+      <div className={g.searchRow}>
+        <span className={g.searchWrap}>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="🔍 Rechercher un nom…"
-            className={s.searchInput}
+            className={g.searchInput}
           />
           {search && (
-            <button type="button" onClick={() => setSearch("")} title="Effacer" className={s.searchClear}>
+            <button type="button" onClick={() => setSearch("")} title="Effacer" className={g.searchClear}>
               ✕
             </button>
           )}
         </span>
         {onShowLegende && (
-          <button type="button" className={`btn-sm btn-ghost ${s.legendBtn}`} onClick={onShowLegende}>
+          <button type="button" className={`btn-sm btn-ghost ${g.legendBtn}`} onClick={onShowLegende}>
             📖 Légende
           </button>
         )}
       </div>
 
       {/* Tableau 1 : en-tetes + bilan retractable (fixe) */}
-      <div className={`card ${s.headCard}`} ref={headCardRef}>
-        <div className={s.saveState} data-state={saveState}>
+      <div className={`card ${g.headCard}`} ref={headCardRef}>
+        <div className={g.saveState} data-state={saveState}>
           {saveLabel}
         </div>
 
-        <table className={`matrix ${s.table}`} ref={headTableRef}>
+        <table className={`matrix ${g.table}`} ref={headTableRef}>
           {cols}
           <thead>
             <tr>
-              <th rowSpan={2} className={s.cornerHead}>
+              <th rowSpan={2} className={g.cornerHead}>
                 <button
                   type="button"
                   onClick={() => setShowBilan((b) => !b)}
@@ -232,18 +206,18 @@ export default function MatrixGrid({
                   {showBilan ? "− Bilan" : "+ Bilan"}
                 </button>
               </th>
-              {groups.map((g) => (
-                <th key={g.ligneId} colSpan={g.postes.length} className={s.groupHead} title={g.ligneNom}>
-                  <div className={s.groupLabel}>{g.ligneNom}</div>
+              {groups.map((gr) => (
+                <th key={gr.ligneId} colSpan={gr.postes.length} className={g.groupHead} title={gr.ligneNom}>
+                  <div className={g.groupLabel}>{gr.ligneNom}</div>
                 </th>
               ))}
             </tr>
             <tr>
-              {groups.flatMap((g) =>
-                g.postes.map((p, i) => (
-                  <th key={p.id} title={p.nom} className={i === 0 ? `${s.posteHead} ${s.groupStart}` : s.posteHead}>
+              {groups.flatMap((gr) =>
+                gr.postes.map((p, i) => (
+                  <th key={p.id} title={p.nom} className={i === 0 ? `${g.colHead} ${g.groupStart}` : g.colHead}>
                     {/* Nom de poste vertical, sur une seule ligne (table plus haute mais lisible). */}
-                    <div className={s.posteLabel}>{p.nom}</div>
+                    <div className={g.colLabel}>{p.nom}</div>
                   </th>
                 ))
               )}
@@ -337,18 +311,13 @@ export default function MatrixGrid({
       </div>
 
       {/* Tableau 2 : personnes (defile, occupe la hauteur restante) */}
-      <div
-        className={`card ${s.rowsCard}`}
-        onScroll={syncScroll}
-        onMouseOver={(e) => hoverAt((e.target as HTMLElement).closest("td")?.cellIndex ?? -1)}
-        onMouseLeave={() => hoverAt(-1)}
-      >
-        <table className={`matrix ${s.table} ${s.rowsTable}`} ref={rowsTableRef}>
+      <div className={`card ${g.rowsCard}`} {...rowsCardProps}>
+        <table className={`matrix ${g.table} ${g.rowsTable}`} ref={rowsTableRef}>
           {cols}
           <tbody>
             {shown.map((pers) => (
               <tr key={pers.id}>
-                <td className={s.nameCell}>
+                <td className={g.nameCell}>
                   {pers.label}
                   {!pers.editable && <span className="muted"> (lecture)</span>}
                 </td>
@@ -359,7 +328,7 @@ export default function MatrixGrid({
                   const other = mode === "actuel" ? cell.c : cell.a;
                   if (!pers.editable) {
                     return (
-                      <td key={po.id} className={s.cellTd}>
+                      <td key={po.id} className={g.cellTd}>
                         <div className={s.cellReadonly}>
                           <LevelMark level={active} />
                         </div>
@@ -367,7 +336,7 @@ export default function MatrixGrid({
                     );
                   }
                   return (
-                    <td key={po.id} className={s.cellTd}>
+                    <td key={po.id} className={g.cellTd}>
                       <button
                         type="button"
                         onClick={() => bump(pers.id, po.id, +1)}

@@ -1,143 +1,26 @@
 /* =====================================================================
-   Matrice de polyvalence — styles extraits des styles inline.
-   L'accent de mode (Actuel = bleu, Cible = vert) est porte par des
-   variables CSS posees une fois sur `.grid[data-mode]`, ce qui evite
-   de brancher sur `mode` dans chaque element du JSX.
+   Matrice de polyvalence — ce qui lui est propre.
+   L'ossature de la grille (deux tableaux, colonne des noms figee, colonnes
+   elastiques, survol en croix) vit dans `src/components/persongrid.module.css`
+   et est partagee avec les Habilitations. L'ossature de page (`.pagecol` /
+   `.headband` / `.gridband`) vit dans globals.css.
    ===================================================================== */
 
-/* L'ossature de page (`.pagecol` / `.headband` / `.gridband`) est partagee
-   avec les autres ecrans de grille : elle vit dans globals.css. */
-
-/* --- Grille ---------------------------------------------------------- */
-.grid {
+/* Accent de mode : Actuel = bleu, Cible = vert. Pose une seule fois sur le
+   conteneur, ce qui evite de brancher sur `mode` dans chaque element du JSX.
+   Le selecteur est double pour l'emporter sur les valeurs par defaut du
+   module partage, quel que soit l'ordre d'insertion des feuilles. */
+.matrice.matrice {
   --accent: #1d4ed8;
   --accent-bg: #dbeafe;
   --accent-soft: #1d4ed855;
-  /* Surlignage en croix : la colonne est peinte via le <col>, la ligne via
-     le fond des cellules (qui recouvre la colonne a l'intersection). */
-  --row-hover: #eef2f7;
-  --col-hover: #f6f8fb;
-  /* Largeur minimale d'une colonne de poste avant apparition du scroll. */
-  --col-min: 36px;
-
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
 }
-.grid[data-mode="cible"] {
+.matrice.matrice[data-mode="cible"] {
   --accent: #15803d;
   --accent-bg: #dcfce7;
   --accent-soft: #15803d55;
 }
 
-/* --- Ligne recherche + legende ---------------------------------------
-   Trois colonnes egales de part et d'autre : le champ reste centre sur la
-   grille, quelle que soit la largeur du bouton Legende. */
-.searchRow {
-  flex: 0 0 auto;
-  margin: 0 0 8px;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 14px;
-}
-.searchWrap {
-  grid-column: 2;
-  position: relative;
-  display: inline-block;
-  width: 340px;
-  max-width: 90vw;
-}
-.searchInput {
-  width: 100%;
-  padding: 7px 28px 7px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  font-size: 13px;
-}
-.searchClear {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: auto;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 13px;
-}
-.legendBtn {
-  grid-column: 3;
-  justify-self: end;
-  width: auto;
-}
-
-/* --- Les deux panneaux ------------------------------------------------ */
-/* Le panneau d'en-tetes ne se defile pas horizontalement de lui-meme : son
-   scrollLeft est asservi a celui de la liste, seule porteuse de l'ascenseur. */
-.grid .headCard {
-  flex: 0 0 auto;
-  position: relative;
-  padding: 6px 10px;
-  overflow-x: hidden;
-  /* `overflow-y: scroll` plutot que `auto` + `scrollbar-gutter: stable` :
-     sur l'axe masque, Chrome exclut la goutiere reservee de la zone
-     defilable, et le scrollLeft asservi s'arrete 15 px trop tot. Une vraie
-     barre (piste vide) reserve la meme largeur sans amputer la course. */
-  overflow-y: scroll;
-}
-.grid .rowsCard {
-  flex: 1 1 auto;
-  min-height: 120px;
-  margin-top: 8px;
-  padding: 0 10px;
-  overflow-x: auto;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-}
-
-/* Colonnes elastiques : elles se partagent la largeur disponible, et ne
-   descendent jamais sous --col-min (au-dela, la liste defile). */
-.table {
-  border-collapse: collapse;
-  width: 100%;
-  min-width: calc(var(--name-w) + var(--n-cols) * var(--col-min));
-  table-layout: fixed;
-}
-
-/* Indicateur d'enregistrement (coin haut droit du panneau d'en-tetes). */
-.saveState {
-  position: absolute;
-  top: 6px;
-  right: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  min-height: 16px;
-  z-index: 30;
-  color: var(--muted);
-}
-.saveState[data-state="saved"] {
-  color: var(--ok);
-}
-.saveState[data-state="error"] {
-  color: var(--danger);
-}
-
-/* --- En-tetes --------------------------------------------------------- */
-.cornerHead {
-  position: sticky;
-  left: 0;
-  top: 0;
-  z-index: 26;
-  background: #fff;
-  text-align: left;
-  vertical-align: top;
-  box-shadow: 1px 0 0 var(--border);
-}
 .bilanToggle {
   width: auto;
   margin: 0;
@@ -150,46 +33,6 @@
   background: #fff;
   color: var(--primary);
   cursor: pointer;
-}
-
-.groupHead {
-  position: sticky;
-  top: 0;
-  z-index: 22;
-  text-align: center;
-  border-left: 2px solid #d9dce1;
-  background: #f8fafc;
-}
-/* Un `th` ignore `overflow` : on borne le texte dans un bloc interne pour
-   qu'un nom trop long soit rogne proprement au lieu de deborder sur la
-   colonne voisine. */
-.groupLabel {
-  overflow: hidden;
-}
-
-.posteHead {
-  position: sticky;
-  top: 25px;
-  z-index: 21;
-  font-weight: 500;
-  padding: 4px 0;
-  height: 96px;
-  vertical-align: bottom;
-  background: var(--accent-bg);
-  border-left: 1px solid var(--accent-soft);
-}
-/* Premier poste d'une ligne : separateur plus marque. */
-.posteHead.groupStart {
-  border-left: 2px solid var(--accent);
-}
-.posteLabel {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  white-space: nowrap;
-  margin: 0 auto;
-  font-size: 12px;
-  line-height: 1.15;
-  color: var(--accent);
 }
 
 /* --- Bilan ------------------------------------------------------------ */
@@ -289,33 +132,7 @@
   background: #fee2e2;
 }
 
-/* Colonne survolee : le fond est porte par le <col> (peint sous les cellules
-   transparentes) ; l'en-tete du poste, lui, a son propre fond a assombrir. */
-.posteHead.colHover {
-  box-shadow: inset 0 0 0 999px rgba(15, 23, 42, 0.06);
-}
-
-/* --- Lignes de personnes ---------------------------------------------- */
-/* Colonne des noms figee : elle reste visible quand la grille defile. */
-.nameCell {
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  background: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  box-shadow: 1px 0 0 var(--border);
-}
-
-/* Ligne survolee : le fond des cellules recouvre celui de la colonne. */
-.rowsTable tbody tr:hover td {
-  background-color: var(--row-hover);
-}
-.cellTd {
-  text-align: center;
-  padding: 3px;
-}
+/* --- Cellule editable -------------------------------------------------- */
 .cellReadonly {
   display: inline-block;
   opacity: 0.85;

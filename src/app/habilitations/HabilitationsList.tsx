@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { joursRestants, habStatut, addMonthsIso, HAB_COLOR } from "@/lib/habilitations";
+import { useMemo, useState } from "react";
+import { joursRestants, habStatut, addMonthsIso, HAB_COLOR, type HabStatut } from "@/lib/habilitations";
+import { usePersonGrid } from "@/components/usePersonGrid";
+import g from "@/components/persongrid.module.css";
+import HabMark from "./HabMark";
+import HabLegendeModal from "./HabLegendeModal";
 
 type Row = {
   id: string;
@@ -39,20 +43,29 @@ export default function HabilitationsList({
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"grille" | "liste">("grille"); // grille par défaut
   const [showMaj, setShowMaj] = useState(false);
+  const [showLegende, setShowLegende] = useState(false);
+  const { headCardRef, headTableRef, rowsTableRef, rowsCardProps } = usePersonGrid(g.colHover, 3);
 
-  const compById = new Map(comps.map((c) => [c.id, c]));
+  const compById = useMemo(() => new Map(comps.map((c) => [c.id, c])), [comps]);
   const q = search.trim();
   // Recherche multi-critères : nom de personne, mais aussi formation / groupe / catégorie.
   const personMatch = (p: { nom: string; prenom: string }) => norm(`${p.nom} ${p.prenom}`).includes(norm(q));
   const compMatch = (c: Comp) => norm(`${c.nom} ${c.groupe ?? ""} ${CAT_LABEL[catOf(c.categorie)]}`).includes(norm(q));
 
   // Enregistrement par (personne, formation).
-  const recMap = new Map<string, Row>();
-  for (const r of rows) recMap.set(`${r.personne_id}:${r.competence_id}`, r);
+  const recMap = useMemo(() => {
+    const m = new Map<string, Row>();
+    for (const r of rows) m.set(`${r.personne_id}:${r.competence_id}`, r);
+    return m;
+  }, [rows]);
 
   // Colonnes ordonnées.
-  const ordered = [...comps].sort(
-    (a, b) => CAT_ORDER.indexOf(catOf(a.categorie)) - CAT_ORDER.indexOf(catOf(b.categorie)) || a.ordre - b.ordre || a.nom.localeCompare(b.nom)
+  const ordered = useMemo(
+    () =>
+      [...comps].sort(
+        (a, b) => CAT_ORDER.indexOf(catOf(a.categorie)) - CAT_ORDER.indexOf(catOf(b.categorie)) || a.ordre - b.ordre || a.nom.localeCompare(b.nom)
+      ),
+    [comps]
   );
 
   // Filtrage : si la recherche touche des personnes on filtre les lignes ; si elle
@@ -71,148 +84,223 @@ export default function HabilitationsList({
         return p || (c ? compMatch(c) : r.competence ? norm(r.competence.nom).includes(norm(q)) : false);
       });
 
+  // Bandeaux d'en-tete : categories puis groupes. `debutGroupe` marque la premiere
+  // colonne de chaque groupe (separateur plus marque, comme la matrice).
   const catSpans: { key: string; label: string; span: number }[] = [];
   const grpSpans: { key: string; label: string; span: number }[] = [];
+  const debutGroupe = new Set<string>();
   for (const c of shownOrdered) {
     const ck = catOf(c.categorie);
     if (!catSpans.length || catSpans[catSpans.length - 1].key !== ck) catSpans.push({ key: ck, label: CAT_LABEL[ck], span: 1 });
     else catSpans[catSpans.length - 1].span++;
     const gk = `${ck}|${c.groupe ?? "—"}`;
-    if (!grpSpans.length || grpSpans[grpSpans.length - 1].key !== gk) grpSpans.push({ key: gk, label: c.groupe ?? "—", span: 1 });
-    else grpSpans[grpSpans.length - 1].span++;
+    if (!grpSpans.length || grpSpans[grpSpans.length - 1].key !== gk) {
+      grpSpans.push({ key: gk, label: c.groupe ?? "—", span: 1 });
+      debutGroupe.add(c.id);
+    } else grpSpans[grpSpans.length - 1].span++;
   }
 
-  const Dot = ({ color, title }: { color: string; title: string }) => (
-    <span title={title} style={{ display: "inline-block", width: 13, height: 13, borderRadius: "50%", background: color, border: "1px solid rgba(0,0,0,0.15)" }} />
+  // Colonne noms adaptative, partagee par les 2 tables -> colonnes alignees.
+  const nameW = Math.min(320, Math.max(150, personnes.reduce((m, p) => Math.max(m, `${p.nom} ${p.prenom}`.length), 0) * 7.2 + 30));
+  const cols = useMemo(
+    () => (
+      <colgroup>
+        <col style={{ width: nameW }} />
+        {shownOrdered.map((c) => (
+          <col key={c.id} />
+        ))}
+      </colgroup>
+    ),
+    [nameW, shownOrdered]
   );
-  function cellDot(personId: string, c: Comp) {
+
+  // Statut + infobulle d'une case.
+  function cellOf(personId: string, c: Comp): { statut: HabStatut | "aucun"; title: string } {
     const rec = recMap.get(`${personId}:${c.id}`);
-    if (!rec) return <span style={{ color: "#e2e8f0" }} title="Non habilité">·</span>;
+    if (!rec) return { statut: "aucun", title: `${c.nom} — non habilité` };
     const auTxt = rec.date_autorisation_conduite ? ` · autorisation ${fmtDate(rec.date_autorisation_conduite)}` : "";
     const exp = effExp(rec, c);
-    if (!exp) return <Dot color={HAB_COLOR.vert} title={`${c.nom} — valable (pas de date de validité)${auTxt}`} />;
+    if (!exp) return { statut: "vert", title: `${c.nom} — valable (pas de date de validité)${auTxt}` };
     const j = joursRestants(exp);
     const st = habStatut(j) ?? "vert";
-    return <Dot color={HAB_COLOR[st]} title={`${c.nom} — ${j !== null && j < 0 ? `expirée (${-j} j)` : `${j} j`} (éch. ${fmtDate(exp)})${auTxt}`} />;
+    return { statut: st, title: `${c.nom} — ${j !== null && j < 0 ? `expirée (${-j} j)` : `${j} j`} (éch. ${fmtDate(exp)})${auTxt}` };
   }
 
   const anyAutor = rows.some((r) => r.competence?.a_autorisation_conduite);
   const seg = (v: "grille" | "liste") => ({ className: view === v ? "seg active" : "seg", onClick: () => setView(v), type: "button" as const });
 
-  return (
-    <div className="gridband">
-      {/* Recherche multi-critères + bascule de vue + bouton MàJ */}
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 14, margin: "0 0 14px", flexWrap: "wrap", flex: "0 0 auto" }}>
-        <span style={{ position: "relative", display: "inline-block", width: 320, maxWidth: "90vw" }}>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Rechercher (nom, formation, groupe…)"
-            style={{ width: "100%", padding: "7px 28px 7px 12px", borderRadius: 999, border: "1px solid var(--border)", fontSize: 13 }} />
-          {search && (
-            <button type="button" onClick={() => setSearch("")} title="Effacer"
-              style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: "auto", margin: 0, padding: 0, border: "none", background: "transparent", cursor: "pointer", color: "var(--muted)", fontSize: 13 }}>✕</button>
-          )}
-        </span>
-        <div className="segments">
-          <button {...seg("grille")}>Grille</button>
-          <button {...seg("liste")}>Liste</button>
-        </div>
-        {children && (
-          <button type="button" onClick={() => setShowMaj(true)} style={{ width: "auto", padding: "8px 22px", fontSize: 15, fontWeight: 700 }}>
-            MàJ
+  const searchRow = (
+    <div className={g.searchRow}>
+      <span className={g.searchWrap}>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="🔍 Rechercher (nom, formation, groupe…)"
+          className={g.searchInput}
+        />
+        {search && (
+          <button type="button" onClick={() => setSearch("")} title="Effacer" className={g.searchClear}>
+            ✕
           </button>
+        )}
+      </span>
+      <button type="button" className={`btn-sm btn-ghost ${g.legendBtn}`} onClick={() => setShowLegende(true)}>
+        📖 Légende
+      </button>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Bascule de vue + saisie : bandeau centre de 1500 px, comme la matrice. */}
+      <div className="headband">
+        <div className="toolbar" style={{ justifyContent: "flex-end", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div className="segments">
+            <button {...seg("grille")}>Grille</button>
+            <button {...seg("liste")}>Liste</button>
+          </div>
+          {children && (
+            <button type="button" onClick={() => setShowMaj(true)} style={{ width: "auto", margin: 0, padding: "7px 22px", fontSize: 14, fontWeight: 700 }}>
+              MàJ
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="gridband">
+        {view === "grille" ? (
+          <div
+            className={g.grid}
+            style={{ "--name-w": `${nameW}px`, "--n-cols": shownOrdered.length, "--sub-top": "22px", "--col-top": "44px" } as React.CSSProperties}
+          >
+            {searchRow}
+
+            {/* Tableau 1 : en-tetes figes (categorie / groupe / formation) */}
+            <div className={`card ${g.headCard}`} ref={headCardRef}>
+              <table className={`matrix ${g.table}`} ref={headTableRef}>
+                {cols}
+                <thead>
+                  <tr>
+                    <th rowSpan={3} className={g.cornerHead}>
+                      Personne
+                    </th>
+                    {catSpans.map((c) => (
+                      <th key={c.key} colSpan={c.span} className={g.groupHead} title={c.label}>
+                        <div className={g.groupLabel}>{c.label}</div>
+                      </th>
+                    ))}
+                  </tr>
+                  <tr>
+                    {grpSpans.map((gr) => (
+                      <th key={gr.key} colSpan={gr.span} className={g.subHead} title={gr.label}>
+                        <div className={g.groupLabel}>{gr.label}</div>
+                      </th>
+                    ))}
+                  </tr>
+                  <tr>
+                    {shownOrdered.map((c) => (
+                      <th key={c.id} title={c.nom} className={debutGroupe.has(c.id) ? `${g.colHead} ${g.groupStart}` : g.colHead}>
+                        <div className={g.colLabel}>
+                          {c.a_autorisation_conduite ? "🚜 " : ""}
+                          {c.nom}
+                        </div>
+                      </th>
+                    ))}
+                    {shownOrdered.length === 0 && <th className="muted">Aucune formation</th>}
+                  </tr>
+                </thead>
+              </table>
+            </div>
+
+            {/* Tableau 2 : personnes (defile, occupe la hauteur restante) */}
+            <div className={`card ${g.rowsCard}`} {...rowsCardProps}>
+              <table className={`matrix ${g.table} ${g.rowsTable}`} ref={rowsTableRef}>
+                {cols}
+                <tbody>
+                  {shownPersonnes.map((p) => (
+                    <tr key={p.id}>
+                      <td className={g.nameCell}>
+                        {p.nom} {p.prenom}
+                      </td>
+                      {shownOrdered.map((c) => {
+                        const { statut, title } = cellOf(p.id, c);
+                        return (
+                          <td key={c.id} className={g.cellTd}>
+                            <span className={g.cellMark} title={`${p.nom} ${p.prenom}\n${title}`}>
+                              <HabMark statut={statut} />
+                            </span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                  {shownPersonnes.length === 0 && (
+                    <tr>
+                      <td colSpan={shownOrdered.length + 1} className="muted" style={{ padding: 10 }}>
+                        Aucun résultat.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <>
+            {searchRow}
+            <div className="card grow" style={{ overflow: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Personne</th>
+                    <th>Formation</th>
+                    <th>Passage</th>
+                    <th>Échéance</th>
+                    {anyAutor && <th>Autorisation conduite</th>}
+                    <th>Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shownRows.map((r) => {
+                    const exp = effExp(r, compById.get(r.competence_id));
+                    const j = joursRestants(exp);
+                    const st = exp ? habStatut(j) : "vert";
+                    return (
+                      <tr key={r.id}>
+                        <td>{r.personne ? `${r.personne.nom} ${r.personne.prenom}` : "?"}</td>
+                        <td>{r.competence?.nom ?? "?"}</td>
+                        <td style={{ whiteSpace: "nowrap" }}>{fmtDate(r.date_obtention)}</td>
+                        <td style={{ whiteSpace: "nowrap" }}>{exp ? fmtDate(exp) : <span className="muted">-</span>}</td>
+                        {anyAutor && (
+                          <td style={{ whiteSpace: "nowrap" }}>
+                            {r.competence?.a_autorisation_conduite ? fmtDate(r.date_autorisation_conduite) : <span className="muted">—</span>}
+                          </td>
+                        )}
+                        <td>
+                          {st && (
+                            <span className="tag" style={{ background: HAB_COLOR[st], color: "#fff" }}>
+                              {!exp ? "valide" : j !== null && j < 0 ? `expirée (${-j} j)` : `${j} j`}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {shownRows.length === 0 && (
+                    <tr>
+                      <td colSpan={anyAutor ? 6 : 5} className="muted">
+                        {rows.length === 0 ? "Aucune habilitation enregistrée." : "Aucun résultat pour cette recherche."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
-      {view === "grille" ? (
-        <div className="card grow" style={{ overflow: "auto", padding: "6px 10px" }}>
-          <table className="matrix" style={{ borderCollapse: "collapse", width: "auto" }}>
-            <thead>
-              <tr>
-                <th rowSpan={3} style={{ position: "sticky", left: 0, top: 0, zIndex: 4, background: "#fff", textAlign: "left", minWidth: 180, verticalAlign: "bottom" }}>Personne</th>
-                {catSpans.map((c, i) => (
-                  <th key={i} colSpan={c.span} style={{ position: "sticky", top: 0, zIndex: 2, background: "#eef2ff", borderLeft: "2px solid #94a3b8", fontSize: 12, padding: "3px 4px" }}>{c.label}</th>
-                ))}
-              </tr>
-              <tr>
-                {grpSpans.map((g, i) => (
-                  <th key={i} colSpan={g.span} style={{ position: "sticky", top: 22, zIndex: 2, background: "#f1f5f9", borderLeft: "1px solid #cbd5e1", fontSize: 11, fontWeight: 600, padding: "2px 4px" }}>{g.label}</th>
-                ))}
-              </tr>
-              <tr>
-                {shownOrdered.map((c) => (
-                  <th key={c.id} title={c.nom} style={{ position: "sticky", top: 44, zIndex: 1, background: "#f8fafc", height: 120, verticalAlign: "bottom", padding: "4px 2px" }}>
-                    <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", whiteSpace: "nowrap", margin: "0 auto", fontSize: 11, maxHeight: 112, overflow: "hidden" }}>
-                      {c.a_autorisation_conduite ? "🚜 " : ""}{c.nom}
-                    </div>
-                  </th>
-                ))}
-                {shownOrdered.length === 0 && <th className="muted">Aucune formation</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {shownPersonnes.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ position: "sticky", left: 0, background: "#fff", whiteSpace: "nowrap" }}>{p.nom} {p.prenom}</td>
-                  {shownOrdered.map((c) => (
-                    <td key={c.id} style={{ textAlign: "center", padding: "3px 6px" }}>{cellDot(p.id, c)}</td>
-                  ))}
-                </tr>
-              ))}
-              {shownPersonnes.length === 0 && (
-                <tr><td colSpan={shownOrdered.length + 1} className="muted" style={{ padding: 10 }}>Aucun résultat.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="card section grow" style={{ overflow: "auto" }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Personne</th>
-                <th>Formation</th>
-                <th>Passage</th>
-                <th>Échéance</th>
-                {anyAutor && <th>Autorisation conduite</th>}
-                <th>Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shownRows.map((r) => {
-                const exp = effExp(r, compById.get(r.competence_id));
-                const j = joursRestants(exp);
-                const st = exp ? habStatut(j) : "vert";
-                return (
-                  <tr key={r.id}>
-                    <td>{r.personne ? `${r.personne.nom} ${r.personne.prenom}` : "?"}</td>
-                    <td>{r.competence?.nom ?? "?"}</td>
-                    <td style={{ whiteSpace: "nowrap" }}>{fmtDate(r.date_obtention)}</td>
-                    <td style={{ whiteSpace: "nowrap" }}>{exp ? fmtDate(exp) : <span className="muted">-</span>}</td>
-                    {anyAutor && <td style={{ whiteSpace: "nowrap" }}>{r.competence?.a_autorisation_conduite ? fmtDate(r.date_autorisation_conduite) : <span className="muted">—</span>}</td>}
-                    <td>
-                      {st && (
-                        <span className="tag" style={{ background: HAB_COLOR[st], color: "#fff" }}>
-                          {!exp ? "valide" : j !== null && j < 0 ? `expirée (${-j} j)` : `${j} j`}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {shownRows.length === 0 && (
-                <tr><td colSpan={anyAutor ? 6 : 5} className="muted">{rows.length === 0 ? "Aucune habilitation enregistrée." : "Aucun résultat pour cette recherche."}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Légende */}
-      <p className="muted" style={{ marginTop: 10, flex: "0 0 auto" }}>
-        <span style={{ color: HAB_COLOR.vert }}>●</span> valable (&gt; 90 j ou sans date de validité) ·{" "}
-        <span style={{ color: HAB_COLOR.orange }}>●</span> bientôt dépassée (30-90 j) ·{" "}
-        <span style={{ color: HAB_COLOR.rouge }}>●</span> plus valide (&lt; 30 j ou expirée) ·{" "}
-        <span style={{ color: "#cbd5e1" }}>·</span> non habilité · 🚜 = autorisation de conduite (date par personne)
-      </p>
+      {showLegende && <HabLegendeModal onClose={() => setShowLegende(false)} />}
 
       {/* Modale de mise à jour des habilitations */}
       {children && showMaj && (
@@ -224,13 +312,15 @@ export default function HabilitationsList({
             <div className="card" style={{ margin: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <h2 style={{ margin: 0 }}>Mise à jour des habilitations</h2>
-                <button type="button" onClick={() => setShowMaj(false)} title="Fermer" style={{ width: "auto", margin: 0, padding: "2px 10px", fontSize: 16 }}>✕</button>
+                <button type="button" onClick={() => setShowMaj(false)} title="Fermer" style={{ width: "auto", margin: 0, padding: "2px 10px", fontSize: 16 }}>
+                  ✕
+                </button>
               </div>
               {children}
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
