@@ -1,92 +1,24 @@
-# TODO - Planning Usine
+# État & TODO — BigPlann'
 
-## Lot 0 - Cadrage
-- [x] Lire le cahier des charges en entier
-- [x] Reformuler la comprehension (12 points)
-- [x] Trancher : nouveau depot separe, projet distinct
-- [x] CHANGEMENT DE STACK : abandon Docker/Podman/Prisma -> Supabase + Vercel
-- [x] Modele de donnees complet (Supabase) redige -> docs/LOT0-CADRAGE.md
-- [x] Sitemap fonctionnel redige -> docs/LOT0-CADRAGE.md
-- [x] Clarifications adressees (propositions C/E/F + IP couloir + Excel) dans le doc
-- [ ] VALIDATION utilisateur du modele + sitemap
+État au 2026-07-10. L'historique détaillé des lots 0 à 9 (tous livrés) est dans
+l'historique git et `docs/LOT0-CADRAGE.md` / `docs/LOT-C-CADRAGE.md`.
 
-## Socle auth (stack Supabase + Vercel) - EN COURS
-- [x] Re-cabler le projet : retrait Docker/Prisma, ajout @supabase/ssr
-- [x] Clients Supabase (navigateur + serveur + admin service_role)
-- [x] proxy.ts (protection des routes, refresh session)
-- [x] Migration SQL 0001 : table app_user + RLS + trigger handle_new_user
-- [x] Pages login / forgot / reset / auth-callback / logout
-- [x] Dashboard + gestion utilisateurs (admin) + route d'invitation
-- [x] `npm run build` + TypeScript OK
-- [x] Creer le projet Supabase (stcxlsmmnplxpirrnefm) + executer 0001_init.sql
-- [x] Renseigner .env.local (URL + cles sb_publishable / sb_secret)
-- [x] Premier admin promu (jean-francois.gautreau@evolianz.com -> role admin)
-- [x] Verif runtime : /login = 200, / = 307 redirect (auth routing OK)
-- [ ] Test final : se connecter avec le mot de passe admin (cote utilisateur)
-- [ ] Deployer sur Vercel (GitHub -> Vercel) + variables d'env + redirect URLs
+## Livré
+Référentiel · Personnel (+ RGPD, contrats, temps partiel) · Matrice de polyvalence
+(+ bilan, restrictions) · Habilitations (+ paramétrage, alertes) · Ordonnancement
+(+ semaine-type, profils, rotation des équipes) · Planning (quarts, absences longues,
+horaires spécifiques) · Affichage couloir (TV) · Bilans CODIR · Journal d'audit ·
+Matrice de droits par module (`/admin/droits`).
 
-## Gestion utilisateurs - creation directe (sans email)
-- [x] Route /api/users/create (admin only, createUser + mot de passe, role)
-- [x] UserForm : choix mode "creer avec mot de passe" / "inviter par email"
-- [x] Verifie sur Supabase reel : create -> trigger -> update role -> delete cascade
+## En cours / à faire
+- [ ] **Backfill SQL** des `personne_competence.date_expiration` nulles alors que la
+      formation a une durée de validité (aujourd'hui compensé à l'affichage seulement).
+- [ ] Vérifier le comportement souhaité quand un quart n'a **aucune équipe** en rotation :
+      actuellement le filtre Équipe est vidé (toutes les personnes visibles).
+- [ ] Virtualisation des grandes grilles (planning « Tous », matrice « Tous », personnel)
+      si la perf redevient un sujet (~300 → ~150 ms).
 
-## Deploiement Vercel - EN ATTENTE
-- [ ] Bloque : creation compte Vercel indisponible cote utilisateur
-- [ ] (Supabase ne necessite PAS GitHub ; deploiement non requis pour dev local)
-
-## Lot 0 - validation modele + sitemap
-- [x] docs/LOT0-CADRAGE.md valide (ajustements: conducteur=poste, abaque,
-      equipe/jour, conge reporte, sitemap provisoire)
-
-## Lot 2 - Referentiel - EN COURS
-- [x] Migration 0002 : atelier/ligne/poste (+abaque), equipe/equipe_chef,
-      personne, audit_log + triggers audit + updated_at + RLS
-- [x] Helpers : getCurrentProfile, requireAdmin ; AppHeader (nav par role)
-- [x] Ecran /admin/referentiel (CRUD atelier/ligne/poste + effectif abaque + desactivation)
-- [x] Ecran /admin/equipes (CRUD equipes + designation des chefs)
-- [x] Ecran /personnel (liste+filtres) + /personnel/[id] (fiche) + matricule auto interim
-- [x] Ecran /journal (audit, admin + resp_prod)
-- [x] npm run build + TypeScript OK
-- [x] Import/export Excel : RETIRE du perimetre (demande utilisateur)
-- [x] Utilisateur : 0002 executee (3 ateliers, 5 lignes, 5 postes saisis)
-- [x] Verif Supabase reel : audit_log capture les INSERT/UPDATE avec l'auteur
-- [x] Fix : bouton desactiver poste (name+formAction interdit par React)
-
-## Lot 3 - Matrice de polyvalence - EN COURS
-- [x] Migration 0004 : matrice, competence_niveau_libelle (seed echelle),
-      competence, personne_competence + RLS (perimetre chef) + audit
-- [x] Helpers is_chef_of_equipe / can_edit_personne
-- [x] /admin/competences : echelle parametrable + competences transverses (CRUD)
-- [x] /matrice : grille personne x poste (niveau actuel/cible), edition admin+chef
-- [x] /matrice/bilan : Existant/Besoin/Ecart par poste et par seuil de niveau
-- [x] Menu : Matrice (tous) + Competences (admin)
-- [x] npm run build + TypeScript OK
-- [ ] Saisie transverses/habilitations par personne -> Lot 4 (recyclage)
-- [ ] Utilisateur : executer supabase/migrations/0004_matrice.sql
-- [ ] Verif reel + demo (chef modifie un niveau, bilan a jour, audit)
-
-## Lot 5 - Planning - EN COURS
-- [x] Migration 0005 : ligne_ouverture, jour_equipe, placement + RLS
-      (placement = perimetre chef ; ouverture = admin/ordo) + audit + has_role
-- [x] /ordonnancement : lignes ouvertes + equipes actives par jour (toggles auto)
-- [x] /planning : grille personne x jour, affectation poste/absent, sauvegarde auto
-- [x] Indicateurs par jour : Besoin (abaque) / Present / Delta / Alertes
-- [x] Alerte hors-competence (niveau actuel < niveau min requis du poste)
-- [x] Menu Planning (tous) + Ordonnancement (admin/ordo) ; helper semaine + WeekNav
-- [x] npm run build + TypeScript OK
-- [ ] Drag & drop + vue par poste : 2e passage (optionnel)
-- [ ] Utilisateur : executer supabase/migrations/0005_planning.sql
-- [ ] Verif reel + demo (placer une semaine, indicateurs, alertes)
-
-## Suite
-- [ ] Lot 4 Habilitations, Lot 6 Absences, Lot 7 Affichage couloir,
-      Lot 8 Bilans, Lot 9 RGPD/doc/tests
-
-## Revue
-- Lot 2 termine et valide en reel. Referentiel (atelier/ligne/poste+abaque),
-  equipes/chefs, personnel (CRUD), journal d'audit operationnels.
-- Audit par triggers Postgres : capture auth.uid() (verifie en reel).
-- Ecriture admin-only pour l'instant ; acces RH au personnel + perimetre chef
-  d'equipe reportes au lot Planning (RLS a affiner avec has_role/is_chef).
-- Excel import/export retire (demande utilisateur).
-- Deploiement Vercel toujours en attente (compte bloque) ; dev 100% local.
+## Rappels
+- Migrations appliquées jusqu'à **0029**. Toute nouvelle migration doit être **exécutée
+  manuellement** par l'utilisateur dans le SQL Editor Supabase.
+- `npm run build` avant chaque commit ; commit + push sur `main` (déploiement Vercel auto).

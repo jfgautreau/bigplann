@@ -14,7 +14,7 @@ habilitations à recycler, affichage couloir, bilans.
 ```sh
 npm install
 cp .env.local.example .env.local   # renseigner les clés Supabase
-# appliquer supabase/migrations/0001..0009 dans le SQL Editor Supabase
+# appliquer supabase/migrations/0001..0029 dans le SQL Editor Supabase
 npm run dev                         # http://localhost:3000
 ```
 Détails : voir **INSTALL.md**.
@@ -32,9 +32,11 @@ Détails : voir **INSTALL.md**.
 - **Journal d'audit** + notifications (cloche habilitations).
 
 ## Documentation
+- **CLAUDE.md** — brief pour l'agent : règles de travail, permissions, pièges métier.
 - **INSTALL.md** — installation, Supabase, premier admin, déploiement.
 - **OPERATIONS.md** — mises à jour, migrations, sauvegardes, utilisateurs, RGPD.
 - **ARCHITECTURE.md** — modèle de données, RLS, rôles, sitemap.
+- **tasks/handoff.md** — détail métier & patterns UI · **tasks/lessons.md** — pièges connus.
 
 ## Commandes
 ```sh
