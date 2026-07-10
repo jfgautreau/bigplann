@@ -50,6 +50,10 @@ export default function MatrixGrid({
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const objTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const headCardRef = useRef<HTMLDivElement>(null);
+  const headTableRef = useRef<HTMLTableElement>(null);
+  const rowsTableRef = useRef<HTMLTableElement>(null);
+  const hoverCol = useRef(-1);
 
   const allPostes = useMemo(() => groups.flatMap((g) => g.postes), [groups]);
   // Filtre de recherche sur le nom (accents ignores). N'affecte que les lignes
@@ -139,6 +143,31 @@ export default function MatrixGrid({
   const saveLabel =
     saveState === "saving" ? "Enregistrement..." : saveState === "saved" ? "Enregistré" : saveState === "error" ? "Échec d'enregistrement" : "";
 
+  // Surlignage de la colonne survolee. Ecrit directement dans le DOM (fond du
+  // <col>, classe sur l'en-tete) : aucun rendu React, donc aucun cout sur une
+  // grille de plusieurs milliers de cellules.
+  function paintCol(index: number, on: boolean) {
+    for (const t of [headTableRef.current, rowsTableRef.current]) {
+      const col = t?.querySelector("colgroup")?.children[index] as HTMLElement | undefined;
+      if (col) col.style.background = on ? "var(--col-hover)" : "";
+    }
+    const th = headTableRef.current?.querySelectorAll("thead tr:nth-child(2) th")[index - 1];
+    th?.classList.toggle(s.colHover, on);
+  }
+
+  function hoverAt(index: number) {
+    if (hoverCol.current === index) return;
+    if (hoverCol.current > 0) paintCol(hoverCol.current, false);
+    hoverCol.current = index;
+    if (index > 0) paintCol(index, true);
+  }
+
+  // Le panneau d'en-tetes suit horizontalement la liste (seul ascenseur visible).
+  function syncScroll(e: React.UIEvent<HTMLDivElement>) {
+    const head = headCardRef.current;
+    if (head) head.scrollLeft = e.currentTarget.scrollLeft;
+  }
+
   // Colonne noms adaptative (px) partagee par les 2 tables -> colonnes alignees.
   const nameW = Math.min(320, Math.max(150, personnes.reduce((m, p) => Math.max(m, p.label.length), 0) * 7.2 + 30));
   // `colgroup` construit une fois : le meme element est reutilise par les deux
@@ -156,7 +185,11 @@ export default function MatrixGrid({
   );
 
   return (
-    <div className={s.grid} data-mode={mode}>
+    <div
+      className={s.grid}
+      data-mode={mode}
+      style={{ "--name-w": `${nameW}px`, "--n-cols": allPostes.length } as React.CSSProperties}
+    >
       {/* Recherche par nom (à gauche) + légende (à droite, même ligne) */}
       <div className={s.searchRow}>
         <span className={s.searchWrap}>
@@ -180,12 +213,12 @@ export default function MatrixGrid({
       </div>
 
       {/* Tableau 1 : en-tetes + bilan retractable (fixe) */}
-      <div className={`card ${s.headCard}`}>
+      <div className={`card ${s.headCard}`} ref={headCardRef}>
         <div className={s.saveState} data-state={saveState}>
           {saveLabel}
         </div>
 
-        <table className={`matrix ${s.table}`}>
+        <table className={`matrix ${s.table}`} ref={headTableRef}>
           {cols}
           <thead>
             <tr>
@@ -304,8 +337,13 @@ export default function MatrixGrid({
       </div>
 
       {/* Tableau 2 : personnes (defile, occupe la hauteur restante) */}
-      <div className={`card ${s.rowsCard}`}>
-        <table className={`matrix ${s.table}`}>
+      <div
+        className={`card ${s.rowsCard}`}
+        onScroll={syncScroll}
+        onMouseOver={(e) => hoverAt((e.target as HTMLElement).closest("td")?.cellIndex ?? -1)}
+        onMouseLeave={() => hoverAt(-1)}
+      >
+        <table className={`matrix ${s.table} ${s.rowsTable}`} ref={rowsTableRef}>
           {cols}
           <tbody>
             {shown.map((pers) => (

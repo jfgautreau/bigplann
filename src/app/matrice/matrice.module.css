@@ -49,6 +49,12 @@
   --accent: #1d4ed8;
   --accent-bg: #dbeafe;
   --accent-soft: #1d4ed855;
+  /* Surlignage en croix : la colonne est peinte via le <col>, la ligne via
+     le fond des cellules (qui recouvre la colonne a l'intersection). */
+  --row-hover: #eef2f7;
+  --col-hover: #f6f8fb;
+  /* Largeur minimale d'une colonne de poste avant apparition du scroll. */
+  --col-min: 36px;
 
   flex: 1 1 auto;
   min-height: 0;
@@ -103,27 +109,35 @@
 }
 
 /* --- Les deux panneaux ------------------------------------------------ */
+/* Le panneau d'en-tetes ne se defile pas horizontalement de lui-meme : son
+   scrollLeft est asservi a celui de la liste, seule porteuse de l'ascenseur. */
 .grid .headCard {
   flex: 0 0 auto;
   position: relative;
   padding: 6px 10px;
   overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+  /* `overflow-y: scroll` plutot que `auto` + `scrollbar-gutter: stable` :
+     sur l'axe masque, Chrome exclut la goutiere reservee de la zone
+     defilable, et le scrollLeft asservi s'arrete 15 px trop tot. Une vraie
+     barre (piste vide) reserve la meme largeur sans amputer la course. */
+  overflow-y: scroll;
 }
 .grid .rowsCard {
   flex: 1 1 auto;
   min-height: 120px;
   margin-top: 8px;
   padding: 0 10px;
-  overflow-x: hidden;
+  overflow-x: auto;
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
 
+/* Colonnes elastiques : elles se partagent la largeur disponible, et ne
+   descendent jamais sous --col-min (au-dela, la liste defile). */
 .table {
   border-collapse: collapse;
   width: 100%;
+  min-width: calc(var(--name-w) + var(--n-cols) * var(--col-min));
   table-layout: fixed;
 }
 
@@ -154,6 +168,7 @@
   background: #fff;
   text-align: left;
   vertical-align: top;
+  box-shadow: 1px 0 0 var(--border);
 }
 .bilanToggle {
   width: auto;
@@ -217,7 +232,9 @@
 .bilanLabel {
   position: sticky;
   left: 0;
+  z-index: 5;
   font-weight: 600;
+  box-shadow: 1px 0 0 var(--border);
 }
 .bilanSwatch {
   display: inline-flex;
@@ -304,12 +321,28 @@
   background: #fee2e2;
 }
 
+/* Colonne survolee : le fond est porte par le <col> (peint sous les cellules
+   transparentes) ; l'en-tete du poste, lui, a son propre fond a assombrir. */
+.posteHead.colHover {
+  box-shadow: inset 0 0 0 999px rgba(15, 23, 42, 0.06);
+}
+
 /* --- Lignes de personnes ---------------------------------------------- */
+/* Colonne des noms figee : elle reste visible quand la grille defile. */
 .nameCell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
   background: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  box-shadow: 1px 0 0 var(--border);
+}
+
+/* Ligne survolee : le fond des cellules recouvre celui de la colonne. */
+.rowsTable tbody tr:hover td {
+  background-color: var(--row-hover);
 }
 .cellTd {
   text-align: center;
