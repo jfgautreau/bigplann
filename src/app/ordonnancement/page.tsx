@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
+import { fetchAll } from "@/lib/fetch-all";
 import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite } from "@/lib/permissions";
@@ -36,7 +37,7 @@ export default async function OrdonnancementPage({
   }
 
   const supabase = await getServerClient();
-  const [{ data: quartsD }, { data: lignesD }, { data: jq }, { data: ov }, { data: pqOffD }, profils] = await Promise.all([
+  const [{ data: quartsD }, { data: lignesD }, { data: jq }, ov, { data: pqOffD }, profils] = await Promise.all([
     supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
     supabase
       .from("ligne")
@@ -49,11 +50,14 @@ export default async function OrdonnancementPage({
       .select("jour, quart_code, actif")
       .in("jour", isos)
       .returns<{ jour: string; quart_code: string; actif: boolean }[]>(),
-    supabase
-      .from("ouverture_quart")
-      .select("jour, ligne_id, quart_code, ouverte")
-      .in("jour", isos)
-      .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
+    fetchAll<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }>(() =>
+      supabase
+        .from("ouverture_quart")
+        .select("jour, ligne_id, quart_code, ouverte")
+        .in("jour", isos)
+        .order("jour").order("ligne_id").order("quart_code")
+        .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>()
+    ),
     supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
     getProfils(supabase),
   ]);
@@ -61,7 +65,7 @@ export default async function OrdonnancementPage({
   const jourQuartState: Record<string, boolean> = {};
   for (const r of jq ?? []) jourQuartState[`${r.quart_code}:${r.jour}`] = r.actif;
   const ouvertureState: Record<string, boolean> = {};
-  for (const r of ov ?? []) ouvertureState[`${r.quart_code}:${r.ligne_id}:${r.jour}`] = r.ouverte;
+  for (const r of ov) ouvertureState[`${r.quart_code}:${r.ligne_id}:${r.jour}`] = r.ouverte;
 
   // Lignes proposees PAR QUART = uniquement celles ayant au moins un poste actif
   // tournant sur ce quart (referentiel poste_quart, defaut actif).

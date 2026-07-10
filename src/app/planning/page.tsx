@@ -269,13 +269,16 @@ export default async function PlanningPage({
   const matrice: Record<string, number> = {};
   const exceptions: Record<string, { debut: string; fin: string; motif: string }> = {};
   if (allIds.length && visIsos.length) {
-    const [{ data: pl }, mat, { data: exc }] = await Promise.all([
-      supabase
-        .from("placement")
-        .select("personne_id, jour, poste_id, motif_absence_id, non_travaille, quart_code")
-        .in("jour", visIsos)
-        .in("personne_id", allIds)
-        .returns<Placement[]>(),
+    const [pl, mat, { data: exc }] = await Promise.all([
+      fetchAll<Placement>(() =>
+        supabase
+          .from("placement")
+          .select("personne_id, jour, poste_id, motif_absence_id, non_travaille, quart_code")
+          .in("jour", visIsos)
+          .in("personne_id", allIds)
+          .order("id")
+          .returns<Placement[]>()
+      ),
       fetchAll<MatRow>(() =>
         supabase
           .from("matrice")
@@ -291,7 +294,7 @@ export default async function PlanningPage({
         .in("personne_id", allIds)
         .returns<{ personne_id: string; jour: string; debut: string | null; fin: string | null; motif: string | null }[]>(),
     ]);
-    for (const r of pl ?? []) {
+    for (const r of pl) {
       const k = `${r.personne_id}:${r.jour}`;
       if (r.non_travaille) initial[k] = "X";
       else if (r.motif_absence_id) initial[k] = `m:${r.motif_absence_id}`;

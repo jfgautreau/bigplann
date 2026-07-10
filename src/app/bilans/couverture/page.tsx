@@ -24,14 +24,18 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
   const isos = days.map((d) => d.iso);
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, { data: ovD }, { data: pqOffD }, { data: plD }, matD, { data: persD }, { data: atD }] =
+  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, ovD, { data: pqOffD }, plD, matD, { data: persD }, { data: atD }] =
     await Promise.all([
       supabase.from("ligne").select("id, atelier_id, poste(id, actif, effectif_requis, niveau_min_requis)").eq("actif", true).returns<LigneRow[]>(),
       supabase.from("quart").select("code, libelle").order("ordre").returns<{ code: string; libelle: string }[]>(),
       supabase.from("jour_quart").select("jour, quart_code, actif").in("jour", isos).returns<{ jour: string; quart_code: string; actif: boolean }[]>(),
-      supabase.from("ouverture_quart").select("jour, ligne_id, quart_code, ouverte").in("jour", isos).returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
+      fetchAll<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }>(() =>
+        supabase.from("ouverture_quart").select("jour, ligne_id, quart_code, ouverte").in("jour", isos).order("jour").order("ligne_id").order("quart_code").returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>()
+      ),
       supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
-      supabase.from("placement").select("personne_id, jour, poste_id, quart_code, motif_absence_id").in("jour", isos).returns<Placement[]>(),
+      fetchAll<Placement>(() =>
+        supabase.from("placement").select("personne_id, jour, poste_id, quart_code, motif_absence_id").in("jour", isos).order("id").returns<Placement[]>()
+      ),
       fetchAll<{ personne_id: string; poste_id: string; niveau_actuel: number }>(() =>
         supabase.from("matrice").select("personne_id, poste_id, niveau_actuel").order("id").returns<{ personne_id: string; poste_id: string; niveau_actuel: number }[]>()
       ),
@@ -45,7 +49,7 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
   const actMap = new Map<string, boolean>();
   for (const r of jqD ?? []) actMap.set(`${r.quart_code}:${r.jour}`, r.actif);
   const ouvMap = new Map<string, boolean>();
-  for (const r of ovD ?? []) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
+  for (const r of ovD) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
   const quartActif = (q: string, iso: string) => actMap.get(`${q}:${iso}`) ?? false;
   const ligneOuverte = (lid: string, q: string, iso: string) => ouvMap.get(`${q}:${lid}:${iso}`) ?? true;
 
@@ -78,7 +82,7 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
     return b;
   };
 
-  const placements = plD ?? [];
+  const placements = plD;
   const presentJour = new Map<string, number>();
   const presentQD = new Map<string, number>(); // `${quart}:${jour}` -> nb places
   for (const r of placements)

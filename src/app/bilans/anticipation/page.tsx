@@ -35,15 +35,19 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   const lastIso = horizonIsos[horizonIsos.length - 1];
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, { data: ovD }, { data: pqOffD }, { data: persD }, { data: plD }, matD, { data: atD }] =
+  const [{ data: lignesD }, { data: quartsD }, { data: jqD }, ovD, { data: pqOffD }, { data: persD }, plD, matD, { data: atD }] =
     await Promise.all([
       supabase.from("ligne").select("id, nom, atelier_id, poste(id, nom, actif, effectif_requis, categorie)").eq("actif", true).returns<LigneRow[]>(),
       supabase.from("quart").select("code").returns<{ code: string }[]>(),
       supabase.from("jour_quart").select("jour, quart_code, actif").in("jour", horizonIsos).returns<{ jour: string; quart_code: string; actif: boolean }[]>(),
-      supabase.from("ouverture_quart").select("jour, ligne_id, quart_code, ouverte").in("jour", horizonIsos).returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
+      fetchAll<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }>(() =>
+        supabase.from("ouverture_quart").select("jour, ligne_id, quart_code, ouverte").in("jour", horizonIsos).order("jour").order("ligne_id").order("quart_code").returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>()
+      ),
       supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
       supabase.from("personne").select("id, nom, prenom, type_contrat, date_fin").eq("statut", "ACTIF").returns<Personne[]>(),
-      supabase.from("placement").select("personne_id, jour, motif_absence_id").in("jour", horizonIsos).returns<Placement[]>(),
+      fetchAll<Placement>(() =>
+        supabase.from("placement").select("personne_id, jour, motif_absence_id").in("jour", horizonIsos).order("id").returns<Placement[]>()
+      ),
       fetchAll<Mat>(() => supabase.from("matrice").select("personne_id, poste_id, niveau_actuel").gte("niveau_actuel", SEUIL).order("id").returns<Mat[]>()),
       supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<{ id: string; nom: string }[]>(),
     ]);
@@ -53,7 +57,7 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   const actMap = new Map<string, boolean>();
   for (const r of jqD ?? []) actMap.set(`${r.quart_code}:${r.jour}`, r.actif);
   const ouvMap = new Map<string, boolean>();
-  for (const r of ovD ?? []) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
+  for (const r of ovD) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
   const quartActif = (q: string, iso: string) => actMap.get(`${q}:${iso}`) ?? false;
   const ligneOuverte = (lid: string, q: string, iso: string) => ouvMap.get(`${q}:${lid}:${iso}`) ?? true;
   const lignes = (lignesD ?? []).filter((l) => !atelier || l.atelier_id === atelier);
@@ -79,7 +83,7 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   };
 
   // Absences connues (saisies) par jour
-  const placements = plD ?? [];
+  const placements = plD;
   const absByDay = new Map<string, string[]>();
   for (const r of placements) if (r.motif_absence_id && r.jour >= todayIso) (absByDay.get(r.jour) ?? absByDay.set(r.jour, []).get(r.jour)!).push(persNom(r.personne_id));
   const contractEndedBy = (iso: string) => active.filter((p) => p.date_fin && p.date_fin < iso).length;

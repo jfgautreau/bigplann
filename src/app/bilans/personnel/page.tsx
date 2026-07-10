@@ -6,6 +6,7 @@ import OrdoMonthNav from "@/app/ordonnancement/OrdoMonthNav";
 import Bars from "@/app/bilans/Bars";
 import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import { requireModule } from "@/lib/permissions";
+import { fetchAll } from "@/lib/fetch-all";
 import { parseMois, monthDays, monthLabel, isoDate, addDays } from "@/lib/week";
 
 type Personne = {
@@ -38,7 +39,7 @@ export default async function PersonnelReport({ searchParams }: { searchParams: 
   const in90Iso = isoDate(addDays(new Date(), 90));
 
   const supabase = await getServerClient();
-  const [{ data: persD }, { data: eqD }, { data: atD }, { data: motD }, { data: plD }] = await Promise.all([
+  const [{ data: persD }, { data: eqD }, { data: atD }, { data: motD }, plD] = await Promise.all([
     supabase
       .from("personne")
       .select("id, nom, prenom, statut, type_contrat, date_debut, date_fin, equipe_id, atelier_id")
@@ -46,7 +47,9 @@ export default async function PersonnelReport({ searchParams }: { searchParams: 
     supabase.from("equipe").select("id, nom").returns<Named[]>(),
     supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Named[]>(),
     supabase.from("motif_absence").select("id, code_court, libelle, couleur").order("libelle").returns<Motif[]>(),
-    supabase.from("placement").select("personne_id, poste_id, motif_absence_id").in("jour", monthIsos).returns<Placement[]>(),
+    fetchAll<Placement>(() =>
+      supabase.from("placement").select("personne_id, poste_id, motif_absence_id").in("jour", monthIsos).order("id").returns<Placement[]>()
+    ),
   ]);
 
   const allPersons = persD ?? [];
@@ -79,7 +82,7 @@ export default async function PersonnelReport({ searchParams }: { searchParams: 
     .sort((a, b) => (a.date_fin ?? "").localeCompare(b.date_fin ?? ""));
 
   // ---- 1.2 Absentéisme (mois) ----
-  const placements = (plD ?? []).filter((r) => !atelier || persAtelier.get(r.personne_id) === atelier);
+  const placements = plD.filter((r) => !atelier || persAtelier.get(r.personne_id) === atelier);
   const absDays = placements.filter((r) => r.motif_absence_id).length;
   const presentDays = placements.filter((r) => r.poste_id).length;
   const taux = absDays + presentDays > 0 ? Math.round((absDays / (absDays + presentDays)) * 1000) / 10 : 0;

@@ -36,7 +36,7 @@ export default async function CompetencesDispoPage({
   const todayIso = isoDate(new Date());
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, matD, { data: actifs }, { data: absD }, { data: quartsD }, { data: jqD }, { data: ovD }] =
+  const [{ data: lignesD }, matD, { data: actifs }, absD, { data: quartsD }, { data: jqD }, ovD] =
     await Promise.all([
       supabase
         .from("ligne")
@@ -46,18 +46,24 @@ export default async function CompetencesDispoPage({
         .returns<Ligne[]>(),
       fetchAll<Mat>(() => supabase.from("matrice").select("poste_id, personne_id, niveau_actuel").gte("niveau_actuel", seuil).order("id").returns<Mat[]>()),
       supabase.from("personne").select("id").eq("statut", "ACTIF").returns<{ id: string }[]>(),
-      supabase
-        .from("placement")
-        .select("jour, personne_id, non_travaille, motif_absence_id")
-        .in("jour", isos)
-        .returns<Abs[]>(),
+      fetchAll<Abs>(() =>
+        supabase
+          .from("placement")
+          .select("jour, personne_id, non_travaille, motif_absence_id")
+          .in("jour", isos)
+          .order("id")
+          .returns<Abs[]>()
+      ),
       supabase.from("quart").select("code").order("ordre").returns<{ code: string }[]>(),
       supabase.from("jour_quart").select("jour, quart_code, actif").in("jour", isos).returns<{ jour: string; quart_code: string; actif: boolean }[]>(),
-      supabase
-        .from("ouverture_quart")
-        .select("jour, ligne_id, quart_code, ouverte")
-        .in("jour", isos)
-        .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
+      fetchAll<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }>(() =>
+        supabase
+          .from("ouverture_quart")
+          .select("jour, ligne_id, quart_code, ouverte")
+          .in("jour", isos)
+          .order("jour").order("ligne_id").order("quart_code")
+          .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>()
+      ),
     ]);
 
   const actifSet = new Set((actifs ?? []).map((p) => p.id));
@@ -96,7 +102,7 @@ export default async function CompetencesDispoPage({
 
   // Absents (toute absence ou NT) par jour
   const absentByDay = new Map<string, Set<string>>();
-  for (const r of absD ?? []) {
+  for (const r of absD) {
     if (r.non_travaille || r.motif_absence_id) (absentByDay.get(r.jour) ?? absentByDay.set(r.jour, new Set()).get(r.jour)!).add(r.personne_id);
   }
   const dispo = (cat: Cat, iso: string) => {
@@ -111,7 +117,7 @@ export default async function CompetencesDispoPage({
   const actMap = new Map<string, boolean>();
   for (const r of jqD ?? []) actMap.set(`${r.quart_code}:${r.jour}`, r.actif);
   const ouvMap = new Map<string, boolean>();
-  for (const r of ovD ?? []) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
+  for (const r of ovD) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
   const quartActif = (q: string, iso: string) => (actMap.has(`${q}:${iso}`) ? actMap.get(`${q}:${iso}`)! : false);
   const ligneOuverte = (lid: string, q: string, iso: string) =>
     ouvMap.has(`${q}:${lid}:${iso}`) ? ouvMap.get(`${q}:${lid}:${iso}`)! : true;

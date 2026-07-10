@@ -32,7 +32,7 @@ export default async function CockpitPage() {
   const monthIsos = monthDays(today.getFullYear(), today.getMonth()).map((d) => d.iso);
 
   const supabase = await getServerClient();
-  const [{ data: persD }, { data: lignesD }, matD, { data: plD }, { data: eqD }] =
+  const [{ data: persD }, { data: lignesD }, matD, plD, { data: eqD }] =
     await Promise.all([
       supabase
         .from("personne")
@@ -40,11 +40,14 @@ export default async function CockpitPage() {
         .returns<Personne[]>(),
       supabase.from("ligne").select("id, nom, poste(id, nom, actif)").eq("actif", true).returns<LigneRow[]>(),
       fetchAll<Mat>(() => supabase.from("matrice").select("personne_id, poste_id").gte("niveau_actuel", 2).order("id").returns<Mat[]>()),
-      supabase
-        .from("placement")
-        .select("poste_id, motif_absence_id")
-        .in("jour", monthIsos)
-        .returns<{ poste_id: string | null; motif_absence_id: string | null }[]>(),
+      fetchAll<{ poste_id: string | null; motif_absence_id: string | null }>(() =>
+        supabase
+          .from("placement")
+          .select("poste_id, motif_absence_id")
+          .in("jour", monthIsos)
+          .order("id")
+          .returns<{ poste_id: string | null; motif_absence_id: string | null }[]>()
+      ),
       supabase.from("equipe").select("id, nom").returns<{ id: string; nom: string }[]>(),
     ]);
 
@@ -73,7 +76,7 @@ export default async function CockpitPage() {
   const fin30 = finsContrat.filter((p) => (p.date_fin ?? "") <= in30Iso).length;
 
   // Absences du mois
-  const placements = plD ?? [];
+  const placements = plD;
   const absDays = placements.filter((r) => r.motif_absence_id).length;
   const presentDays = placements.filter((r) => r.poste_id).length;
   const tauxAbs = absDays + presentDays > 0 ? Math.round((absDays / (absDays + presentDays)) * 100) : 0;

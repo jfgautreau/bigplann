@@ -53,6 +53,11 @@ lecture de `matrice` (1276 lignes) renvoyait `data` de longueur 1000 et `error` 
 Le réglage `db-max-rows` de Supabase plafonne **chaque** réponse, sans le signaler. Toutes
 les lectures non paginées de `matrice` et `personne_competence` étaient donc fausses —
 matrice, planning, habilitations et les cinq bilans.
-**Règle** : dès qu'une table peut dépasser 1000 lignes, passer par `fetchAll()`
+Le piège est latent ailleurs : `placement` ne compte que 380 lignes tant que le planning
+est vide, mais un mois rempli en produit ~7 000 (231 personnes x 31 jours). `ouverture_quart`
+atteint déjà 764 lignes pour un seul mois.
+**Règle** : dès qu'une table *peut* dépasser 1000 lignes, passer par `fetchAll()`
 (`src/lib/fetch-all.ts`), qui pagine par tranches de 1000. La fabrique de requête doit
-poser un `.order(...)` déterministe, sinon deux tranches peuvent se recouvrir.
+poser un `.order(...)` déterministe, sinon deux tranches peuvent se recouvrir. Attention
+à la clé de tri : `matrice`, `personne_competence` et `placement` ont un `id`, mais
+`ouverture_quart` et `jour_quart` n'en ont pas — il faut y trier sur la clé composite.
