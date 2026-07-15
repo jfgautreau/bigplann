@@ -5,6 +5,7 @@ import { roleLabel, ROLES, ROLE_LABELS } from "@/lib/roles";
 import AppHeader from "@/components/AppHeader";
 import { requireModule, MODULES, getAllPermissions } from "@/lib/permissions";
 import UserForm from "./UserForm";
+import UserRowActions from "./UserRowActions";
 import DroitsMatrix from "./DroitsMatrix";
 import { updateUserRole } from "./actions";
 
@@ -55,7 +56,7 @@ export default async function AdminUsersPage() {
                 <th>Nom</th>
                 <th>Email</th>
                 <th>Rôle</th>
-                <th>Statut</th>
+                <th>Compte</th>
               </tr>
             </thead>
             <tbody>
@@ -86,7 +87,9 @@ export default async function AdminUsersPage() {
                         </form>
                       )}
                     </td>
-                    <td>{u.is_active ? "Actif" : "Désactivé"}</td>
+                    <td>
+                      <UserRowActions userId={u.user_id} isActive={u.is_active} isSelf={isSelf} />
+                    </td>
                   </tr>
                 );
               })}
