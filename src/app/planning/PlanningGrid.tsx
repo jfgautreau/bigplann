@@ -38,6 +38,7 @@ export default function PlanningGrid({
   quartLabel = {},
   posteLabelAll = {},
   exceptions = {},
+  horaireStd = {},
   weekNav = null,
 }: {
   days: Jour[];
@@ -58,6 +59,7 @@ export default function PlanningGrid({
   quartLabel?: Record<string, string>;
   posteLabelAll?: Record<string, string>;
   exceptions?: Record<string, { debut: string; fin: string; motif: string }>;
+  horaireStd?: Record<string, { debut: string; fin: string }>; // `${poste}:${dow}` -> horaire par defaut
   weekNav?: React.ReactNode;
 }) {
   const router = useRouter();
@@ -423,7 +425,8 @@ export default function PlanningGrid({
   });
 
   // Colonne noms adaptative (px), partagee par les 2 tables -> colonnes alignees.
-  const nameW = Math.min(300, Math.max(140, personnes.reduce((m, p) => Math.max(m, p.label.length), 0) * 7.2 + 30));
+  // Largeur calee sur le nom le plus long (noms complets, jamais tronques).
+  const nameW = Math.min(480, Math.max(160, personnes.reduce((m, p) => Math.max(m, p.label.length), 0) * 8 + 46));
   const Cols = () => (
     <colgroup>
       <col style={{ width: nameW }} />
@@ -465,7 +468,7 @@ export default function PlanningGrid({
                 type="button"
                 onClick={toggleInd}
                 title={showInd ? "Masquer le bilan & alertes" : "Afficher le bilan & alertes"}
-                style={{ width: "auto", margin: 0, padding: "1px 7px", fontSize: 12, fontWeight: 700, lineHeight: 1.4, border: "1px solid var(--border)", borderRadius: 6, background: "#fff", color: "var(--primary)", cursor: "pointer" }}
+                style={{ width: "auto", margin: 0, padding: "5px 14px", fontSize: 14, fontWeight: 700, lineHeight: 1.4, border: "1px solid #e11d48", borderRadius: 6, background: "#e11d48", color: "#fff", cursor: "pointer" }}
               >
                 {showInd ? "− Bilan" : "+ Bilan"}
               </button>
@@ -622,7 +625,7 @@ export default function PlanningGrid({
         <tbody>
           {shown.map((pers) => (
             <tr key={pers.id}>
-              <td style={{ background: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <td style={{ background: "#fff", whiteSpace: "nowrap" }}>
                 <span
                   style={{
                     display: "inline-block",
@@ -717,13 +720,16 @@ export default function PlanningGrid({
                       // pouvoir la modifier / l'effacer meme apres suppression de l'affectation).
                       const canEditExc = pers.editable && (isPoste(v) || !!e);
                       if (!e && !canEditExc) return null;
+                      // Horaire par defaut (standard du poste pour ce quart / jour de semaine).
+                      const std = isPoste(v) ? horaireStd[`${v}:${dowMon(d.iso)}`] : undefined;
+                      const stdTxt = std && (std.debut || std.fin) ? `${std.debut || "?"}-${std.fin || "?"}` : "";
                       return (
                         <>
                           {canEditExc ? (
                             <button
                               type="button"
                               className={`horx${e ? " has" : ""}`}
-                              title={e ? `Horaire spécifique : ${excLabel(e)}${e.motif ? " · " + e.motif : ""}` : "Définir un horaire spécifique"}
+                              title={e ? `Horaire spécifique : ${excLabel(e)}${e.motif ? " · " + e.motif : ""}` : stdTxt ? `Horaire par défaut : ${stdTxt} · Définir un horaire spécifique` : "Définir un horaire spécifique"}
                               onClick={() => openExc(pers.id, d.iso)}
                             >
                               🕐
@@ -734,12 +740,15 @@ export default function PlanningGrid({
                           {excAt === ek && (
                             <div className="exc-pop" onClick={(ev) => ev.stopPropagation()}>
                               <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Horaire spécifique</div>
+                              {stdTxt && (
+                                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Par défaut : {stdTxt}</div>
+                              )}
                               <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
                                 <input type="time" value={draft.debut} onChange={(ev) => setDraft((s) => ({ ...s, debut: ev.target.value }))} style={{ fontSize: 12, padding: "2px 3px" }} />
                                 <input type="time" value={draft.fin} onChange={(ev) => setDraft((s) => ({ ...s, fin: ev.target.value }))} style={{ fontSize: 12, padding: "2px 3px" }} />
                               </div>
                               <input
-                                placeholder="motif (optionnel)"
+                                placeholder="commentaire (affiché à la TV)"
                                 value={draft.motif}
                                 onChange={(ev) => setDraft((s) => ({ ...s, motif: ev.target.value }))}
                                 style={{ width: "100%", fontSize: 12, padding: "2px 3px", marginBottom: 6 }}

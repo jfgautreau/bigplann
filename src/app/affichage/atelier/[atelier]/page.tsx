@@ -79,7 +79,7 @@ export default async function AffichageAtelier({
 
   const byPoste = new Map<string, PlacementRow[]>(); // `${poste}:${iso}`
   const horMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${poste}:${quart}:${dow}`
-  const excMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${personne}:${iso}` (horaire specifique)
+  const excMap = new Map<string, { debut: string | null; fin: string | null; motif: string | null }>(); // `${personne}:${iso}` (horaire specifique + commentaire)
   type TpHM = Record<string, { debut: string; fin: string }>;
   type TpCfg = { demi?: { source?: string; matin?: TpHM; aprem?: TpHM }; horaires?: TpHM };
   const tpCfgMap = new Map<string, TpCfg>(); // personne_id -> tp_config (temps partiel)
@@ -115,9 +115,9 @@ export default async function AffichageAtelier({
         .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
       admin
         .from("horaire_exception")
-        .select("personne_id, jour, debut, fin")
+        .select("personne_id, jour, debut, fin, motif")
         .in("jour", isos)
-        .returns<{ personne_id: string; jour: string; debut: string | null; fin: string | null }[]>(),
+        .returns<{ personne_id: string; jour: string; debut: string | null; fin: string | null; motif: string | null }[]>(),
       admin
         .from("personne")
         .select("id, tp_config")
@@ -125,7 +125,7 @@ export default async function AffichageAtelier({
         .returns<{ id: string; tp_config: TpCfg | null }[]>(),
     ]);
     for (const h of hor ?? []) horMap.set(`${h.poste_id}:${h.quart_code}:${h.jour}`, { debut: h.debut, fin: h.fin });
-    for (const e of exc ?? []) excMap.set(`${e.personne_id}:${e.jour}`, { debut: e.debut, fin: e.fin });
+    for (const e of exc ?? []) excMap.set(`${e.personne_id}:${e.jour}`, { debut: e.debut, fin: e.fin, motif: e.motif });
     for (const r of tpH ?? []) if (r.tp_config) tpCfgMap.set(r.id, r.tp_config);
     for (const r of jq ?? []) actMap.set(`${r.quart_code}:${r.jour}`, r.actif);
     for (const r of ov ?? []) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
@@ -196,6 +196,9 @@ export default async function AffichageAtelier({
     return `${debut ?? "?"}-${fin ?? "?"}`;
   };
 
+  // Commentaire de l'horaire specifique (saisi dans le planning), affiche sous l'horaire.
+  const commentTxt = (personId: string, iso: string) => (excMap.get(`${personId}:${iso}`)?.motif || "").trim();
+
   const FLUO = "#fde047"; // jaune fluo pour le jour
   const colBg = (iso: string) => (iso === todayIso ? FLUO : undefined);
   const cellBorder = "1px solid #d9dce1";
@@ -209,6 +212,7 @@ export default async function AffichageAtelier({
       if (!p) return null;
       const interim = p.type_contrat === "INTERIM";
       const h = horaireTxt(r.personne_id, posteId, r.quart_code, iso);
+      const cmt = commentTxt(r.personne_id, iso);
       return (
         <div key={i} style={{ lineHeight: 1.2, marginBottom: i < rows.length - 1 ? 6 : 0 }}>
           <div>
@@ -217,6 +221,7 @@ export default async function AffichageAtelier({
             </span>
           </div>
           {h && <div style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 13 }}>{h}</div>}
+          {cmt && <div style={{ color: "#6b7280", fontStyle: "italic", fontSize: 12 }}>{cmt}</div>}
         </div>
       );
     });
@@ -236,10 +241,12 @@ export default async function AffichageAtelier({
     return rows.map((r, i) => {
       if (!r.poste_id) return null;
       const h = horaireTxt(personId, r.poste_id, r.quart_code, iso);
+      const cmt = commentTxt(personId, iso);
       return (
         <div key={i} style={{ lineHeight: 1.2, marginBottom: i < rows.length - 1 ? 6 : 0 }}>
           <div style={{ fontWeight: 600 }}>{posteNom.get(r.poste_id) ?? "?"}</div>
           {h && <div style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 13 }}>{h}</div>}
+          {cmt && <div style={{ color: "#6b7280", fontStyle: "italic", fontSize: 12 }}>{cmt}</div>}
         </div>
       );
     });

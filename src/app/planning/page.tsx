@@ -264,8 +264,11 @@ export default async function PlanningPage({
   const otherByCell: Record<string, string> = {}; // place sur un autre quart -> code du quart
   const matrice: Record<string, number> = {};
   const exceptions: Record<string, { debut: string; fin: string; motif: string }> = {};
+  // Horaire standard par poste (quart affiche) et jour de semaine (0=lundi..6=dimanche),
+  // sert a afficher l'horaire par defaut dans l'infobulle de la pendule.
+  const horaireStd: Record<string, { debut: string; fin: string }> = {};
   if (allIds.length && visIsos.length) {
-    const [pl, mat, { data: exc }] = await Promise.all([
+    const [pl, mat, { data: exc }, { data: horStd }] = await Promise.all([
       fetchAll<Placement>(() =>
         supabase
           .from("placement")
@@ -289,7 +292,13 @@ export default async function PlanningPage({
         .in("jour", visIsos)
         .in("personne_id", allIds)
         .returns<{ personne_id: string; jour: string; debut: string | null; fin: string | null; motif: string | null }[]>(),
+      supabase
+        .from("horaire_poste")
+        .select("poste_id, jour, debut, fin")
+        .eq("quart_code", quart)
+        .returns<{ poste_id: string; jour: number; debut: string | null; fin: string | null }[]>(),
     ]);
+    for (const h of horStd ?? []) horaireStd[`${h.poste_id}:${h.jour}`] = { debut: h.debut ?? "", fin: h.fin ?? "" };
     for (const r of pl) {
       const k = `${r.personne_id}:${r.jour}`;
       if (r.non_travaille) initial[k] = "X";
@@ -428,6 +437,7 @@ export default async function PlanningPage({
           quartLabel={quartLabel}
           posteLabelAll={posteLabelAll}
           exceptions={exceptions}
+          horaireStd={horaireStd}
           weekNav={<WeekNav base="/planning" semaine={centerIso} extra={extra} />}
         />
         </div>
