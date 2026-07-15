@@ -89,7 +89,7 @@ export default async function OrdonnancementPage({
             <Link href="/ordonnancement/semaine-type" className="iconbtn" style={{ padding: "6px 12px" }}>
               ⚙️ Semaine type
             </Link>
-            <Link href="/admin/rotation" className="iconbtn" style={{ padding: "6px 12px" }}>
+            <Link href="/admin/equipes" className="iconbtn" style={{ padding: "6px 12px" }}>
               Rotation des équipes &rarr;
             </Link>
           </div>

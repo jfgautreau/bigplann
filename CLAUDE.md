@@ -52,7 +52,8 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
 ## Modèle métier — les pièges
 - **Quart ≠ Équipe.** Quarts : `journee`/`matin`/`apres_midi`/`nuit` (table `quart`).
   Les équipes tournent sauf si `equipe.quart_fixe`. **Rotation par référence datée**
-  (`rotation_reference`, cf. `src/lib/rotation.ts`) : on saisit, pour **une** semaine (lundi),
+  (`rotation_reference`, cf. `src/lib/rotation.ts` ; écran fusionné dans `/admin/equipes`) :
+  on saisit, pour **une** semaine (lundi),
   le quart de chaque équipe tournante ; l'alternance des semaines suivantes est **calculée**
   (rotation cyclique du vecteur de quarts), jamais stockée. Pour une semaine cible, la
   référence active est la plus récente ≤ cette semaine → changer la rotation = **ajouter une

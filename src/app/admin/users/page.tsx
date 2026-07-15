@@ -3,8 +3,9 @@ import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import { roleLabel, ROLES, ROLE_LABELS } from "@/lib/roles";
 import AppHeader from "@/components/AppHeader";
-import { requireModule } from "@/lib/permissions";
+import { requireModule, MODULES, getAllPermissions } from "@/lib/permissions";
 import UserForm from "./UserForm";
+import DroitsMatrix from "./DroitsMatrix";
 import { updateUserRole } from "./actions";
 
 type Row = {
@@ -26,6 +27,10 @@ export default async function AdminUsersPage() {
     .returns<Row[]>();
 
   const list = users ?? [];
+
+  // Matrice des droits (role x module) : reservee a l'administrateur.
+  const isAdmin = profile.role === "admin";
+  const allPerms = isAdmin ? await getAllPermissions() : null;
 
   return (
     <>
@@ -88,6 +93,27 @@ export default async function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+
+        {isAdmin && allPerms && (
+          <div className="card" style={{ marginTop: 24 }}>
+            <h2>Droits d&apos;accès (rôle × module)</h2>
+            <p className="muted" style={{ marginBottom: 16 }}>
+              Cliquez sur une case pour changer le droit :{" "}
+              <span style={{ background: "#fff", border: "1px solid #cbd5e1", padding: "1px 8px", borderRadius: 5 }}>Aucun</span>{" "}
+              &rarr; <span style={{ background: "#1d4ed8", color: "#fff", padding: "1px 8px", borderRadius: 5 }}>Lecture</span>{" "}
+              &rarr; <span style={{ background: "#7c3aed", color: "#fff", padding: "1px 8px", borderRadius: 5 }}>Modif.</span>.
+              L&apos;administrateur a tous les droits. Chaque changement est <strong>enregistré
+              automatiquement</strong>. La sécurité base (RLS) reste un garde-fou.
+            </p>
+            <div style={{ overflowX: "auto" }}>
+              <DroitsMatrix
+                roles={ROLES.map((r) => ({ key: r, label: ROLE_LABELS[r] }))}
+                modules={MODULES.map((m) => ({ key: m.key, label: m.label }))}
+                initial={Object.fromEntries(ROLES.filter((r) => r !== "admin").map((r) => [r, allPerms[r]]))}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

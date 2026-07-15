@@ -84,7 +84,8 @@ manuellement** par l'utilisateur dans le SQL Editor Supabase (`SUPABASE_DB_URL` 
   (+ `/ordonnancement/semaine-type`), `/matrice` (+ `/matrice/bilan`), `/habilitations`,
   `/personnel` (+ `/personnel/[id]`), `/bilans` (+ personnel, polyvalence, couverture,
   anticipation, competences), `/horaires-specifiques`, `/absences-specifiques`.
-- Admin : `/admin/referentiel`, `/admin/equipes`, `/admin/competences`,
-  `/admin/habilitations-param`, `/admin/motifs`, `/admin/horaires`, `/admin/rotation`,
-  `/admin/users`, `/admin/droits`, `/admin/rgpd`, `/journal`.
+- Admin : `/admin/referentiel`, `/admin/equipes` (gestion des équipes **+ rotation des
+  quarts**), `/admin/competences`, `/admin/habilitations-param`, `/admin/motifs`,
+  `/admin/horaires`, `/admin/users` (comptes **+ matrice des droits**, admin), `/admin/rgpd`,
+  `/journal`.
 - Public : `/affichage`, `/affichage/atelier/[atelier]` (écran TV, refresh 60 s).

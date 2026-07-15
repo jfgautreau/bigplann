@@ -22,7 +22,6 @@ export default async function AppHeader({
   active?: string;
 }) {
   const perms = await getPermissions(role);
-  const isAdmin = role === "admin";
   const profile = await getCurrentProfile();
 
   // Compteur d'alertes habilitations (<= 90 jours)
@@ -50,18 +49,13 @@ export default async function AppHeader({
 
   // Reste (parametrage) regroupe sous l'engrenage. Habilitations est desormais
   // une tuile du menu principal (plus seulement la cloche d'alerte).
+  // La page Equipes heberge desormais la rotation des quarts : son entree est aussi
+  // visible pour un droit "ordonnancement" (les droits d'acces sont dans Utilisateurs).
+  const visibleConfig = (m: (typeof MODULES)[number]) =>
+    m.key === "equipes" ? canWrite(perms, "equipes") || canWrite(perms, "ordonnancement") : visible(m);
   const configLinks = MODULES.filter(
-    (m) => !MAIN_ORDER.includes(m.key) && visible(m)
+    (m) => !MAIN_ORDER.includes(m.key) && visibleConfig(m)
   ).map((m) => ({ href: m.href, label: m.label }));
-  // Entrees hors MODULES, ancrees juste sous l'entree parente (sinon en fin de liste,
-  // comportement historique) : Rotation des equipes sous Equipes, Droits sous Utilisateurs.
-  const insertAfter = (anchorHref: string, item: { href: string; label: string }) => {
-    const i = configLinks.findIndex((l) => l.href === anchorHref);
-    if (i >= 0) configLinks.splice(i + 1, 0, item);
-    else configLinks.push(item);
-  };
-  if (canWrite(perms, "ordonnancement")) insertAfter("/admin/equipes", { href: "/admin/rotation", label: "Rotation des équipes" });
-  if (isAdmin) insertAfter("/admin/users", { href: "/admin/droits", label: "Droits" });
 
   return (
     <header className="appheader">
