@@ -43,11 +43,16 @@ export const getMotifsC = unstable_cache(
   OPTS
 );
 
+// Tag dedie : l'edition des libelles (admin/competences) doit se refleter
+// immediatement dans la legende de la matrice via revalidateTag, sans attendre
+// l'expiration du cache.
+export const NIVEAUX_TAG = "refdata-niveaux";
+
 export const getNiveauxC = unstable_cache(
   async () => {
     const { data } = await getAdminClient().from("competence_niveau_libelle").select("niveau, libelle").order("niveau");
     return (data ?? []) as { niveau: number; libelle: string }[];
   },
   ["refdata-niveaux"],
-  OPTS
+  { ...OPTS, tags: [NIVEAUX_TAG] }
 );

@@ -1,8 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/current-user";
+import { NIVEAUX_TAG } from "@/lib/refdata";
 
 const PATH = "/admin/competences";
 const s = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -27,6 +28,7 @@ export async function saveEchelle(fd: FormData) {
         .upsert({ niveau: n, libelle }, { onConflict: "niveau" });
     }
   }
+  updateTag(NIVEAUX_TAG);
   done();
 }
 
