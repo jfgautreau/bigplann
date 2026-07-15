@@ -53,8 +53,15 @@ export default async function AppHeader({
   const configLinks = MODULES.filter(
     (m) => !MAIN_ORDER.includes(m.key) && visible(m)
   ).map((m) => ({ href: m.href, label: m.label }));
-  if (canWrite(perms, "ordonnancement")) configLinks.push({ href: "/admin/rotation", label: "Rotation des équipes" });
-  if (isAdmin) configLinks.push({ href: "/admin/droits", label: "Droits" });
+  // Entrees hors MODULES, ancrees juste sous l'entree parente (sinon en fin de liste,
+  // comportement historique) : Rotation des equipes sous Equipes, Droits sous Utilisateurs.
+  const insertAfter = (anchorHref: string, item: { href: string; label: string }) => {
+    const i = configLinks.findIndex((l) => l.href === anchorHref);
+    if (i >= 0) configLinks.splice(i + 1, 0, item);
+    else configLinks.push(item);
+  };
+  if (canWrite(perms, "ordonnancement")) insertAfter("/admin/equipes", { href: "/admin/rotation", label: "Rotation des équipes" });
+  if (isAdmin) insertAfter("/admin/users", { href: "/admin/droits", label: "Droits" });
 
   return (
     <header className="appheader">
