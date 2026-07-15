@@ -128,15 +128,17 @@ export default function HabilitationsList({
     const formeesSet = new Set<string>();
     let valables = 0;
     let expirees = 0;
+    let autorNonDelivrees = 0; // formation a autorisation de conduite, date de remise vide
     const parComp = new Map<string, { formees: number; valables: number; expirees: number }>();
     for (const c of comps) parComp.set(c.id, { formees: 0, valables: 0, expirees: 0 });
     for (const rec of recMap.values()) {
       if (!actifs.has(rec.personne_id)) continue;
+      const comp = compById.get(rec.competence_id);
       const st = parComp.get(rec.competence_id);
       if (!st) continue; // formation inactive / non listee
       formeesSet.add(rec.personne_id);
       st.formees++;
-      const j = joursRestants(effExp(rec, compById.get(rec.competence_id)));
+      const j = joursRestants(effExp(rec, comp));
       if (j !== null && j < 0) {
         expirees++;
         st.expirees++;
@@ -144,8 +146,9 @@ export default function HabilitationsList({
         valables++;
         st.valables++;
       }
+      if (comp?.a_autorisation_conduite && !rec.date_autorisation_conduite) autorNonDelivrees++;
     }
-    return { global: { formees: formeesSet.size, valables, expirees }, parComp };
+    return { global: { formees: formeesSet.size, valables, expirees, autorNonDelivrees }, parComp };
   }, [recMap, personnes, comps, compById]);
 
   // Colonnes ordonnées.
@@ -248,6 +251,7 @@ export default function HabilitationsList({
             <Kpi n={bilan.global.formees} label="Personnes formées" color="#1d4ed8" />
             <Kpi n={bilan.global.valables} label="Habilitations valables" color="#16a34a" />
             <Kpi n={bilan.global.expirees} label="Habilitations expirées" color="#dc2626" />
+            <Kpi n={bilan.global.autorNonDelivrees} label="Autorisations non délivrées" color="#b45309" />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div className="segments">
