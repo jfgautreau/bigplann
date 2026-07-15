@@ -43,25 +43,6 @@ const ADD_BTN: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-// Petit champ d'ajout : saisie d'un nom + Entree (ou bouton) pour creer.
-function AddInput({ placeholder, onAdd, width = 220 }: { placeholder: string; onAdd: (v: string) => void; width?: number }) {
-  const [v, setV] = useState("");
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        const t = v.trim();
-        if (t) { onAdd(t); setV(""); }
-      }}
-      className="inline-form"
-      style={{ margin: 0 }}
-    >
-      <input value={v} onChange={(e) => setV(e.target.value)} placeholder={placeholder} style={{ width }} />
-      <button type="submit" className="btn-sm btn-ghost">+ Ajouter</button>
-    </form>
-  );
-}
-
 export default function ReferentielEditor({
   initial,
   quarts = [],
@@ -194,8 +175,10 @@ export default function ReferentielEditor({
         {saveLabel}
       </div>
 
-      <div className="card" style={{ marginBottom: 20 }}>
-        <AddInput placeholder="Nouvel atelier (nom + Entrée)" onAdd={addAtelier} />
+      <div style={{ display: "flex", marginBottom: 12 }}>
+        <button type="button" style={ADD_BTN} onClick={() => addAtelier("")} title="Ajouter un atelier (à compléter ensuite)">
+          ＋ Ajouter un atelier
+        </button>
       </div>
 
       {tree.map((a) => (

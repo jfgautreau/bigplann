@@ -27,7 +27,6 @@ export default function MatrixGrid({
   canEditObjectif = false,
   mode = "actuel",
   onShowLegende,
-  onToggleMode,
 }: {
   groups?: Group[];
   personnes?: Personne[];
@@ -35,7 +34,6 @@ export default function MatrixGrid({
   canEditObjectif?: boolean;
   mode?: "actuel" | "cible";
   onShowLegende?: () => void;
-  onToggleMode?: () => void;
 }) {
   const [cells, setCells] = useState<Record<string, Cell>>(initial);
   const [showBilan, setShowBilan] = useState(false);
@@ -181,28 +179,11 @@ export default function MatrixGrid({
             </button>
           )}
         </span>
-        {/* Bascule Actuel/Cible empilee au-dessus de la Legende, alignees a droite. */}
-        <div style={{ gridColumn: 3, justifySelf: "end", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-          {onToggleMode && (
-            <button
-              type="button"
-              role="switch"
-              aria-checked={mode === "cible"}
-              onClick={onToggleMode}
-              title="Basculer entre niveau actuel et niveau cible"
-              style={{ position: "relative", width: 156, height: 28, flex: "0 0 auto", margin: 0, padding: 0, border: "1px solid var(--border)", borderRadius: 999, background: "#eef2f7", cursor: "pointer", display: "flex" }}
-            >
-              <span style={{ position: "absolute", top: 2, bottom: 2, width: "calc(50% - 3px)", left: mode === "actuel" ? 3 : "auto", right: mode === "cible" ? 3 : "auto", borderRadius: 999, background: mode === "actuel" ? "#1d4ed8" : "#16a34a", transition: "left 0.18s ease, right 0.18s ease" }} />
-              <span style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mode === "actuel" ? "#fff" : "#64748b" }}>Actuel</span>
-              <span style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mode === "cible" ? "#fff" : "#64748b" }}>Cible</span>
-            </button>
-          )}
-          {onShowLegende && (
-            <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", margin: 0 }} onClick={onShowLegende}>
-              📖 Légende
-            </button>
-          )}
-        </div>
+        {onShowLegende && (
+          <button type="button" className={`btn-sm btn-ghost ${g.legendBtn}`} onClick={onShowLegende}>
+            📖 Légende
+          </button>
+        )}
       </div>
 
       {/* Tableau 1 : en-tetes + bilan retractable (fixe) */}

@@ -107,10 +107,7 @@ export default function PersonnelEditor({
   const [merging, setMerging] = useState(false);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showCreate, setShowCreate] = useState(false);
-  // Tri et filtres par colonne (facon Excel) declenches depuis les en-tetes.
-  const [sortCol, setSortCol] = useState<{ key: ColKey; dir: "asc" | "desc" } | null>(null);
-  const [colFilters, setColFilters] = useState<Partial<Record<ColKey, Set<string>>>>({});
-  const [menu, setMenu] = useState<{ key: ColKey; left: number; top: number } | null>(null);
+  const [statutFilter, setStatutFilter] = useState<"" | "ACTIF" | "PARTI">("");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const today = todayStr();
@@ -242,71 +239,11 @@ export default function PersonnelEditor({
       default: return "";
     }
   };
-  // Colonnes categorielles : filtre par liste de valeurs cochables.
-  const FILTERABLE = new Set<ColKey>(["type_contrat", "sexe", "equipe", "atelier", "tp", "statut"]);
-  // Valeur AFFICHEE d'une cellule (sert aux valeurs de filtre).
-  const cellLabel = (r: Row, key: ColKey): string => {
-    switch (key) {
-      case "type_contrat": return r.type_contrat === "INTERIM" ? "Intérim" : r.type_contrat;
-      case "matricule": return r.matricule || "—";
-      case "numero_badge": return r.numero_badge || "—";
-      case "nom": return r.nom;
-      case "prenom": return r.prenom;
-      case "sexe": return r.sexe === "H" ? "H" : r.sexe === "F" ? "F" : "—";
-      case "equipe": return equipeNom(r.equipe_id) || "—";
-      case "atelier": return atelierNom(r.atelier_id) || "—";
-      case "date_livret_accueil": return fmtDate(r.date_livret_accueil);
-      case "date_fin": return fmtDate(r.date_fin);
-      case "alerte": { const a = alerte18(r); return a != null ? `⚠ ${a} m` : "—"; }
-      case "pointure": return r.pointure || "—";
-      case "tp": return r.temps_partiel ? "TP" : "—";
-      case "statut": return r.statut === "ACTIF" ? "Actif" : "Parti";
-      default: return "";
-    }
-  };
-  // Cle de tri (iso pour les dates, nombre pour pointure/alerte -> tri naturel).
-  const cellSortKey = (r: Row, key: ColKey): string | number => {
-    switch (key) {
-      case "date_livret_accueil": return r.date_livret_accueil ?? "";
-      case "date_fin": return r.date_fin ?? "";
-      case "alerte": return alerte18(r) ?? -1;
-      case "pointure": return r.pointure ?? "";
-      case "tp": return r.temps_partiel ? 1 : 0;
-      case "equipe": return equipeNom(r.equipe_id);
-      case "atelier": return atelierNom(r.atelier_id);
-      default: return cellLabel(r, key);
-    }
-  };
-  const distinctFor = (key: ColKey) =>
-    [...new Set(rows.map((r) => cellLabel(r, key)))].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
-  const isFilterActive = (key: ColKey) => {
-    const set = colFilters[key];
-    return !!set && set.size < distinctFor(key).length;
-  };
-
-  function toggleFilterVal(key: ColKey, val: string) {
-    setColFilters((f) => {
-      const cur = f[key] ?? new Set(distinctFor(key)); // absent = tout coche
-      const next = new Set(cur);
-      if (next.has(val)) next.delete(val);
-      else next.add(val);
-      return { ...f, [key]: next };
-    });
-  }
-  const setAllFilter = (key: ColKey, all: boolean) =>
-    setColFilters((f) => ({ ...f, [key]: all ? new Set(distinctFor(key)) : new Set<string>() }));
-  const clearFilter = (key: ColKey) =>
-    setColFilters((f) => { const n = { ...f }; delete n[key]; return n; });
-
   const searchCols = COLS.filter((c) => c.search);
   const gTerms = gq.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const filtered = rows.filter((r) => {
+    if (statutFilter && r.statut !== statutFilter) return false;
     if (contratFilter && r.type_contrat !== contratFilter) return false;
-    // Filtres par colonne (valeurs cochees).
-    for (const key of Object.keys(colFilters) as ColKey[]) {
-      const set = colFilters[key];
-      if (set && !set.has(cellLabel(r, key))) return false;
-    }
     // Recherche globale : tous les mots doivent apparaitre dans une colonne cherchable.
     if (gTerms.length) {
       const hay = searchCols.map((c) => cellText(r, c.key)).join(" ");
@@ -314,15 +251,6 @@ export default function PersonnelEditor({
     }
     return true;
   });
-  // Tri applique apres filtrage (les colonnes non triees gardent l'ordre nom+prenom).
-  const displayed = sortCol
-    ? [...filtered].sort((a, b) => {
-        const va = cellSortKey(a, sortCol.key);
-        const vb = cellSortKey(b, sortCol.key);
-        const c = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "fr", { numeric: true });
-        return sortCol.dir === "asc" ? c : -c;
-      })
-    : filtered;
 
   const saveLabel =
     save === "saving" ? "Enregistrement…" : save === "saved" ? "Enregistré ✓" : save === "error" ? "Échec d'enregistrement" : "";
@@ -331,7 +259,12 @@ export default function PersonnelEditor({
   const C = (k: ColKey): React.CSSProperties => (CENTER.has(k) ? { textAlign: "center", textAlignLast: "center" } : {});
   const interimStyle = (t: string) => (t === "INTERIM" ? { background: "#fde68a", color: "#92400e", fontWeight: 600 } : {});
 
-  const counts = { tous: rows.length, ...Object.fromEntries(CONTRATS.map((c) => [c, rows.filter((r) => r.type_contrat === c).length])) } as Record<string, number>;
+  const counts = {
+    tous: rows.length,
+    actif: rows.filter((r) => r.statut === "ACTIF").length,
+    parti: rows.filter((r) => r.statut !== "ACTIF").length,
+    ...Object.fromEntries(CONTRATS.map((c) => [c, rows.filter((r) => r.type_contrat === c).length])),
+  } as Record<string, number>;
 
   const Cols = () => (
     <colgroup>
@@ -343,9 +276,17 @@ export default function PersonnelEditor({
 
   return (
     <>
-      {/* Barre de filtres : contrat aligné à droite (colonne centrée 1500 px) */}
+      {/* Barre de filtres : statut puis contrat, alignes à droite (colonne centrée 1500 px) */}
       <div className="headband">
-      <div className="toolbar" style={{ alignItems: "center", justifyContent: "flex-end", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span className="muted" style={{ fontWeight: 600 }}>Statut :</span>
+          <div className="segments">
+            <button type="button" className={statutFilter === "" ? "seg active" : "seg"} onClick={() => setStatutFilter("")}>Tous ({rows.length})</button>
+            <button type="button" className={statutFilter === "ACTIF" ? "seg active" : "seg"} onClick={() => setStatutFilter("ACTIF")}>Actif ({counts.actif})</button>
+            <button type="button" className={statutFilter === "PARTI" ? "seg active" : "seg"} onClick={() => setStatutFilter("PARTI")}>Parti ({counts.parti})</button>
+          </div>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span className="muted" style={{ fontWeight: 600 }}>Contrat :</span>
           <div className="segments">
@@ -394,34 +335,7 @@ export default function PersonnelEditor({
           <Cols />
           <thead>
             <tr>
-              {COLS.map((c) => {
-                const sorted = sortCol?.key === c.key;
-                const flt = isFilterActive(c.key);
-                return (
-                  <th key={c.key} style={{ whiteSpace: "nowrap" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                      {c.label}
-                      <button
-                        type="button"
-                        title="Trier / filtrer"
-                        onClick={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setMenu((m) => (m?.key === c.key ? null : { key: c.key, left: rect.left, top: rect.bottom }));
-                        }}
-                        style={{
-                          width: "auto", margin: 0, padding: "0 3px", lineHeight: 1.4, fontSize: 11,
-                          border: "1px solid " + (sorted || flt ? "#1d4ed8" : "var(--border)"),
-                          borderRadius: 4, cursor: "pointer",
-                          background: sorted || flt ? "#1d4ed8" : "#fff",
-                          color: sorted || flt ? "#fff" : "var(--muted)",
-                        }}
-                      >
-                        {sorted ? (sortCol!.dir === "asc" ? "▲" : "▼") : flt ? "▦" : "▾"}
-                      </button>
-                    </span>
-                  </th>
-                );
-              })}
+              {COLS.map((c) => <th key={c.key} style={{ whiteSpace: "nowrap" }}>{c.label}</th>)}
               {canEdit && (
                 <th style={{ textAlign: "center" }}>
                   <button
@@ -445,7 +359,7 @@ export default function PersonnelEditor({
         <table className="pers-table" style={tableStyle}>
           <Cols />
           <tbody>
-            {displayed.map((r) => {
+            {filtered.map((r) => {
               const a18 = alerte18(r);
               return (
                 <tr key={r.id} style={{ opacity: r.statut === "ACTIF" ? 1 : 0.55 }}>
@@ -504,71 +418,13 @@ export default function PersonnelEditor({
                 </tr>
               );
             })}
-            {displayed.length === 0 && (
+            {filtered.length === 0 && (
               <tr><td colSpan={canEdit ? COLS.length + 1 : COLS.length} className="muted" style={{ padding: 10 }}>Aucun résultat.</td></tr>
             )}
           </tbody>
         </table>
       </div>
       </div>
-
-      {/* Menu Trier / filtrer d'une colonne (position fixe -> pas de clipping). */}
-      {menu && (
-        <>
-          <div onClick={() => setMenu(null)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
-          <div
-            style={{
-              position: "fixed",
-              left: Math.min(menu.left, (typeof window !== "undefined" ? window.innerWidth : 9999) - 250),
-              top: menu.top + 4,
-              zIndex: 91,
-              width: 232,
-              background: "#fff",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              boxShadow: "0 10px 28px rgba(0,0,0,0.2)",
-              padding: 8,
-            }}
-          >
-            <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 6 }}>
-              {COLS.find((c) => c.key === menu.key)?.label}
-            </div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-              <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", flex: 1 }} onClick={() => { setSortCol({ key: menu.key, dir: "asc" }); setMenu(null); }}>▲ A→Z</button>
-              <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", flex: 1 }} onClick={() => { setSortCol({ key: menu.key, dir: "desc" }); setMenu(null); }}>▼ Z→A</button>
-            </div>
-            {sortCol?.key === menu.key && (
-              <button type="button" className="btn-sm btn-ghost" style={{ width: "100%", marginBottom: 6 }} onClick={() => { setSortCol(null); setMenu(null); }}>Annuler le tri</button>
-            )}
-            {FILTERABLE.has(menu.key) && (
-              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <span className="muted" style={{ fontSize: 12, fontWeight: 600 }}>Filtrer</span>
-                  <span>
-                    <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", padding: "1px 6px" }} onClick={() => setAllFilter(menu.key, true)}>Tout</button>
-                    <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", padding: "1px 6px" }} onClick={() => setAllFilter(menu.key, false)}>Aucun</button>
-                  </span>
-                </div>
-                <div style={{ maxHeight: 190, overflowY: "auto" }}>
-                  {distinctFor(menu.key).map((val) => {
-                    const set = colFilters[menu.key];
-                    const checked = set ? set.has(val) : true;
-                    return (
-                      <label key={val} style={{ display: "flex", gap: 6, alignItems: "center", padding: "2px 0", fontSize: 13, cursor: "pointer" }}>
-                        <input type="checkbox" checked={checked} onChange={() => toggleFilterVal(menu.key, val)} style={{ width: "auto" }} />
-                        {val}
-                      </label>
-                    );
-                  })}
-                </div>
-                {isFilterActive(menu.key) && (
-                  <button type="button" className="btn-sm btn-ghost" style={{ width: "100%", marginTop: 6 }} onClick={() => clearFilter(menu.key)}>Effacer le filtre</button>
-                )}
-              </div>
-            )}
-          </div>
-        </>
-      )}
 
       {tpFor && (
         <TempsPartielModal
