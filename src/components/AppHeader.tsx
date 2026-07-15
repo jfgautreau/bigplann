@@ -46,6 +46,13 @@ export default async function AppHeader({
   const mainLinks = MAIN_ORDER.map((k) => MODULES.find((m) => m.key === k))
     .filter((m): m is (typeof MODULES)[number] => !!m)
     .filter(visible);
+  // Placement : vue de saisie par glisser-deposer, adossee au droit "planning".
+  if (canWrite(perms, "planning")) {
+    const i = mainLinks.findIndex((m) => m.key === "planning");
+    const item = { key: "placement", label: "Placement", href: "/placement", admin: false };
+    if (i >= 0) mainLinks.splice(i + 1, 0, item);
+    else mainLinks.push(item);
+  }
 
   // Reste (parametrage) regroupe sous l'engrenage. Habilitations est desormais
   // une tuile du menu principal (plus seulement la cloche d'alerte).

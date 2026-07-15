@@ -1,0 +1,153 @@
+import { getServerClient } from "@/lib/supabase-server";
+import AppHeader from "@/components/AppHeader";
+import PageTitle from "@/components/PageTitle";
+import { requireModule, canWriteModule } from "@/lib/permissions";
+import { fetchAll } from "@/lib/fetch-all";
+import { isoDate } from "@/lib/week";
+import PlacementBoard from "./PlacementBoard";
+
+type Atelier = { id: string; nom: string };
+type Equipe = { id: string; nom: string; couleur: string | null };
+type Quart = { code: string; libelle: string };
+type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null };
+type PosteRow = { id: string; nom: string; nom_court: string | null; actif: boolean; effectif_requis: number; niveau_min_requis: number; ordre_affichage: number };
+type LigneRow = { id: string; nom: string; ordre_affichage: number; atelier_id: string; poste: PosteRow[] };
+type Placement = { personne_id: string; poste_id: string | null; motif_absence_id: string | null; non_travaille: boolean; quart_code: string | null };
+type MatRow = { personne_id: string; poste_id: string; niveau_actuel: number };
+type Motif = { id: string; code_court: string; libelle: string; couleur: string };
+
+const ordreThenNom = <T extends { ordre_affichage?: number; nom: string }>(a: T, b: T) =>
+  (a.ordre_affichage ?? 0) - (b.ordre_affichage ?? 0) || a.nom.localeCompare(b.nom);
+
+export default async function PlacementPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ atelier?: string; date?: string; quart?: string }>;
+}) {
+  const { profile } = await requireModule("planning", "write");
+  const sp = await searchParams;
+
+  const supabase = await getServerClient();
+  const jour = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : isoDate(new Date());
+
+  const [{ data: ateliersD }, { data: equipesD }, { data: quartsD }, { data: persD }, { data: motifsD }] = await Promise.all([
+    supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
+    supabase.from("equipe").select("id, nom, couleur").eq("actif", true).order("nom").returns<Equipe[]>(),
+    supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
+    supabase.from("personne").select("id, nom, prenom, equipe_id, atelier_id").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
+    supabase.from("motif_absence").select("id, code_court, libelle, couleur").eq("actif", true).order("libelle").returns<Motif[]>(),
+  ]);
+
+  const ateliers = ateliersD ?? [];
+  const equipes = equipesD ?? [];
+  const quarts = quartsD ?? [];
+  const quartCodes = quarts.map((q) => q.code);
+  const personnes = persD ?? [];
+  const motifs = motifsD ?? [];
+
+  const quart = sp.quart && quartCodes.includes(sp.quart) ? sp.quart : quartCodes.includes("matin") ? "matin" : quartCodes[0] ?? "matin";
+  const atelierId = ateliers.find((a) => a.id === sp.atelier)?.id ?? ateliers[0]?.id ?? "";
+
+  // Postes de l'atelier + desactivations poste x quart + placements du jour + matrice.
+  const [{ data: lignesD }, { data: pqOffD }, { data: plD }, mat] = await Promise.all([
+    atelierId
+      ? supabase
+          .from("ligne")
+          .select("id, nom, ordre_affichage, atelier_id, poste(id, nom, nom_court, actif, effectif_requis, niveau_min_requis, ordre_affichage)")
+          .eq("atelier_id", atelierId)
+          .eq("actif", true)
+          .order("nom")
+          .returns<LigneRow[]>()
+      : Promise.resolve({ data: [] as LigneRow[] }),
+    supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
+    supabase.from("placement").select("personne_id, poste_id, motif_absence_id, non_travaille, quart_code").eq("jour", jour).returns<Placement[]>(),
+    (async () => {
+      const posteIds = ((await supabase
+        .from("ligne")
+        .select("poste(id)")
+        .eq("atelier_id", atelierId)
+        .returns<{ poste: { id: string }[] }[]>()).data ?? []).flatMap((l) => l.poste.map((p) => p.id));
+      if (!posteIds.length) return [] as MatRow[];
+      return fetchAll<MatRow>(() =>
+        supabase.from("matrice").select("personne_id, poste_id, niveau_actuel").in("poste_id", posteIds).order("id").returns<MatRow[]>()
+      );
+    })(),
+  ]);
+
+  // Postes ouverts pour ce quart (poste actif + non desactive sur le quart), groupes par ligne.
+  const pqOff = new Set((pqOffD ?? []).map((r) => `${r.poste_id}:${r.quart_code}`));
+  const groups = (lignesD ?? [])
+    .map((l) => ({
+      ligneId: l.id,
+      ligneNom: l.nom,
+      ligneOrdre: l.ordre_affichage ?? 0,
+      postes: [...(l.poste ?? [])]
+        .filter((p) => p.actif && !pqOff.has(`${p.id}:${quart}`))
+        .sort(ordreThenNom)
+        .map((p) => ({ id: p.id, nom: p.nom, nomCourt: p.nom_court, effectifRequis: p.effectif_requis, niveauMin: p.niveau_min_requis })),
+    }))
+    .filter((g) => g.postes.length > 0)
+    .sort((a, b) => a.ligneOrdre - b.ligneOrdre || a.ligneNom.localeCompare(b.ligneNom));
+
+  // Etat initial des placements (pour ce jour / quart) + personnes deja sur un autre quart.
+  const placeInit: Record<string, string> = {};
+  const autreQuart: Record<string, string> = {};
+  for (const r of plD ?? []) {
+    if (r.non_travaille) placeInit[r.personne_id] = "X";
+    else if (r.motif_absence_id) placeInit[r.personne_id] = `m:${r.motif_absence_id}`;
+    else if (r.poste_id && (r.quart_code ?? "matin") === quart) placeInit[r.personne_id] = r.poste_id;
+    else if (r.poste_id) autreQuart[r.personne_id] = r.quart_code ?? "matin";
+  }
+
+  // Niveau de competence par (personne, poste) pour l'aide au placement.
+  const matrice: Record<string, number> = {};
+  for (const r of mat) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
+
+  // Perimetre d'edition : ecriture complete (admin/ordo) -> tout ; chef -> son equipe.
+  const fullWrite = await canWriteModule(profile.role, "planning");
+  const chefTeams = new Set<string>();
+  if (!fullWrite) {
+    const { data: ct } = await supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>();
+    for (const r of ct ?? []) chefTeams.add(r.equipe_id);
+  }
+  const persos = personnes.map((p) => ({
+    id: p.id,
+    nom: p.nom,
+    prenom: p.prenom,
+    equipe_id: p.equipe_id,
+    atelier_id: p.atelier_id,
+    couleur: equipes.find((e) => e.id === p.equipe_id)?.couleur ?? null,
+    editable: fullWrite || (p.equipe_id ? chefTeams.has(p.equipe_id) : false),
+  }));
+
+  const quartLib: Record<string, string> = {};
+  for (const q of quarts) quartLib[q.code] = q.libelle;
+
+  return (
+    <div className="pagecol">
+      <AppHeader role={profile.role} active="/placement" />
+      <div className="headband headband-top">
+        <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
+          <PageTitle module="placement">Placement</PageTitle>
+        </div>
+      </div>
+      <PlacementBoard
+        jour={jour}
+        quart={quart}
+        atelierId={atelierId}
+        ateliers={ateliers}
+        equipes={equipes}
+        quarts={quarts}
+        quartLib={quartLib}
+        groups={groups}
+        personnes={persos}
+        placeInit={placeInit}
+        autreQuart={autreQuart}
+        matrice={matrice}
+        motifs={motifs.map((m) => ({ id: m.id, code: m.code_court, libelle: m.libelle, couleur: m.couleur }))}
+      />
+    </div>
+  );
+}
+
+export const dynamic = "force-dynamic";

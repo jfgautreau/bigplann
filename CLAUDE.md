@@ -138,6 +138,8 @@ prochain gros chantier, pas une optimisation cosmétique.
   Logo → `/` (page d'accueil : logo centré + titre « planning »).
 - Grille partagée : `src/components/{persongrid.module.css,usePersonGrid.ts}`.
 - Planning : `src/app/planning/{page,PlanningGrid,PlanningFilters,AtelierFilter,QuartSelector}.tsx`.
+- Placement (saisie glisser-déposer, adossée au droit `planning`) : `src/app/placement/{page,PlanningBoard→PlacementBoard,placement.module.css}` ;
+  plan schématique auto-généré (postes par ligne) + liste des noms + absences ; écrit via `/api/placement/cell` (même table que le planning). Aide à la compétence (matrice) en surbrillance. V2 prévue : vrai plan géographique (image + positions).
 - Matrice : `src/app/matrice/{page,MatricePanel,MatrixGrid,Pie,LegendeModal}.tsx` + `matrice.module.css`
   (ce qui lui est propre : accent de mode, lignes de bilan, cellule éditable).
 - Personnel : `src/app/personnel/*` + `src/app/api/personnel/route.ts`.

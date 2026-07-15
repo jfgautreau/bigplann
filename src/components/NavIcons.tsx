@@ -14,6 +14,7 @@ export const NAV_COLOR: Record<string, string> = {
   habilitations: "#ca8a04",
   ordonnancement: "#ea580c",
   planning: "#0d9488",
+  placement: "#4f46e5",
   bilans: "#e11d48",
 };
 
@@ -72,6 +73,15 @@ export function NavIcon({ name, size = 14 }: { name: string; size?: number }): R
             <rect x="6.4" y="15.6" width="3" height="2.6" rx="0.6" />
             <rect x="10.5" y="15.6" width="3" height="2.6" rx="0.6" />
           </g>
+        </Svg>
+      );
+
+    // Placement : un repere de position (pin) -> poser quelqu'un a un poste
+    case "placement":
+      return (
+        <Svg size={size}>
+          <path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z" fill="#fff" />
+          <circle cx="12" cy="9" r="2.6" fill={DETAIL} />
         </Svg>
       );
 
