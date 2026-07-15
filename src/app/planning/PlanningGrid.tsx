@@ -713,7 +713,9 @@ export default function PlanningGrid({
                     {(() => {
                       const ek = excKey(pers.id, d.iso);
                       const e = exc[ek];
-                      const canEditExc = pers.editable && isPoste(v);
+                      // Editable si la case est affectee, ou si une exception subsiste (pour
+                      // pouvoir la modifier / l'effacer meme apres suppression de l'affectation).
+                      const canEditExc = pers.editable && (isPoste(v) || !!e);
                       if (!e && !canEditExc) return null;
                       return (
                         <>
