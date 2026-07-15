@@ -65,28 +65,10 @@ export default function HabilitationsList({
   const [view, setView] = useState<"grille" | "liste">("grille"); // grille par défaut
   const [showMaj, setShowMaj] = useState(false);
   const [showLegende, setShowLegende] = useState(false);
+  const [showBilan, setShowBilan] = useState(false);
   const { headCardRef, headTableRef, rowsTableRef, rowsCardProps } = usePersonGrid(g.colHover, 3);
 
   const compById = useMemo(() => new Map(comps.map((c) => [c.id, c])), [comps]);
-
-  // Bilan (global, independant de la recherche) sur les personnes actives :
-  // personnes ayant au moins une habilitation, habilitations encore valables
-  // (echeance non depassee ou sans date), habilitations expirees.
-  const bilan = useMemo(() => {
-    const actifs = new Set(personnes.map((p) => p.id));
-    const formees = new Set<string>();
-    let valables = 0;
-    let expirees = 0;
-    for (const r of rows) {
-      if (!actifs.has(r.personne_id)) continue;
-      formees.add(r.personne_id);
-      const exp = effExp(r, compById.get(r.competence_id));
-      const j = joursRestants(exp);
-      if (j !== null && j < 0) expirees++;
-      else valables++;
-    }
-    return { formees: formees.size, valables, expirees };
-  }, [rows, personnes, compById]);
 
   const q = search.trim();
   // Recherche multi-critères : nom de personne, mais aussi formation / groupe / catégorie.
@@ -99,6 +81,34 @@ export default function HabilitationsList({
     for (const r of rows) m.set(`${r.personne_id}:${r.competence_id}`, r);
     return m;
   }, [rows]);
+
+  // Bilan (global + par formation), independant de la recherche. Base sur recMap
+  // (etat courant : une entree par personne x formation, comme la grille) pour ne
+  // pas compter deux fois un recyclage. Restreint aux personnes actives.
+  const bilan = useMemo(() => {
+    const actifs = new Set(personnes.map((p) => p.id));
+    const formeesSet = new Set<string>();
+    let valables = 0;
+    let expirees = 0;
+    const parComp = new Map<string, { formees: number; valables: number; expirees: number }>();
+    for (const c of comps) parComp.set(c.id, { formees: 0, valables: 0, expirees: 0 });
+    for (const rec of recMap.values()) {
+      if (!actifs.has(rec.personne_id)) continue;
+      const st = parComp.get(rec.competence_id);
+      if (!st) continue; // formation inactive / non listee
+      formeesSet.add(rec.personne_id);
+      st.formees++;
+      const j = joursRestants(effExp(rec, compById.get(rec.competence_id)));
+      if (j !== null && j < 0) {
+        expirees++;
+        st.expirees++;
+      } else {
+        valables++;
+        st.valables++;
+      }
+    }
+    return { global: { formees: formeesSet.size, valables, expirees }, parComp };
+  }, [recMap, personnes, comps, compById]);
 
   // Colonnes ordonnées.
   const ordered = useMemo(
@@ -197,9 +207,9 @@ export default function HabilitationsList({
       <div className="headband">
         <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Kpi n={bilan.formees} label="Personnes formées" color="#1d4ed8" />
-            <Kpi n={bilan.valables} label="Habilitations valables" color="#16a34a" />
-            <Kpi n={bilan.expirees} label="Habilitations expirées" color="#dc2626" />
+            <Kpi n={bilan.global.formees} label="Personnes formées" color="#1d4ed8" />
+            <Kpi n={bilan.global.valables} label="Habilitations valables" color="#16a34a" />
+            <Kpi n={bilan.global.expirees} label="Habilitations expirées" color="#dc2626" />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div className="segments">
@@ -239,7 +249,17 @@ export default function HabilitationsList({
                 <thead>
                   <tr>
                     <th rowSpan={3} className={g.cornerHead}>
-                      Personne
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 5 }}>
+                        <span>Personne</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowBilan((b) => !b)}
+                          title={showBilan ? "Masquer le bilan" : "Afficher le bilan par formation"}
+                          className={g.bilanToggle}
+                        >
+                          {showBilan ? "− Bilan" : "+ Bilan"}
+                        </button>
+                      </div>
                     </th>
                     {catSpans.map((c) => (
                       <th key={c.key} colSpan={c.span} className={g.groupHead} title={c.label}>
@@ -266,6 +286,27 @@ export default function HabilitationsList({
                     {shownOrdered.length === 0 && <th className="muted">Aucune formation</th>}
                   </tr>
                 </thead>
+                {showBilan && (
+                  <tbody>
+                    {([
+                      ["Personnes formées", "#1d4ed8", "formees"],
+                      ["Habilitations valables", "#16a34a", "valables"],
+                      ["Habilitations expirées", "#dc2626", "expirees"],
+                    ] as const).map(([label, color, field]) => (
+                      <tr key={field} className={g.bilanRow}>
+                        <td className={g.bilanLabel} style={{ color }}>{label}</td>
+                        {shownOrdered.map((c) => {
+                          const n = bilan.parComp.get(c.id)?.[field] ?? 0;
+                          return (
+                            <td key={c.id} className={g.bilanCell} style={{ color: n > 0 ? color : "#cbd5e1" }}>
+                              {n || ""}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                )}
               </table>
             </div>
 
