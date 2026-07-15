@@ -3,11 +3,13 @@ import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
 import { requireModule, canWriteModule } from "@/lib/permissions";
 import { fetchAll } from "@/lib/fetch-all";
-import { isoDate } from "@/lib/week";
+import { isoDate, mondayOf } from "@/lib/week";
+import { getRotationRefsC } from "@/lib/refdata";
+import { rotationForWeek } from "@/lib/rotation";
 import PlacementBoard from "./PlacementBoard";
 
 type Atelier = { id: string; nom: string };
-type Equipe = { id: string; nom: string; couleur: string | null };
+type Equipe = { id: string; nom: string; couleur: string | null; quart_fixe?: string | null };
 type Quart = { code: string; libelle: string };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null };
 type PosteRow = { id: string; nom: string; nom_court: string | null; actif: boolean; effectif_requis: number; niveau_min_requis: number; ordre_affichage: number };
@@ -32,7 +34,7 @@ export default async function PlacementPage({
 
   const [{ data: ateliersD }, { data: equipesD }, { data: quartsD }, { data: persD }, { data: motifsD }] = await Promise.all([
     supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
-    supabase.from("equipe").select("id, nom, couleur").eq("actif", true).order("nom").returns<Equipe[]>(),
+    supabase.from("equipe").select("id, nom, couleur, quart_fixe").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
     supabase.from("personne").select("id, nom, prenom, equipe_id, atelier_id").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
     supabase.from("motif_absence").select("id, code_court, libelle, couleur").eq("actif", true).order("libelle").returns<Motif[]>(),
@@ -123,15 +125,19 @@ export default async function PlacementPage({
   const quartLib: Record<string, string> = {};
   for (const q of quarts) quartLib[q.code] = q.libelle;
 
+  // Equipe qui tourne ce quart ce jour (rotation datee + quart fixe) -> pre-filtre.
+  const rotWeek = rotationForWeek(await getRotationRefsC(), isoDate(mondayOf(new Date(jour + "T00:00"))));
+  const quartToEquipe: Record<string, string> = {};
+  for (const [eqId, qc] of Object.entries(rotWeek)) if (!(qc in quartToEquipe)) quartToEquipe[qc] = eqId;
+  for (const e of equipes) if (e.quart_fixe && !(e.quart_fixe in quartToEquipe)) quartToEquipe[e.quart_fixe] = e.id;
+  const defaultEquipeId = quartToEquipe[quart] ?? "";
+
   return (
     <div className="pagecol">
       <AppHeader role={profile.role} active="/placement" />
-      <div className="headband headband-top">
-        <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
-          <PageTitle module="placement">Placement</PageTitle>
-        </div>
-      </div>
       <PlacementBoard
+        key={`${atelierId}|${jour}|${quart}`}
+        title={<PageTitle module="placement" style={{ fontSize: 20 }}>Placement</PageTitle>}
         jour={jour}
         quart={quart}
         atelierId={atelierId}
@@ -145,6 +151,7 @@ export default async function PlacementPage({
         autreQuart={autreQuart}
         matrice={matrice}
         motifs={motifs.map((m) => ({ id: m.id, code: m.code_court, libelle: m.libelle, couleur: m.couleur }))}
+        defaultEquipeId={defaultEquipeId}
       />
     </div>
   );

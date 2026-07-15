@@ -224,6 +224,23 @@
   font-weight: 700;
   flex-shrink: 0;
 }
+.unassign {
+  width: auto;
+  margin: 0;
+  padding: 0 4px;
+  background: transparent;
+  color: #b91c1c;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+.unassign:hover {
+  opacity: 1;
+}
 .placed {
   opacity: 0.72;
 }

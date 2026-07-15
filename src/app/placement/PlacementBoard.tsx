@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { isoDate, addDays } from "@/lib/week";
 import s from "./placement.module.css";
@@ -22,6 +22,7 @@ const jourLabel = (iso: string) => {
 };
 
 export default function PlacementBoard({
+  title,
   jour,
   quart,
   atelierId,
@@ -35,7 +36,9 @@ export default function PlacementBoard({
   autreQuart: autreQuartInit,
   matrice,
   motifs,
+  defaultEquipeId = "",
 }: {
+  title?: ReactNode;
   jour: string;
   quart: string;
   atelierId: string;
@@ -49,6 +52,7 @@ export default function PlacementBoard({
   autreQuart: Record<string, string>;
   matrice: Record<string, number>;
   motifs: Motif[];
+  defaultEquipeId?: string;
 }) {
   const router = useRouter();
   const [place, setPlace] = useState<Record<string, string>>(placeInit);
@@ -56,8 +60,11 @@ export default function PlacementBoard({
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [msg, setMsg] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [fEquipe, setFEquipe] = useState("");
+  // Pre-filtre : par defaut l'equipe qui tourne ce quart ce jour (elargissable).
+  const [fEquipe, setFEquipe] = useState(defaultEquipeId);
   const [fAtelier, setFAtelier] = useState("");
+  const [hidePlaced, setHidePlaced] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [drag, setDrag] = useState<string | null>(null); // personne en cours de glissement
   const [sel, setSel] = useState<string | null>(null); // mode clic : personne selectionnee
   const [over, setOver] = useState<string | null>(null); // cible de depot survolee
@@ -140,6 +147,65 @@ export default function PlacementBoard({
     }
   }
 
+  // Copier les affectations poste d'un autre jour (meme quart) vers ce jour.
+  async function copyFrom(deltaDays: number) {
+    const src = isoDate(addDays(new Date(jour + "T00:00"), deltaDays));
+    setCopying(true);
+    setSaving("saving");
+    setMsg(null);
+    try {
+      const res = await fetch("/api/placement/copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: src, cible: jour, quart }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { rows?: { personne_id: string; poste_id: string }[]; copied?: number; error?: string };
+      if (!res.ok) throw new Error(j.error ?? "Échec de la copie.");
+      setPlace((p) => {
+        const n = { ...p };
+        for (const r of j.rows ?? []) n[r.personne_id] = r.poste_id;
+        return n;
+      });
+      setAutreQuart((a) => {
+        const n = { ...a };
+        for (const r of j.rows ?? []) delete n[r.personne_id];
+        return n;
+      });
+      setSaving("saved");
+      setMsg(`${j.copied ?? 0} affectation(s) copiée(s).`);
+      setTimeout(() => {
+        setSaving("idle");
+        setMsg(null);
+      }, 2500);
+    } catch (e) {
+      setSaving("error");
+      setMsg(e instanceof Error ? e.message : "Échec.");
+      setTimeout(() => {
+        setSaving("idle");
+        setMsg(null);
+      }, 3000);
+    } finally {
+      setCopying(false);
+    }
+  }
+
+  // Couverture des postes (positions couvertes / requises, postes complets).
+  const coverage = useMemo(() => {
+    let req = 0;
+    let cov = 0;
+    let complets = 0;
+    let total = 0;
+    for (const g of groups)
+      for (const po of g.postes) {
+        total++;
+        req += po.effectifRequis;
+        const n = personnes.filter((p) => place[p.id] === po.id).length;
+        cov += Math.min(n, po.effectifRequis);
+        if (po.effectifRequis > 0 && n >= po.effectifRequis) complets++;
+      }
+    return { req, cov, complets, total };
+  }, [groups, personnes, place]);
+
   // Clic (secours tactile / accessibilite) : selectionner un nom puis cliquer une cible.
   function clickName(persId: string) {
     const p = persById.get(persId);
@@ -180,25 +246,34 @@ export default function PlacementBoard({
     onDrop: onDrop(value, key),
   });
 
-  // Liste des noms filtree + triee (non places d'abord).
+  const isAbsent = (persId: string) => {
+    const v = place[persId];
+    return v === "X" || (!!v && v.startsWith("m:"));
+  };
+  const inScope = (p: Personne) => (!fEquipe || p.equipe_id === fEquipe) && (!fAtelier || p.atelier_id === fAtelier);
+
+  // Liste des noms filtree + regroupee : a placer -> absents -> sur poste -> autre quart.
   const shown = useMemo(() => {
     const q = norm(search.trim());
     const list = personnes.filter((p) => {
       if (fEquipe && p.equipe_id !== fEquipe) return false;
       if (fAtelier && p.atelier_id !== fAtelier) return false;
       if (q && !norm(`${p.nom} ${p.prenom}`).includes(q)) return false;
+      if (hidePlaced && (place[p.id] || autreQuart[p.id])) return false;
       return true;
     });
     const rank = (p: Personne) => {
       const v = place[p.id];
-      if (!v && !autreQuart[p.id]) return 0; // non place -> en tete
-      if (autreQuart[p.id]) return 2; // sur un autre quart -> en bas
-      return 1; // place (poste/absence)
+      if (v && v !== "X" && !v.startsWith("m:")) return 2; // sur poste
+      if (v === "X" || v?.startsWith("m:")) return 1; // absent
+      if (autreQuart[p.id]) return 3; // autre quart
+      return 0; // a placer
     };
     return [...list].sort((a, b) => rank(a) - rank(b) || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`));
-  }, [personnes, search, fEquipe, fAtelier, place, autreQuart]);
+  }, [personnes, search, fEquipe, fAtelier, place, autreQuart, hidePlaced]);
 
-  const nbAplacer = personnes.filter((p) => !place[p.id] && !autreQuart[p.id]).length;
+  const nbAplacer = personnes.filter((p) => inScope(p) && !place[p.id] && !autreQuart[p.id]).length;
+  const nbAbsents = personnes.filter((p) => inScope(p) && isAbsent(p.id)).length;
 
   const statutOf = (p: Personne): { txt: string; color: string } => {
     const v = place[p.id];
@@ -216,6 +291,7 @@ export default function PlacementBoard({
     <div className={s.board}>
       {/* Filtres */}
       <div className={s.filters}>
+        {title && <div style={{ alignSelf: "center", marginRight: 4 }}>{title}</div>}
         <label className={s.fitem}>
           <span>Atelier</span>
           <select value={atelierId} onChange={(e) => go({ atelier: e.target.value })}>
@@ -242,7 +318,19 @@ export default function PlacementBoard({
             ))}
           </div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <span title="Positions couvertes / requises · postes complets" style={{ fontSize: 13 }}>
+            <strong style={{ color: coverage.cov >= coverage.req ? "var(--ok)" : "#b91c1c" }}>{coverage.cov}/{coverage.req}</strong>{" "}
+            <span className="muted">postes {coverage.complets}/{coverage.total}</span>
+          </span>
+          <span style={{ display: "flex", gap: 6 }}>
+            <button type="button" className={s.navbtn} disabled={copying} onClick={() => copyFrom(-1)} title="Copier les postes de la veille (même quart)">Copier J‑1</button>
+            <button type="button" className={s.navbtn} disabled={copying} onClick={() => copyFrom(-7)} title="Copier le même jour de la semaine dernière">Copier S‑1</button>
+          </span>
+          <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            <input type="checkbox" checked={hidePlaced} onChange={(e) => setHidePlaced(e.target.checked)} style={{ width: "auto" }} />
+            Masquer les placés
+          </label>
           <span style={{ fontSize: 13, fontWeight: 600 }}>{jourLabel(jour)}</span>
           <span style={{ fontSize: 12, fontWeight: 700, minWidth: 90, textAlign: "right", color: saveColor }}>{msg ?? saveTxt}</span>
         </div>
@@ -323,7 +411,10 @@ export default function PlacementBoard({
                 ))}
               </select>
             </div>
-            <div className={s.aPlacer}>{nbAplacer} à placer</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className={s.aPlacer}>{nbAplacer} à placer</span>
+              {nbAbsents > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#b45309" }}>{nbAbsents} absent(s)</span>}
+            </div>
           </div>
           <div className={s.namesList}>
             {shown.map((p) => {
@@ -341,6 +432,16 @@ export default function PlacementBoard({
                   <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
                   <span className={s.nm}>{p.nom} {p.prenom}</span>
                   <span className={s.stat} style={{ color: st.color }}>{st.txt}</span>
+                  {p.editable && place[p.id] && (
+                    <button
+                      type="button"
+                      className={s.unassign}
+                      title="Désaffecter (retirer du poste / de l'absence)"
+                      onClick={(e) => { e.stopPropagation(); assign(p.id, ""); }}
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               );
             })}
