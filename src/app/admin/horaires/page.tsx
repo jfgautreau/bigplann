@@ -1,7 +1,6 @@
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
-import { saveHoraires } from "./actions";
 import HoraireEditor from "./HoraireEditor";
 
 type PosteRow = { id: string; nom: string; actif: boolean };
@@ -13,7 +12,7 @@ export default async function HorairesPage() {
   const { profile } = await requireModule("horaires", "write");
 
   const supabase = await getServerClient();
-  const [{ data: lignesD }, { data: quartsD }] = await Promise.all([
+  const [{ data: lignesD }, { data: quartsD }, { data: pqOffD }] = await Promise.all([
     supabase
       .from("ligne")
       .select("id, nom, atelier:atelier_id(id, nom), poste(id, nom, actif)")
@@ -21,18 +20,26 @@ export default async function HorairesPage() {
       .order("nom")
       .returns<LigneRow[]>(),
     supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
+    // Desactivations poste x quart (defaut actif : la table ne stocke que les off).
+    supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
   ]);
 
   const quarts = (quartsD ?? []).map((q) => ({ code: q.code, libelle: q.libelle }));
+  const pqOff = new Set((pqOffD ?? []).map((r) => `${r.poste_id}:${r.quart_code}`));
 
-  // Lignes (avec leurs postes actifs), triees par atelier puis nom de ligne.
+  // Lignes (avec leurs postes actifs), triees par atelier puis nom de ligne. Chaque
+  // poste porte la liste de ses quarts ACTIFS (parametres dans le referentiel) :
+  // seuls ces quarts sont affiches et editables.
   const lignes = (lignesD ?? [])
     .map((l) => ({
       ligneId: l.id,
       ligneNom: l.nom,
       atelierId: l.atelier?.id ?? "",
       atelierNom: l.atelier?.nom ?? "(Sans atelier)",
-      postes: [...(l.poste ?? [])].filter((p) => p.actif).sort((a, b) => a.nom.localeCompare(b.nom)).map((p) => ({ id: p.id, nom: p.nom })),
+      postes: [...(l.poste ?? [])]
+        .filter((p) => p.actif)
+        .sort((a, b) => a.nom.localeCompare(b.nom))
+        .map((p) => ({ id: p.id, nom: p.nom, quarts: quarts.filter((q) => !pqOff.has(`${p.id}:${q.code}`)).map((q) => q.code) })),
     }))
     .filter((l) => l.postes.length > 0)
     .sort((a, b) => a.atelierNom.localeCompare(b.atelierNom) || a.ligneNom.localeCompare(b.ligneNom));
@@ -60,25 +67,15 @@ export default async function HorairesPage() {
       <div className="container" style={{ maxWidth: 1500 }}>
         <h1>Horaires des postes</h1>
         <p className="muted" style={{ marginBottom: 12 }}>
-          Horaires propres à chaque poste, par quart et par jour de la semaine. Affichés à
-          côté de chaque personne sur les écrans TV selon le quart où elle est placée.
-          Filtrez par atelier, repliez les lignes, copiez/collez un poste vers un autre
-          (même entre lignes), recopiez le lundi sur la semaine, ou videz un jour / un quart.
-          N&apos;oubliez pas d&apos;enregistrer.
+          Horaires propres à chaque poste, par quart et par jour de la semaine. Seuls les
+          quarts activés pour un poste dans le référentiel sont affichés. Affichés à côté de
+          chaque personne sur les écrans TV selon le quart où elle est placée. Filtrez par
+          atelier, repliez les lignes, copiez/collez un poste vers un autre (même entre
+          lignes), recopiez le lundi sur la semaine, ou videz un jour / un quart.
+          <strong> Chaque modification est enregistrée automatiquement.</strong>
         </p>
 
-        <form action={saveHoraires} autoComplete="off">
-          <input type="hidden" name="poste_ids" value={allPosteIds.join(",")} />
-          <input type="hidden" name="quart_codes" value={quarts.map((q) => q.code).join(",")} />
-          <HoraireEditor ateliers={ateliers} lignes={lignes} quarts={quarts} initial={initial} />
-          {lignes.length > 0 && (
-            <div style={{ position: "sticky", bottom: 0, background: "var(--bg, #fff)", padding: "10px 0", marginTop: 8 }}>
-              <button type="submit" style={{ width: "auto", padding: "9px 22px" }}>
-                Enregistrer les horaires
-              </button>
-            </div>
-          )}
-        </form>
+        <HoraireEditor ateliers={ateliers} lignes={lignes} quarts={quarts} initial={initial} />
       </div>
     </>
   );
