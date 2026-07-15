@@ -209,14 +209,14 @@
 .bilanToggle {
   width: auto;
   margin: 0;
-  padding: 1px 7px;
-  font-size: 12px;
+  padding: 5px 14px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.4;
-  border: 1px solid var(--border);
+  border: 1px solid #e11d48;
   border-radius: 6px;
-  background: #fff;
-  color: var(--primary);
+  background: #e11d48;
+  color: #fff;
   cursor: pointer;
 }
 .bilanRow {

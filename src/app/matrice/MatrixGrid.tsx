@@ -201,7 +201,7 @@ export default function MatrixGrid({
                   type="button"
                   onClick={() => setShowBilan((b) => !b)}
                   title={showBilan ? "Masquer le bilan" : "Afficher le bilan"}
-                  className={s.bilanToggle}
+                  className={g.bilanToggle}
                 >
                   {showBilan ? "− Bilan" : "+ Bilan"}
                 </button>

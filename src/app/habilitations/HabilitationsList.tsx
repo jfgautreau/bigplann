@@ -307,7 +307,6 @@ export default function HabilitationsList({
                         onClick={() => setShowBilan((b) => !b)}
                         title={showBilan ? "Masquer le bilan" : "Afficher le bilan par formation"}
                         className={g.bilanToggle}
-                        style={{ background: "#e11d48", color: "#fff", border: "1px solid #e11d48", fontSize: 14, padding: "5px 14px" }}
                       >
                         {showBilan ? "− Bilan" : "+ Bilan"}
                       </button>
