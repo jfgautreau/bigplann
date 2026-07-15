@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { joursRestants, habStatut, addMonthsIso, HAB_COLOR, type HabStatut } from "@/lib/habilitations";
 import { usePersonGrid } from "@/components/usePersonGrid";
 import g from "@/components/persongrid.module.css";
@@ -29,6 +29,42 @@ const catOf = (c: string | null) => (c === "interne" ? "interne" : "reglementair
 // Echeance effective : date stockee, sinon recalculee (obtention + duree de validite).
 const effExp = (rec: Row, comp?: Comp) => rec.date_expiration ?? addMonthsIso(rec.date_obtention, comp?.duree_validite_mois);
 
+// Date de remise de l'autorisation de conduite, editable en direct (auto-save).
+// Permet de la renseigner apres coup, une fois la formation validee.
+function AutorisationCell({ id, initial }: { id: string; initial: string | null }) {
+  const [val, setVal] = useState(initial ?? "");
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function onChange(v: string) {
+    setVal(v);
+    setState("saving");
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/habilitations/autorisation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, date_autorisation_conduite: v }),
+        });
+        setState(res.ok ? "saved" : "error");
+      } catch {
+        setState("error");
+      }
+      setTimeout(() => setState("idle"), 1500);
+    }, 500);
+  }
+
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+      <input type="date" value={val} onChange={(e) => onChange(e.target.value)} style={{ width: 148, fontSize: 12, padding: "2px 4px" }} />
+      <span style={{ fontSize: 12, width: 14, color: state === "error" ? "var(--danger)" : "var(--ok)" }}>
+        {state === "saving" ? "…" : state === "saved" ? "✓" : state === "error" ? "!" : ""}
+      </span>
+    </span>
+  );
+}
+
 // Compteur du bilan : grand nombre teinte + libelle.
 function Kpi({ n, label, color }: { n: number; label: string; color: string }) {
   return (
@@ -54,11 +90,13 @@ export default function HabilitationsList({
   rows,
   personnes,
   comps,
+  canEdit = false,
   children,
 }: {
   rows: Row[];
   personnes: Personne[];
   comps: Comp[];
+  canEdit?: boolean;
   children?: React.ReactNode;
 }) {
   const [search, setSearch] = useState("");
@@ -217,8 +255,23 @@ export default function HabilitationsList({
             <button {...seg("liste")}>Liste</button>
           </div>
           {children && (
-            <button type="button" onClick={() => setShowMaj(true)} style={{ width: "auto", margin: 0, padding: "7px 22px", fontSize: 14, fontWeight: 700 }}>
-              MàJ
+            <button
+              type="button"
+              onClick={() => setShowMaj(true)}
+              title="Mettre à jour les habilitations"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                width: "auto",
+                margin: 0,
+                padding: "8px 20px",
+                fontSize: 15,
+                fontWeight: 700,
+                borderRadius: 999,
+              }}
+            >
+              <span style={{ fontSize: 22, lineHeight: 1, fontWeight: 800 }}>+</span> MàJ
             </button>
           )}
           </div>
@@ -249,17 +302,15 @@ export default function HabilitationsList({
                 <thead>
                   <tr>
                     <th rowSpan={3} className={g.cornerHead}>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 5 }}>
-                        <span>Personne</span>
-                        <button
-                          type="button"
-                          onClick={() => setShowBilan((b) => !b)}
-                          title={showBilan ? "Masquer le bilan" : "Afficher le bilan par formation"}
-                          className={g.bilanToggle}
-                        >
-                          {showBilan ? "− Bilan" : "+ Bilan"}
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowBilan((b) => !b)}
+                        title={showBilan ? "Masquer le bilan" : "Afficher le bilan par formation"}
+                        className={g.bilanToggle}
+                        style={{ background: "#e11d48", color: "#fff", border: "1px solid #e11d48", fontSize: 14, padding: "5px 14px" }}
+                      >
+                        {showBilan ? "− Bilan" : "+ Bilan"}
+                      </button>
                     </th>
                     {catSpans.map((c) => (
                       <th key={c.key} colSpan={c.span} className={g.groupHead} title={c.label}>
@@ -371,7 +422,15 @@ export default function HabilitationsList({
                         <td style={{ whiteSpace: "nowrap" }}>{exp ? fmtDate(exp) : <span className="muted">-</span>}</td>
                         {anyAutor && (
                           <td style={{ whiteSpace: "nowrap" }}>
-                            {r.competence?.a_autorisation_conduite ? fmtDate(r.date_autorisation_conduite) : <span className="muted">—</span>}
+                            {r.competence?.a_autorisation_conduite ? (
+                              canEdit ? (
+                                <AutorisationCell id={r.id} initial={r.date_autorisation_conduite} />
+                              ) : (
+                                fmtDate(r.date_autorisation_conduite)
+                              )
+                            ) : (
+                              <span className="muted">—</span>
+                            )}
                           </td>
                         )}
                         <td>

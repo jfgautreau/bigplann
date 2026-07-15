@@ -66,7 +66,7 @@ export default async function HabilitationsPage() {
           )}
         </div>
         </div>
-        <HabilitationsList rows={rows} personnes={personnes} comps={comps}>
+        <HabilitationsList rows={rows} personnes={personnes} comps={comps} canEdit={canEdit}>
           {canEdit && (
             <>
               {comps.length === 0 ? (
