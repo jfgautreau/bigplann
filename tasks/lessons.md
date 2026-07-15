@@ -20,8 +20,10 @@ L'enregistrement de la rotation des équipes échouait silencieusement : la gril
 composant client avec des `<select>` contrôlés à l'intérieur d'un `<form>` server-action
 parent ; les valeurs n'étaient pas sérialisées de façon fiable.
 **Règle** : pour une grille éditable, ne pas compter sur la sérialisation du formulaire —
-poster explicitement l'état en JSON vers une route API (modèle : `/api/ordonnancement/rotation`
-+ bouton « Enregistrer » côté client).
+poster explicitement l'état en JSON vers une route API (modèle : `/api/ordonnancement/semaine-type`
++ bouton « Enregistrer » côté client). NB : la rotation des équipes, qui illustrait ce piège,
+n'utilise plus ce pattern depuis le passage aux références datées (selects non contrôlés rendus
+côté serveur dans un `<form action={serverAction}>` — la sérialisation native fonctionne alors).
 
 ## L4 — `<input type="color">` fait planter le navigateur
 Le sélecteur de couleur natif ouvre une boîte de dialogue OS qui gelait le navigateur.

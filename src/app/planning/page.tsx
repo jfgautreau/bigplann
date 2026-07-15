@@ -17,6 +17,8 @@ import PlanningFilters from "./PlanningFilters";
 import AtelierFilter from "./AtelierFilter";
 import QuartSelector from "./QuartSelector";
 import PlanningGrid from "./PlanningGrid";
+import { getRotationRefsC } from "@/lib/refdata";
+import { rotationForWeek } from "@/lib/rotation";
 
 type PosteRow = {
   id: string;
@@ -102,6 +104,9 @@ export default async function PlanningPage({
   const quarts = quartsD ?? [];
   const quartCodes = quarts.map((q) => q.code);
 
+  // Rotation calculee (reference datee) pour la semaine affichee : { equipe -> quart }.
+  const rotWeek = rotationForWeek(await getRotationRefsC(), centerIso);
+
   // Quart selectionne : ?quart, sinon quart fixe de l'equipe, sinon rotation de la
   // semaine, sinon "matin".
   let quart = sp.quart && quartCodes.includes(sp.quart) ? sp.quart : "";
@@ -109,27 +114,18 @@ export default async function PlanningPage({
     const eqRow = (equipesD ?? []).find((e) => e.id === equipe);
     if (eqRow?.quart_fixe && quartCodes.includes(eqRow.quart_fixe)) {
       quart = eqRow.quart_fixe;
-    } else {
-      const { data: rot } = await supabase
-        .from("equipe_quart_semaine")
-        .select("quart_code")
-        .eq("equipe_id", equipe)
-        .eq("semaine", centerIso)
-        .maybeSingle<{ quart_code: string }>();
-      if (rot?.quart_code) quart = rot.quart_code;
+    } else if (rotWeek[equipe] && quartCodes.includes(rotWeek[equipe])) {
+      quart = rotWeek[equipe];
     }
   }
   if (!quart) quart = quartCodes.includes("matin") ? "matin" : quartCodes[0] ?? "matin";
 
   // Équipe par défaut de chaque quart cette semaine (rotation + quart fixe) : sert
   // à auto-sélectionner l'équipe quand on clique un quart (forçage possible ensuite).
-  const { data: rotWeek } = await supabase
-    .from("equipe_quart_semaine")
-    .select("equipe_id, quart_code")
-    .eq("semaine", centerIso)
-    .returns<{ equipe_id: string; quart_code: string }[]>();
   const quartToEquipe: Record<string, string> = {};
-  for (const r of rotWeek ?? []) if (!(r.quart_code in quartToEquipe)) quartToEquipe[r.quart_code] = r.equipe_id;
+  for (const [equipeId, quartCode] of Object.entries(rotWeek)) {
+    if (!(quartCode in quartToEquipe)) quartToEquipe[quartCode] = equipeId;
+  }
   for (const e of equipesD ?? []) if (e.quart_fixe && !(e.quart_fixe in quartToEquipe)) quartToEquipe[e.quart_fixe] = e.id;
 
   // Ordre du referentiel : ateliers regroupes, lignes puis postes par ordre_affichage

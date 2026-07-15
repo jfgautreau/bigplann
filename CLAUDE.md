@@ -51,9 +51,15 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
 
 ## Modèle métier — les pièges
 - **Quart ≠ Équipe.** Quarts : `journee`/`matin`/`apres_midi`/`nuit` (table `quart`).
-  Les équipes tournent par semaine (`equipe_quart_semaine`) sauf si `equipe.quart_fixe`.
-  Défaut planning = `matin`. Sur `/planning`, choisir un quart auto-sélectionne
-  l'équipe de la rotation de la semaine (forçage possible via le filtre Équipe).
+  Les équipes tournent sauf si `equipe.quart_fixe`. **Rotation par référence datée**
+  (`rotation_reference`, cf. `src/lib/rotation.ts`) : on saisit, pour **une** semaine (lundi),
+  le quart de chaque équipe tournante ; l'alternance des semaines suivantes est **calculée**
+  (rotation cyclique du vecteur de quarts), jamais stockée. Pour une semaine cible, la
+  référence active est la plus récente ≤ cette semaine → changer la rotation = **ajouter une
+  nouvelle référence datée**, le passé n'est jamais recalculé. Avant toute référence : pas de
+  rotation. L'ancienne table `equipe_quart_semaine` (saisie semaine-par-semaine) est conservée
+  mais **plus lue/écrite**. Défaut planning = `matin`. Sur `/planning`, choisir un quart
+  auto-sélectionne l'équipe de la rotation de la semaine (forçage possible via le filtre Équipe).
 - **`poste_quart`** : activation poste×quart, **défaut actif** → la table ne stocke que
   les *désactivations*.
 - **`poste.categorie`** ∈ manager/conducteur/operateur (source des bilans).
@@ -103,7 +109,7 @@ imprimables (A4 paysage, KPI, barres) que la pleine largeur dégraderait.
   avec indicateur « Enregistré ✓ ». Cf. `PersonnelEditor`, `ReferentielEditor`, `MatrixGrid`.
 - ⚠️ **Un `<select>` contrôlé dans un composant client ne se sérialise pas de façon
   fiable** dans un `<form action={serverAction}>` parent. Pour une grille éditable,
-  poster explicitement en JSON vers une route API (cf. `/api/ordonnancement/rotation`).
+  poster explicitement en JSON vers une route API (cf. `/api/ordonnancement/semaine-type`).
 - ⚠️ **Jamais d'`<input type="color">`** : la boîte de dialogue OS fait planter le
   navigateur ici. Utiliser une palette de pastilles (`TeamColorPicker`).
 - **Filtres** : `.filterrow` (label + segments), navigation en `useTransition`.

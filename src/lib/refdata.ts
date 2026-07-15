@@ -56,3 +56,19 @@ export const getNiveauxC = unstable_cache(
   ["refdata-niveaux"],
   { ...OPTS, tags: [NIVEAUX_TAG] }
 );
+
+// References de rotation (peu nombreuses : une poignee de blocs dates). Servent
+// a calculer l'alternance des quarts. Tag dedie invalide a chaque enregistrement.
+export const ROTATION_TAG = "refdata-rotation";
+
+export const getRotationRefsC = unstable_cache(
+  async () => {
+    const { data } = await getAdminClient()
+      .from("rotation_reference")
+      .select("semaine, equipe_id, quart_code")
+      .order("semaine");
+    return (data ?? []) as { semaine: string; equipe_id: string; quart_code: string }[];
+  },
+  ["refdata-rotation"],
+  { ...OPTS, tags: [ROTATION_TAG] }
+);
