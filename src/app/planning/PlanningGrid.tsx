@@ -39,6 +39,7 @@ export default function PlanningGrid({
   posteLabelAll = {},
   exceptions = {},
   horaireStd = {},
+  formationMotifId = null,
   weekNav = null,
 }: {
   days: Jour[];
@@ -60,6 +61,7 @@ export default function PlanningGrid({
   posteLabelAll?: Record<string, string>;
   exceptions?: Record<string, { debut: string; fin: string; motif: string }>;
   horaireStd?: Record<string, { debut: string; fin: string }>; // `${poste}:${dow}` -> horaire par defaut
+  formationMotifId?: string | null; // motif "Formation" -> pendule active (horaires + sujet)
   weekNav?: React.ReactNode;
 }) {
   const router = useRouter();
@@ -137,6 +139,8 @@ export default function PlanningGrid({
 
   const key = (pid: string, iso: string) => `${pid}:${iso}`;
   const isPoste = (v: string) => v !== "" && v !== "X" && !v.startsWith("m:");
+  // Motif "Formation" : la pendule reste active pour saisir horaires / sujet (commentaire).
+  const isFormation = (v: string) => !!formationMotifId && v === `m:${formationMotifId}`;
   const motifColor = useMemo(() => {
     const m: Record<string, string> = {};
     for (const x of motifs) m[`m:${x.id}`] = x.couleur;
@@ -718,7 +722,7 @@ export default function PlanningGrid({
                       const e = exc[ek];
                       // Editable si la case est affectee, ou si une exception subsiste (pour
                       // pouvoir la modifier / l'effacer meme apres suppression de l'affectation).
-                      const canEditExc = pers.editable && (isPoste(v) || !!e);
+                      const canEditExc = pers.editable && (isPoste(v) || isFormation(v) || !!e);
                       if (!e && !canEditExc) return null;
                       // Horaire par defaut (standard du poste pour ce quart / jour de semaine).
                       const std = isPoste(v) ? horaireStd[`${v}:${dowMon(d.iso)}`] : undefined;
@@ -729,7 +733,7 @@ export default function PlanningGrid({
                             <button
                               type="button"
                               className={`horx${e ? " has" : ""}`}
-                              title={e ? `Horaire spécifique : ${excLabel(e)}${e.motif ? " · " + e.motif : ""}` : stdTxt ? `Horaire par défaut : ${stdTxt} · Définir un horaire spécifique` : "Définir un horaire spécifique"}
+                              title={e ? ([(e.debut || e.fin) ? `Horaire : ${excLabel(e)}` : "", e.motif ? `Commentaire : ${e.motif}` : ""].filter(Boolean).join(" · ") || "Horaire spécifique") : stdTxt ? `Horaire par défaut : ${stdTxt} · Définir un horaire spécifique` : "Définir un horaire spécifique"}
                               onClick={() => openExc(pers.id, d.iso)}
                             >
                               🕐
@@ -803,7 +807,13 @@ export default function PlanningGrid({
           a.gs.push(g);
         }
         const editable = !!persById.get(pick.pid)?.editable;
-        const choose = (value: string) => { if (editable) change(pick.pid, pick.iso, pick.eq, value); setPick(null); };
+        const choose = (value: string) => {
+          const pid = pick.pid, iso = pick.iso;
+          if (editable) change(pid, iso, pick.eq, value);
+          setPick(null);
+          // Formation : ouvrir la pendule pour saisir le sujet (commentaire) / les horaires.
+          if (editable && isFormation(value)) openExc(pid, iso);
+        };
         const curClosed = isPoste(cur) && !oset.has(posteLigne[cur] ?? "");
         const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
         const vh = typeof window !== "undefined" ? window.innerHeight : 800;

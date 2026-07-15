@@ -427,6 +427,7 @@ export default async function PlanningPage({
           groups={gridGroups}
           openByIso={openByIso}
           motifs={motifs.map((m) => ({ id: m.id, code: m.code_court, couleur: m.couleur }))}
+          formationMotifId={motifs.find((m) => m.libelle.toLowerCase().includes("formation"))?.id ?? null}
           besoin={besoin}
           initial={initial}
           matrice={matrice}
