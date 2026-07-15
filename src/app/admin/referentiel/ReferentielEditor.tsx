@@ -27,6 +27,22 @@ const CATEGORIES: { value: string; label: string }[] = [
 
 const byNom = <T extends { nom: string }>(a: T, b: T) => a.nom.localeCompare(b.nom);
 
+// Bouton bleu plein « + Ajouter … », pousse a droite du titre de son bloc.
+const ADD_BTN: React.CSSProperties = {
+  width: "auto",
+  margin: 0,
+  marginLeft: "auto",
+  padding: "5px 14px",
+  fontSize: 13,
+  fontWeight: 700,
+  background: "#1d4ed8",
+  color: "#fff",
+  border: "1px solid #1d4ed8",
+  borderRadius: 8,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
 // Petit champ d'ajout : saisie d'un nom + Entree (ou bouton) pour creer.
 function AddInput({ placeholder, onAdd, width = 220 }: { placeholder: string; onAdd: (v: string) => void; width?: number }) {
   const [v, setV] = useState("");
@@ -192,6 +208,9 @@ export default function ReferentielEditor({
               style={{ fontSize: 16, fontWeight: 700, width: 260 }}
             />
             <ToggleSwitch on={a.actif} onChange={(v) => toggleAtelier(a.id, v)} title="Activer / désactiver l'atelier" />
+            <button type="button" style={ADD_BTN} onClick={() => addLigne(a.id, "")} title="Ajouter une ligne (à compléter ensuite)">
+              ＋ Ajouter une ligne
+            </button>
           </div>
 
           {/* Lignes */}
@@ -214,6 +233,9 @@ export default function ReferentielEditor({
                   />
                 </label>
                 <ToggleSwitch on={l.actif} onChange={(v) => toggleLigne(a.id, l.id, v)} title="Activer / désactiver la ligne" />
+                <button type="button" style={ADD_BTN} onClick={() => addPoste(a.id, l.id, "")} title="Ajouter un poste (à compléter ensuite)">
+                  ＋ Ajouter un poste
+                </button>
               </div>
 
               {/* Postes */}
@@ -326,18 +348,8 @@ export default function ReferentielEditor({
                   )}
                 </tbody>
               </table>
-              <div style={{ marginTop: 6 }}>
-                <button type="button" className="btn-sm btn-ghost" onClick={() => addPoste(a.id, l.id, "")} title="Ajouter un poste (à compléter ensuite)">
-                  ＋ Ajouter un poste
-                </button>
-              </div>
             </div>
           ))}
-
-          {/* Ajout ligne */}
-          <div style={{ marginTop: 10, marginLeft: 16 }}>
-            <AddInput placeholder="Nouvelle ligne (nom + Entrée)" onAdd={(v) => addLigne(a.id, v)} width={200} />
-          </div>
         </div>
       ))}
 
