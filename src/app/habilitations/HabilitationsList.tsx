@@ -29,6 +29,27 @@ const catOf = (c: string | null) => (c === "interne" ? "interne" : "reglementair
 // Echeance effective : date stockee, sinon recalculee (obtention + duree de validite).
 const effExp = (rec: Row, comp?: Comp) => rec.date_expiration ?? addMonthsIso(rec.date_obtention, comp?.duree_validite_mois);
 
+// Compteur du bilan : grand nombre teinte + libelle.
+function Kpi({ n, label, color }: { n: number; label: string; color: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "4px 14px",
+        border: "1px solid var(--border)",
+        borderRadius: 10,
+        background: "#fff",
+        minWidth: 88,
+      }}
+    >
+      <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, color }}>{n}</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap" }}>{label}</span>
+    </div>
+  );
+}
+
 export default function HabilitationsList({
   rows,
   personnes,
@@ -47,6 +68,26 @@ export default function HabilitationsList({
   const { headCardRef, headTableRef, rowsTableRef, rowsCardProps } = usePersonGrid(g.colHover, 3);
 
   const compById = useMemo(() => new Map(comps.map((c) => [c.id, c])), [comps]);
+
+  // Bilan (global, independant de la recherche) sur les personnes actives :
+  // personnes ayant au moins une habilitation, habilitations encore valables
+  // (echeance non depassee ou sans date), habilitations expirees.
+  const bilan = useMemo(() => {
+    const actifs = new Set(personnes.map((p) => p.id));
+    const formees = new Set<string>();
+    let valables = 0;
+    let expirees = 0;
+    for (const r of rows) {
+      if (!actifs.has(r.personne_id)) continue;
+      formees.add(r.personne_id);
+      const exp = effExp(r, compById.get(r.competence_id));
+      const j = joursRestants(exp);
+      if (j !== null && j < 0) expirees++;
+      else valables++;
+    }
+    return { formees: formees.size, valables, expirees };
+  }, [rows, personnes, compById]);
+
   const q = search.trim();
   // Recherche multi-critères : nom de personne, mais aussi formation / groupe / catégorie.
   const personMatch = (p: { nom: string; prenom: string }) => norm(`${p.nom} ${p.prenom}`).includes(norm(q));
@@ -152,9 +193,15 @@ export default function HabilitationsList({
 
   return (
     <>
-      {/* Bascule de vue + saisie : bandeau centre de 1500 px, comme la matrice. */}
+      {/* Bilan + bascule de vue : bandeau centre de 1500 px, comme la matrice. */}
       <div className="headband">
-        <div className="toolbar" style={{ justifyContent: "flex-end", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Kpi n={bilan.formees} label="Personnes formées" color="#1d4ed8" />
+            <Kpi n={bilan.valables} label="Habilitations valables" color="#16a34a" />
+            <Kpi n={bilan.expirees} label="Habilitations expirées" color="#dc2626" />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div className="segments">
             <button {...seg("grille")}>Grille</button>
             <button {...seg("liste")}>Liste</button>
@@ -164,6 +211,7 @@ export default function HabilitationsList({
               MàJ
             </button>
           )}
+          </div>
         </div>
       </div>
 
@@ -171,7 +219,16 @@ export default function HabilitationsList({
         {view === "grille" ? (
           <div
             className={g.grid}
-            style={{ "--name-w": `${nameW}px`, "--n-cols": shownOrdered.length, "--sub-top": "22px", "--col-top": "44px" } as React.CSSProperties}
+            style={{
+              "--name-w": `${nameW}px`,
+              "--n-cols": shownOrdered.length,
+              "--sub-top": "22px",
+              "--col-top": "44px",
+              // En-tetes bleus + traits verticaux identiques a la matrice (mode Actuel).
+              "--accent": "#1d4ed8",
+              "--accent-bg": "#dbeafe",
+              "--accent-soft": "#1d4ed855",
+            } as React.CSSProperties}
           >
             {searchRow}
 
