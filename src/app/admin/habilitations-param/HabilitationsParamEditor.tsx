@@ -125,9 +125,10 @@ export default function HabilitationsParamEditor({ initial }: { initial: Row[] }
       })}
 
       <p className="muted" style={{ fontSize: 12 }}>
-        Modèle : <strong>Catégorie → Groupe → Formation</strong>. « Autor. conduite » = la formation suit une
-        <strong> date d&apos;autorisation de conduite sur site</strong> par personne. La <strong>validité</strong> (mois)
-        calcule automatiquement l&apos;échéance de recyclage. Enregistrement automatique.
+        Modèle : <strong>Catégorie → Groupe → Formation</strong>. « Autor. conduite » = la
+        formation suit une <strong>date d&apos;autorisation de conduite sur site</strong>{" "}
+        par personne. La <strong>validité</strong>{" "}
+        (mois) calcule automatiquement l&apos;échéance de recyclage. Enregistrement automatique.
       </p>
     </div>
   );

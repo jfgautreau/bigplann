@@ -52,8 +52,9 @@ export default async function AbsencesSpecifiquesPage() {
         </div>
         <p className="muted" style={{ marginBottom: 16 }}>
           Absence longue d&apos;une personne (arrêt maladie, congés…) sur une plage de dates avec un
-          motif. Le motif est posé automatiquement <strong>sur chaque jour</strong> de la plage dans le
-          planning, en face de la personne. Supprimer l&apos;absence retire le motif de ces jours.
+          motif. Le motif est posé automatiquement <strong>sur chaque jour</strong>{" "}
+          de la plage dans le planning, en face de la personne. Supprimer l&apos;absence
+          retire le motif de ces jours.
         </p>
         <AbsencesEditor personnes={personnes} motifs={motifs} initial={absences} />
       </div>

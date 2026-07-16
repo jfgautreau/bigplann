@@ -375,8 +375,8 @@ export default async function AffichageAtelier({
       <div style={{ marginTop: 14, fontSize: 14, color: "#6b7280" }}>
         Légende : <span style={{ background: "#bbf7d0", padding: "0 6px" }}>Intérimaire</span>{" "}
         · <span style={{ background: FLUO, padding: "0 6px" }}>Aujourd&apos;hui</span> · horaires en bleu ·{" "}
-        <span style={{ color: "#b91c1c", fontWeight: 700 }}>Absence</span> (vue par nom) ·
-        mise à jour auto toutes les 5 min.
+        <span style={{ color: "#b91c1c", fontWeight: 700 }}>Absence</span>{" "}
+        (vue par nom) · mise à jour auto toutes les 5 min.
       </div>
     </div>
   );

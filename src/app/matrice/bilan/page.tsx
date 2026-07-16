@@ -123,8 +123,8 @@ export default async function BilanPage({
         <div className="card" style={{ overflowX: "auto" }}>
           <p className="muted" style={{ marginBottom: 8 }}>
             Par seuil de niveau N : <strong>Ex</strong> = nb de personnes au niveau actuel &ge; N,{" "}
-            <strong>Bes</strong> = nb au niveau cible &ge; N, <strong>Écart</strong> = Bes - Ex
-            (rouge si manque).
+            <strong>Bes</strong> = nb au niveau cible &ge; N, <strong>Écart</strong>{" "}
+            = Bes - Ex (rouge si manque).
           </p>
           <table>
             <thead>

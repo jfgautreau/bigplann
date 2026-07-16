@@ -614,8 +614,10 @@ export default function PersonnelEditor({
               ))}
             </ul>
             <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#78350f" }}>
-              <strong>Règle&nbsp;:</strong> on réactive l'ancien profil (bouton <em>Actif/Parti</em> sur sa ligne) plutôt que de créer
-              deux fois la même personne. Cela évite les doublons et conserve l'historique, la matrice de polyvalence et le planning.
+              <strong>Règle&nbsp;:</strong>{" "}
+              on réactive l&apos;ancien profil (bouton <em>Actif/Parti</em>{" "}
+              sur sa ligne) plutôt que de créer deux fois la même personne. Cela évite les
+              doublons et conserve l&apos;historique, la matrice de polyvalence et le planning.
             </div>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
               <button type="button" className="btn-sm" onClick={() => setDup(null)} style={{ width: "auto" }}>Annuler (recommandé)</button>

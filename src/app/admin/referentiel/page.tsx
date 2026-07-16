@@ -71,12 +71,13 @@ export default async function ReferentielPage() {
         <PageTitle module="referentiel">Référentiel : ateliers, lignes, postes</PageTitle>
         <p className="muted" style={{ marginBottom: 16 }}>
           Saisie directe : modifiez un champ, il s&apos;enregistre tout seul (aucun bouton
-          à valider). Cochez « Actif » pour activer/désactiver. La <strong>catégorie</strong>
+          à valider). Cochez « Actif » pour activer/désactiver. La <strong>catégorie</strong>{" "}
           (Manager / Conducteur / Opérateur) sert aux bilans. Les colonnes de quart cochent
-          sur quels quarts le poste tourne (tout coché par défaut). Le <strong>N° Rot</strong>
+          sur quels quarts le poste tourne (tout coché par défaut). Le <strong>N° Rot</strong>{" "}
           est libre : un poste à plusieurs positions porte plusieurs numéros (« 12, 13 »).
-          Les <strong>habilitations requises</strong> déclenchent une demande de confirmation
-          au placement d&apos;une personne qui ne les a pas (ou plus).
+          Les <strong>habilitations requises</strong>{" "}
+          déclenchent une demande de confirmation au placement d&apos;une personne qui ne
+          les a pas (ou plus).
         </p>
 
         <ReferentielEditor initial={ateliers} quarts={quartsD ?? []} pqOff={pqOff} comps={compsD ?? []} pcr={pcr} />

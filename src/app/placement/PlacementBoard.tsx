@@ -750,8 +750,8 @@ export default function PlacementBoard({
           <div className="card" onClick={(e) => e.stopPropagation()} style={{ margin: 0, width: "100%", maxWidth: 440 }}>
             <h2 style={{ margin: "0 0 8px", fontSize: 18, color: "#b91c1c" }}>⚠ Habilitation manquante</h2>
             <p style={{ margin: "0 0 6px", fontSize: 14 }}>
-              <strong>{(() => { const p = persById.get(ask.persId); return p ? `${p.nom} ${p.prenom}` : ""; })()}</strong> n&apos;est
-              pas habilitée pour le poste <strong>{posteNom.get(ask.posteId) ?? "?"}</strong>.
+              <strong>{(() => { const p = persById.get(ask.persId); return p ? `${p.nom} ${p.prenom}` : ""; })()}</strong>{" "}
+              n&apos;est pas habilitée pour le poste <strong>{posteNom.get(ask.posteId) ?? "?"}</strong>.
             </p>
             <p style={{ margin: "0 0 14px", fontSize: 14 }}>
               Manque : <strong style={{ color: "#b91c1c" }}>{ask.manque.join(", ")}</strong>

@@ -109,3 +109,19 @@ le cache (`tags: [...]`) et appeler `updateTag(tag)` dans l'action — `revalida
 n'invalide pas un `unstable_cache`.
 **Corollaire** : après suppression d'une route API, `.next/dev/types/validator.ts` la
 référence encore et fait échouer le build → `rm -rf .next` puis rebuild.
+
+## L14 — JSX/SWC : l'espace après `</strong>` disparaît si le texte contient `&apos;`
+Symptôme : « BOY Melvin**n'est** pas habilitée » — l'espace entre le gras et le texte
+suivant a disparu, alors qu'il est bien présent dans le source.
+**Cause** : SWC (Next.js) supprime les espaces de tête de chaque ligne d'un nœud texte
+JSX multi-ligne, y compris la première, **quand ce nœud contient une entité HTML**
+(`&apos;`, `&ge;`…). Sans entité, l'espace survit — d'où le caractère intermittent.
+Deux formes touchées :
+- `<strong>x</strong>\n   texte` (fermeture en fin de ligne) → toujours cassé ;
+- `<strong>x</strong> texte\n   suite` → cassé **seulement** si le nœud a une entité.
+⚠️ **Ne pas vérifier avec esbuild** : il garde l'espace dans les deux cas et innocente à
+tort le code. La seule preuve est le build : `grep -rho '.\{0,10\}mon texte' .next/server`
+— on doit y voir `," ","mon texte` et non `,"mon texte`.
+**Règle** : dès qu'un texte suit une balise inline fermante, poser un `{" "}` explicite et
+faire commencer le texte sans espace. C'est déjà le pattern du projet (cf. `/planning`).
+Piège dormant : un texte correct aujourd'hui casse le jour où l'on y ajoute une apostrophe.

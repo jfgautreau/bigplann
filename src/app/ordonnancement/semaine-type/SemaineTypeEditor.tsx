@@ -182,9 +182,10 @@ export default function SemaineTypeEditor({
         </tbody>
       </table>
       <p className="muted" style={{ marginTop: 10 }}>
-        Ce gabarit définit l&apos;état <strong>par défaut</strong> des quarts quand une semaine n&apos;a pas
-        encore été éditée, et sert de référence au bouton <strong>« Réinitialiser »</strong> de chaque
-        semaine dans l&apos;ordonnancement.
+        Ce gabarit définit l&apos;état <strong>par défaut</strong>{" "}
+        des quarts quand une semaine n&apos;a pas encore été éditée, et sert de référence
+        au bouton <strong>« Réinitialiser »</strong>{" "}
+        de chaque semaine dans l&apos;ordonnancement.
       </p>
 
       {/* Ouverture des lignes par defaut, par quart */}

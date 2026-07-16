@@ -35,9 +35,9 @@ export default async function HabilitationsParamPage() {
           <Link href="/habilitations" className="navlink">&larr; Habilitations</Link>
         </div>
         <p className="muted" style={{ marginBottom: 16 }}>
-          Définition des formations réglementaires et internes à suivre (recyclage). Organisées par
-          <strong> catégorie</strong> puis <strong>groupe</strong>. Le suivi par personne se fait dans
-          le module <strong>Habilitations</strong>.
+          Définition des formations réglementaires et internes à suivre (recyclage). Organisées
+          par <strong>catégorie</strong> puis <strong>groupe</strong>. Le suivi par personne se
+          fait dans le module <strong>Habilitations</strong>.
         </p>
         <HabilitationsParamEditor initial={data ?? []} />
       </div>

@@ -248,7 +248,7 @@ export default function MatrixGrid({
                 <tr className={s.rowRestrict}>
                   <td className={s.bilanLabel}>
                     <span className={s.bilanSwatch}>
-                      <span className={s.restrictMark}>✕</span>
+                      <span className={s.restrictMark}>✕</span>{" "}
                       Nb restreint
                     </span>
                   </td>

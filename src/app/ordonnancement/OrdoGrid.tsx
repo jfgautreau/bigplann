@@ -215,8 +215,8 @@ export default function OrdoGrid({
 
       <h2 style={{ marginTop: 24 }}>Lignes ouvertes par quart</h2>
       <p className="muted" style={{ marginTop: -8 }}>
-        Rien n&apos;est rempli par défaut : utilisez <strong>« ⚙️ Initialiser »</strong> en haut d&apos;une semaine
-        pour appliquer la semaine type. Une fois initialisée, désactiver un quart ferme et verrouille ses lignes ce jour-là.
+        Rien n&apos;est rempli par défaut : utilisez <strong>« ⚙️ Initialiser »</strong>{" "}
+        en haut d&apos;une semaine pour appliquer la semaine type. Une fois initialisée, désactiver un quart ferme et verrouille ses lignes ce jour-là.
         Modifier la semaine type ensuite n&apos;affecte pas les semaines déjà initialisées (ré-initialisez pour écraser).
       </p>
       {quarts.map((q) => {

@@ -789,8 +789,8 @@ export default function PlanningGrid({
         <span className="legend-swatch hc" /> barre rouge = hors compétence ·{" "}
         <span className="legend-swatch over" /> barre jaune = sur-effectif (cumulables) ·
         cliquez une pastille de la ligne « Alertes » pour surligner les cases concernées ·{" "}
-        <span style={{ background: "#1d4ed8", color: "#fff", borderRadius: 3, padding: "0 3px", fontSize: 10 }}>🕐</span> horaire
-        spécifique (survolez une case placée) · jours sans ligne ouverte masqués ·{" "}
+        <span style={{ background: "#1d4ed8", color: "#fff", borderRadius: 3, padding: "0 3px", fontSize: 10 }}>🕐</span>{" "}
+        horaire spécifique (survolez une case placée) · jours sans ligne ouverte masqués ·{" "}
         cliquez une case puis <kbd>Suppr</kbd> pour l&apos;effacer.
       </p>
 
