@@ -14,6 +14,8 @@ type Personne = { id: string; nom: string; prenom: string; equipe_id: string | n
 type Motif = { id: string; code: string; libelle: string; couleur: string };
 
 const norm = (v: string) => v.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+// Affichage compact : NOM P.
+const label = (p: { nom: string; prenom: string }) => (p.prenom ? `${p.nom} ${p.prenom.charAt(0).toUpperCase()}.` : p.nom);
 const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 const jourLabel = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
@@ -62,7 +64,8 @@ export default function PlacementBoard({
   const [search, setSearch] = useState("");
   // Pre-filtre : par defaut l'equipe qui tourne ce quart ce jour (elargissable).
   const [fEquipe, setFEquipe] = useState(defaultEquipeId);
-  const [fAtelier, setFAtelier] = useState("");
+  // Pre-filtre atelier : celui du plan affiche (elargissable pour aller chercher un renfort).
+  const [fAtelier, setFAtelier] = useState(atelierId);
   const [hidePlaced, setHidePlaced] = useState(false);
   const [copying, setCopying] = useState(false);
   const [drag, setDrag] = useState<string | null>(null); // personne en cours de glissement
@@ -381,7 +384,7 @@ export default function PlacementBoard({
                               title={`${p.nom} ${p.prenom}`}
                             >
                               <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
-                              {p.nom}
+                              {label(p)}
                             </span>
                           ))}
                           {occ.length === 0 && <span className={s.emptyHint}>déposer ici</span>}
@@ -432,7 +435,7 @@ export default function PlacementBoard({
                   onClick={() => clickName(p.id)}
                 >
                   <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
-                  <span className={s.nm}>{p.nom} {p.prenom}</span>
+                  <span className={s.nm} title={`${p.nom} ${p.prenom}`}>{label(p)}</span>
                   <span className={s.stat} style={{ color: st.color }}>{st.txt}</span>
                   {p.editable && place[p.id] && (
                     <button
@@ -477,7 +480,7 @@ export default function PlacementBoard({
         </button>
         {sel && (
           <span className={s.selHint}>
-            {persById.get(sel)?.nom} sélectionné — cliquez un poste ou une absence
+            {(() => { const p = persById.get(sel); return p ? label(p) : ""; })()} sélectionné — cliquez un poste ou une absence
             <button type="button" className={s.cancelSel} onClick={() => setSel(null)}>annuler</button>
           </span>
         )}
