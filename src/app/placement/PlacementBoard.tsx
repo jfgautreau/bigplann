@@ -292,14 +292,16 @@ export default function PlacementBoard({
       {/* Filtres */}
       <div className={s.filters}>
         {title && <div style={{ alignSelf: "center", marginRight: 4 }}>{title}</div>}
-        <label className={s.fitem}>
+        <div className={s.fitem}>
           <span>Atelier</span>
-          <select value={atelierId} onChange={(e) => go({ atelier: e.target.value })}>
+          <div className="segments">
             {ateliers.map((a) => (
-              <option key={a.id} value={a.id}>{a.nom}</option>
+              <button key={a.id} type="button" className={atelierId === a.id ? "seg active" : "seg"} onClick={() => go({ atelier: a.id })}>
+                {a.nom}
+              </button>
             ))}
-          </select>
-        </label>
+          </div>
+        </div>
         <div className={s.fitem}>
           <span>Jour</span>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
