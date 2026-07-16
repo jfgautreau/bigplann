@@ -113,6 +113,12 @@ imprimables (A4 paysage, KPI, barres) que la pleine largeur dégraderait.
   poster explicitement en JSON vers une route API (cf. `/api/ordonnancement/semaine-type`).
 - ⚠️ **Jamais d'`<input type="color">`** : la boîte de dialogue OS fait planter le
   navigateur ici. Utiliser une palette de pastilles (`TeamColorPicker`).
+- ⚠️ **Bouton à fond clair = poser aussi `color`** : le style global `button` impose
+  `color: var(--primary-text)` (blanc) → un bouton qui passe son `background` en blanc
+  devient un bouton « vide » (texte blanc sur blanc). Cf. `tasks/lessons.md` L11.
+- **Bouton « + Bilan » rose** (`#e11d48`, couleur du menu Bilans) : classe partagée
+  `persongrid.module.css .bilanToggle`, utilisée par Matrice et Habilitations ; le Planning
+  reprend le même style en inline.
 - **Filtres** : `.filterrow` (label + segments), navigation en `useTransition`.
   Planning : ordre **Quart / Atelier / Équipe**.
 - **Modales** : overlay `position:fixed` + `.card` (`TempsPartielModal`, `LegendeModal`,
@@ -148,4 +154,4 @@ prochain gros chantier, pas une optimisation cosmétique.
   + `src/app/admin/habilitations-param/*`.
 - Bilans : `src/app/bilans/*` (Cockpit + 4 catégories, impression PDF via `@media print`).
 - Affichage TV : `src/app/affichage/atelier/[atelier]/page.tsx` (public, refresh 60 s).
-- Migrations : `supabase/migrations/0001..0029`.
+- Migrations : `supabase/migrations/0001..0031`.

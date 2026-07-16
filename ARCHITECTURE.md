@@ -35,9 +35,14 @@ placement journalier, habilitations, affichage couloir, bilans).
   `categorie` manager/conducteur/operateur, `niveau_min_requis`, `objectif_polyvalence`,
   `objectif_cible`, `ordre_affichage`), `equipe` (+ `quart_fixe`), `equipe_chef`.
 - **Quarts** : `quart` (`journee`/`matin`/`apres_midi`/`nuit` + horaires),
-  `equipe_quart_semaine` (rotation équipe→quart par semaine), `poste_quart` (activation
-  poste×quart, défaut actif : ne stocke que les désactivations), `jour_quart`,
-  `ouverture_quart`, `horaire_poste` (poste × quart × jour).
+  `rotation_reference` (**rotation par référence datée** : une semaine (lundi) × équipe →
+  quart ; l'alternance des semaines suivantes est *calculée* par `src/lib/rotation.ts`,
+  jamais stockée — pour une semaine cible, la référence active est la plus récente ≤ cette
+  semaine, donc changer la rotation = ajouter une référence datée sans toucher le passé),
+  `equipe_quart_semaine` (ancienne saisie semaine-par-semaine, **conservée mais plus
+  lue/écrite**), `poste_quart` (activation poste×quart, défaut actif : ne stocke que les
+  désactivations), `jour_quart`, `ouverture_quart`, `horaire_poste` (poste × quart × jour,
+  = horaire *standard* affiché à la TV et proposé par défaut dans la pendule du planning).
 - **Personnel** : `personne` (équipe, atelier, statut ACTIF/PARTI, type_contrat, sexe,
   `numero_badge`, `date_livret_accueil`, temps partiel `tp_config` jsonb ; champs RGPD
   `anonymise`/`anonymise_at`), `contrat_periode`.
@@ -72,15 +77,24 @@ Rôles : `admin`, `chef_equipe`, `ordo`, `rh`, `codir`, `planning`.
 
 ## Audit
 Triggers PostgreSQL (`audit_trigger`) sur les tables métier → `audit_log`
-(qui via `auth.uid()`, action, table, ancienne/nouvelle valeur en JSON).
+(qui, action, table, ancienne/nouvelle valeur en JSON).
+⚠️ L'auteur est `auth.uid()`, **null quand l'écriture passe par le service role**
+(`getAdminClient()`, utilisé dès qu'un module est en écriture « complète ») → l'entrée
+tombait en « Système ». Depuis la **migration 0031**, le trigger prend en repli
+`new/old.created_by` puis `auteur_app_user_id` : `placement`, `matrice` et
+`horaire_exception` sont donc attribués. Les tables sans colonne d'auteur (ex. `personne`)
+restent en « Système » — c'est le choix « ciblé » retenu.
+Le journal (`/journal`) affiche qui / valeur avant / valeur après / date-heure, en masquant
+les champs techniques et en résolvant les clés étrangères en libellés.
 
 ## Migrations
-Fichiers SQL ordonnés dans `supabase/migrations/` (**0001 → 0029**), **exécutés
+Fichiers SQL ordonnés dans `supabase/migrations/` (**0001 → 0031**), **exécutés
 manuellement** par l'utilisateur dans le SQL Editor Supabase (`SUPABASE_DB_URL` est vide ;
 `npm run db:migrate` ne fonctionne que s'il est défini).
 
 ## Sitemap (principales routes)
-- `/` accueil (logo + titre « planning »), `/planning`, `/ordonnancement`
+- `/` accueil (logo + titre « planning »), `/planning`, `/placement` (saisie par
+  glisser-déposer, cf. CLAUDE.md), `/ordonnancement`
   (+ `/ordonnancement/semaine-type`), `/matrice` (+ `/matrice/bilan`), `/habilitations`,
   `/personnel` (+ `/personnel/[id]`), `/bilans` (+ personnel, polyvalence, couverture,
   anticipation, competences), `/horaires-specifiques`, `/absences-specifiques`.

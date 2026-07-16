@@ -4,11 +4,12 @@
 > tiennent dans **`CLAUDE.md`** (chargé automatiquement). Ce fichier est la couche de
 > détail : à consulter quand on touche précisément un des sujets ci-dessous.
 >
-> État au 2026-07-10 · migrations appliquées jusqu'à **0029**.
+> État au 2026-07-16 · migrations appliquées jusqu'à **0031**.
 >
-> Dernier chantier : ossature de page partagée (`.pagecol` / `.headband` / `.gridband`),
-> grille « personnes × colonnes » mutualisée entre Matrice et Habilitations, et pagination
-> des lectures Supabase (`fetchAll`).
+> Dernier chantier : **écran `/placement`** (saisie du planning par glisser-déposer) et
+> **rotation par référence datée** (`rotation_reference`). Avant : ossature de page partagée
+> (`.pagecol` / `.headband` / `.gridband`), grille « personnes × colonnes » mutualisée entre
+> Matrice et Habilitations, pagination des lectures Supabase (`fetchAll`).
 
 ## Migrations récentes (rappel)
 `0020` personne.atelier_id · `0021` Lot C (quart `journee`, `equipe.quart_fixe`,
@@ -16,7 +17,33 @@
 `0023` table `absence` + `placement.absence_id` · `0024` personne.numero_badge +
 date_livret_accueil + contrat_periode.motif · `0025` temps partiel
 (`tp_config` jsonb) · `0026` ordre_affichage · `0027` matrice restriction ·
-`0028` semaine-type profils · `0029` paramétrage des habilitations.
+`0028` semaine-type profils · `0029` paramétrage des habilitations ·
+`0030` `rotation_reference` (rotation par référence datée) ·
+`0031` `audit_trigger` : auteur en repli sur `created_by` / `auteur_app_user_id`
+quand `auth.uid()` est null (écritures service role).
+
+## Écran Placement (`/placement`) — V1
+Saisie « un jour / un quart » par glisser-déposer, adossée au droit `planning` (pas de
+module de droits dédié ; l'entrée de nav est injectée en dur dans `AppHeader`).
+- **Écrit dans `placement`** via `/api/placement/cell` (même route que le planning) → lien
+  automatique avec planning, bilans et affichage TV. Aucune table nouvelle.
+- Plan **schématique auto-généré** (postes de l'atelier groupés par ligne) = zones de dépôt
+  avec `présents/requis`. La **V2** prévue est un vrai plan géographique (image d'atelier
+  importée + position x/y des postes) → nécessitera une migration + un écran de calibrage.
+- Liste de droite : tout le personnel actif, **pré-filtrée sur l'équipe qui tourne ce quart
+  ce jour** (rotation, cf. `defaultEquipeId`), regroupée *à placer → absents → sur poste →
+  autre quart*.
+- **Aide à la compétence** : au glissement, postes compatibles en vert, restrictions
+  (`matrice` = -1) en rouge, insuffisants grisés.
+- `/api/placement/copy` : reprend les affectations poste d'un jour de référence (J-1 / S-1)
+  pour le même quart.
+- ⚠️ `placement` est unique par **(personne, jour)** : une personne ne peut être que sur un
+  quart par jour. `/api/placement/cell` renvoie **409** si on la pose sur un autre quart ;
+  le board la libère d'abord (delete puis upsert).
+- Le board est **keyé** sur `atelier|jour|quart` : il remonte à chaque changement de filtre,
+  ce qui réinitialise proprement l'état local depuis les props serveur.
+- Non fait en V1 : filtrage fin des lignes fermées un jour donné (`ouverture_quart` /
+  `jour_quart`) — le plan montre tous les postes du quart de l'atelier.
 
 ## Temps partiel (`personne.tp_config`, jsonb, options cumulables)
 Modale `TempsPartielModal`, API `/api/personnel` op `tp`.
@@ -33,14 +60,23 @@ Modale `TempsPartielModal`, API `/api/personnel` op `tp`.
 
 ## Planning
 - Filtres, dans l'ordre : **Quart / Atelier / Équipe**. Choisir un quart auto-sélectionne
-  l'équipe de la rotation de la semaine (`equipe_quart_semaine`, sinon `equipe.quart_fixe`) ;
-  le filtre Équipe permet de forcer une autre équipe. Si aucune équipe n'est associée au
-  quart, l'équipe est laissée vide (toutes les personnes).
+  l'équipe de la rotation de la semaine (calculée par `rotationForWeek()` depuis
+  `rotation_reference`, sinon `equipe.quart_fixe`) ; le filtre Équipe permet de forcer une
+  autre équipe. Si aucune équipe n'est associée au quart, l'équipe est laissée vide
+  (toutes les personnes).
 - Panneau d'affectation (`.cellpick`) : ateliers en colonnes côte à côte, **sans ascenseur** ;
   les ateliers longs (≳ 7 lignes, ex. CONDI) sont répartis sur jusqu'à **3 colonnes**.
 - Les options de case ne sont construites qu'à l'ouverture (`onMouseDown`/`onFocus`,
   state `openKey`) : indispensable, sinon ~110k `<option>` dans le DOM.
-- Largeur de la colonne noms = `nb caractères × 7,2 px` (plafond 300).
+- Largeur de la colonne noms = `nb caractères × 8 px + 46` (plancher 160, plafond 480) et
+  **pas de troncature** : les noms complets doivent tenir (cf. règle « ne pas rogner »).
+- Pendule 🕐 (horaire spécifique, table `horaire_exception`) : disponible sur une case
+  affectée, sur le motif **Formation** (sélectionner Formation ouvre la pendule pour saisir
+  le sujet), et tant qu'une exception subsiste même sans affectation. Le champ libre est
+  un **commentaire** (colonne `motif` réutilisée) **affiché sur la TV**. L'infobulle propose
+  l'**horaire par défaut** (`horaire_poste` du quart/jour).
+- Flèche `»` de recopie : lundi→jeudi = fin de la semaine en cours ; **à partir du vendredi**
+  = les jours affichés de la **semaine suivante** (une seule).
 
 ## Matrice de polyvalence
 - Bilan **plié par défaut** (bouton « + Bilan / − Bilan »). Ses 9 lignes sont alimentées
@@ -123,3 +159,19 @@ Redéployer sans changement de code : `git commit --allow-empty`.
 - Les enregistrements `personne_competence` créés avant le paramétrage d'une durée de
   validité gardent une `date_expiration` nulle : l'affichage la recalcule, mais un
   backfill SQL reste à faire si on veut assainir la base.
+
+### Reste à faire (au 2026-07-16)
+- **Placement V2** : vrai plan géographique (image d'atelier importée + position x/y des
+  postes, écran de calibrage) → migration à prévoir. La V1 schématique est en place.
+- Placement : finitions proposées **non retenues pour l'instant** — slots visuels ○○○ pour
+  les postes multi-personnes, légende du code couleur de compétence, et allègement du badge
+  « à placer » répété.
+- Placement : masquer les lignes fermées un jour donné (`ouverture_quart` / `jour_quart`).
+- Journal : les tables sans colonne d'auteur (ex. `personne`) restent en « Système ». Pour
+  couvrir tout, il faudrait transmettre l'utilisateur au trigger (en-tête lu côté base) —
+  choix « universel » écarté au profit du « ciblé » (cf. L12).
+- ⚠️ **Aucun écran n'a pu être vérifié visuellement par l'agent** (pages protégées par
+  login) : tout est validé par `npm run build` + tests. Les retours visuels viennent de
+  l'utilisateur (c'est ainsi qu'on a trouvé L11).
+- Chantier de fond toujours ouvert : **virtualisation** des grandes grilles
+  (matrice ~22 000 cellules) — cf. CLAUDE.md § Performance.

@@ -82,3 +82,30 @@ habilitations un `<span>` inerte.
 **Règle** : pour deux grilles jumelles, fixer explicitement `height` sur la cellule et
 `vertical-align: middle` sur son contenu, plutôt que de laisser la typographie décider.
 Aujourd'hui : `--row-h: 32px`, `--cell: 28px` dans `persongrid.module.css`.
+
+## L11 — Un `<button>` à fond clair rend son texte invisible
+Sur l'écran Placement, les flèches de navigation du jour et les libellés des chips
+d'absence étaient **invisibles** : le style global `button` (globals.css) impose
+`color: var(--primary-text)` (blanc), et ces boutons ne redéfinissaient que `background: #fff`
+→ blanc sur blanc.
+**Règle** : tout bouton qui change son `background` pour une teinte claire doit **aussi**
+poser un `color` explicite. Symptôme typique : « le bouton est là mais vide ».
+
+## L12 — L'audit n'attribue rien quand on écrit via le service role
+Le journal affichait « Système » pour les affectations du planning et la matrice, alors que
+les motifs (server action) étaient bien à l'utilisateur. Cause : `audit_trigger` lit
+`auth.uid()`, **null** avec `getAdminClient()` (service role, sans session JWT) — or les
+écritures « complètes » passent justement par ce client (cf. L5).
+**Règle** : ne pas compter sur `auth.uid()` dans un trigger pour du code qui bypasse la RLS.
+Repli retenu (migration 0031) : le trigger prend `created_by` / `auteur_app_user_id` de la
+ligne. Une table sans colonne d'auteur restera non attribuée.
+
+## L13 — Next.js 16 : `revalidateTag` prend 2 arguments, `updateTag` est fait pour les server actions
+`revalidateTag(tag)` ne compile plus (`Expected 2 arguments`) : la signature est
+`revalidateTag(tag, profile)`. Depuis une server action, la bonne fonction est
+`updateTag(tag)` (sémantique *read-your-own-writes*).
+**Règle** : pour qu'un edit se reflète immédiatement dans un cache `unstable_cache`, tagger
+le cache (`tags: [...]`) et appeler `updateTag(tag)` dans l'action — `revalidatePath` seul
+n'invalide pas un `unstable_cache`.
+**Corollaire** : après suppression d'une route API, `.next/dev/types/validator.ts` la
+référence encore et fait échouer le build → `rm -rf .next` puis rebuild.
