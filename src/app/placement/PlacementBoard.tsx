@@ -49,7 +49,6 @@ export default function PlacementBoard({
   habPers = {},
   vueAbsences = false,
   numeroInit = {},
-  posteNoms = {},
 }: {
   title?: ReactNode;
   jour: string;
@@ -71,7 +70,6 @@ export default function PlacementBoard({
   habPers?: Record<string, string>; // `${personne}:${habilitation}` -> echeance ("" = sans echeance)
   vueAbsences?: boolean; // pseudo-atelier « Absences » : photo transverse, pas de plan
   numeroInit?: Record<string, string>; // personne -> numero de rotation occupe
-  posteNoms?: Record<string, string>; // tous les postes de l'usine (vue Absences)
 }) {
   const router = useRouter();
   const [place, setPlace] = useState<Record<string, string>>(placeInit);
@@ -377,19 +375,18 @@ export default function PlacementBoard({
     return [...list].sort((a, b) => rank(a) - rank(b) || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`));
   }, [personnes, search, fEquipe, fAtelier, place, autreQuart, hidePlaced]);
 
-  // Vue Absences : une carte par motif, puis Non travaillé / À placer / Sur un poste.
+  // Vue Absences : une carte par motif d'absence, plus « Non travaillé ».
   // Transverse : tout l'effectif, quel que soit l'atelier ou l'equipe.
   const absCartes = useMemo(() => {
     if (!vueAbsences) return [];
     const tri = (a: Personne, b: Personne) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
-    const cartes: { key: string; titre: string; couleur: string; gens: Personne[]; drop?: string; detail?: (p: Personne) => string }[] =
-      motifs.map((mo) => ({
-        key: mo.id,
-        titre: mo.libelle,
-        couleur: mo.couleur,
-        drop: `m:${mo.id}`,
-        gens: personnes.filter((p) => place[p.id] === `m:${mo.id}`).sort(tri),
-      }));
+    const cartes: { key: string; titre: string; couleur: string; gens: Personne[]; drop?: string }[] = motifs.map((mo) => ({
+      key: mo.id,
+      titre: mo.libelle,
+      couleur: mo.couleur,
+      drop: `m:${mo.id}`,
+      gens: personnes.filter((p) => place[p.id] === `m:${mo.id}`).sort(tri),
+    }));
     cartes.push({
       key: "X",
       titre: "Non travaillé",
@@ -397,26 +394,8 @@ export default function PlacementBoard({
       drop: "X",
       gens: personnes.filter((p) => place[p.id] === "X").sort(tri),
     });
-    cartes.push({
-      key: "aplacer",
-      titre: "À placer",
-      couleur: "#dc2626",
-      drop: "", // deposer ici = liberer la personne
-      gens: personnes.filter((p) => !place[p.id] && !autreQuart[p.id]).sort(tri),
-    });
-    cartes.push({
-      key: "poste",
-      titre: `Sur un poste (${quartLib[quart] ?? quart})`,
-      couleur: "#0d9488",
-      gens: personnes.filter((p) => { const v = place[p.id]; return !!v && v !== "X" && !v.startsWith("m:"); }).sort(tri),
-      detail: (p) => {
-        const n = numero[p.id];
-        const nom = posteNoms[place[p.id]] ?? posteNom.get(place[p.id]) ?? "poste";
-        return n ? `${nom} · n° ${n}` : nom;
-      },
-    });
     return cartes;
-  }, [vueAbsences, motifs, personnes, place, autreQuart, numero, posteNoms, posteNom, quart, quartLib]);
+  }, [vueAbsences, motifs, personnes, place]);
 
   const searching = !!search.trim();
   const nbAplacer = personnes.filter((p) => inScope(p) && !place[p.id] && !autreQuart[p.id]).length;
@@ -525,14 +504,12 @@ export default function PlacementBoard({
                         onDragStart={onDragStartName(p.id)}
                         onDragEnd={() => setDrag(null)}
                         onClick={(e) => { e.stopPropagation(); clickName(p.id); }}
-                        title={`${p.nom} ${p.prenom}${c.detail ? ` — ${c.detail(p)}` : ""}`}
+                        title={`${p.nom} ${p.prenom}`}
                       >
                         <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
                         <span className={s.absNom}>{p.nom} {p.prenom}</span>
-                        {c.detail && <span className={s.absDetail}>{c.detail(p)}</span>}
                       </div>
                     ))}
-                    {c.gens.length === 0 && <p className="muted" style={{ padding: "6px 4px", fontSize: 12, margin: 0 }}>Personne.</p>}
                   </div>
                 </div>
               ))}

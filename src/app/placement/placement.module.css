@@ -283,12 +283,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.absDetail {
-  flex: 0 0 auto;
-  font-size: 11px;
-  color: var(--muted);
-}
-
 /* --- Colonne des noms --- */
 .names {
   flex: 0 0 320px;

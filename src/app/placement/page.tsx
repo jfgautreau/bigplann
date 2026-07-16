@@ -156,14 +156,6 @@ export default async function PlacementPage({
     } else if (r.poste_id) autreQuart[r.personne_id] = r.quart_code ?? "matin";
   }
 
-  // Vue Absences : elle nomme les postes de toute l'usine (« sur un poste »), pas
-  // seulement ceux d'un atelier -> les groupes affiches sont vides dans cette vue.
-  const posteNoms: Record<string, string> = {};
-  if (vueAbsences) {
-    const { data: tous } = await supabase.from("poste").select("id, nom").returns<{ id: string; nom: string }[]>();
-    for (const p of tous ?? []) posteNoms[p.id] = p.nom;
-  }
-
   // Niveau de competence par (personne, poste) pour l'aide au placement.
   const matrice: Record<string, number> = {};
   for (const r of mat) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
@@ -202,7 +194,6 @@ export default async function PlacementPage({
         key={`${vueAbsences ? "absences" : atelierId}|${jour}|${quart}`}
         vueAbsences={vueAbsences}
         numeroInit={numeroInit}
-        posteNoms={posteNoms}
         title={<PageTitle module="placement" style={{ fontSize: 20 }}>Placement</PageTitle>}
         jour={jour}
         quart={quart}
