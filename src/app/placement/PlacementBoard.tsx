@@ -435,7 +435,7 @@ export default function PlacementBoard({
                   onClick={() => clickName(p.id)}
                 >
                   <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
-                  <span className={s.nm} title={`${p.nom} ${p.prenom}`}>{label(p)}</span>
+                  <span className={s.nm} title={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom}</span>
                   <span className={s.stat} style={{ color: st.color }}>{st.txt}</span>
                   {p.editable && place[p.id] && (
                     <button
