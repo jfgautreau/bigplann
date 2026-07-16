@@ -3,8 +3,8 @@ import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
 import HoraireEditor from "./HoraireEditor";
 
-type PosteRow = { id: string; nom: string; actif: boolean };
-type LigneRow = { id: string; nom: string; atelier: { id: string; nom: string } | null; poste: PosteRow[] };
+type PosteRow = { id: string; nom: string; actif: boolean; ordre_affichage: number };
+type LigneRow = { id: string; nom: string; ordre_affichage: number; atelier: { id: string; nom: string } | null; poste: PosteRow[] };
 type Quart = { code: string; libelle: string };
 type HoraireRow = { poste_id: string; quart_code: string; jour: number; debut: string | null; fin: string | null };
 
@@ -15,7 +15,7 @@ export default async function HorairesPage() {
   const [{ data: lignesD }, { data: quartsD }, { data: pqOffD }] = await Promise.all([
     supabase
       .from("ligne")
-      .select("id, nom, atelier:atelier_id(id, nom), poste(id, nom, actif)")
+      .select("id, nom, ordre_affichage, atelier:atelier_id(id, nom), poste(id, nom, actif, ordre_affichage)")
       .eq("actif", true)
       .order("nom")
       .returns<LigneRow[]>(),
@@ -27,22 +27,29 @@ export default async function HorairesPage() {
   const quarts = (quartsD ?? []).map((q) => ({ code: q.code, libelle: q.libelle }));
   const pqOff = new Set((pqOffD ?? []).map((r) => `${r.poste_id}:${r.quart_code}`));
 
-  // Lignes (avec leurs postes actifs), triees par atelier puis nom de ligne. Chaque
-  // poste porte la liste de ses quarts ACTIFS (parametres dans le referentiel) :
+  // Lignes (avec leurs postes actifs), triees par atelier puis par N° d'affichage
+  // (comme le referentiel, le planning et les TV) ; le nom ne departage que les ex aequo.
+  // Chaque poste porte la liste de ses quarts ACTIFS (parametres dans le referentiel) :
   // seuls ces quarts sont affiches et editables.
+  const ordreThenNom = <T extends { ordre: number; nom: string }>(a: T, b: T) => a.ordre - b.ordre || a.nom.localeCompare(b.nom);
   const lignes = (lignesD ?? [])
     .map((l) => ({
       ligneId: l.id,
       ligneNom: l.nom,
+      ligneOrdre: l.ordre_affichage ?? 0,
       atelierId: l.atelier?.id ?? "",
       atelierNom: l.atelier?.nom ?? "(Sans atelier)",
       postes: [...(l.poste ?? [])]
         .filter((p) => p.actif)
-        .sort((a, b) => a.nom.localeCompare(b.nom))
+        .sort((a, b) => ordreThenNom({ ordre: a.ordre_affichage ?? 0, nom: a.nom }, { ordre: b.ordre_affichage ?? 0, nom: b.nom }))
         .map((p) => ({ id: p.id, nom: p.nom, quarts: quarts.filter((q) => !pqOff.has(`${p.id}:${q.code}`)).map((q) => q.code) })),
     }))
     .filter((l) => l.postes.length > 0)
-    .sort((a, b) => a.atelierNom.localeCompare(b.atelierNom) || a.ligneNom.localeCompare(b.ligneNom));
+    .sort(
+      (a, b) =>
+        a.atelierNom.localeCompare(b.atelierNom) ||
+        ordreThenNom({ ordre: a.ligneOrdre, nom: a.ligneNom }, { ordre: b.ligneOrdre, nom: b.ligneNom })
+    );
 
   const ateliersMap = new Map<string, string>();
   for (const l of lignes) if (l.atelierId) ateliersMap.set(l.atelierId, l.atelierNom);

@@ -101,6 +101,17 @@
   font-size: 12px;
   flex-shrink: 0;
 }
+/* N° de rotation du poste, devant son nom. Texte libre : « 12 » ou « 12, 13 ». */
+.rot {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 800;
+}
 .occ {
   display: flex;
   flex-wrap: wrap;
@@ -148,12 +159,31 @@
   cursor: grab;
   white-space: nowrap;
 }
+/* Placement force : la personne n'a pas (ou plus) une habilitation exigee par le
+   poste. Recalcule a l'affichage : disparait des que l'habilitation est regularisee. */
+.forced {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-width: 2px;
+}
 .dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
   flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+/* Overlay des modales (forcage d'habilitation) */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
 }
 
 /* --- Colonne des noms --- */

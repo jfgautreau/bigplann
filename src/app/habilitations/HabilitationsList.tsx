@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { joursRestants, habStatut, addMonthsIso, HAB_COLOR, type HabStatut } from "@/lib/habilitations";
+import { joursRestants, habStatut, addMonthsIso, fmtDateFr, HAB_COLOR, type HabStatut } from "@/lib/habilitations";
 import { usePersonGrid } from "@/components/usePersonGrid";
 import g from "@/components/persongrid.module.css";
 import HabMark from "./HabMark";
 import HabLegendeModal from "./HabLegendeModal";
+import HabMajModal from "./HabMajModal";
 
 type Row = {
   id: string;
@@ -21,8 +22,12 @@ type Personne = { id: string; nom: string; prenom: string };
 type Comp = { id: string; nom: string; duree_validite_mois: number | null; categorie: string | null; groupe: string | null; ordre: number; a_autorisation_conduite: boolean };
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-const fmtDate = (iso: string | null) => (iso ? iso.split("-").reverse().join("-") : "—"); // JJ-MM-AAAA
+const fmtDate = fmtDateFr; // JJ-MM-AAAA
 const CAT_LABEL: Record<string, string> = { reglementaire: "Formations règlementaires", interne: "Formations internes" };
+const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 const CAT_ORDER = ["reglementaire", "interne"];
 const catOf = (c: string | null) => (c === "interne" ? "interne" : "reglementaire");
 
@@ -91,17 +96,16 @@ export default function HabilitationsList({
   personnes,
   comps,
   canEdit = false,
-  children,
 }: {
   rows: Row[];
   personnes: Personne[];
   comps: Comp[];
   canEdit?: boolean;
-  children?: React.ReactNode;
 }) {
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"grille" | "liste">("grille"); // grille par défaut
-  const [showMaj, setShowMaj] = useState(false);
+  // Saisie ouverte au clic sur une pastille, pre-remplie avec cette case.
+  const [maj, setMaj] = useState<{ personneId: string; competenceId: string; dateObtention: string | null; dateAutorisation: string | null } | null>(null);
   const [showLegende, setShowLegende] = useState(false);
   const [showBilan, setShowBilan] = useState(false);
   const { headCardRef, headTableRef, rowsTableRef, rowsCardProps } = usePersonGrid(g.colHover, 3);
@@ -258,26 +262,6 @@ export default function HabilitationsList({
             <button {...seg("grille")}>Grille</button>
             <button {...seg("liste")}>Liste</button>
           </div>
-          {children && (
-            <button
-              type="button"
-              onClick={() => setShowMaj(true)}
-              title="Mettre à jour les habilitations"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 7,
-                width: "auto",
-                margin: 0,
-                padding: "8px 20px",
-                fontSize: 15,
-                fontWeight: 700,
-                borderRadius: 999,
-              }}
-            >
-              <span style={{ fontSize: 22, lineHeight: 1, fontWeight: 800 }}>+</span> MàJ
-            </button>
-          )}
           </div>
         </div>
       </div>
@@ -376,9 +360,26 @@ export default function HabilitationsList({
                       </td>
                       {shownOrdered.map((c) => {
                         const { statut, title } = cellOf(p.id, c);
+                        const rec = recMap.get(`${p.id}:${c.id}`);
+                        const hint = canEdit ? `\n(cliquer pour ${rec ? "recycler" : "enregistrer"})` : "";
                         return (
                           <td key={c.id} className={g.cellTd}>
-                            <span className={g.cellMark} title={`${p.nom} ${p.prenom}\n${title}`}>
+                            <span
+                              className={g.cellMark}
+                              title={`${p.nom} ${p.prenom}\n${title}${hint}`}
+                              onClick={
+                                canEdit
+                                  ? () =>
+                                      setMaj({
+                                        personneId: p.id,
+                                        competenceId: c.id,
+                                        dateObtention: rec?.date_obtention ?? null,
+                                        dateAutorisation: rec?.date_autorisation_conduite ?? null,
+                                      })
+                                  : undefined
+                              }
+                              style={canEdit ? { cursor: "pointer" } : undefined}
+                            >
                               <HabMark statut={statut} />
                             </span>
                           </td>
@@ -462,24 +463,15 @@ export default function HabilitationsList({
 
       {showLegende && <HabLegendeModal onClose={() => setShowLegende(false)} />}
 
-      {/* Modale de mise à jour des habilitations */}
-      {children && showMaj && (
-        <div
-          onClick={() => setShowMaj(false)}
-          style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "6vh 16px", overflow: "auto" }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 640 }}>
-            <div className="card" style={{ margin: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <h2 style={{ margin: 0 }}>Mise à jour des habilitations</h2>
-                <button type="button" onClick={() => setShowMaj(false)} title="Fermer" style={{ width: "auto", margin: 0, padding: "2px 10px", fontSize: 16 }}>
-                  ✕
-                </button>
-              </div>
-              {children}
-            </div>
-          </div>
-        </div>
+      {/* Saisie / recyclage, ouverte au clic sur une pastille de la grille */}
+      {maj && (
+        <HabMajModal
+          personnes={personnes}
+          comps={comps}
+          initial={maj}
+          dateJour={todayIso()}
+          onClose={() => setMaj(null)}
+        />
       )}
     </>
   );

@@ -7,7 +7,7 @@ import { getCurrentProfile } from "@/lib/current-user";
 // Ops : create-atelier | create-ligne | create-poste | update-atelier |
 //       update-ligne | update-poste | toggle.
 const POSTE_COLS =
-  "id, nom, nom_court, est_conducteur, categorie, effectif_requis, difficulte_formation, niveau_min_requis, ordre_affichage, actif";
+  "id, nom, nom_court, est_conducteur, categorie, effectif_requis, difficulte_formation, niveau_min_requis, ordre_affichage, numero_rotation, actif";
 const CATEGORIES = ["manager", "conducteur", "operateur"];
 
 type Body = Record<string, unknown>;
@@ -31,6 +31,9 @@ function posteValue(key: string, value: unknown) {
       return Math.max(0, Math.min(4, Math.floor(Number(value) || 0)));
     case "ordre_affichage":
       return Math.max(0, Math.floor(Number(value) || 0));
+    // Texte libre : un poste a plusieurs positions porte plusieurs numeros (« 12, 13 »).
+    case "numero_rotation":
+      return s(value).slice(0, 20) || null;
     case "difficulte_formation": {
       const v = s(value);
       return v === "" ? null : Math.max(1, Math.min(3, Number(v)));
@@ -134,6 +137,27 @@ export async function POST(req: NextRequest) {
           const { error } = await supabase
             .from("poste_quart")
             .upsert({ poste_id, quart_code, actif: false }, { onConflict: "poste_id,quart_code" });
+          if (error) throw error;
+        }
+        return NextResponse.json({ ok: true });
+      }
+      case "poste-competence": {
+        // Habilitation exigee par un poste. Presente = requise : on insere / supprime.
+        const poste_id = s(body.poste_id);
+        const competence_id = s(body.competence_id);
+        if (!poste_id || !competence_id) return NextResponse.json({ error: "Champs requis" }, { status: 400 });
+        const requis = body.requis === true || body.requis === "true";
+        if (requis) {
+          const { error } = await supabase
+            .from("poste_competence_requise")
+            .upsert({ poste_id, competence_id }, { onConflict: "poste_id,competence_id" });
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("poste_competence_requise")
+            .delete()
+            .eq("poste_id", poste_id)
+            .eq("competence_id", competence_id);
           if (error) throw error;
         }
         return NextResponse.json({ ok: true });

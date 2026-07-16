@@ -1,12 +1,9 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
-import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import { fetchAll } from "@/lib/fetch-all";
 import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite } from "@/lib/permissions";
-import { saveHabilitation } from "./actions";
 import HabilitationsList from "./HabilitationsList";
 
 type Comp = { id: string; nom: string; duree_validite_mois: number | null; categorie: string | null; groupe: string | null; ordre: number; a_autorisation_conduite: boolean };
@@ -66,52 +63,8 @@ export default async function HabilitationsPage() {
           )}
         </div>
         </div>
-        <HabilitationsList rows={rows} personnes={personnes} comps={comps} canEdit={canEdit}>
-          {canEdit && (
-            <>
-              {comps.length === 0 ? (
-                <p className="muted">
-                  Aucune habilitation définie. Crée-en dans Compétences (case « à recycler »).
-                </p>
-              ) : (
-                <form action={saveHabilitation} autoComplete="off" className="inline-form">
-                  <div className="field">
-                    <span>Personne</span>
-                    <select name="personne_id" required defaultValue="">
-                      <option value="" disabled>Choisir...</option>
-                      {personnes.map((p) => (
-                        <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="field">
-                    <span>Habilitation</span>
-                    <select name="competence_id" required defaultValue="">
-                      <option value="" disabled>Choisir...</option>
-                      {comps.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nom}{c.duree_validite_mois ? ` (${c.duree_validite_mois} mois)` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="field">
-                    <span>Date de passage</span>
-                    <input name="date_obtention" type="date" required />
-                  </div>
-                  <div className="field">
-                    <span>Autorisation de conduite (si concerné)</span>
-                    <input name="date_autorisation_conduite" type="date" />
-                  </div>
-                  <button type="submit" className="btn-sm">Enregistrer</button>
-                </form>
-              )}
-              <p className="muted" style={{ marginTop: 6 }}>
-                L&apos;expiration est calculée automatiquement (obtention + durée de validité).
-              </p>
-            </>
-          )}
-        </HabilitationsList>
+        {/* La saisie se fait au clic sur une pastille de la grille (modale pre-remplie). */}
+        <HabilitationsList rows={rows} personnes={personnes} comps={comps} canEdit={canEdit} />
       </div>
     </>
   );

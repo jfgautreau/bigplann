@@ -3,12 +3,13 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { isoDate, addDays } from "@/lib/week";
+import { habValable, habManqueTxt } from "@/lib/habilitations";
 import s from "./placement.module.css";
 
 type Atelier = { id: string; nom: string };
 type Equipe = { id: string; nom: string; couleur: string | null };
 type Quart = { code: string; libelle: string };
-type Poste = { id: string; nom: string; nomCourt: string | null; effectifRequis: number; niveauMin: number };
+type Poste = { id: string; nom: string; nomCourt: string | null; effectifRequis: number; niveauMin: number; numeroRotation: string | null };
 type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null; couleur: string | null; editable: boolean };
 type Motif = { id: string; code: string; libelle: string; couleur: string };
@@ -39,6 +40,9 @@ export default function PlacementBoard({
   matrice,
   motifs,
   defaultEquipeId = "",
+  habPoste = {},
+  habComp = {},
+  habPers = {},
 }: {
   title?: ReactNode;
   jour: string;
@@ -55,6 +59,9 @@ export default function PlacementBoard({
   matrice: Record<string, number>;
   motifs: Motif[];
   defaultEquipeId?: string;
+  habPoste?: Record<string, string[]>; // poste -> habilitations exigees
+  habComp?: Record<string, string>; // habilitation -> nom
+  habPers?: Record<string, string>; // `${personne}:${habilitation}` -> echeance ("" = sans echeance)
 }) {
   const router = useRouter();
   const [place, setPlace] = useState<Record<string, string>>(placeInit);
@@ -71,6 +78,8 @@ export default function PlacementBoard({
   const [drag, setDrag] = useState<string | null>(null); // personne en cours de glissement
   const [sel, setSel] = useState<string | null>(null); // mode clic : personne selectionnee
   const [over, setOver] = useState<string | null>(null); // cible de depot survolee
+  // Demande de forcage en attente : habilitation manquante sur le poste vise.
+  const [ask, setAsk] = useState<{ persId: string; posteId: string; manque: string[] } | null>(null);
 
   const persById = useMemo(() => new Map(personnes.map((p) => [p.id, p])), [personnes]);
   const posteNom = useMemo(() => {
@@ -94,12 +103,23 @@ export default function PlacementBoard({
 
   const occupants = (posteId: string) => personnes.filter((p) => place[p.id] === posteId);
 
-  async function post(persId: string, value: string) {
+  // Habilitations exigees par le poste que la personne n'a pas (ou plus). Recalcule
+  // a chaque rendu : un placement force redevient normal des la regularisation.
+  const habManque = (persId: string, posteId: string): string[] =>
+    (habPoste[posteId] ?? [])
+      .filter((cid) => !habValable(habDetenue(persId, cid)))
+      .map((cid) => habManqueTxt(habComp[cid] ?? "habilitation", habDetenue(persId, cid)));
+  function habDetenue(persId: string, compId: string) {
+    const e = habPers[`${persId}:${compId}`];
+    return e === undefined ? null : { expiration: e === "" ? null : e };
+  }
+
+  async function post(persId: string, value: string, forcer = false) {
     const p = persById.get(persId);
     const res = await fetch("/api/placement/cell", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ personne_id: persId, jour, equipe_id: p?.equipe_id ?? null, value, quart }),
+      body: JSON.stringify({ personne_id: persId, jour, equipe_id: p?.equipe_id ?? null, value, quart, forcer }),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
@@ -116,11 +136,20 @@ export default function PlacementBoard({
     }, 3000);
   };
 
-  async function assign(persId: string, value: string) {
+  async function assign(persId: string, value: string, forcer = false) {
     const p = persById.get(persId);
     if (!p?.editable) {
       flash("Vous ne pouvez pas modifier cette personne (hors de votre équipe).");
       return;
+    }
+    const isPoste = value !== "" && value !== "X" && !value.startsWith("m:");
+    // Habilitation manquante : on demande confirmation avant d'ecrire quoi que ce soit.
+    if (isPoste && !forcer) {
+      const manque = habManque(persId, value);
+      if (manque.length) {
+        setAsk({ persId, posteId: value, manque });
+        return;
+      }
     }
     const prev = place[persId] ?? "";
     const prevAutre = autreQuart[persId];
@@ -128,10 +157,9 @@ export default function PlacementBoard({
     setSaving("saving");
     setMsg(null);
     try {
-      const isPoste = value !== "" && value !== "X" && !value.startsWith("m:");
       // Deja sur un autre quart : on la libere d'abord avant de la poser sur ce quart.
       if (prevAutre && isPoste) await post(persId, "");
-      await post(persId, value);
+      await post(persId, value, forcer);
       setAutreQuart((a) => {
         const n = { ...a };
         delete n[persId];
@@ -192,21 +220,17 @@ export default function PlacementBoard({
     }
   }
 
-  // Couverture des postes (positions couvertes / requises, postes complets).
+  // Couverture : positions pourvues / requises (un poste en surnombre ne compte pas double).
   const coverage = useMemo(() => {
     let req = 0;
     let cov = 0;
-    let complets = 0;
-    let total = 0;
     for (const g of groups)
       for (const po of g.postes) {
-        total++;
         req += po.effectifRequis;
         const n = personnes.filter((p) => place[p.id] === po.id).length;
         cov += Math.min(n, po.effectifRequis);
-        if (po.effectifRequis > 0 && n >= po.effectifRequis) complets++;
       }
-    return { req, cov, complets, total };
+    return { req, cov };
   }, [groups, personnes, place]);
 
   // Clic (secours tactile / accessibilite) : selectionner un nom puis cliquer une cible.
@@ -324,9 +348,8 @@ export default function PlacementBoard({
           </div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          <span title="Positions couvertes / requises · postes complets" style={{ fontSize: 13 }}>
-            <strong style={{ color: coverage.cov >= coverage.req ? "var(--ok)" : "#b91c1c" }}>{coverage.cov}/{coverage.req}</strong>{" "}
-            <span className="muted">postes {coverage.complets}/{coverage.total}</span>
+          <span title="Positions pourvues / requises sur les postes affichés" style={{ fontSize: 13 }}>
+            <strong style={{ color: coverage.cov >= coverage.req ? "var(--ok)" : "#b91c1c" }}>{coverage.cov}/{coverage.req}</strong>
           </span>
           <span style={{ display: "flex", gap: 6 }}>
             <button type="button" className={s.navbtn} disabled={copying} onClick={() => copyFrom(-1)} title="Copier les postes de la veille (même quart)">Copier J‑1</button>
@@ -366,27 +389,35 @@ export default function PlacementBoard({
                         title={active ? `${cs === "ok" ? "Compétent" : cs === "restrict" ? "Restriction !" : "Compétence insuffisante"} · niv. ${niveau(active, po.id)} / min ${po.niveauMin}` : po.nom}
                       >
                         <div className={s.posteHead}>
-                          <span className={s.posteNom}>{po.nom}</span>
+                          <span className={s.posteNom}>
+                            {po.numeroRotation && (
+                              <span className={s.rot} title={`N° de rotation : ${po.numeroRotation}`}>{po.numeroRotation}</span>
+                            )}
+                            {po.nom}
+                          </span>
                           <span className={s.eff} style={{ color: complet ? "var(--ok)" : manque ? "#b91c1c" : "var(--muted)" }}>
                             {occ.length}/{po.effectifRequis}
                           </span>
                         </div>
                         <div className={s.occ}>
-                          {occ.map((p) => (
+                          {occ.map((p) => {
+                            const mq = habManque(p.id, po.id);
+                            return (
                             <span
                               key={p.id}
-                              className={s.chip}
+                              className={`${s.chip} ${mq.length ? s.forced : ""}`}
                               draggable={p.editable}
                               onDragStart={onDragStartName(p.id)}
                               onDragEnd={() => setDrag(null)}
                               onClick={(e) => { e.stopPropagation(); clickName(p.id); }}
-                              style={{ borderColor: p.couleur ?? "#cbd5e1", outline: sel === p.id ? "2px solid #4f46e5" : undefined }}
-                              title={`${p.nom} ${p.prenom}`}
+                              style={{ borderColor: mq.length ? "#dc2626" : p.couleur ?? "#cbd5e1", outline: sel === p.id ? "2px solid #4f46e5" : undefined }}
+                              title={mq.length ? `${p.nom} ${p.prenom}\n⚠ Placement forcé — manque : ${mq.join(", ")}` : `${p.nom} ${p.prenom}`}
                             >
                               <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
                               {label(p)}
                             </span>
-                          ))}
+                            );
+                          })}
                           {occ.length === 0 && <span className={s.emptyHint}>déposer ici</span>}
                         </div>
                       </div>
@@ -485,6 +516,43 @@ export default function PlacementBoard({
           </span>
         )}
       </div>
+
+      {/* Habilitation manquante : confirmer ou renoncer au placement */}
+      {ask && (
+        <div className={s.overlay} onClick={() => setAsk(null)}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ margin: 0, width: "100%", maxWidth: 440 }}>
+            <h2 style={{ margin: "0 0 8px", fontSize: 18, color: "#b91c1c" }}>⚠ Habilitation manquante</h2>
+            <p style={{ margin: "0 0 6px", fontSize: 14 }}>
+              <strong>{(() => { const p = persById.get(ask.persId); return p ? `${p.nom} ${p.prenom}` : ""; })()}</strong> n&apos;est
+              pas habilitée pour le poste <strong>{posteNom.get(ask.posteId) ?? "?"}</strong>.
+            </p>
+            <p style={{ margin: "0 0 14px", fontSize: 14 }}>
+              Manque : <strong style={{ color: "#b91c1c" }}>{ask.manque.join(", ")}</strong>
+            </p>
+            <p className="muted" style={{ margin: "0 0 14px", fontSize: 12 }}>
+              Un placement forcé est tracé (auteur et date) et s&apos;affiche en rouge tant que
+              l&apos;habilitation n&apos;est pas régularisée.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button type="button" className={s.cancelSel} style={{ padding: "7px 16px", fontSize: 13 }} onClick={() => setAsk(null)}>
+                Non
+              </button>
+              <button
+                type="button"
+                style={{ width: "auto", margin: 0, padding: "7px 16px", fontSize: 13, fontWeight: 700, background: "#dc2626", border: "1px solid #dc2626", borderRadius: 8, cursor: "pointer" }}
+                onClick={() => {
+                  const a = ask;
+                  setAsk(null);
+                  setSel(null);
+                  assign(a.persId, a.posteId, true);
+                }}
+              >
+                Oui, je force
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

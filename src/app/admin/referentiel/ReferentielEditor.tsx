@@ -13,11 +13,13 @@ type Poste = {
   difficulte_formation: number | null;
   niveau_min_requis: number;
   ordre_affichage: number;
+  numero_rotation: string | null;
   actif: boolean;
 };
 type Ligne = { id: string; nom: string; actif: boolean; ordre_affichage: number; poste: Poste[] };
 type Atelier = { id: string; nom: string; actif: boolean; ligne: Ligne[] };
 type Quart = { code: string; libelle: string };
+type Comp = { id: string; nom: string; a_recycler: boolean };
 
 const CATEGORIES: { value: string; label: string }[] = [
   { value: "manager", label: "Manager" },
@@ -43,18 +45,54 @@ const ADD_BTN: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+// Cellule « Habil. requises » : bouton blanc portant les pastilles des habilitations
+// exigees. `color` explicite car le style global des boutons impose du texte blanc.
+const REQ_BTN: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 4,
+  width: "100%",
+  minWidth: 130,
+  margin: 0,
+  padding: "3px 6px",
+  background: "#fff",
+  color: "var(--text)",
+  border: "1px solid var(--border)",
+  borderRadius: 6,
+  fontSize: 12,
+  cursor: "pointer",
+  textAlign: "left",
+};
+const REQ_TAG: React.CSSProperties = {
+  padding: "1px 7px",
+  borderRadius: 999,
+  background: "#dbeafe",
+  color: "#1d4ed8",
+  fontWeight: 700,
+  fontSize: 11,
+  whiteSpace: "nowrap",
+};
+
 export default function ReferentielEditor({
   initial,
   quarts = [],
   pqOff = [],
+  comps = [],
+  pcr = [],
 }: {
   initial: Atelier[];
   quarts?: Quart[];
   pqOff?: string[];
+  comps?: Comp[];
+  pcr?: string[];
 }) {
   const [tree, setTree] = useState<Atelier[]>(initial);
   // Desactivations poste x quart (cle `${poste}:${quart}`). Absent = actif.
   const [off, setOff] = useState<Set<string>>(new Set(pqOff));
+  // Habilitations requises (cle `${poste}:${competence}`). Presente = exigee.
+  const [req, setReq] = useState<Set<string>>(new Set(pcr));
+  // Poste dont on edite les habilitations requises (modale).
+  const [reqFor, setReqFor] = useState<{ id: string; nom: string } | null>(null);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -145,6 +183,20 @@ export default function ReferentielEditor({
     });
     post("poste-quart", { poste_id: pid, quart_code: q, actif: on });
   }
+  // Habilitations exigees par un poste. Presente = requise : on insere / supprime.
+  const compRequise = (pid: string, cid: string) => req.has(`${pid}:${cid}`);
+  function toggleCompRequise(pid: string, cid: string, on: boolean) {
+    setReq((s) => {
+      const n = new Set(s);
+      const k = `${pid}:${cid}`;
+      if (on) n.add(k);
+      else n.delete(k);
+      return n;
+    });
+    post("poste-competence", { poste_id: pid, competence_id: cid, requis: on });
+  }
+  const compsRequisesDe = (pid: string) => comps.filter((c) => compRequise(pid, c.id));
+
   async function addPoste(aid: string, lid: string, nom: string) {
     const j = await post("create-poste", { ligne_id: lid, nom });
     if (j?.row) setLigne(aid, lid, (l) => ({ ...l, poste: [...l.poste, j.row as Poste].sort(byNom) }));
@@ -232,6 +284,8 @@ export default function ReferentielEditor({
                     <th>Diff.</th>
                     <th>Niv. min</th>
                     <th title="N° d'affichage du poste sur les TV / PDF (croissant)">N° aff.</th>
+                    <th title="N° de rotation, libre. Un poste à plusieurs positions porte plusieurs numéros (ex. « 12, 13 »).">N° Rot</th>
+                    <th title="Habilitations exigées pour tenir ce poste">Habil. requises</th>
                     {quarts.map((q) => (
                       <th key={q.code} title={`Tourne en ${q.libelle}`} style={{ fontSize: 11 }}>
                         {q.libelle.slice(0, 4)}
@@ -303,6 +357,32 @@ export default function ReferentielEditor({
                           style={{ width: 60 }}
                         />
                       </td>
+                      <td>
+                        <input
+                          value={p.numero_rotation ?? ""}
+                          placeholder="12, 13"
+                          maxLength={20}
+                          onChange={(e) => posteField(a.id, l.id, p.id, "numero_rotation", e.target.value)}
+                          style={{ width: 72 }}
+                          title="Un numéro par position tenue (ex. « 12, 13 » si l'effectif est 2)"
+                        />
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => setReqFor({ id: p.id, nom: p.nom })}
+                          title="Choisir les habilitations exigées pour ce poste"
+                          style={REQ_BTN}
+                        >
+                          {compsRequisesDe(p.id).length === 0 ? (
+                            <span className="muted" style={{ fontWeight: 500 }}>＋ aucune</span>
+                          ) : (
+                            compsRequisesDe(p.id).map((c) => (
+                              <span key={c.id} style={REQ_TAG}>{c.nom}</span>
+                            ))
+                          )}
+                        </button>
+                      </td>
                       {quarts.map((q) => (
                         <td key={q.code} style={{ textAlign: "center" }}>
                           <input
@@ -326,7 +406,7 @@ export default function ReferentielEditor({
                   ))}
                   {l.poste.length === 0 && (
                     <tr>
-                      <td colSpan={8 + quarts.length} className="muted">Aucun poste.</td>
+                      <td colSpan={10 + quarts.length} className="muted">Aucun poste.</td>
                     </tr>
                   )}
                 </tbody>
@@ -337,6 +417,51 @@ export default function ReferentielEditor({
       ))}
 
       {tree.length === 0 && <p className="muted">Aucun atelier. Ajoutez-en un ci-dessus.</p>}
+
+      {/* Modale : habilitations exigees par un poste (enregistrement immediat) */}
+      {reqFor && (
+        <div
+          onClick={() => setReqFor(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "8vh 16px", overflow: "auto" }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460 }}>
+            <div className="card" style={{ margin: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>Habilitations requises</h2>
+                <button type="button" onClick={() => setReqFor(null)} title="Fermer" style={{ width: "auto", margin: 0, padding: "2px 10px", fontSize: 16 }}>
+                  ✕
+                </button>
+              </div>
+              <p className="muted" style={{ marginTop: 0, marginBottom: 10, fontSize: 13 }}>
+                Poste <strong>{reqFor.nom || "(sans nom)"}</strong>. Placer une personne qui n&apos;a
+                pas (ou plus) l&apos;une de ces habilitations demandera une confirmation.
+              </p>
+              {comps.length === 0 ? (
+                <p className="muted">Aucune compétence active.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: "50vh", overflow: "auto" }}>
+                  {comps.map((c) => (
+                    <label key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 6px", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>
+                      <input
+                        type="checkbox"
+                        checked={compRequise(reqFor.id, c.id)}
+                        onChange={(e) => toggleCompRequise(reqFor.id, c.id, e.target.checked)}
+                        style={{ width: "auto" }}
+                      />
+                      <span style={{ flex: 1 }}>{c.nom}</span>
+                      {c.a_recycler && (
+                        <span className="muted" style={{ fontSize: 11 }} title="Habilitation à recycler : son échéance est contrôlée">
+                          à recycler
+                        </span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

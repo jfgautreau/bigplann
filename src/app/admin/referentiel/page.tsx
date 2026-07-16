@@ -2,6 +2,7 @@ import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
 import { getServerClient } from "@/lib/supabase-server";
 import { requireModule } from "@/lib/permissions";
+import { fetchAll } from "@/lib/fetch-all";
 import ReferentielEditor from "./ReferentielEditor";
 
 type Poste = {
@@ -14,21 +15,23 @@ type Poste = {
   difficulte_formation: number | null;
   niveau_min_requis: number;
   ordre_affichage: number;
+  numero_rotation: string | null;
   actif: boolean;
 };
 type Ligne = { id: string; nom: string; actif: boolean; ordre_affichage: number; poste: Poste[] };
 type Atelier = { id: string; nom: string; actif: boolean; ligne: Ligne[] };
 type Quart = { code: string; libelle: string };
+type Comp = { id: string; nom: string; a_recycler: boolean };
 
 export default async function ReferentielPage() {
   const { profile } = await requireModule("referentiel", "write");
 
   const supabase = await getServerClient();
-  const [{ data }, { data: quartsD }, { data: pqD }] = await Promise.all([
+  const [{ data }, { data: quartsD }, { data: pqD }, { data: compsD }, pcrD] = await Promise.all([
     supabase
       .from("atelier")
       .select(
-        "id, nom, actif, ligne(id, nom, actif, ordre_affichage, poste(id, nom, nom_court, est_conducteur, categorie, effectif_requis, difficulte_formation, niveau_min_requis, ordre_affichage, actif))"
+        "id, nom, actif, ligne(id, nom, actif, ordre_affichage, poste(id, nom, nom_court, est_conducteur, categorie, effectif_requis, difficulte_formation, niveau_min_requis, ordre_affichage, numero_rotation, actif))"
       )
       .order("nom")
       .returns<Atelier[]>(),
@@ -38,6 +41,15 @@ export default async function ReferentielPage() {
       .select("poste_id, quart_code")
       .eq("actif", false)
       .returns<{ poste_id: string; quart_code: string }[]>(),
+    supabase.from("competence").select("id, nom, a_recycler").eq("actif", true).order("nom").returns<Comp[]>(),
+    fetchAll<{ poste_id: string; competence_id: string }>(() =>
+      supabase
+        .from("poste_competence_requise")
+        .select("poste_id, competence_id")
+        .order("poste_id")
+        .order("competence_id")
+        .returns<{ poste_id: string; competence_id: string }[]>()
+    ),
   ]);
 
   const ateliers = (data ?? []).map((a) => ({
@@ -50,6 +62,7 @@ export default async function ReferentielPage() {
       })),
   }));
   const pqOff = (pqD ?? []).map((r) => `${r.poste_id}:${r.quart_code}`);
+  const pcr = pcrD.map((r) => `${r.poste_id}:${r.competence_id}`);
 
   return (
     <>
@@ -60,10 +73,13 @@ export default async function ReferentielPage() {
           Saisie directe : modifiez un champ, il s&apos;enregistre tout seul (aucun bouton
           à valider). Cochez « Actif » pour activer/désactiver. La <strong>catégorie</strong>
           (Manager / Conducteur / Opérateur) sert aux bilans. Les colonnes de quart cochent
-          sur quels quarts le poste tourne (tout coché par défaut).
+          sur quels quarts le poste tourne (tout coché par défaut). Le <strong>N° Rot</strong>
+          est libre : un poste à plusieurs positions porte plusieurs numéros (« 12, 13 »).
+          Les <strong>habilitations requises</strong> déclenchent une demande de confirmation
+          au placement d&apos;une personne qui ne les a pas (ou plus).
         </p>
 
-        <ReferentielEditor initial={ateliers} quarts={quartsD ?? []} pqOff={pqOff} />
+        <ReferentielEditor initial={ateliers} quarts={quartsD ?? []} pqOff={pqOff} comps={compsD ?? []} pcr={pcr} />
       </div>
     </>
   );

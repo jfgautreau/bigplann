@@ -6,17 +6,20 @@ import { fetchAll } from "@/lib/fetch-all";
 import { isoDate, mondayOf } from "@/lib/week";
 import { getRotationRefsC } from "@/lib/refdata";
 import { rotationForWeek } from "@/lib/rotation";
+import { addMonthsIso } from "@/lib/habilitations";
 import PlacementBoard from "./PlacementBoard";
 
 type Atelier = { id: string; nom: string };
 type Equipe = { id: string; nom: string; couleur: string | null; quart_fixe?: string | null };
 type Quart = { code: string; libelle: string };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null };
-type PosteRow = { id: string; nom: string; nom_court: string | null; actif: boolean; effectif_requis: number; niveau_min_requis: number; ordre_affichage: number };
+type PosteRow = { id: string; nom: string; nom_court: string | null; actif: boolean; effectif_requis: number; niveau_min_requis: number; ordre_affichage: number; numero_rotation: string | null };
 type LigneRow = { id: string; nom: string; ordre_affichage: number; atelier_id: string; poste: PosteRow[] };
 type Placement = { personne_id: string; poste_id: string | null; motif_absence_id: string | null; non_travaille: boolean; quart_code: string | null };
 type MatRow = { personne_id: string; poste_id: string; niveau_actuel: number };
 type Motif = { id: string; code_court: string; libelle: string; couleur: string };
+type PcrRow = { poste_id: string; competence_id: string; competence: { nom: string; duree_validite_mois: number | null } | null };
+type PcDetRow = { personne_id: string; competence_id: string; date_obtention: string | null; date_expiration: string | null };
 
 const ordreThenNom = <T extends { ordre_affichage?: number; nom: string }>(a: T, b: T) =>
   (a.ordre_affichage ?? 0) - (b.ordre_affichage ?? 0) || a.nom.localeCompare(b.nom);
@@ -55,7 +58,7 @@ export default async function PlacementPage({
     atelierId
       ? supabase
           .from("ligne")
-          .select("id, nom, ordre_affichage, atelier_id, poste(id, nom, nom_court, actif, effectif_requis, niveau_min_requis, ordre_affichage)")
+          .select("id, nom, ordre_affichage, atelier_id, poste(id, nom, nom_court, actif, effectif_requis, niveau_min_requis, ordre_affichage, numero_rotation)")
           .eq("atelier_id", atelierId)
           .eq("actif", true)
           .order("nom")
@@ -86,10 +89,56 @@ export default async function PlacementPage({
       postes: [...(l.poste ?? [])]
         .filter((p) => p.actif && !pqOff.has(`${p.id}:${quart}`))
         .sort(ordreThenNom)
-        .map((p) => ({ id: p.id, nom: p.nom, nomCourt: p.nom_court, effectifRequis: p.effectif_requis, niveauMin: p.niveau_min_requis })),
+        .map((p) => ({
+          id: p.id,
+          nom: p.nom,
+          nomCourt: p.nom_court,
+          effectifRequis: p.effectif_requis,
+          niveauMin: p.niveau_min_requis,
+          numeroRotation: p.numero_rotation,
+        })),
     }))
     .filter((g) => g.postes.length > 0)
     .sort((a, b) => a.ligneOrdre - b.ligneOrdre || a.ligneNom.localeCompare(b.ligneNom));
+
+  // Habilitations exigees par les postes affiches, et celles que les gens detiennent.
+  // Le manque est recalcule a l'affichage : un placement force redevient normal des
+  // que l'habilitation est regularisee, et repasse en rouge si elle expire.
+  const posteIdsAffiches = groups.flatMap((g) => g.postes.map((p) => p.id));
+  const { data: pcrD } = posteIdsAffiches.length
+    ? await supabase
+        .from("poste_competence_requise")
+        .select("poste_id, competence_id, competence:competence_id(nom, duree_validite_mois)")
+        .in("poste_id", posteIdsAffiches)
+        .returns<PcrRow[]>()
+    : { data: [] as PcrRow[] };
+
+  const habPoste: Record<string, string[]> = {};
+  const habComp: Record<string, string> = {};
+  const dureeComp: Record<string, number | null> = {};
+  for (const r of pcrD ?? []) {
+    (habPoste[r.poste_id] ??= []).push(r.competence_id);
+    habComp[r.competence_id] = r.competence?.nom ?? "habilitation";
+    dureeComp[r.competence_id] = r.competence?.duree_validite_mois ?? null;
+  }
+
+  // Echeance effective par (personne, habilitation requise) : "" = valable sans
+  // echeance, sinon la date. Cle absente = habilitation non detenue.
+  const compRequisesIds = Object.keys(habComp);
+  const habPers: Record<string, string> = {};
+  if (compRequisesIds.length) {
+    const det = await fetchAll<PcDetRow>(() =>
+      supabase
+        .from("personne_competence")
+        .select("personne_id, competence_id, date_obtention, date_expiration")
+        .in("competence_id", compRequisesIds)
+        .order("id")
+        .returns<PcDetRow[]>()
+    );
+    for (const d of det)
+      habPers[`${d.personne_id}:${d.competence_id}`] =
+        d.date_expiration ?? addMonthsIso(d.date_obtention, dureeComp[d.competence_id]) ?? "";
+  }
 
   // Etat initial des placements (pour ce jour / quart) + personnes deja sur un autre quart.
   const placeInit: Record<string, string> = {};
@@ -152,6 +201,9 @@ export default async function PlacementPage({
         matrice={matrice}
         motifs={motifs.map((m) => ({ id: m.id, code: m.code_court, libelle: m.libelle, couleur: m.couleur }))}
         defaultEquipeId={defaultEquipeId}
+        habPoste={habPoste}
+        habComp={habComp}
+        habPers={habPers}
       />
     </div>
   );
