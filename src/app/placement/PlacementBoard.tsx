@@ -75,6 +75,10 @@ export default function PlacementBoard({
   const [fAtelier, setFAtelier] = useState(atelierId);
   const [hidePlaced, setHidePlaced] = useState(false);
   const [copying, setCopying] = useState(false);
+  // Modale de copie : jour source -> jour destination (meme quart).
+  const [showCopy, setShowCopy] = useState(false);
+  const [copySrc, setCopySrc] = useState("");
+  const [copyDst, setCopyDst] = useState("");
   const [drag, setDrag] = useState<string | null>(null); // personne en cours de glissement
   const [sel, setSel] = useState<string | null>(null); // mode clic : personne selectionnee
   const [over, setOver] = useState<string | null>(null); // cible de depot survolee
@@ -178,9 +182,13 @@ export default function PlacementBoard({
     }
   }
 
-  // Copier les affectations poste d'un autre jour (meme quart) vers ce jour.
-  async function copyFrom(deltaDays: number) {
-    const src = isoDate(addDays(new Date(jour + "T00:00"), deltaDays));
+  // Copier les affectations poste d'un jour vers un autre (meme quart). La destination
+  // n'est pas forcement le jour affiche : dans ce cas on y navigue pour montrer le resultat.
+  async function copyDates(src: string, dst: string) {
+    if (!src || !dst || src === dst) {
+      flash("Choisissez deux dates différentes.");
+      return;
+    }
     setCopying(true);
     setSaving("saving");
     setMsg(null);
@@ -188,10 +196,15 @@ export default function PlacementBoard({
       const res = await fetch("/api/placement/copy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source: src, cible: jour, quart }),
+        body: JSON.stringify({ source: src, cible: dst, quart }),
       });
       const j = (await res.json().catch(() => ({}))) as { rows?: { personne_id: string; poste_id: string }[]; copied?: number; error?: string };
       if (!res.ok) throw new Error(j.error ?? "Échec de la copie.");
+      setShowCopy(false);
+      if (dst !== jour) {
+        go({ date: dst });
+        return;
+      }
       setPlace((p) => {
         const n = { ...p };
         for (const r of j.rows ?? []) n[r.personne_id] = r.poste_id;
@@ -280,12 +293,17 @@ export default function PlacementBoard({
   const inScope = (p: Personne) => (!fEquipe || p.equipe_id === fEquipe) && (!fAtelier || p.atelier_id === fAtelier);
 
   // Liste des noms filtree + regroupee : a placer -> absents -> sur poste -> autre quart.
+  // Une recherche cherche dans TOUT l'effectif : les pre-filtres equipe/atelier ne sont
+  // qu'un confort de depart, ils ne doivent pas cacher le nom qu'on tape.
   const shown = useMemo(() => {
     const q = norm(search.trim());
     const list = personnes.filter((p) => {
-      if (fEquipe && p.equipe_id !== fEquipe) return false;
-      if (fAtelier && p.atelier_id !== fAtelier) return false;
-      if (q && !norm(`${p.nom} ${p.prenom}`).includes(q)) return false;
+      if (q) {
+        if (!norm(`${p.nom} ${p.prenom}`).includes(q)) return false;
+      } else {
+        if (fEquipe && p.equipe_id !== fEquipe) return false;
+        if (fAtelier && p.atelier_id !== fAtelier) return false;
+      }
       if (hidePlaced && (place[p.id] || autreQuart[p.id])) return false;
       return true;
     });
@@ -299,6 +317,7 @@ export default function PlacementBoard({
     return [...list].sort((a, b) => rank(a) - rank(b) || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`));
   }, [personnes, search, fEquipe, fAtelier, place, autreQuart, hidePlaced]);
 
+  const searching = !!search.trim();
   const nbAplacer = personnes.filter((p) => inScope(p) && !place[p.id] && !autreQuart[p.id]).length;
   const nbAbsents = personnes.filter((p) => inScope(p) && isAbsent(p.id)).length;
 
@@ -351,15 +370,19 @@ export default function PlacementBoard({
           <span title="Positions pourvues / requises sur les postes affichés" style={{ fontSize: 13 }}>
             <strong style={{ color: coverage.cov >= coverage.req ? "var(--ok)" : "#b91c1c" }}>{coverage.cov}/{coverage.req}</strong>
           </span>
-          <span style={{ display: "flex", gap: 6 }}>
-            <button type="button" className={s.navbtn} disabled={copying} onClick={() => copyFrom(-1)} title="Copier les postes de la veille (même quart)">Copier J‑1</button>
-            <button type="button" className={s.navbtn} disabled={copying} onClick={() => copyFrom(-7)} title="Copier le même jour de la semaine dernière">Copier S‑1</button>
-          </span>
+          <button
+            type="button"
+            className={s.navbtn}
+            disabled={copying}
+            onClick={() => { setCopySrc(isoDate(addDays(new Date(jour + "T00:00"), -1))); setCopyDst(jour); setShowCopy(true); }}
+            title="Copier les affectations d'un jour vers un autre (même quart)"
+          >
+            Copier…
+          </button>
           <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
             <input type="checkbox" checked={hidePlaced} onChange={(e) => setHidePlaced(e.target.checked)} style={{ width: "auto" }} />
             Masquer les placés
           </label>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>{jourLabel(jour)}</span>
           <span style={{ fontSize: 12, fontWeight: 700, minWidth: 90, textAlign: "right", color: saveColor }}>{msg ?? saveTxt}</span>
         </div>
       </div>
@@ -433,7 +456,8 @@ export default function PlacementBoard({
         <div className={s.names} {...overProps("names", "")}>
           <div className={s.namesHead}>
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Rechercher un nom" className={s.search} />
-            <div className={s.namesFilters}>
+            {/* Pendant une recherche les filtres sont ignores : on grise pour le dire. */}
+            <div className={s.namesFilters} style={searching ? { opacity: 0.45 } : undefined} title={searching ? "Ignorés pendant une recherche" : undefined}>
               <select value={fEquipe} onChange={(e) => setFEquipe(e.target.value)}>
                 <option value="">Toutes équipes</option>
                 {equipes.map((e) => (
@@ -448,8 +472,16 @@ export default function PlacementBoard({
               </select>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span className={s.aPlacer}>{nbAplacer} à placer</span>
-              {nbAbsents > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#b45309" }}>{nbAbsents} absent(s)</span>}
+              {searching ? (
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#4f46e5" }}>
+                  Recherche dans tout l&apos;effectif — {shown.length} résultat{shown.length > 1 ? "s" : ""}
+                </span>
+              ) : (
+                <>
+                  <span className={s.aPlacer}>{nbAplacer} à placer</span>
+                  {nbAbsents > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#b45309" }}>{nbAbsents} absent(s)</span>}
+                </>
+              )}
             </div>
           </div>
           <div className={s.namesList}>
@@ -516,6 +548,68 @@ export default function PlacementBoard({
           </span>
         )}
       </div>
+
+      {/* Copie des affectations d'un jour vers un autre (meme quart) */}
+      {showCopy && (
+        <div className={s.overlay} onClick={() => setShowCopy(false)}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ margin: 0, width: "100%", maxWidth: 420 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>Copier des affectations</h2>
+              <button type="button" onClick={() => setShowCopy(false)} title="Fermer" style={{ width: "auto", margin: 0, padding: "2px 10px", fontSize: 16 }}>
+                ✕
+              </button>
+            </div>
+            <p className="muted" style={{ marginTop: 0, marginBottom: 12, fontSize: 13 }}>
+              Recopie les affectations sur poste du quart <strong>{quartLib[quart] ?? quart}</strong>.
+              Les absences ne sont pas copiées.
+            </p>
+            <div className="field">
+              <span>Jour à copier</span>
+              <input type="date" value={copySrc} onChange={(e) => setCopySrc(e.target.value)} />
+            </div>
+            <div style={{ display: "flex", gap: 6, margin: "6px 0 10px" }}>
+              {([["Veille", -1], ["Semaine passée", -7]] as const).map(([lbl, d]) => (
+                <button
+                  key={lbl}
+                  type="button"
+                  className={s.navbtn}
+                  style={{ fontSize: 12 }}
+                  onClick={() => setCopySrc(isoDate(addDays(new Date(copyDst + "T00:00"), d)))}
+                  title={`Choisir ${lbl.toLowerCase()} de la destination`}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            <div className="field">
+              <span>Vers le jour</span>
+              <input type="date" value={copyDst} onChange={(e) => setCopyDst(e.target.value)} />
+            </div>
+            <p style={{ fontSize: 13, margin: "12px 0" }}>
+              {copySrc && copyDst && copySrc !== copyDst ? (
+                <>
+                  <strong>{jourLabel(copySrc)}</strong> → <strong>{jourLabel(copyDst)}</strong>
+                </>
+              ) : (
+                <span className="muted">Choisissez deux dates différentes.</span>
+              )}
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button type="button" className={s.cancelSel} style={{ padding: "7px 16px", fontSize: 13 }} onClick={() => setShowCopy(false)}>
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={copying || !copySrc || !copyDst || copySrc === copyDst}
+                style={{ width: "auto", margin: 0, padding: "7px 16px", fontSize: 13, fontWeight: 700, borderRadius: 8, cursor: "pointer" }}
+                onClick={() => copyDates(copySrc, copyDst)}
+              >
+                {copying ? "Copie…" : "Copier"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Habilitation manquante : confirmer ou renoncer au placement */}
       {ask && (
