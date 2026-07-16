@@ -15,7 +15,7 @@ type Quart = { code: string; libelle: string };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null };
 type PosteRow = { id: string; nom: string; nom_court: string | null; actif: boolean; effectif_requis: number; niveau_min_requis: number; ordre_affichage: number; numero_rotation: string | null };
 type LigneRow = { id: string; nom: string; ordre_affichage: number; atelier_id: string; poste: PosteRow[] };
-type Placement = { personne_id: string; poste_id: string | null; motif_absence_id: string | null; non_travaille: boolean; quart_code: string | null };
+type Placement = { personne_id: string; poste_id: string | null; motif_absence_id: string | null; non_travaille: boolean; quart_code: string | null; numero_rotation: string | null };
 type MatRow = { personne_id: string; poste_id: string; niveau_actuel: number };
 type Motif = { id: string; code_court: string; libelle: string; couleur: string };
 type PcrRow = { poste_id: string; competence_id: string; competence: { nom: string; duree_validite_mois: number | null } | null };
@@ -51,7 +51,10 @@ export default async function PlacementPage({
   const motifs = motifsD ?? [];
 
   const quart = sp.quart && quartCodes.includes(sp.quart) ? sp.quart : quartCodes.includes("matin") ? "matin" : quartCodes[0] ?? "matin";
-  const atelierId = ateliers.find((a) => a.id === sp.atelier)?.id ?? ateliers[0]?.id ?? "";
+  // Vue « Absences » : pseudo-atelier transverse (aucun plan, la photo des absents
+  // de tout l'effectif). Cf. VUE_ABSENCES dans PlacementBoard.
+  const vueAbsences = sp.atelier === "absences";
+  const atelierId = vueAbsences ? "" : ateliers.find((a) => a.id === sp.atelier)?.id ?? ateliers[0]?.id ?? "";
 
   // Postes de l'atelier + desactivations poste x quart + placements du jour + matrice.
   const [{ data: lignesD }, { data: pqOffD }, { data: plD }, mat] = await Promise.all([
@@ -65,7 +68,7 @@ export default async function PlacementPage({
           .returns<LigneRow[]>()
       : Promise.resolve({ data: [] as LigneRow[] }),
     supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
-    supabase.from("placement").select("personne_id, poste_id, motif_absence_id, non_travaille, quart_code").eq("jour", jour).returns<Placement[]>(),
+    supabase.from("placement").select("personne_id, poste_id, motif_absence_id, non_travaille, quart_code, numero_rotation").eq("jour", jour).returns<Placement[]>(),
     (async () => {
       const posteIds = ((await supabase
         .from("ligne")
@@ -143,11 +146,22 @@ export default async function PlacementPage({
   // Etat initial des placements (pour ce jour / quart) + personnes deja sur un autre quart.
   const placeInit: Record<string, string> = {};
   const autreQuart: Record<string, string> = {};
+  const numeroInit: Record<string, string> = {};
   for (const r of plD ?? []) {
     if (r.non_travaille) placeInit[r.personne_id] = "X";
     else if (r.motif_absence_id) placeInit[r.personne_id] = `m:${r.motif_absence_id}`;
-    else if (r.poste_id && (r.quart_code ?? "matin") === quart) placeInit[r.personne_id] = r.poste_id;
-    else if (r.poste_id) autreQuart[r.personne_id] = r.quart_code ?? "matin";
+    else if (r.poste_id && (r.quart_code ?? "matin") === quart) {
+      placeInit[r.personne_id] = r.poste_id;
+      if (r.numero_rotation) numeroInit[r.personne_id] = r.numero_rotation;
+    } else if (r.poste_id) autreQuart[r.personne_id] = r.quart_code ?? "matin";
+  }
+
+  // Vue Absences : elle nomme les postes de toute l'usine (« sur un poste »), pas
+  // seulement ceux d'un atelier -> les groupes affiches sont vides dans cette vue.
+  const posteNoms: Record<string, string> = {};
+  if (vueAbsences) {
+    const { data: tous } = await supabase.from("poste").select("id, nom").returns<{ id: string; nom: string }[]>();
+    for (const p of tous ?? []) posteNoms[p.id] = p.nom;
   }
 
   // Niveau de competence par (personne, poste) pour l'aide au placement.
@@ -185,7 +199,10 @@ export default async function PlacementPage({
     <div className="pagecol">
       <AppHeader role={profile.role} active="/placement" />
       <PlacementBoard
-        key={`${atelierId}|${jour}|${quart}`}
+        key={`${vueAbsences ? "absences" : atelierId}|${jour}|${quart}`}
+        vueAbsences={vueAbsences}
+        numeroInit={numeroInit}
+        posteNoms={posteNoms}
         title={<PageTitle module="placement" style={{ fontSize: 20 }}>Placement</PageTitle>}
         jour={jour}
         quart={quart}

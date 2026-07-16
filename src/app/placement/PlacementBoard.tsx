@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { isoDate, addDays } from "@/lib/week";
 import { habValable, habManqueTxt } from "@/lib/habilitations";
+import { parseNumeros } from "@/lib/numeros-rotation";
 import s from "./placement.module.css";
 
 type Atelier = { id: string; nom: string };
@@ -13,6 +14,9 @@ type Poste = { id: string; nom: string; nomCourt: string | null; effectifRequis:
 type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null; couleur: string | null; editable: boolean };
 type Motif = { id: string; code: string; libelle: string; couleur: string };
+
+// Pseudo-atelier de la vue Absences (valeur du parametre ?atelier=).
+const VUE_ABSENCES = "absences";
 
 const norm = (v: string) => v.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 // Affichage compact : NOM P.
@@ -43,6 +47,9 @@ export default function PlacementBoard({
   habPoste = {},
   habComp = {},
   habPers = {},
+  vueAbsences = false,
+  numeroInit = {},
+  posteNoms = {},
 }: {
   title?: ReactNode;
   jour: string;
@@ -62,9 +69,14 @@ export default function PlacementBoard({
   habPoste?: Record<string, string[]>; // poste -> habilitations exigees
   habComp?: Record<string, string>; // habilitation -> nom
   habPers?: Record<string, string>; // `${personne}:${habilitation}` -> echeance ("" = sans echeance)
+  vueAbsences?: boolean; // pseudo-atelier « Absences » : photo transverse, pas de plan
+  numeroInit?: Record<string, string>; // personne -> numero de rotation occupe
+  posteNoms?: Record<string, string>; // tous les postes de l'usine (vue Absences)
 }) {
   const router = useRouter();
   const [place, setPlace] = useState<Record<string, string>>(placeInit);
+  // Numero de rotation occupe par chaque personne (cle absente = poste sans numero).
+  const [numero, setNumero] = useState<Record<string, string>>(numeroInit);
   const [autreQuart, setAutreQuart] = useState<Record<string, string>>(autreQuartInit);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [msg, setMsg] = useState<string | null>(null);
@@ -83,7 +95,7 @@ export default function PlacementBoard({
   const [sel, setSel] = useState<string | null>(null); // mode clic : personne selectionnee
   const [over, setOver] = useState<string | null>(null); // cible de depot survolee
   // Demande de forcage en attente : habilitation manquante sur le poste vise.
-  const [ask, setAsk] = useState<{ persId: string; posteId: string; manque: string[] } | null>(null);
+  const [ask, setAsk] = useState<{ persId: string; posteId: string; manque: string[]; numero: string | null } | null>(null);
 
   const persById = useMemo(() => new Map(personnes.map((p) => [p.id, p])), [personnes]);
   const posteNom = useMemo(() => {
@@ -106,6 +118,40 @@ export default function PlacementBoard({
   };
 
   const occupants = (posteId: string) => personnes.filter((p) => place[p.id] === posteId);
+  // Occupants d'un numero precis / du poste hors numero.
+  const occupantsNum = (posteId: string, num: string) => occupants(posteId).filter((p) => numero[p.id] === num);
+  const occupantsSansNum = (posteId: string) => occupants(posteId).filter((p) => !numero[p.id]);
+
+  // Numeros du poste (« 12, 15-17 » -> 4 cases). Memorise : parse a chaque cellule
+  // serait du gaspillage sur un plan de 80 postes.
+  const numerosParPoste = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const g of groups) for (const po of g.postes) m.set(po.id, parseNumeros(po.numeroRotation));
+    return m;
+  }, [groups]);
+  const numerosDe = (po: Poste) => numerosParPoste.get(po.id) ?? [];
+  // Places de l'effectif non couvertes par un numero (0 si le poste est assez numerote).
+  const placesSansNum = (po: Poste) => Math.max(0, po.effectifRequis - numerosDe(po).length);
+
+  // Pastille d'une personne posee sur un poste (rouge si habilitation manquante).
+  const chip = (p: Personne, po: Poste) => {
+    const mq = habManque(p.id, po.id);
+    return (
+      <span
+        key={p.id}
+        className={`${s.chip} ${mq.length ? s.forced : ""}`}
+        draggable={p.editable}
+        onDragStart={onDragStartName(p.id)}
+        onDragEnd={() => setDrag(null)}
+        onClick={(e) => { e.stopPropagation(); clickName(p.id); }}
+        style={{ borderColor: mq.length ? "#dc2626" : p.couleur ?? "#cbd5e1", outline: sel === p.id ? "2px solid #4f46e5" : undefined }}
+        title={mq.length ? `${p.nom} ${p.prenom}\n⚠ Placement forcé — manque : ${mq.join(", ")}` : `${p.nom} ${p.prenom}`}
+      >
+        <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
+        {label(p)}
+      </span>
+    );
+  };
 
   // Habilitations exigees par le poste que la personne n'a pas (ou plus). Recalcule
   // a chaque rendu : un placement force redevient normal des la regularisation.
@@ -118,12 +164,12 @@ export default function PlacementBoard({
     return e === undefined ? null : { expiration: e === "" ? null : e };
   }
 
-  async function post(persId: string, value: string, forcer = false) {
+  async function post(persId: string, value: string, forcer = false, num: string | null = null) {
     const p = persById.get(persId);
     const res = await fetch("/api/placement/cell", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ personne_id: persId, jour, equipe_id: p?.equipe_id ?? null, value, quart, forcer }),
+      body: JSON.stringify({ personne_id: persId, jour, equipe_id: p?.equipe_id ?? null, value, quart, forcer, numero: num }),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
@@ -140,7 +186,7 @@ export default function PlacementBoard({
     }, 3000);
   };
 
-  async function assign(persId: string, value: string, forcer = false) {
+  async function assign(persId: string, value: string, forcer = false, num: string | null = null) {
     const p = persById.get(persId);
     if (!p?.editable) {
       flash("Vous ne pouvez pas modifier cette personne (hors de votre équipe).");
@@ -151,28 +197,41 @@ export default function PlacementBoard({
     if (isPoste && !forcer) {
       const manque = habManque(persId, value);
       if (manque.length) {
-        setAsk({ persId, posteId: value, manque });
+        setAsk({ persId, posteId: value, manque, numero: num });
         return;
       }
     }
     const prev = place[persId] ?? "";
+    const prevNum = numero[persId];
     const prevAutre = autreQuart[persId];
     setPlace((s2) => ({ ...s2, [persId]: value }));
+    setNumero((n) => {
+      const c = { ...n };
+      if (isPoste && num) c[persId] = num;
+      else delete c[persId];
+      return c;
+    });
     setSaving("saving");
     setMsg(null);
     try {
       // Deja sur un autre quart : on la libere d'abord avant de la poser sur ce quart.
       if (prevAutre && isPoste) await post(persId, "");
-      await post(persId, value, forcer);
+      await post(persId, value, forcer, num);
       setAutreQuart((a) => {
-        const n = { ...a };
-        delete n[persId];
-        return n;
+        const n2 = { ...a };
+        delete n2[persId];
+        return n2;
       });
       setSaving("saved");
       setTimeout(() => setSaving("idle"), 1000);
     } catch (e) {
       setPlace((s2) => ({ ...s2, [persId]: prev })); // rollback
+      setNumero((n) => {
+        const c = { ...n };
+        if (prevNum) c[persId] = prevNum;
+        else delete c[persId];
+        return c;
+      });
       setSaving("error");
       setMsg(e instanceof Error ? e.message : "Échec.");
       setTimeout(() => {
@@ -252,9 +311,9 @@ export default function PlacementBoard({
     if (!p?.editable) return;
     setSel((c) => (c === persId ? null : persId));
   }
-  function clickTarget(value: string) {
+  function clickTarget(value: string, num: string | null = null) {
     if (!sel) return;
-    assign(sel, value);
+    assign(sel, value, false, num);
     setSel(null);
   }
 
@@ -269,21 +328,22 @@ export default function PlacementBoard({
     e.dataTransfer.effectAllowed = "move";
     setDrag(persId);
   };
-  const onDrop = (value: string, key: string) => (e: React.DragEvent) => {
+  const onDrop = (value: string, num: string | null) => (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // une case numerotee est imbriquee dans la tuile du poste
     const persId = e.dataTransfer.getData("text/plain") || drag;
     setOver(null);
     setDrag(null);
-    if (persId) assign(persId, value);
-    void key;
+    if (persId) assign(persId, value, false, num);
   };
-  const overProps = (key: string, value: string) => ({
+  const overProps = (key: string, value: string, num: string | null = null) => ({
     onDragOver: (e: React.DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       if (over !== key) setOver(key);
     },
     onDragLeave: () => setOver((o) => (o === key ? null : o)),
-    onDrop: onDrop(value, key),
+    onDrop: onDrop(value, num),
   });
 
   const isAbsent = (persId: string) => {
@@ -317,6 +377,47 @@ export default function PlacementBoard({
     return [...list].sort((a, b) => rank(a) - rank(b) || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`));
   }, [personnes, search, fEquipe, fAtelier, place, autreQuart, hidePlaced]);
 
+  // Vue Absences : une carte par motif, puis Non travaillé / À placer / Sur un poste.
+  // Transverse : tout l'effectif, quel que soit l'atelier ou l'equipe.
+  const absCartes = useMemo(() => {
+    if (!vueAbsences) return [];
+    const tri = (a: Personne, b: Personne) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
+    const cartes: { key: string; titre: string; couleur: string; gens: Personne[]; drop?: string; detail?: (p: Personne) => string }[] =
+      motifs.map((mo) => ({
+        key: mo.id,
+        titre: mo.libelle,
+        couleur: mo.couleur,
+        drop: `m:${mo.id}`,
+        gens: personnes.filter((p) => place[p.id] === `m:${mo.id}`).sort(tri),
+      }));
+    cartes.push({
+      key: "X",
+      titre: "Non travaillé",
+      couleur: "#6b7280",
+      drop: "X",
+      gens: personnes.filter((p) => place[p.id] === "X").sort(tri),
+    });
+    cartes.push({
+      key: "aplacer",
+      titre: "À placer",
+      couleur: "#dc2626",
+      drop: "", // deposer ici = liberer la personne
+      gens: personnes.filter((p) => !place[p.id] && !autreQuart[p.id]).sort(tri),
+    });
+    cartes.push({
+      key: "poste",
+      titre: `Sur un poste (${quartLib[quart] ?? quart})`,
+      couleur: "#0d9488",
+      gens: personnes.filter((p) => { const v = place[p.id]; return !!v && v !== "X" && !v.startsWith("m:"); }).sort(tri),
+      detail: (p) => {
+        const n = numero[p.id];
+        const nom = posteNoms[place[p.id]] ?? posteNom.get(place[p.id]) ?? "poste";
+        return n ? `${nom} · n° ${n}` : nom;
+      },
+    });
+    return cartes;
+  }, [vueAbsences, motifs, personnes, place, autreQuart, numero, posteNoms, posteNom, quart, quartLib]);
+
   const searching = !!search.trim();
   const nbAplacer = personnes.filter((p) => inScope(p) && !place[p.id] && !autreQuart[p.id]).length;
   const nbAbsents = personnes.filter((p) => inScope(p) && isAbsent(p.id)).length;
@@ -342,10 +443,18 @@ export default function PlacementBoard({
           <span>Atelier</span>
           <div className="segments">
             {ateliers.map((a) => (
-              <button key={a.id} type="button" className={atelierId === a.id ? "seg active" : "seg"} onClick={() => go({ atelier: a.id })}>
+              <button key={a.id} type="button" className={!vueAbsences && atelierId === a.id ? "seg active" : "seg"} onClick={() => go({ atelier: a.id })}>
                 {a.nom}
               </button>
             ))}
+            <button
+              type="button"
+              className={vueAbsences ? "seg active" : "seg"}
+              onClick={() => go({ atelier: VUE_ABSENCES })}
+              title="Voir tous les absents du jour, tous ateliers confondus"
+            >
+              Absences
+            </button>
           </div>
         </div>
         <div className={s.fitem}>
@@ -390,7 +499,45 @@ export default function PlacementBoard({
       {/* Corps : plan (gauche) + noms (droite) */}
       <div className={s.body}>
         <div className={s.plan}>
-          {groups.length === 0 ? (
+          {vueAbsences ? (
+            <div className={s.absGrid}>
+              {absCartes.map((c) => (
+                <div
+                  key={c.key}
+                  className={`${s.absCard} ${c.drop && over === `abs:${c.key}` ? s.over : ""}`}
+                  style={{ borderTopColor: c.couleur }}
+                  {...(c.drop ? overProps(`abs:${c.key}`, c.drop) : {})}
+                  onClick={c.drop ? () => clickTarget(c.drop!) : undefined}
+                >
+                  <div className={s.absHead}>
+                    <span className={s.absTitre}>
+                      <span className={s.dot} style={{ background: c.couleur }} />
+                      {c.titre}
+                    </span>
+                    <span className={s.absNb} style={{ color: c.couleur }}>{c.gens.length}</span>
+                  </div>
+                  <div className={s.absList}>
+                    {c.gens.map((p) => (
+                      <div
+                        key={p.id}
+                        className={`${s.absItem} ${!p.editable ? s.locked : ""} ${sel === p.id ? s.selName : ""}`}
+                        draggable={p.editable}
+                        onDragStart={onDragStartName(p.id)}
+                        onDragEnd={() => setDrag(null)}
+                        onClick={(e) => { e.stopPropagation(); clickName(p.id); }}
+                        title={`${p.nom} ${p.prenom}${c.detail ? ` — ${c.detail(p)}` : ""}`}
+                      >
+                        <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
+                        <span className={s.absNom}>{p.nom} {p.prenom}</span>
+                        {c.detail && <span className={s.absDetail}>{c.detail(p)}</span>}
+                      </div>
+                    ))}
+                    {c.gens.length === 0 && <p className="muted" style={{ padding: "6px 4px", fontSize: 12, margin: 0 }}>Personne.</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : groups.length === 0 ? (
             <p className="muted" style={{ padding: 12 }}>Aucun poste ouvert pour ce quart dans cet atelier.</p>
           ) : (
             groups.map((g) => (
@@ -412,36 +559,45 @@ export default function PlacementBoard({
                         title={active ? `${cs === "ok" ? "Compétent" : cs === "restrict" ? "Restriction !" : "Compétence insuffisante"} · niv. ${niveau(active, po.id)} / min ${po.niveauMin}` : po.nom}
                       >
                         <div className={s.posteHead}>
-                          <span className={s.posteNom}>
-                            {po.numeroRotation && (
-                              <span className={s.rot} title={`N° de rotation : ${po.numeroRotation}`}>{po.numeroRotation}</span>
-                            )}
-                            {po.nom}
-                          </span>
+                          <span className={s.posteNom}>{po.nom}</span>
                           <span className={s.eff} style={{ color: complet ? "var(--ok)" : manque ? "#b91c1c" : "var(--muted)" }}>
                             {occ.length}/{po.effectifRequis}
                           </span>
                         </div>
-                        <div className={s.occ}>
-                          {occ.map((p) => {
-                            const mq = habManque(p.id, po.id);
-                            return (
-                            <span
-                              key={p.id}
-                              className={`${s.chip} ${mq.length ? s.forced : ""}`}
-                              draggable={p.editable}
-                              onDragStart={onDragStartName(p.id)}
-                              onDragEnd={() => setDrag(null)}
-                              onClick={(e) => { e.stopPropagation(); clickName(p.id); }}
-                              style={{ borderColor: mq.length ? "#dc2626" : p.couleur ?? "#cbd5e1", outline: sel === p.id ? "2px solid #4f46e5" : undefined }}
-                              title={mq.length ? `${p.nom} ${p.prenom}\n⚠ Placement forcé — manque : ${mq.join(", ")}` : `${p.nom} ${p.prenom}`}
+                        {/* Une case par numero de rotation, puis les places restantes
+                            de l'effectif, puis le surnombre eventuel. */}
+                        <div className={s.slots}>
+                          {numerosDe(po).map((n) => (
+                            <div
+                              key={n}
+                              className={`${s.slot} ${over === `po:${po.id}#${n}` ? s.over : ""}`}
+                              {...overProps(`po:${po.id}#${n}`, po.id, n)}
+                              onClick={(e) => { e.stopPropagation(); clickTarget(po.id, n); }}
+                              title={`N° ${n} — ${po.nom}`}
                             >
-                              <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
-                              {label(p)}
-                            </span>
-                            );
-                          })}
-                          {occ.length === 0 && <span className={s.emptyHint}>déposer ici</span>}
+                              <span className={s.slotNum}>{n}</span>
+                              <span className={s.slotBody}>
+                                {occupantsNum(po.id, n).map((p) => chip(p, po))}
+                                {occupantsNum(po.id, n).length === 0 && <span className={s.emptyHint}>libre</span>}
+                              </span>
+                            </div>
+                          ))}
+                          {/* Places sans numero : le reste de l'effectif, ou tout le poste
+                              s'il n'est pas numerote. */}
+                          {(placesSansNum(po) > 0 || occupantsSansNum(po.id).length > 0) && (
+                            <div
+                              className={`${s.slot} ${s.slotLibre} ${over === `po:${po.id}` ? s.over : ""}`}
+                              {...overProps(`po:${po.id}`, po.id, null)}
+                              onClick={(e) => { e.stopPropagation(); clickTarget(po.id, null); }}
+                              title={numerosDe(po).length ? `${po.nom} — sans numéro` : po.nom}
+                            >
+                              {numerosDe(po).length > 0 && <span className={s.slotNum} style={{ opacity: 0.5 }}>—</span>}
+                              <span className={s.slotBody}>
+                                {occupantsSansNum(po.id).map((p) => chip(p, po))}
+                                {occupantsSansNum(po.id).length === 0 && <span className={s.emptyHint}>déposer ici</span>}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -638,7 +794,7 @@ export default function PlacementBoard({
                   const a = ask;
                   setAsk(null);
                   setSel(null);
-                  assign(a.persId, a.posteId, true);
+                  assign(a.persId, a.posteId, true, a.numero);
                 }}
               >
                 Oui, je force

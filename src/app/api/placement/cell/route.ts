@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
     quart?: string | null;
     value?: string;
     forcer?: boolean;
+    numero?: string | null;
   } | null;
 
   const personne_id = body?.personne_id;
@@ -82,8 +83,9 @@ export async function POST(req: NextRequest) {
   else poste_id = value;
 
   // Le quart ne s'applique qu'a un placement sur poste (une absence/NT vaut
-  // pour toute la journee, tous quarts).
+  // pour toute la journee, tous quarts). Idem pour le numero de rotation.
   const quart_code = poste_id ? (body?.quart ?? null) : null;
+  const numero_rotation = poste_id ? String(body?.numero ?? "").trim() || null : null;
 
   // Une personne placee sur un poste un quart ne peut pas etre placee sur un
   // poste d'un autre quart le meme jour (legacy quart null = matin).
@@ -123,6 +125,7 @@ export async function POST(req: NextRequest) {
       motif_absence_id,
       non_travaille,
       quart_code,
+      numero_rotation,
       created_by: profile.authId,
       // Trace d'audit : seul un placement reellement en manque compte comme force.
       forcage_habilitation: manquantes.length > 0,
