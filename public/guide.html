@@ -1,0 +1,1379 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BigPlann' — Guide utilisateur</title>
+
+<style>
+  /* ==================================================================
+     Guide utilisateur BigPlann'.
+     Palette reprise de l'application elle-meme (bleu #1d4ed8, indigo
+     #4f46e5, statuts vert/orange/rouge des habilitations) pour que le
+     guide et l'ecran parlent la meme langue visuelle.
+     ================================================================== */
+
+  :root {
+    --paper:      #fbfbfc;
+    --paper-2:    #f2f4f8;
+    --paper-3:    #e9edf3;
+    --ink:        #131b26;
+    --ink-2:      #4d5a6b;
+    --ink-3:      #7c8798;
+    --rule:       #dde2ea;
+    --rule-2:     #c9d1dd;
+    --accent:     #1d4ed8;
+    --accent-2:   #4f46e5;
+    --accent-bg:  #dbeafe;
+    --ok:         #16a34a;
+    --ok-bg:      #dcfce7;
+    --warn:       #b45309;
+    --warn-bg:    #fef3c7;
+    --bad:        #dc2626;
+    --bad-bg:     #fee2e2;
+    --rose:       #e11d48;
+    --shadow:     0 1px 2px rgba(19, 27, 38, .06), 0 8px 24px -12px rgba(19, 27, 38, .18);
+
+    --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:      #0e141c;
+      --paper-2:    #161f2b;
+      --paper-3:    #1e2937;
+      --ink:        #e8edf4;
+      --ink-2:      #a3b0c2;
+      --ink-3:      #7a8799;
+      --rule:       #26303e;
+      --rule-2:     #354254;
+      --accent:     #7aa2ff;
+      --accent-2:   #9b95ff;
+      --accent-bg:  #16243d;
+      --ok:         #4ade80;
+      --ok-bg:      #12301f;
+      --warn:       #fbbf24;
+      --warn-bg:    #33260c;
+      --bad:        #f87171;
+      --bad-bg:     #3a1618;
+      --rose:       #fb7185;
+      --shadow:     0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -12px rgba(0, 0, 0, .7);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0e141c;  --paper-2: #161f2b; --paper-3: #1e2937;
+    --ink: #e8edf4;    --ink-2: #a3b0c2;   --ink-3: #7a8799;
+    --rule: #26303e;   --rule-2: #354254;
+    --accent: #7aa2ff; --accent-2: #9b95ff; --accent-bg: #16243d;
+    --ok: #4ade80;     --ok-bg: #12301f;
+    --warn: #fbbf24;   --warn-bg: #33260c;
+    --bad: #f87171;    --bad-bg: #3a1618;
+    --rose: #fb7185;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+  }
+  :root[data-theme="light"] {
+    --paper: #fbfbfc;  --paper-2: #f2f4f8; --paper-3: #e9edf3;
+    --ink: #131b26;    --ink-2: #4d5a6b;   --ink-3: #7c8798;
+    --rule: #dde2ea;   --rule-2: #c9d1dd;
+    --accent: #1d4ed8; --accent-2: #4f46e5; --accent-bg: #dbeafe;
+    --ok: #16a34a;     --ok-bg: #dcfce7;
+    --warn: #b45309;   --warn-bg: #fef3c7;
+    --bad: #dc2626;    --bad-bg: #fee2e2;
+    --rose: #e11d48;
+    --shadow: 0 1px 2px rgba(19,27,38,.06), 0 8px 24px -12px rgba(19,27,38,.18);
+  }
+
+  /* ---------- Socle ---------- */
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.68;
+    -webkit-font-smoothing: antialiased;
+  }
+  * { box-sizing: border-box; }
+
+  .wrap {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 0 22px 96px;
+  }
+
+  /* ---------- En-tete ---------- */
+  .top {
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 40px;
+    padding: 54px 0 30px;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(2.2rem, 5.5vw, 3.4rem);
+    line-height: 1.08;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+    margin: 0 0 16px;
+  }
+  .lede {
+    font-size: 1.16rem;
+    color: var(--ink-2);
+    max-width: 60ch;
+    margin: 0;
+  }
+
+  /* ---------- Mise en page ---------- */
+  .cols { display: grid; grid-template-columns: 1fr; gap: 40px; }
+  @media (min-width: 1000px) {
+    .cols { grid-template-columns: 208px minmax(0, 1fr); gap: 56px; align-items: start; }
+    .toc { position: sticky; top: 26px; max-height: calc(100dvh - 52px); overflow-y: auto; }
+  }
+
+  .toc { font-size: .93rem; }
+  .toc h2 {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 12px;
+    font-weight: 600;
+  }
+  .toc ol { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 26px; }
+  @media (min-width: 1000px) { .toc ol { columns: 1; } }
+  .toc li { margin-bottom: 3px; break-inside: avoid; }
+  .toc a {
+    color: var(--ink-2);
+    text-decoration: none;
+    display: block;
+    padding: 3px 9px;
+    border-radius: 6px;
+    border-left: 2px solid transparent;
+  }
+  .toc a:hover, .toc a:focus-visible { color: var(--accent); background: var(--paper-2); border-left-color: var(--accent); }
+
+  main { min-width: 0; }
+  section { scroll-margin-top: 22px; margin-bottom: 62px; }
+  section > * { max-width: 68ch; }
+  section > figure, section > .table-scroll, section > .grid-2 { max-width: none; }
+
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.92rem;
+    line-height: 1.2;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    margin: 0 0 6px;
+    padding-top: 14px;
+    border-top: 3px solid var(--ink);
+  }
+  h3 {
+    font-family: var(--font-body);
+    font-weight: 650;
+    font-size: 1.12rem;
+    line-height: 1.35;
+    text-wrap: balance;
+    margin: 34px 0 8px;
+  }
+  h4 {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 600;
+    margin: 24px 0 8px;
+  }
+  p { margin: 0 0 14px; }
+  a { color: var(--accent); }
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 7px; }
+  strong { font-weight: 650; }
+  code {
+    font-family: var(--font-mono);
+    font-size: .87em;
+    background: var(--paper-3);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  /* Ligne « qui a le droit », sous chaque titre de module */
+  .who {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin: 0 0 22px;
+    font-size: .84rem;
+    color: var(--ink-3);
+  }
+  .who .role {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .04em;
+    background: var(--paper-3);
+    color: var(--ink-2);
+    border-radius: 999px;
+    padding: 2px 9px;
+  }
+
+  /* ---------- Encarts ---------- */
+  .note {
+    border-left: 3px solid var(--rule-2);
+    background: var(--paper-2);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 0 0 20px;
+    font-size: .97rem;
+  }
+  .note > :last-child { margin-bottom: 0; }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-bg); }
+  .note.warn .label { color: var(--warn); }
+  .note.tip { border-left-color: var(--ok); background: var(--ok-bg); }
+  .note.tip .label { color: var(--ok); }
+  .note .label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: var(--ink-3);
+  }
+
+  /* ---------- Figures et annotations ---------- */
+  figure { margin: 26px 0; }
+  figcaption {
+    font-size: .87rem;
+    color: var(--ink-3);
+    margin-top: 10px;
+    max-width: 68ch;
+  }
+  .annot { list-style: none; padding: 0; margin: 14px 0 0; max-width: 68ch; }
+  .annot li {
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 11px;
+    align-items: start;
+    margin-bottom: 9px;
+    font-size: .95rem;
+  }
+  .num {
+    display: grid;
+    place-items: center;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--paper);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+  /* Le meme numero, pose sur la maquette pour relier le schema a sa legende. */
+  .cal {
+    display: inline-grid;
+    place-items: center;
+    width: 17px; height: 17px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--paper);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 2px var(--paper);
+    vertical-align: middle;
+  }
+  .m-bar .cal { box-shadow: 0 0 0 2px var(--accent); background: var(--paper); color: var(--accent); }
+
+  /* ---------- Maquettes d'ecran ---------- */
+  .m {
+    border: 1px solid var(--rule-2);
+    border-radius: 11px;
+    background: var(--paper);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .m-scroll { overflow-x: auto; }
+  .m-scroll > .m { min-width: 540px; }
+  /* Bandeau de navigation : fond anthracite, une pastille coloree par module. */
+  .m-bar {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+    padding: 9px 12px;
+    background: linear-gradient(90deg, #2a2e36 0%, #22262d 100%);
+    color: rgba(255, 255, 255, .82);
+  }
+  .m-brand { font-weight: 700; letter-spacing: .01em; color: #fff; display: inline-flex; align-items: center; gap: 7px; }
+  .m-logo {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: linear-gradient(135deg, #4338ca, #6d28d9 55%, #7c3aed);
+    color: #fff; display: inline-grid; place-items: center;
+    font-weight: 900; font-size: 14px;
+  }
+  .m-bar .m-link { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .m-bar .m-link.on { color: #fff; font-weight: 700; }
+  .m-tile {
+    width: 18px; height: 18px; border-radius: 6px;
+    display: inline-block; flex: 0 0 auto;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22);
+  }
+  .m-body { padding: 12px; display: grid; gap: 10px; }
+  .m-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .m-lab { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); font-family: var(--font-mono); }
+  .m-seg { display: inline-flex; border: 1px solid var(--rule-2); border-radius: 7px; overflow: hidden; }
+  .m-seg span { padding: 3px 10px; border-right: 1px solid var(--rule-2); color: #4338ca; font-weight: 600; }
+  :root[data-theme="dark"] .m-seg span { color: #a5a0ff; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .m-seg span { color: #a5a0ff; } }
+  .m-seg span:last-child { border-right: 0; }
+  .m-seg span.on, :root[data-theme="dark"] .m-seg span.on { background: #4338ca; color: #fff; font-weight: 650; }
+  .m-btn {
+    border: 1px solid var(--rule-2);
+    border-radius: 7px;
+    padding: 3px 10px;
+    background: var(--paper);
+    color: var(--ink-2);
+  }
+  .m-btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 650; }
+  .m-btn.dgr { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 650; }
+  .m-count { margin-left: auto; font-weight: 700; color: var(--ok); font-family: var(--font-mono); }
+
+  .m-plan { display: grid; grid-template-columns: 1fr 190px; gap: 10px; }
+  @media (max-width: 620px) { .m-plan { grid-template-columns: 1fr; } }
+  .m-ligne { display: flex; gap: 9px; align-items: flex-start; margin-bottom: 9px; }
+  .m-lignenom {
+    flex: 0 0 74px;
+    border-left: 3px solid var(--accent-2);
+    padding-left: 7px;
+    font-weight: 700;
+    color: var(--ink-2);
+    font-size: 11.5px;
+  }
+  .m-postes { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+  .m-poste {
+    width: 168px;
+    border: 1px solid var(--rule);
+    border-radius: 9px;
+    padding: 6px 7px;
+    background: var(--paper);
+  }
+  .m-postehead { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 5px; }
+  .m-postenom { font-weight: 650; }
+  .m-eff { font-weight: 700; font-family: var(--font-mono); font-size: 11px; }
+  .m-eff.ko { color: var(--bad); }
+  .m-eff.ok { color: var(--ok); }
+  .m-slot {
+    display: flex; align-items: center; gap: 5px;
+    border: 1px dashed var(--rule-2);
+    border-radius: 6px;
+    padding: 2px 3px;
+    margin-bottom: 3px;
+    min-height: 25px;
+  }
+  .m-slotnum {
+    min-width: 19px; text-align: center;
+    background: var(--accent-bg); color: var(--accent);
+    border-radius: 4px; padding: 0 4px;
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
+  }
+  .m-free { color: var(--ink-3); font-style: italic; font-size: 11px; }
+  .m-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    border: 1px solid var(--rule-2);
+    border-radius: 999px;
+    padding: 1px 8px 1px 5px;
+    background: var(--paper);
+    font-weight: 650;
+    white-space: nowrap;
+  }
+  .m-chip.forced { border-color: var(--bad); border-width: 2px; background: var(--bad-bg); color: var(--bad); }
+  .m-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(0,0,0,.18); }
+  .m-names { border-left: 1px solid var(--rule); padding-left: 10px; display: grid; gap: 5px; align-content: start; }
+  .m-search { border: 1px solid var(--rule-2); border-radius: 999px; padding: 3px 10px; color: var(--ink-3); }
+  .m-name { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 6px; }
+  .m-name .m-stat { margin-left: auto; font-size: 10.5px; font-weight: 700; font-family: var(--font-mono); }
+  .m-foot { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--rule); padding: 9px 12px; background: var(--paper-2); }
+
+  /* Grille type Matrice / Habilitations */
+  .m-grid { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+  .m-grid th, .m-grid td { border: 1px solid var(--rule); padding: 4px 7px; text-align: center; }
+  .m-grid th { background: var(--accent-bg); color: var(--accent); font-weight: 700; }
+  .m-grid td.nm { text-align: left; font-weight: 650; white-space: nowrap; background: var(--paper-2); }
+  /* Pastilles de niveau et d'habilitation : SVG, identiques a celles de l'appli. */
+  .mark { display: block; margin: 0 auto; }
+
+  /* Modale */
+  .m-modal {
+    border: 1px solid var(--rule-2);
+    border-radius: 11px;
+    background: var(--paper);
+    box-shadow: var(--shadow);
+    padding: 15px 17px;
+    max-width: 430px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .m-modal h5 { margin: 0 0 9px; font-size: 15px; color: var(--bad); font-family: var(--font-body); font-weight: 700; }
+  .m-modal p { margin: 0 0 9px; }
+  .m-modal .m-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 13px; }
+
+  /* Schema de rotation */
+  .rot { border-collapse: collapse; font-size: 12.5px; margin: 0; }
+  .rot th, .rot td { border: 1px solid var(--rule); padding: 6px 13px; text-align: center; }
+  .rot th { background: var(--paper-2); font-family: var(--font-mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+  .rot td.eq { font-weight: 700; background: var(--paper-2); text-align: left; }
+  .q { border-radius: 5px; padding: 2px 9px; font-weight: 650; font-size: 11.5px; display: inline-block; }
+  .q.mat { background: #fef3c7; color: #92400e; }
+  .q.ap  { background: #dbeafe; color: #1e40af; }
+  .q.nu  { background: #e0e7ff; color: #3730a3; }
+  :root[data-theme="dark"] .q.mat { background: #3d2f0d; color: #fcd34d; }
+  :root[data-theme="dark"] .q.ap  { background: #16243d; color: #93b8ff; }
+  :root[data-theme="dark"] .q.nu  { background: #23204d; color: #b4aeff; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .q.mat { background: #3d2f0d; color: #fcd34d; }
+    :root:not([data-theme="light"]) .q.ap  { background: #16243d; color: #93b8ff; }
+    :root:not([data-theme="light"]) .q.nu  { background: #23204d; color: #b4aeff; }
+  }
+
+  /* ---------- Tableaux du guide ---------- */
+  .table-scroll { overflow-x: auto; margin: 20px 0; }
+  table.data {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 560px;
+    font-size: .93rem;
+    font-variant-numeric: tabular-nums;
+  }
+  table.data th, table.data td {
+    border-bottom: 1px solid var(--rule);
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.data thead th {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 600;
+    border-bottom: 2px solid var(--rule-2);
+  }
+  table.data tbody tr:hover { background: var(--paper-2); }
+  table.data td.c { text-align: center; }
+  .yes { color: var(--ok); font-weight: 700; }
+  .no  { color: var(--ink-3); }
+  .part { color: var(--warn); font-weight: 650; }
+
+  .grid-2 { display: grid; gap: 18px; margin: 20px 0; }
+  @media (min-width: 700px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+  .card {
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 15px 17px;
+    background: var(--paper-2);
+  }
+  .card h3 { margin-top: 0; }
+  .card > :last-child { margin-bottom: 0; }
+
+  dl.faq { margin: 0; }
+  dl.faq dt { font-weight: 650; margin-top: 20px; }
+  dl.faq dd { margin: 5px 0 0; color: var(--ink-2); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0 0 18px; padding: 0; list-style: none; }
+  .legend li { display: flex; align-items: center; gap: 7px; margin: 0; font-size: .93rem; }
+
+  footer.end {
+    border-top: 1px solid var(--rule);
+    margin-top: 52px;
+    padding-top: 22px;
+    color: var(--ink-3);
+    font-size: .89rem;
+    max-width: 68ch;
+  }
+
+  a:focus-visible, .toc a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  @media print {
+    .toc { display: none; }
+    .cols { grid-template-columns: 1fr; }
+    section { break-inside: avoid-page; }
+  }
+</style>
+<style>
+  /* Retour vers l application : le guide s ouvre dans un onglet a part. */
+  .backbar { border-bottom: 1px solid var(--rule); background: var(--paper-2); }
+  .backbar a {
+    display: inline-flex; align-items: center; gap: 7px;
+    max-width: 1160px; margin: 0 auto; padding: 10px 22px;
+    width: 100%; box-sizing: border-box;
+    color: var(--ink-2); text-decoration: none; font-size: .9rem;
+  }
+  .backbar a:hover { color: var(--accent); }
+  @media print { .backbar { display: none; } }
+</style>
+</head>
+<body>
+<div class="backbar"><a href="/">&larr;&nbsp; Retour à BigPlann&rsquo;</a></div>
+
+
+<!-- Pastilles de l'application, reprises a l'identique (camembert 0->4 de la
+     Matrice, cercle plein des Habilitations, croix de restriction). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="mk-base"><circle cx="14" cy="14" r="11" fill="#fff" stroke="#64748b" stroke-width="1.5"/></g>
+    <symbol id="lvl0" viewBox="0 0 28 28"><use href="#mk-base"/></symbol>
+    <symbol id="lvl1" viewBox="0 0 28 28"><use href="#mk-base"/><path d="M14,14 L14,3 A11,11 0 0 1 25,14 Z" fill="#dc2626"/></symbol>
+    <symbol id="lvl2" viewBox="0 0 28 28"><use href="#mk-base"/><path d="M14,14 L14,3 A11,11 0 0 1 14,25 Z" fill="#f59e0b"/></symbol>
+    <symbol id="lvl3" viewBox="0 0 28 28"><use href="#mk-base"/><path d="M14,14 L14,3 A11,11 0 1 1 3,14 Z" fill="#84cc16"/></symbol>
+    <symbol id="lvl4" viewBox="0 0 28 28"><use href="#mk-base"/><circle cx="14" cy="14" r="11" fill="#16a34a"/></symbol>
+    <symbol id="lvlrx" viewBox="0 0 28 28">
+      <circle cx="14" cy="14" r="11" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5"/>
+      <path d="M9,9 L19,19 M19,9 L9,19" stroke="#dc2626" stroke-width="2.4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="habv" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" fill="#16a34a" stroke="#64748b" stroke-width="1.5"/></symbol>
+    <symbol id="habo" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" fill="#f59e0b" stroke="#64748b" stroke-width="1.5"/></symbol>
+    <symbol id="habr" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" fill="#dc2626" stroke="#64748b" stroke-width="1.5"/></symbol>
+    <symbol id="habn" viewBox="0 0 28 28"><use href="#mk-base"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+
+  <header class="top">
+    <p class="eyebrow">Guide utilisateur</p>
+    <h1>BigPlann'</h1>
+    <p class="lede">
+      Tout ce qu'il faut savoir pour gérer les plannings de l'usine : préparer une journée,
+      placer les équipes, suivre les compétences et les habilitations, et lire les bilans.
+      Chaque écran est expliqué avec un schéma commenté.
+    </p>
+  </header>
+
+  <div class="cols">
+
+    <nav class="toc" aria-label="Sommaire">
+      <h2>Sommaire</h2>
+      <ol>
+        <li><a href="#demarrer">1. Démarrer</a></li>
+        <li><a href="#vocabulaire">2. Le vocabulaire</a></li>
+        <li><a href="#journee">3. Une journée type</a></li>
+        <li><a href="#placement">4. Placement</a></li>
+        <li><a href="#planning">5. Planning</a></li>
+        <li><a href="#matrice">6. Matrice</a></li>
+        <li><a href="#habilitations">7. Habilitations</a></li>
+        <li><a href="#personnel">8. Personnel</a></li>
+        <li><a href="#ordonnancement">9. Ordonnancement</a></li>
+        <li><a href="#absences">10. Absences &amp; horaires</a></li>
+        <li><a href="#bilans">11. Bilans</a></li>
+        <li><a href="#tv">12. Affichage TV</a></li>
+        <li><a href="#journal">13. Journal</a></li>
+        <li><a href="#reglages">14. Réglages</a></li>
+        <li><a href="#droits">15. Qui peut quoi</a></li>
+        <li><a href="#depannage">16. Dépannage</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <!-- ================= 1. DEMARRER ================= -->
+      <section id="demarrer">
+        <h2>1. Démarrer</h2>
+        <p class="who"><span class="role">tout le monde</span></p>
+
+        <p>
+          BigPlann' s'ouvre dans un navigateur, sans rien installer. Connectez-vous avec votre
+          adresse e-mail professionnelle et votre mot de passe. Si vous l'avez oublié, cliquez sur
+          <strong>Mot de passe oublié ?</strong> : vous recevrez un lien de réinitialisation par e-mail.
+        </p>
+
+        <figure>
+          <div class="m-scroll">
+            <div class="m">
+              <div class="m-bar">
+                <b class="cal">1</b>
+                <span class="m-brand"><span class="m-logo">B</span>BigPlann'</span>
+                <b class="cal">2</b>
+                <span class="m-link"><span class="m-tile" style="background:#16a34a"></span>Référentiel</span>
+                <span class="m-link"><span class="m-tile" style="background:#2563eb"></span>Personnel</span>
+                <span class="m-link"><span class="m-tile" style="background:#7c3aed"></span>Matrice</span>
+                <span class="m-link"><span class="m-tile" style="background:#ca8a04"></span>Habilitations</span>
+                <span class="m-link"><span class="m-tile" style="background:#ea580c"></span>Ordonnancement</span>
+                <span class="m-link"><span class="m-tile" style="background:#0d9488"></span>Planning</span>
+                <span class="m-link on"><span class="m-tile" style="background:#4f46e5"></span>Placement</span>
+                <span class="m-link"><span class="m-tile" style="background:#e11d48"></span>Bilans</span>
+                <b class="cal" style="margin-left:auto">3</b>
+                <span>⚙️</span>
+                <b class="cal">4</b>
+                <span>🔔</span>
+                <b class="cal">5</b>
+                <span>👤</span>
+              </div>
+              <div class="m-body" style="min-height:70px">
+                <p style="color:var(--ink-3);margin:0">L'écran du module choisi s'affiche ici.</p>
+              </div>
+            </div>
+          </div>
+          <ul class="annot">
+            <li><b class="num">1</b><span>Le <strong>logo</strong> ramène toujours à l'accueil.</span></li>
+            <li><b class="num">2</b><span>Les <strong>modules</strong>, chacun avec sa pastille de couleur — la même couleur se retrouve sur le titre de l'écran. Vous ne voyez que ceux auxquels vous avez droit : deux personnes n'ont pas forcément le même menu.</span></li>
+            <li><b class="num">3</b><span>L'<strong>engrenage</strong> regroupe les écrans de réglage (réservés aux administrateurs).</span></li>
+            <li><b class="num">4</b><span>La <strong>cloche</strong> mène aux habilitations qui arrivent à échéance.</span></li>
+            <li><b class="num">5</b><span>Votre <strong>compte</strong> : changer de mot de passe, se déconnecter.</span></li>
+          </ul>
+          <figcaption>
+            La barre de navigation, présente en haut de tous les écrans. Ici avec tous les modules ;
+            un chef d'équipe, par exemple, ne verra ni Référentiel ni Ordonnancement.
+          </figcaption>
+        </figure>
+
+        <div class="note tip">
+          <span class="label">Bon à savoir</span>
+          <p>
+            Presque tout s'enregistre <strong>tout seul</strong> dans BigPlann'. Quand vous modifiez
+            une valeur, la mention « Enregistré ✓ » apparaît brièvement. Il n'y a pas de bouton
+            « Sauvegarder » à chercher, et rien ne se perd si vous fermez l'onglet.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= 2. VOCABULAIRE ================= -->
+      <section id="vocabulaire">
+        <h2>2. Le vocabulaire</h2>
+        <p class="who"><span class="role">à lire une fois</span></p>
+
+        <p>
+          Cinq mots reviennent partout dans l'application. Les distinguer évite la plupart des
+          erreurs de saisie.
+        </p>
+
+        <h3>Atelier, ligne, poste</h3>
+        <p>
+          C'est l'organisation physique de l'usine, du plus grand au plus petit. Un <strong>atelier</strong>
+          contient des <strong>lignes</strong>, une ligne contient des <strong>postes</strong>. Le poste est
+          l'endroit où l'on place une personne.
+        </p>
+        <p>
+          Chaque poste porte un <strong>effectif requis</strong> (combien de personnes il faut) et un
+          <strong>niveau minimum</strong> de compétence.
+        </p>
+
+        <h3>Quart et équipe : ce n'est pas la même chose</h3>
+        <p>
+          Le <strong>quart</strong> est le créneau horaire : matin, après-midi, nuit, ou journée.
+          L'<strong>équipe</strong> est le groupe de personnes. C'est la confusion la plus fréquente,
+          car les équipes <em>tournent</em> : l'équipe A n'est pas « l'équipe du matin », elle est
+          au matin cette semaine et à l'après-midi la suivante.
+        </p>
+
+        <figure>
+          <div class="m-scroll">
+            <table class="rot">
+              <thead>
+                <tr><th>Équipe</th><th>Semaine 1</th><th>Semaine 2</th><th>Semaine 3</th></tr>
+              </thead>
+              <tbody>
+                <tr><td class="eq">Équipe A</td><td><span class="q mat">Matin</span></td><td><span class="q ap">Après-midi</span></td><td><span class="q nu">Nuit</span></td></tr>
+                <tr><td class="eq">Équipe B</td><td><span class="q ap">Après-midi</span></td><td><span class="q nu">Nuit</span></td><td><span class="q mat">Matin</span></td></tr>
+                <tr><td class="eq">Équipe C</td><td><span class="q nu">Nuit</span></td><td><span class="q mat">Matin</span></td><td><span class="q ap">Après-midi</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <figcaption>
+            La rotation des quarts. Vous ne saisissez que la <strong>première colonne</strong>, pour une
+            semaine de référence : l'application calcule toutes les semaines suivantes.
+          </figcaption>
+        </figure>
+
+        <div class="note">
+          <span class="label">À retenir</span>
+          <p>
+            Pour changer la rotation, on <strong>ajoute une nouvelle référence</strong> à partir d'une
+            date donnée ; on ne modifie jamais l'ancienne. Le passé garde ainsi la rotation qui a
+            réellement eu lieu. Certaines équipes ne tournent pas : elles ont un <strong>quart fixe</strong>.
+          </p>
+        </div>
+
+        <h3>Compétence et habilitation</h3>
+        <p>
+          Une <strong>compétence</strong> dit à quel point une personne maîtrise un poste, sur une échelle
+          de 0 à 4. Elle se gère dans la <a href="#matrice">Matrice</a> et ne périme pas.
+        </p>
+        <p>
+          Une <strong>habilitation</strong> est une formation réglementaire ou interne, avec une
+          <strong>date de validité</strong> : CACES, TPE, habilitation électrique… Elle expire et doit être
+          recyclée. Elle se gère dans <a href="#habilitations">Habilitations</a>.
+        </p>
+
+        <h3>Placement</h3>
+        <p>
+          Un <strong>placement</strong>, c'est ce qu'une personne fait un jour donné : soit elle est sur un
+          poste, soit elle est absente avec un motif. Que vous passiez par l'écran Planning ou par
+          l'écran Placement, vous écrivez la même information.
+        </p>
+      </section>
+
+      <!-- ================= 3. JOURNEE TYPE ================= -->
+      <section id="journee">
+        <h2>3. Une journée type</h2>
+        <p class="who"><span class="role">chef d'équipe</span><span class="role">ordonnancement</span></p>
+
+        <p>Dans l'ordre, une journée de travail avec BigPlann' ressemble à ceci.</p>
+
+        <ol>
+          <li><strong>Saisir les absences connues</strong> — arrêts, congés, formations, via le bandeau du bas de l'écran Placement, ou en avance dans <a href="#absences">Absences longues</a>.</li>
+          <li><strong>Ouvrir le Placement</strong> sur le bon atelier, le bon jour et le bon quart.</li>
+          <li><strong>Copier une journée précédente</strong> pour ne pas repartir de zéro.</li>
+          <li><strong>Compléter et ajuster</strong> en glissant les noms sur les postes ; le compteur en haut à droite indique ce qu'il reste à couvrir.</li>
+          <li><strong>Vérifier qu'il n'y a plus de rouge</strong> : ni poste incomplet, ni placement forcé.</li>
+          <li>Les <a href="#tv">écrans TV</a> de l'atelier se mettent à jour tout seuls.</li>
+        </ol>
+
+        <div class="note tip">
+          <span class="label">Conseil</span>
+          <p>
+            Commencez toujours par les absences. Une personne déclarée absente ne peut plus être
+            placée par erreur, et le compteur de couverture devient tout de suite juste.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= 4. PLACEMENT ================= -->
+      <section id="placement">
+        <h2>4. Placement</h2>
+        <p class="who"><span class="role">écriture : chef d'équipe, ordonnancement, admin</span></p>
+
+        <p>
+          C'est l'écran de saisie quotidien. À gauche le plan de l'atelier, à droite la liste des
+          personnes, en bas les motifs d'absence. On travaille en <strong>glissant un nom sur un poste</strong>.
+        </p>
+
+        <figure>
+          <div class="m-scroll">
+            <div class="m">
+              <div class="m-bar" style="background:var(--paper-2);color:var(--ink);border-bottom:1px solid var(--rule)">
+                <b class="cal">1</b>
+                <span class="m-lab">Atelier</span>
+                <span class="m-seg"><span class="on">Condi</span><span>Fabrication</span><span>Absences</span></span>
+                <span class="m-lab">Jour</span>
+                <span class="m-btn">◀</span><span class="m-btn">20/07/2026</span><span class="m-btn">▶</span>
+                <span class="m-lab">Quart</span>
+                <span class="m-seg"><span class="on">Matin</span><span>Après-midi</span><span>Nuit</span></span>
+                <b class="cal" style="margin-left:auto">2</b>
+                <span class="m-count" style="color:var(--bad);margin-left:0">14/17</span>
+                <b class="cal">3</b>
+                <span class="m-btn">Copier…</span>
+              </div>
+              <div class="m-body">
+                <div class="m-plan">
+                  <div>
+                    <div class="m-ligne">
+                      <div class="m-lignenom">Ligne 1</div>
+                      <div class="m-postes">
+                        <div class="m-poste">
+                          <div class="m-postehead"><span class="m-postenom">Conducteur</span><span class="m-eff ok">1/1</span></div>
+                          <div class="m-slot"><span class="m-slotnum">12</span><span class="m-chip"><span class="m-dot" style="background:#2563eb"></span>MARTIN L.</span></div>
+                        </div>
+                        <div class="m-poste">
+                          <div class="m-postehead"><span class="m-postenom">Rangement condi</span><span class="m-eff ko">1/2</span></div>
+                          <div class="m-slot"><b class="cal">5</b><span class="m-slotnum">15</span><span class="m-chip forced"><span class="m-dot" style="background:#16a34a"></span>BOY M.</span></div>
+                          <div class="m-slot"><b class="cal">4</b><span class="m-slotnum">16</span><span class="m-free">libre</span></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="m-ligne">
+                      <div class="m-lignenom">Ligne 2</div>
+                      <div class="m-postes">
+                        <div class="m-poste">
+                          <div class="m-postehead"><span class="m-postenom">Thermo 3</span><span class="m-eff ko">0/1</span></div>
+                          <div class="m-slot"><span class="m-slotnum">21</span><span class="m-free">libre</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="m-names">
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <b class="cal">6</b>
+                      <div class="m-search" style="flex:1">🔍 Rechercher un nom</div>
+                    </div>
+                    <div class="m-row" style="gap:5px">
+                      <span class="m-btn" style="flex:1">Équipe A</span>
+                      <span class="m-btn" style="flex:1">Condi</span>
+                    </div>
+                    <div style="font-weight:700;color:var(--bad);font-size:11px">3 à placer</div>
+                    <div class="m-name"><span class="m-dot" style="background:#2563eb"></span>DUBOIS Anna<span class="m-stat" style="color:var(--bad)">à placer</span></div>
+                    <div class="m-name"><span class="m-dot" style="background:#2563eb"></span>PETIT Karim<span class="m-stat" style="color:var(--bad)">à placer</span></div>
+                    <div class="m-name" style="opacity:.72"><span class="m-dot" style="background:#2563eb"></span>MARTIN Luc<span class="m-stat" style="color:var(--ok)">→ Cond.</span></div>
+                    <div class="m-name" style="opacity:.72"><span class="m-dot" style="background:#16a34a"></span>ROUX Sofia<span class="m-stat" style="color:var(--warn)">CP</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="m-foot">
+                <b class="cal">7</b>
+                <span class="m-lab">Glisser vers :</span>
+                <span class="m-chip"><span class="m-dot" style="background:#f59e0b"></span>CP</span>
+                <span class="m-chip"><span class="m-dot" style="background:#dc2626"></span>MAL</span>
+                <span class="m-chip"><span class="m-dot" style="background:#6366f1"></span>FORM</span>
+                <span class="m-chip"><span class="m-dot" style="background:#64748b"></span>JNT</span>
+                <span class="m-chip">Non travaillé</span>
+              </div>
+            </div>
+          </div>
+          <ul class="annot">
+            <li><b class="num">1</b><span><strong>Atelier, jour, quart.</strong> Ces trois filtres décident du plan affiché. Changer de quart re-sélectionne automatiquement l'équipe qui tourne ce jour-là.</span></li>
+            <li><b class="num">2</b><span><strong>Compteur de couverture.</strong> Positions pourvues sur positions requises. Rouge tant qu'il manque du monde, vert quand tout est couvert.</span></li>
+            <li><b class="num">3</b><span><strong>Copier…</strong> Recopie les affectations d'un autre jour vers celui-ci (voir plus bas).</span></li>
+            <li><b class="num">4</b><span><strong>Les cases numérotées</strong> sont les positions de rotation du poste. Déposez la personne sur le numéro qu'elle tient.</span></li>
+            <li><b class="num">5</b><span><strong>Une pastille rouge</strong> signale un placement forcé : il manque une habilitation.</span></li>
+            <li><b class="num">6</b><span><strong>La liste des noms.</strong> Chacun affiche son statut : à placer, sur un poste, ou absent.</span></li>
+            <li><b class="num">7</b><span><strong>Le bandeau des motifs.</strong> Glissez-y un nom pour déclarer une absence.</span></li>
+          </ul>
+          <figcaption>L'écran Placement, ici sur l'atelier Condi au quart du matin.</figcaption>
+        </figure>
+
+        <h3>Placer quelqu'un</h3>
+        <p>Deux façons de faire, au choix :</p>
+        <ul>
+          <li><strong>Glisser-déposer</strong> — attrapez le nom à droite et lâchez-le sur la case voulue.</li>
+          <li><strong>Cliquer-cliquer</strong> — cliquez le nom (il se surligne), puis cliquez la case. Plus pratique sur écran tactile.</li>
+        </ul>
+        <p>
+          Pour <strong>retirer</strong> quelqu'un d'un poste, cliquez la croix <code>✕</code> à côté de son nom
+          dans la liste de droite, ou glissez-le hors du plan.
+        </p>
+
+        <h3>Les numéros de rotation</h3>
+        <p>
+          Quand un poste a plusieurs positions, chacune porte un numéro, défini dans le
+          <a href="#reglages">Référentiel</a>. Le poste se découpe alors en autant de cases, et vous
+          déposez la personne sur le numéro exact qu'elle occupe.
+        </p>
+        <p>
+          Un poste sans numéro fonctionne comme avant : une simple zone où déposer. Et si l'effectif
+          dépasse les numéros saisis, une case supplémentaire sans numéro apparaît, marquée <code>—</code>.
+        </p>
+
+        <h3>L'aide à la compétence</h3>
+        <p>
+          Dès que vous attrapez un nom, les postes se colorent pour vous dire si la personne convient :
+        </p>
+        <ul class="legend">
+          <li><span style="width:14px;height:14px;border-radius:4px;background:var(--ok-bg);border:1px solid var(--ok);display:inline-block"></span> compétente</li>
+          <li><span style="width:14px;height:14px;border-radius:4px;background:var(--paper-3);opacity:.55;display:inline-block"></span> niveau insuffisant</li>
+          <li><span style="width:14px;height:14px;border-radius:4px;background:var(--bad-bg);border:1px solid var(--bad);display:inline-block"></span> restriction médicale</li>
+        </ul>
+        <p>
+          C'est une aide, pas un blocage : vous restez libre de placer qui vous voulez, sauf pour les
+          habilitations, qui demandent une confirmation.
+        </p>
+
+        <h3>Le contrôle des habilitations</h3>
+        <p>
+          Certains postes exigent une habilitation précise. Si la personne ne l'a pas, ou si elle est
+          périmée, BigPlann' vous arrête et demande confirmation :
+        </p>
+
+        <figure>
+          <div class="m-modal">
+            <h5>⚠ Habilitation manquante</h5>
+            <p><strong>BOY Melvin</strong> n'est pas habilitée pour le poste <strong>Rangement condi</strong>.</p>
+            <p>Manque : <strong style="color:var(--bad)">TPE (expirée depuis 12 j)</strong></p>
+            <p style="color:var(--ink-3);font-size:12px">
+              Un placement forcé est tracé (auteur et date) et s'affiche en rouge tant que
+              l'habilitation n'est pas régularisée.
+            </p>
+            <div class="m-actions">
+              <span class="m-btn">Non</span>
+              <span class="m-btn dgr">Oui, je force</span>
+            </div>
+          </div>
+          <figcaption>
+            La demande de confirmation. Elle apparaît aussi bien pour une habilitation jamais passée
+            que pour une habilitation expirée.
+          </figcaption>
+        </figure>
+
+        <p>
+          Si vous forcez, l'affectation s'affiche <strong>en rouge</strong> et le forçage est enregistré
+          avec votre nom et la date. Le rouge disparaît tout seul dès que l'habilitation est
+          régularisée dans le module Habilitations — et réapparaît si elle expire.
+        </p>
+
+        <h3>Copier une journée</h3>
+        <p>
+          Le bouton <strong>Copier…</strong> ouvre une fenêtre où vous choisissez le jour à copier et le jour
+          de destination, avec deux raccourcis : <strong>Veille</strong> et <strong>Semaine passée</strong>. Seules les
+          affectations sur poste du quart affiché sont recopiées ; les absences ne le sont jamais.
+        </p>
+
+        <h3>La vue Absences</h3>
+        <p>
+          Le bouton <strong>Absences</strong>, à la suite des ateliers, remplace le plan par la photo complète
+          des absents du jour : une carte par motif, sur <strong>tout l'effectif</strong>, tous ateliers
+          confondus. Pratique pour le point du matin. Les cartes acceptent aussi le dépôt d'un nom.
+        </p>
+
+        <h3>Trouver quelqu'un</h3>
+        <p>
+          Les deux menus au-dessus de la liste préfiltrent sur l'équipe et l'atelier du plan affiché.
+          Mais dès que vous <strong>tapez un nom dans la recherche</strong>, ces filtres sont ignorés et la
+          recherche porte sur tout l'effectif : c'est ainsi que vous allez chercher un renfort dans une
+          autre équipe.
+        </p>
+
+        <div class="note warn">
+          <span class="label">Limite de périmètre</span>
+          <p>
+            Un chef d'équipe ne peut modifier que <strong>les personnes de son équipe</strong>. Les autres
+            noms apparaissent grisés : ils restent visibles, mais non modifiables. Un message le
+            rappelle si vous essayez.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= 5. PLANNING ================= -->
+      <section id="planning">
+        <h2>5. Planning</h2>
+        <p class="who"><span class="role">lecture : presque tous</span><span class="role">écriture : chef d'équipe, admin</span></p>
+
+        <p>
+          Le Planning montre la <strong>semaine entière</strong>, sous forme de tableau : une ligne par
+          personne, une colonne par jour. Là où le Placement sert à préparer une journée dans le
+          détail, le Planning sert à voir et corriger la semaine d'un coup d'œil.
+        </p>
+        <p>Vous y retrouvez les mêmes filtres — quart, atelier, équipe — et la même information de fond.</p>
+
+        <div class="note">
+          <span class="label">Repères visuels</span>
+          <p>
+            Une pastille <strong>🕐</strong> signale un horaire particulier ce jour-là. Les jours sans ligne
+            ouverte sont masqués. La ligne « Alertes » met en évidence les cases à surveiller.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= 6. MATRICE ================= -->
+      <section id="matrice">
+        <h2>6. Matrice de polyvalence</h2>
+        <p class="who"><span class="role">écriture : chef d'équipe, admin</span><span class="role">lecture : les autres</span></p>
+
+        <p>
+          La matrice croise <strong>les personnes et les postes</strong> : pour chaque case, le niveau de
+          maîtrise, de 0 à 4. C'est la source de l'aide à la compétence du Placement et de plusieurs bilans.
+        </p>
+
+        <figure>
+          <div class="m-scroll">
+            <table class="m-grid">
+              <thead>
+                <tr><th style="background:var(--paper-2);color:var(--ink-3)">Personne</th><th>Conducteur</th><th>Rangement</th><th>Thermo 3</th><th>Palettiseur</th></tr>
+              </thead>
+              <tbody>
+                <tr><td class="nm">DUBOIS Anna</td><td><svg class="mark" width="26" height="26"><use href="#lvl4"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#lvl3"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#lvl2"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#lvl0"/></svg></td></tr>
+                <tr><td class="nm">MARTIN Luc</td><td><svg class="mark" width="26" height="26"><use href="#lvl3"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#lvl2"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#lvl1"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#lvl2"/></svg></td></tr>
+                <tr><td class="nm">PETIT Karim</td><td><svg class="mark" width="26" height="26"><use href="#lvl1"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#lvl2"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#lvlrx"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#lvl3"/></svg></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <figcaption>
+            Un extrait de matrice. Le niveau se lit comme un <strong>camembert qui se remplit</strong> :
+            plus la part colorée est grande, plus la maîtrise est complète.
+          </figcaption>
+        </figure>
+
+        <h3>Les cinq niveaux</h3>
+        <div class="table-scroll">
+          <table class="data">
+            <thead><tr><th style="width:56px">Pastille</th><th style="width:60px">Niveau</th><th>Signification</th></tr></thead>
+            <tbody>
+              <tr><td class="c"><svg class="mark" width="28" height="28"><use href="#lvl0"/></svg></td><td class="c">0</td><td>Non formé</td></tr>
+              <tr><td class="c"><svg class="mark" width="28" height="28"><use href="#lvl1"/></svg></td><td class="c">1</td><td>Connaît les instructions et les règles de sécurité du poste</td></tr>
+              <tr><td class="c"><svg class="mark" width="28" height="28"><use href="#lvl2"/></svg></td><td class="c">2</td><td>Garantit le niveau de qualité standard</td></tr>
+              <tr><td class="c"><svg class="mark" width="28" height="28"><use href="#lvl3"/></svg></td><td class="c">3</td><td>Garantit les temps standards ; peut expliquer et guider</td></tr>
+              <tr><td class="c"><svg class="mark" width="28" height="28"><use href="#lvl4"/></svg></td><td class="c">4</td><td>A formé un opérateur jusqu'au niveau 3 — maîtrise complète</td></tr>
+              <tr><td class="c"><svg class="mark" width="28" height="28"><use href="#lvlrx"/></svg></td><td class="c">—</td><td><strong>Restriction</strong> : la personne ne doit pas tenir ce poste (raison médicale par exemple)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Actuel et Cible</h3>
+        <p>
+          La matrice a deux modes. <strong>Actuel</strong> décrit la situation d'aujourd'hui ;
+          <strong>Cible</strong> décrit le niveau que l'on veut atteindre. L'écart entre les deux nourrit le
+          plan de formation et le bilan de polyvalence.
+        </p>
+        <p>
+          Pour modifier une case, cliquez-la et choisissez le niveau. L'enregistrement est immédiat.
+          Le bouton <strong>+ Bilan</strong> affiche des totaux par poste directement dans la grille.
+        </p>
+
+        <div class="note warn">
+          <span class="label">Écran chargé</span>
+          <p>
+            Sans filtre d'atelier, la matrice affiche plusieurs milliers de cases et met un moment à
+            s'ouvrir. <strong>Filtrez sur un atelier</strong> : c'est plus rapide et plus lisible.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= 7. HABILITATIONS ================= -->
+      <section id="habilitations">
+        <h2>7. Habilitations</h2>
+        <p class="who"><span class="role">écriture : chef d'équipe, admin</span><span class="role">lecture : RH, direction</span></p>
+
+        <p>
+          Même principe que la matrice, mais pour les formations qui <strong>périment</strong> : une ligne par
+          personne, une colonne par formation, et une pastille de couleur qui dit où en est l'échéance.
+        </p>
+
+        <figure>
+          <div class="m-scroll">
+            <table class="m-grid">
+              <thead>
+                <tr><th style="background:var(--paper-2);color:var(--ink-3)">Personne</th><th>CACES 3</th><th>TPE</th><th>Habil. élec.</th><th>SST</th></tr>
+              </thead>
+              <tbody>
+                <tr><td class="nm">DUBOIS Anna</td><td><svg class="mark" width="26" height="26"><use href="#habv"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#habv"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#habo"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#habn"/></svg></td></tr>
+                <tr><td class="nm">MARTIN Luc</td><td><svg class="mark" width="26" height="26"><use href="#habo"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#habv"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#habn"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#habv"/></svg></td></tr>
+                <tr><td class="nm">BOY Melvin</td><td><svg class="mark" width="26" height="26"><use href="#habv"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#habr"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#habn"/></svg></td><td><svg class="mark" width="26" height="26"><use href="#habv"/></svg></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <ul class="legend" style="margin-top:14px">
+            <li><svg class="mark" width="22" height="22"><use href="#habv"/></svg> valable — plus de 90 jours</li>
+            <li><svg class="mark" width="22" height="22"><use href="#habo"/></svg> à programmer — 30 à 90 jours</li>
+            <li><svg class="mark" width="22" height="22"><use href="#habr"/></svg> urgent — moins de 30 jours, ou expirée</li>
+            <li><svg class="mark" width="22" height="22"><use href="#habn"/></svg> non détenue</li>
+          </ul>
+          <figcaption>La grille des habilitations et sa légende de couleurs.</figcaption>
+        </figure>
+
+        <h3>Enregistrer un passage</h3>
+        <p>
+          <strong>Cliquez simplement la pastille</strong> concernée. Une fenêtre s'ouvre, déjà remplie avec la
+          personne, la formation et la date du jour : il ne reste qu'à valider. Sur une case déjà
+          renseignée, la fenêtre rappelle la date du dernier passage et enregistre un recyclage.
+        </p>
+        <p>
+          La date d'expiration est <strong>calculée automatiquement</strong> à partir de la durée de validité
+          de la formation. Vous n'avez jamais à la saisir.
+        </p>
+
+        <h3>Les autres vues</h3>
+        <ul>
+          <li><strong>Grille</strong> — la vue par défaut, pour l'ensemble du personnel.</li>
+          <li><strong>Liste</strong> — une ligne par habilitation, triée par échéance : la vue pratique pour planifier les recyclages.</li>
+          <li><strong>+ Bilan</strong> — les totaux par formation, directement dans la grille.</li>
+        </ul>
+
+        <div class="note">
+          <span class="label">Lien avec le Placement</span>
+          <p>
+            Ce sont ces dates qui déclenchent la demande de confirmation lors d'un placement. Saisir un
+            recyclage ici fait disparaître le rouge sur l'écran Placement dans la foulée.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= 8. PERSONNEL ================= -->
+      <section id="personnel">
+        <h2>8. Personnel</h2>
+        <p class="who"><span class="role">écriture : admin, RH</span><span class="role">lecture : les autres</span></p>
+
+        <p>
+          La fiche de chaque personne : nom, équipe, atelier, contrat, statut. La saisie est directe,
+          chaque champ s'enregistre seul.
+        </p>
+
+        <h3>Temps partiel</h3>
+        <p>
+          Le temps partiel se configure par personne et se combine : demi-journées, jours non
+          travaillés, horaires particuliers. Le Planning en tient compte automatiquement selon le
+          quart, sans que vous ayez à y penser.
+        </p>
+
+        <div class="note warn">
+          <span class="label">Départ et retour</span>
+          <p>
+            Quand une personne revient, <strong>réactivez son ancienne fiche</strong> plutôt que d'en créer une
+            seconde. Cela évite les doublons et conserve son historique, sa polyvalence et ses
+            habilitations.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= 9. ORDONNANCEMENT ================= -->
+      <section id="ordonnancement">
+        <h2>9. Ordonnancement</h2>
+        <p class="who"><span class="role">écriture : ordonnancement, admin</span></p>
+
+        <p>
+          Cet écran décide <strong>quelles lignes tournent, quel jour et sur quel quart</strong>. C'est en amont
+          du placement : une ligne fermée n'apparaît pas dans le plan.
+        </p>
+
+        <h3>La semaine type</h3>
+        <p>
+          La semaine type est le gabarit habituel de l'usine. Rien n'est rempli d'office : sur chaque
+          semaine, le bouton <strong>⚙️ Initialiser</strong> applique ce gabarit, que vous ajustez ensuite.
+        </p>
+        <p>
+          Modifier la semaine type plus tard n'affecte pas les semaines déjà initialisées — il faut les
+          réinitialiser pour les écraser.
+        </p>
+      </section>
+
+      <!-- ================= 10. ABSENCES ================= -->
+      <section id="absences">
+        <h2>10. Absences longues &amp; horaires</h2>
+        <p class="who"><span class="role">écriture : chef d'équipe, admin</span></p>
+
+        <h3>Absences longues</h3>
+        <p>
+          Pour un arrêt maladie ou des congés couvrant plusieurs jours, ne saisissez pas jour par
+          jour : déclarez une <strong>plage de dates</strong> avec son motif. Le motif est alors posé
+          automatiquement sur chaque jour concerné, et se retrouve dans le Planning comme dans le
+          Placement. Supprimer l'absence retire le motif de tous ces jours d'un coup.
+        </p>
+
+        <h3>Horaires spécifiques</h3>
+        <p>
+          Un horaire exceptionnel pour une personne, un jour donné. Il <strong>prend le pas</strong> sur
+          l'horaire standard du poste et s'affiche sur les écrans TV.
+        </p>
+        <p>L'horaire retenu suit toujours cet ordre de priorité :</p>
+        <ol>
+          <li>L'exception ponctuelle saisie ici ;</li>
+          <li>sinon, l'aménagement de temps partiel de la personne ;</li>
+          <li>sinon, l'horaire standard du poste.</li>
+        </ol>
+      </section>
+
+      <!-- ================= 11. BILANS ================= -->
+      <section id="bilans">
+        <h2>11. Bilans</h2>
+        <p class="who"><span class="role">lecture : direction, RH, encadrement</span></p>
+
+        <p>
+          Six écrans de synthèse, conçus pour être <strong>imprimés en A4 paysage</strong> ou projetés en
+          réunion. Ils se lisent, ils ne se saisissent pas.
+        </p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>Cockpit</h3>
+            <p>La page d'entrée : les indicateurs clés et l'accès aux quatre bilans détaillés.</p>
+          </div>
+          <div class="card">
+            <h3>👥 Personnel</h3>
+            <p>Effectif, contrats, absentéisme, mouvements d'entrée et de sortie.</p>
+          </div>
+          <div class="card">
+            <h3>🎯 Polyvalence &amp; compétences</h3>
+            <p>Où en est la polyvalence, et l'écart entre le niveau actuel et la cible.</p>
+          </div>
+          <div class="card">
+            <h3>🛡️ Couverture de poste</h3>
+            <p>Les postes suffisamment pourvus, et ceux qui reposent sur trop peu de personnes.</p>
+          </div>
+          <div class="card">
+            <h3>🔭 Anticipation</h3>
+            <p>Ce qui arrive : départs, habilitations à recycler, besoins de formation.</p>
+          </div>
+          <div class="card">
+            <h3>Bilan de la matrice</h3>
+            <p>Accessible depuis la Matrice : les compteurs par poste et par niveau.</p>
+          </div>
+        </div>
+
+        <p>
+          Pour imprimer, utilisez simplement l'impression du navigateur : la mise en page est déjà
+          prévue pour le papier.
+        </p>
+      </section>
+
+      <!-- ================= 12. TV ================= -->
+      <section id="tv">
+        <h2>12. Affichage TV</h2>
+        <p class="who"><span class="role">écran public, sans connexion</span></p>
+
+        <p>
+          Chaque atelier a une page d'affichage prévue pour un écran en atelier : gros caractères,
+          le placement du jour et les horaires de chacun. Elle se <strong>rafraîchit toute seule
+          toutes les 5 minutes</strong> : rien à faire une fois l'écran allumé.
+        </p>
+        <p>
+          C'est la seule partie de BigPlann' <strong>accessible sans se connecter</strong>, pour qu'un écran
+          d'atelier n'ait pas besoin d'une session ouverte. Ouvrez la page sur le poste relié à la TV,
+          passez le navigateur en plein écran, et laissez-la tourner.
+        </p>
+
+        <div class="note">
+          <span class="label">Légende de l'écran</span>
+          <p>
+            Fond vert : intérimaire. Fond fluo : la journée en cours. Texte rouge : absence.
+            Les horaires apparaissent en bleu à côté du nom.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= 13. JOURNAL ================= -->
+      <section id="journal">
+        <h2>13. Journal</h2>
+        <p class="who"><span class="role">lecture : admin, direction</span></p>
+        <p>
+          Le journal enregistre <strong>qui a modifié quoi, et quand</strong> : placements, fiches, niveaux,
+          habilitations. Chaque entrée indique le champ touché, l'ancienne et la nouvelle valeur.
+        </p>
+        <p>
+          C'est l'écran à ouvrir quand une donnée a changé sans qu'on sache pourquoi — plutôt que de
+          refaire la saisie à l'aveugle.
+        </p>
+      </section>
+
+      <!-- ================= 14. REGLAGES ================= -->
+      <section id="reglages">
+        <h2>14. Réglages</h2>
+        <p class="who"><span class="role">administrateurs</span></p>
+
+        <p>
+          Regroupés sous l'engrenage ⚙️. Ces écrans décrivent l'usine et se modifient rarement, mais
+          ils conditionnent tout le reste.
+        </p>
+
+        <div class="table-scroll">
+          <table class="data">
+            <thead><tr><th style="width:180px">Écran</th><th>À quoi il sert</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Référentiel</strong></td><td>Ateliers, lignes et postes. Effectif requis, niveau minimum, catégorie, ordre d'affichage, numéros de rotation, habilitations exigées, et les quarts où le poste tourne.</td></tr>
+              <tr><td><strong>Équipes</strong></td><td>Les équipes, leur couleur, et la <strong>rotation des quarts</strong> par référence datée.</td></tr>
+              <tr><td><strong>Compétences</strong></td><td>La liste des compétences et des formations.</td></tr>
+              <tr><td><strong>Param. Habilitation</strong></td><td>Les formations à recycler : catégorie, groupe, durée de validité, autorisation de conduite.</td></tr>
+              <tr><td><strong>Motifs d'absence</strong></td><td>Les motifs et leur couleur — ceux du bandeau du Placement.</td></tr>
+              <tr><td><strong>Horaires</strong></td><td>Les horaires de chaque poste, par quart et par jour.</td></tr>
+              <tr><td><strong>Utilisateurs</strong></td><td>Les comptes, leur rôle, et le détail de leurs droits.</td></tr>
+              <tr><td><strong>RGPD</strong></td><td>Les outils liés aux données personnelles.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Deux réglages qui se voient tout de suite</h3>
+        <p>
+          Dans le Référentiel, deux colonnes du tableau des postes ont un effet direct sur l'écran
+          Placement :
+        </p>
+        <ul>
+          <li><strong>N° Rot</strong> — les numéros de position, en saisie libre. « 12, 13 » crée deux cases ; « 15-17 » en crée trois (15, 16, 17). Laissez vide si le poste n'est pas numéroté.</li>
+          <li><strong>Habil. requises</strong> — les formations exigées pour tenir le poste. C'est ce qui déclenche la demande de confirmation au placement.</li>
+        </ul>
+      </section>
+
+      <!-- ================= 15. DROITS ================= -->
+      <section id="droits">
+        <h2>15. Qui peut quoi</h2>
+        <p class="who"><span class="role">pour comprendre les différences de menu</span></p>
+
+        <p>
+          Chaque compte a un rôle, qui détermine les modules visibles. Voici les droits habituels —
+          un administrateur peut les ajuster compte par compte dans <strong>Utilisateurs</strong>.
+        </p>
+
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Module</th><th class="c">Chef d'équipe</th><th class="c">Ordonnancement</th>
+                <th class="c">RH</th><th class="c">Direction</th><th class="c">Admin</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Personnel</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
+              <tr><td>Matrice</td><td class="c yes">écriture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
+              <tr><td>Habilitations</td><td class="c yes">écriture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
+              <tr><td>Planning &amp; Placement</td><td class="c part">son équipe</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
+              <tr><td>Ordonnancement</td><td class="c no">—</td><td class="c yes">écriture</td><td class="c no">—</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
+              <tr><td>Bilans</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
+              <tr><td>Journal</td><td class="c no">—</td><td class="c no">—</td><td class="c no">—</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
+              <tr><td>Réglages ⚙️</td><td class="c no">—</td><td class="c part">équipes</td><td class="c no">—</td><td class="c no">—</td><td class="c yes">écriture</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note warn">
+          <span class="label">Le cas du chef d'équipe</span>
+          <p>
+            Le chef d'équipe a le droit d'écrire sur le Planning et le Placement, mais uniquement pour
+            <strong>les personnes de son équipe</strong>. Il voit tout le monde — utile pour repérer un renfort —
+            sans pouvoir modifier les autres.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= 16. DEPANNAGE ================= -->
+      <section id="depannage">
+        <h2>16. Dépannage</h2>
+
+        <dl class="faq">
+          <dt>Je ne vois pas le même menu qu'un collègue.</dt>
+          <dd>C'est normal : le menu dépend de votre rôle. Voir <a href="#droits">Qui peut quoi</a>. Si un module vous manque pour travailler, demandez à un administrateur.</dd>
+
+          <dt>Un nom est grisé, je ne peux pas le déplacer.</dt>
+          <dd>Cette personne n'est pas dans votre équipe. Seul son chef d'équipe, ou un administrateur, peut la placer.</dd>
+
+          <dt>Je ne trouve pas quelqu'un dans la liste du Placement.</dt>
+          <dd>Tapez son nom dans la recherche : elle ignore les filtres d'équipe et d'atelier et cherche dans tout l'effectif. Vérifiez aussi que la personne est bien en statut « Actif » dans Personnel.</dd>
+
+          <dt>Une affectation reste en rouge alors que j'ai saisi la formation.</dt>
+          <dd>Vérifiez la date de passage dans Habilitations : si l'échéance calculée est déjà dépassée, la personne compte toujours comme non habilitée. Rafraîchissez ensuite la page du Placement.</dd>
+
+          <dt>Le poste où je veux placer quelqu'un n'apparaît pas.</dt>
+          <dd>Trois causes possibles : le poste est désactivé pour ce quart dans le Référentiel, sa ligne n'est pas ouverte ce jour-là dans l'Ordonnancement, ou le poste lui-même est inactif.</dd>
+
+          <dt>Le compteur de couverture semble faux.</dt>
+          <dd>Il compte les positions requises déclarées sur chaque poste. Si un effectif requis est mal renseigné dans le Référentiel, le compteur suit cette erreur.</dd>
+
+          <dt>Les quarts affichés ne correspondent pas à la réalité.</dt>
+          <dd>La rotation part d'une semaine de référence saisie dans Équipes. Si elle a changé, il faut ajouter une nouvelle référence à la bonne date — sans modifier l'ancienne, pour ne pas réécrire le passé.</dd>
+
+          <dt>J'ai fait une fausse manipulation.</dt>
+          <dd>Le Journal indique qui a modifié quoi et quelles étaient les valeurs précédentes ; il suffit ensuite de ressaisir la bonne valeur. Rien n'est définitivement perdu.</dd>
+
+          <dt>L'écran TV affiche de vieilles informations.</dt>
+          <dd>Il se rafraîchit toutes les 5 minutes : patientez un instant. Si rien ne change, vérifiez la connexion du poste et rechargez la page.</dd>
+        </dl>
+      </section>
+
+      <footer class="end">
+        <p>
+          Guide utilisateur BigPlann' — application de gestion des plannings de l'usine.
+          Les schémas de ce guide sont des reproductions simplifiées des écrans : les couleurs et
+          les repères y sont fidèles, les noms et les chiffres sont des exemples.
+        </p>
+      </footer>
+
+    </main>
+  </div>
+</div>
+
+</body>
+</html>

@@ -85,6 +85,19 @@ export default function UserMenu({ name, email }: { name: string; email: string 
             🔑&nbsp; Changer le mot de passe
           </Link>
 
+          {/* Guide utilisateur : document autonome (public/guide.html), ouvert dans
+              un onglet a part pour ne pas faire perdre une saisie en cours. */}
+          <a
+            href="/guide.html"
+            target="_blank"
+            rel="noopener"
+            onClick={() => setOpen(false)}
+            style={item}
+            title="Ouvrir le guide utilisateur dans un nouvel onglet"
+          >
+            📘&nbsp; Guide utilisateur
+          </a>
+
           <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />
 
           <form action="/logout" method="post">
