@@ -1,13 +1,11 @@
-import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
-import { getCurrentProfile } from "@/lib/current-user";
 import { roleLabel, ROLES, ROLE_LABELS } from "@/lib/roles";
 import AppHeader from "@/components/AppHeader";
 import { requireModule, MODULES, getAllPermissions } from "@/lib/permissions";
-import UserForm from "./UserForm";
+import NouvelUtilisateur from "./NouvelUtilisateur";
+import UserRoleSelect from "./UserRoleSelect";
 import UserRowActions from "./UserRowActions";
 import DroitsMatrix from "./DroitsMatrix";
-import { updateUserRole } from "./actions";
 
 type Row = {
   user_id: string;
@@ -36,65 +34,54 @@ export default async function AdminUsersPage() {
   return (
     <>
       <AppHeader role={profile.role} active="/admin/users" />
-      <div className="container">
+      <div className="container" style={{ maxWidth: 1500 }}>
         <h1>Utilisateurs</h1>
 
-        <div className="card" style={{ marginBottom: 24 }}>
-          <h2>Ajouter un utilisateur</h2>
-          <UserForm />
-          <p className="muted" style={{ marginTop: 12 }}>
-            Le compte est créé directement avec un mot de passe (accès immédiat).
-            Communiquez-le à l&apos;utilisateur, qui pourra le changer ensuite.
-          </p>
-        </div>
-
         <div className="card">
-          <h2>Comptes ({list.length})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Nom</th>
-                <th>Email</th>
-                <th>Rôle</th>
-                <th>Compte</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((u) => {
-                const isSelf = u.user_id === profile.authId;
-                return (
-                  <tr key={u.user_id}>
-                    <td>{u.name || "-"}</td>
-                    <td>{u.email}</td>
-                    <td>
-                      {isSelf ? (
-                        <span>
-                          {roleLabel(u.role)} <span className="muted">(vous)</span>
-                        </span>
-                      ) : (
-                        <form action={updateUserRole} className="inline-form" style={{ margin: 0 }}>
-                          <input type="hidden" name="user_id" value={u.user_id} />
-                          <select key={u.role} name="role" defaultValue={u.role}>
-                            {ROLES.map((r) => (
-                              <option key={r} value={r}>
-                                {ROLE_LABELS[r]}
-                              </option>
-                            ))}
-                          </select>
-                          <button type="submit" className="btn-sm btn-ghost">
-                            Enregistrer
-                          </button>
-                        </form>
-                      )}
-                    </td>
-                    <td>
-                      <UserRowActions userId={u.user_id} isActive={u.is_active} isSelf={isSelf} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <h2 style={{ margin: 0 }}>Comptes ({list.length})</h2>
+            <NouvelUtilisateur />
+          </div>
+          <p className="muted" style={{ marginTop: 0, marginBottom: 14 }}>
+            Le rôle est <strong>enregistré dès que vous le changez</strong>. Le mot de passe n&apos;est
+            jamais choisi par l&apos;administrateur : « Lien de mot de passe » produit une adresse à
+            transmettre, et la personne définit elle-même le sien.
+          </p>
+          <div style={{ overflowX: "auto" }}>
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: "18%" }}>Nom</th>
+                  <th style={{ width: "24%" }}>Email</th>
+                  <th style={{ width: "23%" }}>Rôle</th>
+                  <th>Compte</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((u) => {
+                  const isSelf = u.user_id === profile.authId;
+                  return (
+                    <tr key={u.user_id}>
+                      <td>{u.name || "-"}</td>
+                      <td>{u.email}</td>
+                      <td>
+                        {isSelf ? (
+                          <span>
+                            {roleLabel(u.role)} <span className="muted">(vous)</span>
+                          </span>
+                        ) : (
+                          <UserRoleSelect userId={u.user_id} role={u.role} />
+                        )}
+                      </td>
+                      <td>
+                        <UserRowActions userId={u.user_id} isActive={u.is_active} isSelf={isSelf} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {isAdmin && allPerms && (

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ToggleSwitch from "@/components/ToggleSwitch";
+import LienMotDePasse from "./LienMotDePasse";
 
-// Actions par ligne (admin) : activer/desactiver le compte et reinitialiser le
-// mot de passe (saisi par l'admin, applique directement).
+// Actions par ligne (admin) : activer/desactiver le compte et generer un lien de
+// mot de passe a transmettre. L'admin ne choisit plus le mot de passe des autres.
 export default function UserRowActions({
   userId,
   isActive,
@@ -17,8 +18,7 @@ export default function UserRowActions({
 }) {
   const router = useRouter();
   const [active, setActive] = useState(isActive);
-  const [showReset, setShowReset] = useState(false);
-  const [pwd, setPwd] = useState("");
+  const [lien, setLien] = useState<{ url: string; email?: string } | null>(null);
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<{ t: "ok" | "err"; m: string } | null>(null);
 
@@ -44,13 +44,16 @@ export default function UserRowActions({
     }
   }
 
-  async function submitReset() {
+  // Genere un lien a usage unique : en regenerer un invalide le precedent, on
+  // referme donc l'ancien avant d'afficher le nouveau.
+  async function genererLien() {
     setPending(true);
     setMsg(null);
+    setLien(null);
     const res = await fetch("/api/users/reset-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, password: pwd }),
+      body: JSON.stringify({ user_id: userId }),
     });
     setPending(false);
     const j = await res.json().catch(() => ({}));
@@ -58,9 +61,7 @@ export default function UserRowActions({
       flash("err", j.error ?? "Échec.", 4000);
       return;
     }
-    setPwd("");
-    setShowReset(false);
-    flash("ok", "Mot de passe réinitialisé.", 3500);
+    setLien({ url: j.lien, email: j.email });
   }
 
   return (
@@ -71,26 +72,23 @@ export default function UserRowActions({
         ) : (
           <ToggleSwitch on={active} onChange={toggleActive} title="Activer / désactiver le compte (bloque la connexion)" />
         )}
-        <button type="button" className="btn-sm btn-ghost" style={{ width: "auto" }} onClick={() => setShowReset((s) => !s)}>
-          🔑 Réinitialiser le mot de passe
+        <button
+          type="button"
+          className="btn-sm btn-ghost"
+          style={{ width: "auto" }}
+          disabled={pending}
+          onClick={genererLien}
+          title="Générer un lien que la personne suivra pour définir son mot de passe"
+        >
+          🔑 {pending ? "…" : lien ? "Regénérer le lien" : "Lien de mot de passe"}
         </button>
-      </div>
-      {showReset && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <input
-            type="text"
-            value={pwd}
-            onChange={(e) => setPwd(e.target.value)}
-            placeholder="Nouveau mot de passe"
-            autoComplete="new-password"
-            style={{ width: 220 }}
-          />
-          <button type="button" className="btn-sm" style={{ width: "auto" }} disabled={pending || !pwd} onClick={submitReset}>
-            {pending ? "…" : "Valider"}
+        {lien && (
+          <button type="button" className="btn-sm btn-ghost" style={{ width: "auto" }} onClick={() => setLien(null)}>
+            Masquer
           </button>
-          <span className="muted" style={{ fontSize: 11 }}>Min. 8 car., 3 classes (maj/min/chiffre/spécial).</span>
-        </div>
-      )}
+        )}
+      </div>
+      {lien && <LienMotDePasse lien={lien.url} email={lien.email} />}
       {msg && (
         <span style={{ fontSize: 12, fontWeight: 600, color: msg.t === "err" ? "var(--danger)" : "var(--ok)" }}>{msg.m}</span>
       )}

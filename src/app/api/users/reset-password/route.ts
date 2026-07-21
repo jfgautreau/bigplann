@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient, getAdminClient } from "@/lib/supabase-server";
-import { validatePasswordPolicy } from "@/lib/password";
+import { getServerClient } from "@/lib/supabase-server";
+import { genererLienMotDePasse } from "@/lib/password-link";
 
-// POST /api/users/reset-password { user_id, password }
-// Reinitialise le mot de passe d'un compte : l'admin saisit la nouvelle valeur,
-// appliquee directement (sans email). Reserve aux admins authentifies.
+// POST /api/users/reset-password { user_id }
+// Genere un LIEN de reinitialisation que l'admin transmet a l'utilisateur, lequel
+// choisit lui-meme son mot de passe. L'admin ne saisit plus (et ne connait donc
+// plus) le mot de passe de personne. Reserve aux admins authentifies.
 export async function POST(req: NextRequest) {
   const supabase = await getServerClient();
   const {
@@ -15,15 +16,24 @@ export async function POST(req: NextRequest) {
   const { data: caller } = await supabase.from("app_user").select("role").eq("user_id", user.id).single<{ role: string }>();
   if (caller?.role !== "admin") return NextResponse.json({ error: "Accès refusé (admin requis)" }, { status: 403 });
 
-  const body = (await req.json().catch(() => null)) as { user_id?: string; password?: string } | null;
+  const body = (await req.json().catch(() => null)) as { user_id?: string } | null;
   const user_id = String(body?.user_id ?? "");
-  const password = String(body?.password ?? "");
   if (!user_id) return NextResponse.json({ error: "user_id manquant" }, { status: 400 });
-  const policyError = validatePasswordPolicy(password);
-  if (policyError) return NextResponse.json({ error: policyError }, { status: 400 });
 
-  const admin = getAdminClient();
-  const { error } = await admin.auth.admin.updateUserById(user_id, { password });
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true });
+  // L'email vient de la base, jamais du client : un appel forge ne doit pas
+  // pouvoir fabriquer un lien de recuperation vers une adresse arbitraire.
+  const { data: cible } = await supabase
+    .from("app_user")
+    .select("email")
+    .eq("user_id", user_id)
+    .single<{ email: string }>();
+  if (!cible?.email) return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
+
+  try {
+    const origin = req.headers.get("origin") ?? req.nextUrl.origin;
+    const lien = await genererLienMotDePasse(cible.email, origin);
+    return NextResponse.json({ ok: true, lien, email: cible.email });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Échec." }, { status: 400 });
+  }
 }
