@@ -7,6 +7,9 @@ import { useState } from "react";
 // envoye, cf. src/lib/password-link.ts.
 export default function LienMotDePasse({ lien, email }: { lien: string; email?: string }) {
   const [copie, setCopie] = useState(false);
+  // Un lien vers localhost ne marche que sur la machine qui l'a genere : le dire
+  // tout de suite plutot que de laisser le destinataire buter dessus.
+  const local = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/)/i.test(lien);
 
   async function copier() {
     try {
@@ -54,6 +57,12 @@ export default function LienMotDePasse({ lien, email }: { lien: string; email?: 
         Valable une seule fois et pour une durée limitée. En générer un nouveau annule
         celui-ci. Ce lien vaut accès au compte : transmettez-le à la bonne personne.
       </p>
+      {local && (
+        <p style={{ margin: "6px 0 0", fontSize: 11.5, fontWeight: 700, color: "#b45309" }}>
+          ⚠ Ce lien pointe sur <code>localhost</code> : il ne fonctionnera que sur cette
+          machine. Générez-le depuis l&apos;application en ligne pour l&apos;envoyer à quelqu&apos;un.
+        </p>
+      )}
     </div>
   );
 }

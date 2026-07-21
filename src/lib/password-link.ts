@@ -29,7 +29,24 @@ export async function genererLienMotDePasse(email: string, origin: string): Prom
   if (error) throw new Error(error.message);
   const jeton = data?.properties?.hashed_token;
   if (!jeton) throw new Error("Jeton non généré par Supabase.");
-  return `${origin}/reset?token_hash=${encodeURIComponent(jeton)}&type=recovery`;
+  return `${baseApplication(origin)}/reset?token_hash=${encodeURIComponent(jeton)}&type=recovery`;
+}
+
+// Adresse publique de l'application, sur laquelle pointe le lien transmis.
+//
+// L'origine de la requete ne convient pas seule : un admin qui travaille sur
+// http://localhost:3000 fabriquerait des liens qui ne marchent que sur sa propre
+// machine. On prefere donc, dans l'ordre :
+//   1. NEXT_PUBLIC_SITE_URL — a poser si le domaine est personnalise ;
+//   2. VERCEL_PROJECT_PRODUCTION_URL — le domaine de production, meme depuis un
+//      deploiement de preview (variable systeme fournie par Vercel) ;
+//   3. l'origine de la requete — cas du developpement local.
+function baseApplication(origin: string): string {
+  const explicite = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (explicite) return explicite.replace(/\/+$/, "");
+  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (vercel) return `https://${vercel.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+  return origin.replace(/\/+$/, "");
 }
 
 // Mot de passe de remplissage pour un compte cree par un admin : l'utilisateur
