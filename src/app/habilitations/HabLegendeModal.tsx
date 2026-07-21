@@ -1,6 +1,7 @@
 "use client";
 
 import HabMark from "./HabMark";
+import AutorisationMark from "./AutorisationMark";
 
 const LIGNES: { statut: "vert" | "orange" | "rouge" | "aucun"; titre: string; texte: string }[] = [
   { statut: "vert", titre: "Valable", texte: "plus de 90 jours avant échéance, ou formation sans date de validité." },
@@ -34,12 +35,18 @@ export default function HabLegendeModal({ onClose }: { onClose: () => void }) {
             </li>
           ))}
         </ul>
-        <p className="muted" style={{ marginTop: 10 }}>
-          🚜 dans l&apos;en-tête d&apos;une colonne = formation soumise à autorisation de conduite (date propre à chaque personne,
-          visible dans l&apos;infobulle de la case).
+        <p className="muted" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 7 }}>
+          <span style={{ display: "inline-flex", flexShrink: 0, color: "var(--text)" }}>
+            <AutorisationMark size={16} />
+          </span>
+          <span>
+            en bas d&apos;une colonne = formation soumise à <strong>autorisation de conduite</strong>{" "}
+            (date propre à chaque personne, visible dans l&apos;infobulle de la case).
+          </span>
         </p>
         <p className="muted" style={{ marginTop: 6, fontWeight: 600 }}>
-          Saisie : bouton « MàJ » en haut de la page. L&apos;échéance est calculée depuis la date de passage et la durée de validité.
+          Saisie : cliquez une pastille de la grille. L&apos;échéance est calculée depuis la date de
+          passage et la durée de validité.
         </p>
       </div>
     </div>

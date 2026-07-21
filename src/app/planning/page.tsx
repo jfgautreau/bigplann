@@ -161,8 +161,14 @@ export default async function PlanningPage({
 
   // Etiquettes de tous les postes (pour afficher proprement un placement hors atelier filtre).
   const posteLabelAll: Record<string, string> = {};
+  // Nom complet, non tronque : sert aux infobulles (ex. « placee sur un autre quart »),
+  // ou l'etiquette de 6 caracteres ne suffit pas a identifier le poste.
+  const posteNomAll: Record<string, string> = {};
   for (const g of groupsAll)
-    for (const p of g.postes) posteLabelAll[p.id] = (p.nom_court || p.nom).slice(0, 6);
+    for (const p of g.postes) {
+      posteLabelAll[p.id] = (p.nom_court || p.nom).slice(0, 6);
+      posteNomAll[p.id] = p.nom;
+    }
 
   // Filtre poste x quart : un poste desactive pour le quart affiche n'apparait pas
   // (et n'est pas compte). Defaut actif : pqOff ne contient que les desactivations.
@@ -262,6 +268,7 @@ export default async function PlanningPage({
 
   const initial: Record<string, string> = {};
   const otherByCell: Record<string, string> = {}; // place sur un autre quart -> code du quart
+  const otherPosteByCell: Record<string, string> = {}; // ... et nom complet du poste occupe
   const matrice: Record<string, number> = {};
   const exceptions: Record<string, { debut: string; fin: string; motif: string }> = {};
   // Horaire standard par poste (quart affiche) et jour de semaine (0=lundi..6=dimanche),
@@ -304,7 +311,11 @@ export default async function PlanningPage({
       if (r.non_travaille) initial[k] = "X";
       else if (r.motif_absence_id) initial[k] = `m:${r.motif_absence_id}`;
       else if (r.poste_id && matchQuart(r.quart_code)) initial[k] = r.poste_id;
-      else if (r.poste_id && displayedSet.has(r.personne_id)) otherByCell[k] = r.quart_code ?? (quartCodes[0] ?? "matin");
+      else if (r.poste_id && displayedSet.has(r.personne_id)) {
+        otherByCell[k] = r.quart_code ?? (quartCodes[0] ?? "matin");
+        // Poste desactive depuis : absent de posteNomAll -> l'infobulle se limite au quart.
+        if (posteNomAll[r.poste_id]) otherPosteByCell[k] = posteNomAll[r.poste_id];
+      }
     }
     for (const r of mat) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
     for (const r of exc ?? [])
@@ -433,6 +444,7 @@ export default async function PlanningPage({
           matrice={matrice}
           quart={quart}
           otherByCell={otherByCell}
+          otherPosteByCell={otherPosteByCell}
           tpBlocked={tpBlocked}
           tpRedirect={tpRedirect}
           quartLabel={quartLabel}

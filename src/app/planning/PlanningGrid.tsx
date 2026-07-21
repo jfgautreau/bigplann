@@ -33,6 +33,7 @@ export default function PlanningGrid({
   matrice = {},
   quart = "",
   otherByCell = {},
+  otherPosteByCell = {},
   tpBlocked = {},
   tpRedirect = {},
   quartLabel = {},
@@ -55,6 +56,7 @@ export default function PlanningGrid({
   matrice?: Record<string, number>;
   quart?: string;
   otherByCell?: Record<string, string>;
+  otherPosteByCell?: Record<string, string>; // nom complet du poste occupe sur cet autre quart
   tpBlocked?: Record<string, boolean>;
   tpRedirect?: Record<string, string>;
   quartLabel?: Record<string, string>;
@@ -679,7 +681,15 @@ export default function PlanningGrid({
                     ) : tpb ? (
                       <div className="cell-other" style={{ color: "#3730a3" }} title="Temps partiel — créneau non travaillé">TP</div>
                     ) : other ? (
-                      <div className="cell-other" title={`Déjà placé sur le quart ${quartLabel[other] ?? other} ce jour-là`}>
+                      <div
+                        className="cell-other"
+                        title={
+                          `Déjà placé sur le quart ${quartLabel[other] ?? other} ce jour-là` +
+                          (otherPosteByCell[key(pers.id, d.iso)]
+                            ? `\nPoste : ${otherPosteByCell[key(pers.id, d.iso)]}`
+                            : "")
+                        }
+                      >
                         &rarr; {quartLabel[other] ?? other}
                       </div>
                     ) : (

@@ -7,6 +7,7 @@ import g from "@/components/persongrid.module.css";
 import HabMark from "./HabMark";
 import HabLegendeModal from "./HabLegendeModal";
 import HabMajModal from "./HabMajModal";
+import AutorisationMark from "./AutorisationMark";
 
 type Row = {
   id: string;
@@ -314,9 +315,17 @@ export default function HabilitationsList({
                   </tr>
                   <tr>
                     {shownOrdered.map((c) => (
-                      <th key={c.id} title={c.nom} className={debutGroupe.has(c.id) ? `${g.colHead} ${g.groupStart}` : g.colHead}>
+                      <th
+                        key={c.id}
+                        title={c.a_autorisation_conduite ? `${c.nom}\nSoumise à autorisation de conduite` : c.nom}
+                        className={debutGroupe.has(c.id) ? `${g.colHead} ${g.groupStart}` : g.colHead}
+                      >
                         <div className={g.colLabel}>
-                          {c.a_autorisation_conduite ? "🚜 " : ""}
+                          {c.a_autorisation_conduite && (
+                            <span className={g.colMark}>
+                              <AutorisationMark />
+                            </span>
+                          )}
                           {c.nom}
                         </div>
                       </th>

@@ -195,6 +195,15 @@
   line-height: 1.15;
   color: var(--accent);
 }
+/* Icone posee dans un libelle vertical : on annule l'ecriture verticale ET la
+   rotation du parent pour qu'elle reste droite. Placee en tete du libelle, elle
+   apparait en bas de la colonne (le texte se lit de bas en haut). */
+.colMark {
+  display: inline-block;
+  writing-mode: horizontal-tb;
+  transform: rotate(180deg);
+  margin-bottom: 5px;
+}
 /* Colonne survolee : le fond est porte par le <col> (peint sous les cellules
    transparentes) ; l'en-tete, lui, a son propre fond a assombrir. */
 .colHead.colHover {
