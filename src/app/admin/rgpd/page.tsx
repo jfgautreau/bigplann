@@ -3,7 +3,7 @@ import AppHeader from "@/components/AppHeader";
 import { requireModule } from "@/lib/permissions";
 
 export default async function RgpdPage() {
-  const { profile } = await requireModule("rgpd", "write");
+  const { profile } = await requireModule("rgpd", "read");
 
   return (
     <>

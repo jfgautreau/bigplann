@@ -27,7 +27,13 @@ type PeriodeRow = {
 // Recalcule le reflet denormalise de personne a partir de la periode la plus
 // recente (date_debut desc, nulls en dernier, puis created_at desc).
 // Best-effort : si la table contrat_periode n'existe pas encore, on ignore.
-async function syncPersonneFromPeriodes(supabase: SupabaseClient, personne_id: string) {
+// Renvoie le reflet applique a `personne`, pour que l'ecran puisse mettre sa
+// liste a jour sans rechargement (les colonnes Contrat / Fin de contrat et
+// l'alerte des 18 mois en dependent). `null` si rien n'a pu etre calcule.
+async function syncPersonneFromPeriodes(
+  supabase: SupabaseClient,
+  personne_id: string
+): Promise<{ type_contrat: string; agence_interim: string | null; date_debut: string | null; date_fin: string | null; contrat_debut: string | null } | null> {
   try {
     const { data } = await supabase
       .from("contrat_periode")
@@ -35,7 +41,7 @@ async function syncPersonneFromPeriodes(supabase: SupabaseClient, personne_id: s
       .eq("personne_id", personne_id)
       .returns<PeriodeRow[]>();
     const periods = data ?? [];
-    if (periods.length === 0) return;
+    if (periods.length === 0) return null;
     periods.sort((a, b) => {
       const da = a.date_debut ?? "";
       const db = b.date_debut ?? "";
@@ -43,17 +49,20 @@ async function syncPersonneFromPeriodes(supabase: SupabaseClient, personne_id: s
       return (b.created_at ?? "").localeCompare(a.created_at ?? "");
     });
     const latest = periods[0];
-    await supabase
-      .from("personne")
-      .update({
-        type_contrat: latest.type_contrat,
-        agence_interim: latest.agence_interim,
-        date_debut: latest.date_debut,
-        date_fin: latest.date_fin,
-      })
-      .eq("id", personne_id);
+    const reflet = {
+      type_contrat: latest.type_contrat,
+      agence_interim: latest.agence_interim,
+      date_debut: latest.date_debut,
+      date_fin: latest.date_fin,
+    };
+    await supabase.from("personne").update(reflet).eq("id", personne_id);
+    // Debut du contrat le PLUS ANCIEN : sert l'alerte « > 18 mois » de la liste,
+    // il ne suit pas la periode la plus recente (cf. src/app/personnel/page.tsx).
+    const debuts = periods.map((p) => p.date_debut).filter((d): d is string => !!d).sort();
+    return { ...reflet, contrat_debut: debuts[0] ?? null };
   } catch {
     // table absente (migration 0017 non encore appliquee) -> on ignore
+    return null;
   }
 }
 
@@ -210,8 +219,8 @@ export async function POST(req: NextRequest) {
         .select(PERIODE_COLS)
         .single();
       if (error) throw error;
-      await syncPersonneFromPeriodes(supabase, personne_id);
-      return NextResponse.json({ ok: true, row: data });
+      const reflet1 = await syncPersonneFromPeriodes(supabase, personne_id);
+      return NextResponse.json({ ok: true, row: data, personne: reflet1 });
     }
 
     if (op === "periode-update") {
@@ -243,8 +252,8 @@ export async function POST(req: NextRequest) {
       if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Rien à modifier" }, { status: 400 });
       const { error } = await supabase.from("contrat_periode").update(patch).eq("id", id);
       if (error) throw error;
-      await syncPersonneFromPeriodes(supabase, personne_id);
-      return NextResponse.json({ ok: true });
+      const reflet = await syncPersonneFromPeriodes(supabase, personne_id);
+      return NextResponse.json({ ok: true, personne: reflet });
     }
 
     if (op === "periode-delete") {
@@ -253,8 +262,8 @@ export async function POST(req: NextRequest) {
       if (!id || !personne_id) return NextResponse.json({ error: "id manquant" }, { status: 400 });
       const { error } = await supabase.from("contrat_periode").delete().eq("id", id);
       if (error) throw error;
-      await syncPersonneFromPeriodes(supabase, personne_id);
-      return NextResponse.json({ ok: true });
+      const reflet = await syncPersonneFromPeriodes(supabase, personne_id);
+      return NextResponse.json({ ok: true, personne: reflet });
     }
 
     if (op === "tp") {

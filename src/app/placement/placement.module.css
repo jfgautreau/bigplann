@@ -300,12 +300,43 @@
   flex-direction: column;
   gap: 6px;
 }
+/* Champ de recherche + sa croix d'effacement (meme principe que la grille
+   partagee, cf. persongrid.module.css). */
+.searchWrap {
+  position: relative;
+  display: block;
+}
 .search {
   width: 100%;
   padding: 6px 10px;
+  padding-right: 28px; /* place pour la croix */
   border-radius: 999px;
   border: 1px solid var(--border);
   font-size: 13px;
+}
+.searchClear {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.searchClear:hover {
+  background: #e2e8f0;
+  color: var(--text);
 }
 .namesFilters {
   display: flex;

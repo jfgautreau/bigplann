@@ -434,7 +434,24 @@ export default function PersonnelEditor({
         />
       )}
       {contratsFor && (
-        <ContratsModal personne={{ id: contratsFor.id, label: `${contratsFor.nom} ${contratsFor.prenom}` }} onClose={() => setContratsFor(null)} />
+        <ContratsModal
+          personne={{ id: contratsFor.id, label: `${contratsFor.nom} ${contratsFor.prenom}` }}
+          onClose={() => setContratsFor(null)}
+          onSync={(reflet) =>
+            setRows((rs) =>
+              rs.map((r) =>
+                r.id === contratsFor.id
+                  ? {
+                      ...r,
+                      type_contrat: reflet.type_contrat,
+                      date_fin: reflet.date_fin,
+                      contrat_debut: reflet.contrat_debut,
+                    }
+                  : r
+              )
+            )
+          }
+        />
       )}
 
       {/* Modale Informations : commentaire (enregistrement auto, reflété sur la ligne). */}

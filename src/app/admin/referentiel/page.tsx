@@ -1,7 +1,8 @@
 import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
 import { getServerClient } from "@/lib/supabase-server";
-import { requireModule } from "@/lib/permissions";
+import { requireModule , canWrite } from "@/lib/permissions";
+import LectureSeule from "@/components/LectureSeule";
 import { fetchAll } from "@/lib/fetch-all";
 import ReferentielEditor from "./ReferentielEditor";
 
@@ -24,7 +25,7 @@ type Quart = { code: string; libelle: string };
 type Comp = { id: string; nom: string; a_recycler: boolean };
 
 export default async function ReferentielPage() {
-  const { profile } = await requireModule("referentiel", "write");
+  const { profile, perms } = await requireModule("referentiel", "read");
 
   const supabase = await getServerClient();
   const [{ data }, { data: quartsD }, { data: pqD }, { data: compsD }, pcrD] = await Promise.all([
@@ -80,7 +81,9 @@ export default async function ReferentielPage() {
           les a pas (ou plus).
         </p>
 
-        <ReferentielEditor initial={ateliers} quarts={quartsD ?? []} pqOff={pqOff} comps={compsD ?? []} pcr={pcr} />
+        <LectureSeule actif={!canWrite(perms, "referentiel")}>
+          <ReferentielEditor initial={ateliers} quarts={quartsD ?? []} pqOff={pqOff} comps={compsD ?? []} pcr={pcr} />
+        </LectureSeule>
       </div>
     </>
   );

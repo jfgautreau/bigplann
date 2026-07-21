@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
-import { requireModule } from "@/lib/permissions";
+import { requireModule, canWrite } from "@/lib/permissions";
+import LectureSeule from "@/components/LectureSeule";
 import { createMotif, updateMotif, toggleMotif } from "./actions";
 
 type Motif = {
@@ -19,7 +20,7 @@ export default async function MotifsPage({
 }: {
   searchParams: Promise<{ edit?: string }>;
 }) {
-  const { profile } = await requireModule("motifs", "write");
+  const { profile, perms } = await requireModule("motifs", "read");
 
   const sp = await searchParams;
   const supabase = await getServerClient();
@@ -35,6 +36,7 @@ export default async function MotifsPage({
       <AppHeader role={profile.role} active="/admin/motifs" />
       <div className="container">
         <h1>Motifs d&apos;absence</h1>
+        <LectureSeule actif={!canWrite(perms, "motifs")}>
         <p className="muted" style={{ marginBottom: 16 }}>
           Ces motifs apparaissent dans les listes du planning. Le comptage en
           rapports sera ajouté ultérieurement.
@@ -126,6 +128,7 @@ export default async function MotifsPage({
             <button type="submit" className="btn-sm">Ajouter</button>
           </form>
         </div>
+        </LectureSeule>
       </div>
     </>
   );

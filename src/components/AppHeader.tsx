@@ -39,11 +39,12 @@ export default async function AppHeader({
     alertCount = 0;
   }
 
+  // Une entree s'affiche des que la page est ACCESSIBLE, donc des la lecture — les
+  // ecrans de parametrage s'ouvrent desormais en consultation seule (cf. LectureSeule).
+  // Seul Placement fait exception : c'est un ecran de saisie, sa page exige "write"
+  // (cf. requireModule), afficher l'entree en lecture menerait a une redirection.
   const visible = (m: (typeof MODULES)[number]) =>
-    // Placement est un ecran de SAISIE : sa page exige "write" (cf. requireModule).
-    // Sans ecriture il n'y a rien a y faire -> on n'affiche pas l'entree, sinon le
-    // menu menerait a une redirection.
-    m.key === "placement" ? canWrite(perms, m.key) : m.admin ? canWrite(perms, m.key) : canRead(perms, m.key);
+    m.key === "placement" ? canWrite(perms, m.key) : canRead(perms, m.key);
 
   // Navigation principale (ordre impose)
   const mainLinks = MAIN_ORDER.map((k) => MODULES.find((m) => m.key === k))
@@ -55,7 +56,7 @@ export default async function AppHeader({
   // La page Equipes heberge desormais la rotation des quarts : son entree est aussi
   // visible pour un droit "ordonnancement" (les droits d'acces sont dans Utilisateurs).
   const visibleConfig = (m: (typeof MODULES)[number]) =>
-    m.key === "equipes" ? canWrite(perms, "equipes") || canWrite(perms, "ordonnancement") : visible(m);
+    m.key === "equipes" ? canRead(perms, "equipes") || canRead(perms, "ordonnancement") : visible(m);
   const configLinks = MODULES.filter(
     (m) => !MAIN_ORDER.includes(m.key) && visibleConfig(m)
   ).map((m) => ({ href: m.href, label: m.label }));

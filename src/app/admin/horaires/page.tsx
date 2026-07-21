@@ -1,6 +1,7 @@
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
-import { requireModule } from "@/lib/permissions";
+import { requireModule, canWrite } from "@/lib/permissions";
+import LectureSeule from "@/components/LectureSeule";
 import HoraireEditor from "./HoraireEditor";
 
 type PosteRow = { id: string; nom: string; actif: boolean; ordre_affichage: number };
@@ -9,7 +10,7 @@ type Quart = { code: string; libelle: string };
 type HoraireRow = { poste_id: string; quart_code: string; jour: number; debut: string | null; fin: string | null };
 
 export default async function HorairesPage() {
-  const { profile } = await requireModule("horaires", "write");
+  const { profile, perms } = await requireModule("horaires", "read");
 
   const supabase = await getServerClient();
   const [{ data: lignesD }, { data: quartsD }, { data: pqOffD }] = await Promise.all([
@@ -82,7 +83,9 @@ export default async function HorairesPage() {
           <strong> Chaque modification est enregistrée automatiquement.</strong>
         </p>
 
-        <HoraireEditor ateliers={ateliers} lignes={lignes} quarts={quarts} initial={initial} />
+        <LectureSeule actif={!canWrite(perms, "horaires")}>
+          <HoraireEditor ateliers={ateliers} lignes={lignes} quarts={quarts} initial={initial} />
+        </LectureSeule>
       </div>
     </>
   );

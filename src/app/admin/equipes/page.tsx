@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
-import { getPermissions, canWrite } from "@/lib/permissions";
+import { getPermissions, canWrite, canRead } from "@/lib/permissions";
+import LectureSeule from "@/components/LectureSeule";
 import { mondayOf, isoDate, addDays, isoWeekNumber } from "@/lib/week";
 import { rotationForWeek, type RotationRef } from "@/lib/rotation";
 import {
@@ -28,9 +29,14 @@ export default async function EquipesPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   const perms = await getPermissions(profile.role);
+  // L'ecran porte DEUX sujets : les equipes et la rotation des quarts. On entre
+  // des qu'on peut lire l'un des deux ; chaque section est ensuite en consultation
+  // seule si l'ecriture correspondante manque.
+  const voitEquipes = canRead(perms, "equipes");
+  const voitRota = canRead(perms, "ordonnancement");
+  if (!voitEquipes && !voitRota) redirect("/planning");
   const canEquipes = canWrite(perms, "equipes");
   const canRota = canWrite(perms, "ordonnancement");
-  if (!canEquipes && !canRota) redirect("/planning");
 
   const supabase = await getServerClient();
   const [{ data: equipesData }, { data: usersData }, { data: quartsData }, { data: refsD }] = await Promise.all([
@@ -85,7 +91,8 @@ export default async function EquipesPage() {
       <div className="container">
         <h1>Équipes</h1>
 
-        {canEquipes && (
+        {voitEquipes && (
+        <LectureSeule actif={!canEquipes}>
           <>
             <div className="card" style={{ marginBottom: 24 }}>
               <form action={createEquipe} autoComplete="off" className="inline-form">
@@ -178,9 +185,11 @@ export default async function EquipesPage() {
               </div>
             ))}
           </>
+        </LectureSeule>
         )}
 
-        {canRota && (
+        {voitRota && (
+        <LectureSeule actif={!canRota}>
           <>
             <h1 style={{ marginTop: 32 }}>Rotation des équipes &amp; horaires des quarts</h1>
 
@@ -319,6 +328,7 @@ export default async function EquipesPage() {
               )}
             </div>
           </>
+        </LectureSeule>
         )}
       </div>
     </>

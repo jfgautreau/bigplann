@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
-import { requireModule } from "@/lib/permissions";
+import { requireModule , canWrite } from "@/lib/permissions";
+import LectureSeule from "@/components/LectureSeule";
 import HabilitationsParamEditor from "./HabilitationsParamEditor";
 
 type Row = {
@@ -16,7 +17,7 @@ type Row = {
 };
 
 export default async function HabilitationsParamPage() {
-  const { profile } = await requireModule("habilitations_param", "write");
+  const { profile, perms } = await requireModule("habilitations_param", "read");
 
   const supabase = await getServerClient();
   const { data } = await supabase
@@ -39,7 +40,9 @@ export default async function HabilitationsParamPage() {
           par <strong>catégorie</strong> puis <strong>groupe</strong>. Le suivi par personne se
           fait dans le module <strong>Habilitations</strong>.
         </p>
-        <HabilitationsParamEditor initial={data ?? []} />
+        <LectureSeule actif={!canWrite(perms, "habilitations_param")}>
+          <HabilitationsParamEditor initial={data ?? []} />
+        </LectureSeule>
       </div>
     </>
   );

@@ -1,12 +1,13 @@
 import AppHeader from "@/components/AppHeader";
-import { requireModule } from "@/lib/permissions";
+import { requireModule, canWrite } from "@/lib/permissions";
+import LectureSeule from "@/components/LectureSeule";
 import { getServerClient } from "@/lib/supabase-server";
 import { saveEchelle } from "./actions";
 
 type Niveau = { niveau: number; libelle: string };
 
 export default async function CompetencesPage() {
-  const { profile } = await requireModule("competences", "write");
+  const { profile, perms } = await requireModule("competences", "read");
 
   const supabase = await getServerClient();
   const { data: niveauxData } = await supabase
@@ -23,6 +24,7 @@ export default async function CompetencesPage() {
       <AppHeader role={profile.role} active="/admin/competences" />
       <div className="container">
         <h1>Compétences</h1>
+        <LectureSeule actif={!canWrite(perms, "competences")}>
 
         {/* Echelle de niveaux */}
         <div className="card section">
@@ -38,6 +40,7 @@ export default async function CompetencesPage() {
             <button type="submit">Enregistrer l&apos;échelle</button>
           </form>
         </div>
+        </LectureSeule>
       </div>
     </>
   );

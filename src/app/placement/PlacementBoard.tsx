@@ -588,7 +588,14 @@ export default function PlacementBoard({
         {/* Colonne des noms (drop = retirer du poste) */}
         <div className={s.names} {...overProps("names", "")}>
           <div className={s.namesHead}>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Rechercher un nom" className={s.search} />
+            <span className={s.searchWrap}>
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Rechercher un nom" className={s.search} />
+              {search && (
+                <button type="button" className={s.searchClear} title="Effacer la recherche" onClick={() => setSearch("")}>
+                  ✕
+                </button>
+              )}
+            </span>
             {/* Pendant une recherche les filtres sont ignores : on grise pour le dire. */}
             <div className={s.namesFilters} style={searching ? { opacity: 0.45 } : undefined} title={searching ? "Ignorés pendant une recherche" : undefined}>
               <select value={fEquipe} onChange={(e) => setFEquipe(e.target.value)}>

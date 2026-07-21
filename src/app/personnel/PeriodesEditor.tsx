@@ -15,7 +15,26 @@ type Periode = {
 
 const CONTRATS = ["CDI", "CDD", "INTERIM"];
 
-export default function PeriodesEditor({ personneId, bare = false }: { personneId: string; bare?: boolean }) {
+// Reflet recalcule par l'API sur `personne` apres chaque changement de periode.
+// Il alimente les colonnes Contrat / Fin de contrat et l'alerte des 18 mois de la
+// liste : sans lui, l'ecran principal resterait sur les anciennes valeurs.
+export type RefletContrat = {
+  type_contrat: string;
+  agence_interim: string | null;
+  date_debut: string | null;
+  date_fin: string | null;
+  contrat_debut: string | null;
+};
+
+export default function PeriodesEditor({
+  personneId,
+  bare = false,
+  onSync,
+}: {
+  personneId: string;
+  bare?: boolean;
+  onSync?: (reflet: RefletContrat) => void;
+}) {
   const [rows, setRows] = useState<Periode[]>([]);
   const [loading, setLoading] = useState(true);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -32,7 +51,16 @@ export default function PeriodesEditor({ personneId, bare = false }: { personneI
       });
       if (!res.ok) throw new Error();
       setSave("saved");
-      return (await res.json().catch(() => ({}))) as { ok?: boolean; row?: Periode; rows?: Periode[] };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        row?: Periode;
+        rows?: Periode[];
+        personne?: RefletContrat | null;
+      };
+      // Remonte le reflet des que l'API l'a recalcule : la liste derriere la
+      // modale se met a jour sans qu'on ait a la recharger.
+      if (j.personne) onSync?.(j.personne);
+      return j;
     } catch {
       setSave("error");
       return null;

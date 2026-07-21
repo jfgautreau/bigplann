@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient } from "@/lib/supabase-server";
+import { getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
+import { canWriteModule } from "@/lib/permissions";
 
 // POST /api/referentiel  { op, ... }
 // Saisie inline du referentiel (ateliers / lignes / postes). Ecriture admin (RLS).
@@ -46,13 +47,20 @@ function posteValue(key: string, value: unknown) {
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  if (profile.role !== "admin") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  // Droit de module, et non « admin » en dur : la matrice accorde ce module a
+  // d'autres roles, l'API doit honorer ce qu'elle promet.
+  if (profile.role !== "admin" && !(await canWriteModule(profile.role, "referentiel"))) {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as Body | null;
   const op = s(body?.op);
   if (!body || !op) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
 
-  const supabase = await getServerClient();
+  // Client admin : les tables de parametrage sont protegees par une RLS
+  // `is_admin()`. Le droit de module a deja ete verifie ci-dessus, et
+  // canWriteModule exclut le chef d'equipe par construction.
+  const supabase = getAdminClient();
 
   try {
     switch (op) {

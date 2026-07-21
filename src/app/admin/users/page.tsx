@@ -1,7 +1,8 @@
 import { getServerClient } from "@/lib/supabase-server";
 import { roleLabel, ROLES, ROLE_LABELS } from "@/lib/roles";
 import AppHeader from "@/components/AppHeader";
-import { requireModule, MODULES, getAllPermissions } from "@/lib/permissions";
+import { requireModule, canWrite, MODULES, getAllPermissions } from "@/lib/permissions";
+import LectureSeule from "@/components/LectureSeule";
 import NouvelUtilisateur from "./NouvelUtilisateur";
 import UserRoleSelect from "./UserRoleSelect";
 import UserRowActions from "./UserRowActions";
@@ -16,7 +17,7 @@ type Row = {
 };
 
 export default async function AdminUsersPage() {
-  const { profile } = await requireModule("utilisateurs", "write");
+  const { profile, perms } = await requireModule("utilisateurs", "read");
 
   const supabase = await getServerClient();
   const { data: users } = await supabase
@@ -37,6 +38,7 @@ export default async function AdminUsersPage() {
       <div className="container" style={{ maxWidth: 1500 }}>
         <h1>Utilisateurs</h1>
 
+        <LectureSeule actif={!canWrite(perms, "utilisateurs")}>
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
             <h2 style={{ margin: 0 }}>Comptes ({list.length})</h2>
@@ -104,6 +106,7 @@ export default async function AdminUsersPage() {
             </div>
           </div>
         )}
+        </LectureSeule>
       </div>
     </>
   );

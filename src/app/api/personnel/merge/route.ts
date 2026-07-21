@@ -1,13 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getServerClient } from "@/lib/supabase-server";
+import { getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
+import { canWriteModule } from "@/lib/permissions";
 
 // POST /api/personnel/merge { keep_id, dup_id }
 // Fusionne deux personnes : repointe tous les rattachements du doublon vers la
 // personne gardee, complete les champs vides de celle-ci, puis supprime le
 // doublon. Sur conflit d'unicite (meme jour / poste / formation), la personne
-// gardee l'emporte (la ligne du doublon est jetee). Admin uniquement.
+// gardee l'emporte (la ligne du doublon est jetee). Reserve a l'ecriture
+// complete du module Personnel (admin, ou droit "personnel: write").
 const CHUNK = 150;
 const chunks = <T>(a: T[]): T[][] => {
   const out: T[][] = [];
@@ -43,14 +45,23 @@ const empty = (v: unknown) => v === null || v === undefined || v === "";
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  if (profile.role !== "admin") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  // Meme regle que le reste de l'ecran Personnel : admin OU droit "personnel: write".
+  // La fusion est destructrice (le doublon est supprime), elle reste donc reservee
+  // a ceux qui peuvent modifier les fiches — pas a ceux qui les consultent.
+  if (profile.role !== "admin" && !(await canWriteModule(profile.role, "personnel"))) {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as { keep_id?: string; dup_id?: string } | null;
   const keep = String(body?.keep_id ?? "");
   const dup = String(body?.dup_id ?? "");
   if (!keep || !dup || keep === dup) return NextResponse.json({ error: "Deux personnes distinctes requises." }, { status: 400 });
 
-  const sb = await getServerClient();
+  // Client admin : la fusion repointe les rattachements de DEUX personnes et
+  // supprime le doublon, ce que la RLS (can_edit_personne = admin ou chef de
+  // l'equipe) refuserait a un rh/codir. Le garde ci-dessus l'a deja restreint a
+  // l'ecriture complete — canWriteModule exclut le chef d'equipe par construction.
+  const sb = getAdminClient();
   const cols = "id, nom, prenom, " + IDENT.join(", ") + ", temps_partiel, tp_type, tp_config, type_contrat";
   const { data: pair } = await sb.from("personne").select(cols).in("id", [keep, dup]).returns<Record<string, unknown>[]>();
   const K = (pair ?? []).find((p) => p.id === keep);
