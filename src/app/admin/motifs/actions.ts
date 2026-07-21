@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/current-user";
+import { requireModuleWrite } from "@/lib/permissions";
 
 const PATH = "/admin/motifs";
 const s = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -12,7 +12,7 @@ function done(): never {
 }
 
 export async function createMotif(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("motifs");
   const libelle = s(fd, "libelle");
   const code_court = s(fd, "code_court");
   if (!libelle || !code_court) done();
@@ -25,7 +25,7 @@ export async function createMotif(fd: FormData) {
 }
 
 export async function updateMotif(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("motifs");
   await supabase
     .from("motif_absence")
     .update({
@@ -38,7 +38,7 @@ export async function updateMotif(fd: FormData) {
 }
 
 export async function toggleMotif(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("motifs");
   await supabase
     .from("motif_absence")
     .update({ actif: fd.get("actif") === "true" })

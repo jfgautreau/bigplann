@@ -3,7 +3,7 @@ import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import { fetchAll } from "@/lib/fetch-all";
 import PageTitle from "@/components/PageTitle";
-import { requireModule, canWrite } from "@/lib/permissions";
+import { requireModule, canWrite, canRead } from "@/lib/permissions";
 import HabilitationsList from "./HabilitationsList";
 
 type Comp = { id: string; nom: string; duree_validite_mois: number | null; categorie: string | null; groupe: string | null; ordre: number; a_autorisation_conduite: boolean };
@@ -56,7 +56,7 @@ export default async function HabilitationsPage() {
         <div className="headband headband-top">
         <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <PageTitle module="habilitations">Habilitations</PageTitle>
-          {profile.role === "admin" && (
+          {canRead(perms, "habilitations_param") && (
             <Link href="/admin/habilitations-param" className="navlink" title="Définir les formations et leurs durées de validité">
               📜 Paramétrer les formations &rarr;
             </Link>

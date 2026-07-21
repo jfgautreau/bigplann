@@ -121,6 +121,24 @@ export async function getAllPermissions(): Promise<Record<string, Perms>> {
   return all;
 }
 
+// Garde d'ecriture d'un module, pour les server actions et les routes API.
+// C'est LA matrice qui decide : l'admin l'emporte parce qu'elle lui accorde tout,
+// pas parce que son nom serait ecrit en dur ici.
+//
+// Renvoie le client admin : les tables de parametrage sont protegees par une RLS
+// `is_admin()`, un titulaire du droit qui ne serait pas admin ne pourrait rien
+// ecrire sans cela. canWriteModule exclut le chef d'equipe par construction, il ne
+// peut donc pas obtenir ce client (cf. son commentaire).
+export async function requireModuleWrite(mod: string) {
+  const profile = await getCurrentProfile();
+  if (!profile) throw new Error("Non authentifié.");
+  if (profile.role !== "admin" && !(await canWriteModule(profile.role, mod))) {
+    throw new Error("Accès refusé.");
+  }
+  const { getAdminClient } = await import("@/lib/supabase-server");
+  return getAdminClient();
+}
+
 export type { Role };
 
 // Garde d'acces a un module pour une page. Redirige si droit insuffisant.

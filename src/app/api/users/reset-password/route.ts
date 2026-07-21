@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerClient } from "@/lib/supabase-server";
+import { canWriteModule } from "@/lib/permissions";
 import { genererLienMotDePasse } from "@/lib/password-link";
 
 // POST /api/users/reset-password { user_id }
@@ -14,7 +15,10 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
   const { data: caller } = await supabase.from("app_user").select("role").eq("user_id", user.id).single<{ role: string }>();
-  if (caller?.role !== "admin") return NextResponse.json({ error: "Accès refusé (admin requis)" }, { status: 403 });
+  // La matrice decide : admin (qui a tout par defaut) ou droit « utilisateurs: write ».
+  if (caller?.role !== "admin" && !(await canWriteModule(caller?.role ?? "", "utilisateurs"))) {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as { user_id?: string } | null;
   const user_id = String(body?.user_id ?? "");

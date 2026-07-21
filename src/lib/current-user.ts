@@ -1,6 +1,5 @@
 import { cache } from "react";
 import { getServerClient } from "@/lib/supabase-server";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type CurrentProfile = {
   authId: string;
@@ -30,20 +29,3 @@ export const getCurrentProfile = cache(async function getCurrentProfile(): Promi
   return { authId: userId, email: data.email, name: data.name, role: data.role };
 });
 
-// Garde serveur : exige un admin. Renvoie le client lie a la session
-// (les ecritures passent par la RLS admin ; l'audit capture auth.uid()).
-export async function requireAdmin(): Promise<SupabaseClient> {
-  const supabase = await getServerClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const userId = claimsData?.claims?.sub as string | undefined;
-  if (!userId) throw new Error("Non authentifie.");
-
-  const { data } = await supabase
-    .from("app_user")
-    .select("role")
-    .eq("user_id", userId)
-    .single<{ role: string }>();
-  if (data?.role !== "admin") throw new Error("Acces refuse (admin requis).");
-
-  return supabase;
-}

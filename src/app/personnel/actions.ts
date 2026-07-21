@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/current-user";
+import { requireModuleWrite } from "@/lib/permissions";
 
 const s = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const orNull = (v: string) => (v === "" ? null : v);
@@ -31,7 +31,7 @@ function buildData(fd: FormData) {
 }
 
 export async function createPersonne(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("personnel");
   const data = buildData(fd);
   if (!data.nom || !data.prenom) return;
   await supabase.from("personne").insert(data);
@@ -39,7 +39,7 @@ export async function createPersonne(fd: FormData) {
 }
 
 export async function updatePersonne(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("personnel");
   const id = s(fd, "id");
   if (!id) return;
   // Champs niveau-personne uniquement. Le type de contrat et les dates sont
@@ -61,7 +61,7 @@ export async function updatePersonne(fd: FormData) {
 }
 
 export async function toggleStatut(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("personnel");
   const id = s(fd, "id");
   const statut = s(fd, "statut") === "PARTI" ? "PARTI" : "ACTIF";
   await supabase.from("personne").update({ statut }).eq("id", id);
@@ -70,7 +70,7 @@ export async function toggleStatut(fd: FormData) {
 
 // RGPD : anonymisation (conserve l'historique de placement, retire l'identite).
 export async function anonymiserPersonne(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("personnel");
   const id = s(fd, "id");
   if (!id) return;
   const { data: p } = await supabase
@@ -96,7 +96,7 @@ export async function anonymiserPersonne(fd: FormData) {
 
 // RGPD : droit a l'oubli (suppression definitive + cascade).
 export async function supprimerPersonne(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("personnel");
   const id = s(fd, "id");
   if (!id) return;
   await supabase.from("personne").delete().eq("id", id);

@@ -68,7 +68,7 @@ export default async function PlanningPage({
   const allIsos = rawDays.map((d) => d.iso);
 
   const supabase = await getServerClient();
-  const isAdmin = profile.role === "admin";
+  // Pas de raccourci « role === admin » : c'est la matrice qui accorde le droit.
   // Vague 1 : referentiel + personnes + perimetre chef, tout independant du calcul
   // d'ouverture qui suit. allActive sert aux indicateurs (tout le quart, toutes equipes).
   const [
@@ -95,7 +95,7 @@ export default async function PlanningPage({
       .returns<Motif[]>(),
     supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
     supabase.from("personne").select("id, nom, prenom, equipe_id").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
-    isAdmin
+    canEditPlanningFull
       ? Promise.resolve({ data: [] as { equipe_id: string }[] })
       : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
     supabase.from("poste_quart").select("poste_id, quart_code").eq("actif", false).returns<{ poste_id: string; quart_code: string }[]>(),
@@ -370,7 +370,7 @@ export default async function PlanningPage({
     label: `${p.nom} ${p.prenom}`,
     equipe_id: p.equipe_id,
     color: p.equipe_id ? equipeColor[p.equipe_id] : undefined,
-    editable: isAdmin || canEditPlanningFull || (p.equipe_id != null && chefEquipes.has(p.equipe_id)),
+    editable: canEditPlanningFull || (p.equipe_id != null && chefEquipes.has(p.equipe_id)),
   }));
 
   const gridGroups = groups.map((g) => ({

@@ -2,7 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/current-user";
+import { requireModuleWrite } from "@/lib/permissions";
 import { NIVEAUX_TAG } from "@/lib/refdata";
 
 const PATH = "/admin/competences";
@@ -19,7 +19,7 @@ function done(): never {
 
 // Echelle de niveaux (0..4)
 export async function saveEchelle(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("competences");
   for (let n = 0; n <= 4; n++) {
     const libelle = s(fd, `niveau_${n}`);
     if (libelle) {
@@ -34,7 +34,7 @@ export async function saveEchelle(fd: FormData) {
 
 // Competences transverses / habilitations
 export async function createCompetence(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("competences");
   const nom = s(fd, "nom");
   if (!nom) done();
   const a_recycler = bool(fd, "a_recycler");
@@ -48,7 +48,7 @@ export async function createCompetence(fd: FormData) {
 }
 
 export async function updateCompetence(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("competences");
   const a_recycler = bool(fd, "a_recycler");
   await supabase
     .from("competence")
@@ -63,7 +63,7 @@ export async function updateCompetence(fd: FormData) {
 }
 
 export async function toggleCompetence(fd: FormData) {
-  const supabase = await requireAdmin();
+  const supabase = await requireModuleWrite("competences");
   await supabase.from("competence").update({ actif: bool(fd, "actif") }).eq("id", s(fd, "id"));
   done();
 }

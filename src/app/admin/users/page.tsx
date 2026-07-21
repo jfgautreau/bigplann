@@ -28,9 +28,10 @@ export default async function AdminUsersPage() {
 
   const list = users ?? [];
 
-  // Matrice des droits (role x module) : reservee a l'administrateur.
-  const isAdmin = profile.role === "admin";
-  const allPerms = isAdmin ? await getAllPermissions() : null;
+  // La matrice s'edite avec le droit « utilisateurs: write » — pas reservee au
+  // seul role admin, qui l'obtient de toute facon par la matrice.
+  const peutEditerDroits = canWrite(perms, "utilisateurs");
+  const allPerms = peutEditerDroits ? await getAllPermissions() : null;
 
   return (
     <>
@@ -86,7 +87,7 @@ export default async function AdminUsersPage() {
           </div>
         </div>
 
-        {isAdmin && allPerms && (
+        {peutEditerDroits && allPerms && (
           <div className="card" style={{ marginTop: 24 }}>
             <h2>Droits d&apos;accès (rôle × module)</h2>
             <p className="muted" style={{ marginBottom: 16 }}>

@@ -35,7 +35,8 @@ export default async function MatricePage({
 
   const sp = await searchParams;
   const supabase = await getServerClient();
-  const isAdmin = profile.role === "admin";
+  // Pas de raccourci « role === admin » : c'est la matrice qui accorde le droit,
+  // l'admin l'obtient par elle. canEditMatrice ci-dessous en decoule.
   // Droit "matrice: write" (hors chef) : édition complète. Le chef d'équipe garde
   // uniquement son périmètre (via chefEquipes ci-dessous).
   const canEditMatrice = canWrite(perms, "matrice") && profile.role !== "chef_equipe";
@@ -71,7 +72,7 @@ export default async function MatricePage({
     getEquipesC(),
     ligneQ.returns<LigneRow[]>(),
     persQ.returns<Personne[]>(),
-    isAdmin
+    canEditMatrice
       ? Promise.resolve({ data: [] as { equipe_id: string }[] })
       : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
     getNiveauxC(),
@@ -124,7 +125,7 @@ export default async function MatricePage({
   const gridPersonnes = personnes.map((p) => ({
     id: p.id,
     label: `${p.nom} ${p.prenom}`,
-    editable: isAdmin || canEditMatrice || (p.equipe_id != null && chefEquipes.has(p.equipe_id)),
+    editable: canEditMatrice || (p.equipe_id != null && chefEquipes.has(p.equipe_id)),
   }));
 
   return (
@@ -147,7 +148,7 @@ export default async function MatricePage({
           groups={groups}
           personnes={gridPersonnes}
           initial={initial}
-          canEditObjectif={isAdmin || canEditMatrice}
+          canEditObjectif={canEditMatrice}
           ateliers={ateliers.map((a) => ({ id: a.id, label: a.nom }))}
           equipes={equipes.map((e) => ({ id: e.id, label: e.nom }))}
           atelier={sp.atelier ?? ""}

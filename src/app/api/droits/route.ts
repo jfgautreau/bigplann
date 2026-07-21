@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
-import { MODULE_KEYS, type Niveau } from "@/lib/permissions";
+import { MODULE_KEYS, canWriteModule, type Niveau } from "@/lib/permissions";
 import { ROLES } from "@/lib/roles";
 
 // POST /api/droits { role, module, niveau }
@@ -11,7 +11,10 @@ const VALID: Niveau[] = ["none", "read", "write"];
 
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
-  if (!profile || profile.role !== "admin") return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  // La matrice decide, y compris pour l'ecran qui l'edite.
+  if (!profile || (profile.role !== "admin" && !(await canWriteModule(profile.role, "utilisateurs")))) {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as { role?: string; module?: string; niveau?: string } | null;
   const role = String(body?.role ?? "");

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerClient, getAdminClient } from "@/lib/supabase-server";
+import { canWriteModule } from "@/lib/permissions";
 import { isRole } from "@/lib/roles";
 import { genererLienMotDePasse, motDePasseAleatoire } from "@/lib/password-link";
 
@@ -24,11 +25,9 @@ export async function POST(req: NextRequest) {
     .select("role")
     .eq("user_id", user.id)
     .single<{ role: string }>();
-  if (callerErr || caller?.role !== "admin") {
-    return NextResponse.json(
-      { error: "Acces refuse (admin requis)" },
-      { status: 403 }
-    );
+  // La matrice decide : admin (qui a tout par defaut) ou droit « utilisateurs: write ».
+  if (callerErr || (caller?.role !== "admin" && !(await canWriteModule(caller?.role ?? "", "utilisateurs")))) {
+    return NextResponse.json({ error: "Acces refuse" }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as {
