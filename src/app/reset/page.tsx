@@ -1,18 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { validatePasswordPolicy } from "@/lib/password";
 
-// Page atteinte apres clic sur un lien d'invitation ou de recuperation :
-// la session est deja ouverte (via /auth/callback), il reste a definir le mdp.
+// Page atteinte apres clic sur un lien de recuperation. Deux provenances :
+//   • « Mot de passe oublie » : le lien passe par /auth/callback, qui a deja
+//     ouvert la session — on arrive ici sans parametre ;
+//   • lien genere par un admin (ecran Utilisateurs) : il porte ?token_hash=…,
+//     qu'on echange ici contre une session (cf. src/lib/password-link.ts).
+//
+// On lit l'URL via window plutot que useSearchParams() : cela evite d'imposer
+// une frontiere <Suspense> et garde la page prerendue statiquement.
 export default function ResetPage() {
   const router = useRouter();
+  const [etat, setEtat] = useState<"verification" | "pret" | "lienInvalide">("verification");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token_hash = params.get("token_hash");
+    if (!token_hash) {
+      setEtat("pret"); // flux « mot de passe oublie » : session deja ouverte
+      return;
+    }
+    let vivant = true;
+    supabase.auth.verifyOtp({ token_hash, type: "recovery" }).then(({ error: e }) => {
+      if (!vivant) return;
+      if (e) {
+        setEtat("lienInvalide");
+        return;
+      }
+      // Le jeton ne doit pas rester dans la barre d'adresse ni dans l'historique.
+      window.history.replaceState({}, "", "/reset");
+      setEtat("pret");
+    });
+    return () => {
+      vivant = false;
+    };
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +68,34 @@ export default function ResetPage() {
     }
     router.replace("/");
     router.refresh();
+  }
+
+  if (etat === "verification") {
+    return (
+      <div className="container">
+        <div className="card card-narrow">
+          <h1>Définir le mot de passe</h1>
+          <p className="muted">Vérification du lien…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (etat === "lienInvalide") {
+    return (
+      <div className="container">
+        <div className="card card-narrow">
+          <h1>Lien inutilisable</h1>
+          <p className="error" style={{ marginTop: 0 }}>
+            Ce lien a expiré, a déjà servi, ou un lien plus récent l&apos;a remplacé.
+          </p>
+          <p className="muted">
+            Demandez-en un nouveau à votre administrateur, ou utilisez{" "}
+            <Link href="/forgot">Mot de passe oublié</Link> pour en recevoir un par email.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

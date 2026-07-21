@@ -9,17 +9,27 @@ import { getAdminClient } from "@/lib/supabase-server";
 // et la fonctionnalite marche meme sans serveur de mail.
 //
 // Le lien porte un jeton a usage unique : en REgenerer un invalide le precedent.
+//
+// ⚠️ On n'utilise PAS `properties.action_link` renvoye par Supabase, mais on
+// fabrique notre propre URL a partir de `properties.hashed_token`. L'action_link
+// passe par /auth/v1/verify de Supabase, ce qui posait deux problemes :
+//   1. son `redirect_to` doit figurer dans la liste blanche « Redirect URLs » du
+//      projet ; sinon Supabase retombe silencieusement sur la Site URL (on
+//      atterrissait sur /login) ;
+//   2. il repond en flux implicite — jetons dans le FRAGMENT (#access_token=…) —
+//      qu'une route serveur ne voit jamais. /auth/callback attend un `?code=`
+//      (PKCE), impossible ici : le code_verifier PKCE nait dans le navigateur de
+//      la personne qui lance la demande, or c'est l'admin qui genere le lien.
+// En pointant directement sur /reset avec le token_hash, la page appelle
+// verifyOtp() elle-meme : aucune configuration de liste blanche, et le meme lien
+// marche en local comme en production.
 export async function genererLienMotDePasse(email: string, origin: string): Promise<string> {
   const admin = getAdminClient();
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "recovery",
-    email,
-    options: { redirectTo: `${origin}/auth/callback?next=/reset` },
-  });
+  const { data, error } = await admin.auth.admin.generateLink({ type: "recovery", email });
   if (error) throw new Error(error.message);
-  const lien = data?.properties?.action_link;
-  if (!lien) throw new Error("Lien non généré par Supabase.");
-  return lien;
+  const jeton = data?.properties?.hashed_token;
+  if (!jeton) throw new Error("Jeton non généré par Supabase.");
+  return `${origin}/reset?token_hash=${encodeURIComponent(jeton)}&type=recovery`;
 }
 
 // Mot de passe de remplissage pour un compte cree par un admin : l'utilisateur
