@@ -235,7 +235,64 @@
   padding: 16px;
 }
 
-/* --- Vue Absences : une carte par motif, transverse a tout l'effectif --- */
+/* --- Bascule Plan / Absences ---
+   Interrupteur a glissiere : la pastille se deplace sous le libelle actif. Neutre
+   a dessein (ni vert ni rouge) : c'est un changement de vue, pas une activation. */
+.vueSwitch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  /* `.fitem` est une colonne flex : sans ceci l'interrupteur s'etire sur toute
+     la largeur du bandeau. */
+  align-self: flex-start;
+  width: auto;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #f1f5f9;
+  cursor: pointer;
+  overflow: hidden;
+}
+.vueKnob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  height: calc(100% - 6px);
+  border-radius: 999px;
+  background: #4f46e5;
+  transition: transform 0.18s ease;
+}
+.vueSwitchOn .vueKnob {
+  transform: translateX(100%);
+}
+.vueLabel {
+  position: relative; /* au-dessus de la pastille */
+  z-index: 1;
+  flex: 1 1 0;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--muted);
+  transition: color 0.18s ease;
+}
+/* Le libelle recouvert par la pastille passe en blanc. Classe explicite posee par
+   le composant : un selecteur positionnel viserait la pastille, qui est le premier
+   <span> du bouton. */
+.vueLabelOn {
+  color: #fff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vueKnob,
+  .vueLabel {
+    transition: none;
+  }
+}
+
+/* --- Vue Absences : une carte par motif, filtrees par l'atelier affiche --- */
 .absGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));

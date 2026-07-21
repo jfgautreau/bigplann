@@ -27,7 +27,7 @@ const ordreThenNom = <T extends { ordre_affichage?: number; nom: string }>(a: T,
 export default async function PlacementPage({
   searchParams,
 }: {
-  searchParams: Promise<{ atelier?: string; date?: string; quart?: string }>;
+  searchParams: Promise<{ atelier?: string; date?: string; quart?: string; vue?: string }>;
 }) {
   const { profile } = await requireModule("placement", "write");
   const sp = await searchParams;
@@ -51,10 +51,10 @@ export default async function PlacementPage({
   const motifs = motifsD ?? [];
 
   const quart = sp.quart && quartCodes.includes(sp.quart) ? sp.quart : quartCodes.includes("matin") ? "matin" : quartCodes[0] ?? "matin";
-  // Vue « Absences » : pseudo-atelier transverse (aucun plan, la photo des absents
-  // de tout l'effectif). Cf. VUE_ABSENCES dans PlacementBoard.
-  const vueAbsences = sp.atelier === "absences";
-  const atelierId = vueAbsences ? "" : ateliers.find((a) => a.id === sp.atelier)?.id ?? ateliers[0]?.id ?? "";
+  // Bascule Plan / Absences portee par ?vue : l'atelier reste selectionne dans les
+  // deux cas, c'est lui qui filtre les absences affichees.
+  const vueAbsences = sp.vue === "absences";
+  const atelierId = ateliers.find((a) => a.id === sp.atelier)?.id ?? ateliers[0]?.id ?? "";
 
   // Postes de l'atelier + desactivations poste x quart + placements du jour + matrice.
   const [{ data: lignesD }, { data: pqOffD }, { data: plD }, mat] = await Promise.all([
@@ -216,7 +216,7 @@ export default async function PlacementPage({
     <div className="pagecol">
       <AppHeader role={profile.role} active="/placement" />
       <PlacementBoard
-        key={`${vueAbsences ? "absences" : atelierId}|${jour}|${quart}`}
+        key={`${atelierId}|${jour}|${quart}`}
         vueAbsences={vueAbsences}
         numeroInit={numeroInit}
         title={<PageTitle module="placement" style={{ fontSize: 20 }}>Placement</PageTitle>}

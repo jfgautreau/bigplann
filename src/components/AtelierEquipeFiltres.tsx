@@ -5,12 +5,17 @@ import { useTransition } from "react";
 
 type Opt = { id: string; label: string };
 
-export default function MatriceFilters({
+// Filtres « Atelier » et « Équipe » en segments, portes par l'URL.
+// Partage entre la Matrice et les Habilitations : meme presentation, meme
+// comportement, un seul endroit a corriger. `base` est la route a repeindre.
+export default function AtelierEquipeFiltres({
+  base,
   ateliers = [],
   equipes = [],
   atelier = "",
   equipe = "",
 }: {
+  base: string;
   ateliers?: Opt[];
   equipes?: Opt[];
   atelier?: string;
@@ -26,7 +31,7 @@ export default function MatriceFilters({
     if (a) params.set("atelier", a);
     if (e) params.set("equipe", e);
     const qs = params.toString();
-    start(() => router.push(qs ? `/matrice?${qs}` : "/matrice"));
+    start(() => router.push(qs ? `${base}?${qs}` : base));
   }
 
   return (

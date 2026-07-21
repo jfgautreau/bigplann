@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import MatriceFilters from "./MatriceFilters";
+import AtelierEquipeFiltres from "@/components/AtelierEquipeFiltres";
 import MatrixGrid from "./MatrixGrid";
 import LegendeModal from "./LegendeModal";
 
@@ -40,7 +40,7 @@ export default function MatricePanel({
       {/* Gauche : filtres · Droite : bascule Actuel / Cible (meme ligne). */}
       <div className="headband">
       <div className="toolbar" style={{ alignItems: "center", gap: 16, flexWrap: "wrap", justifyContent: "space-between" }}>
-        <MatriceFilters ateliers={ateliers} equipes={equipes} atelier={atelier} equipe={equipe} />
+        <AtelierEquipeFiltres base="/matrice" ateliers={ateliers} equipes={equipes} atelier={atelier} equipe={equipe} />
         <button
           type="button"
           role="switch"

@@ -4,6 +4,8 @@ import AppHeader from "@/components/AppHeader";
 import { fetchAll } from "@/lib/fetch-all";
 import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite, canRead } from "@/lib/permissions";
+import { getAteliersC, getEquipesC } from "@/lib/refdata";
+import AtelierEquipeFiltres from "@/components/AtelierEquipeFiltres";
 import HabilitationsList from "./HabilitationsList";
 
 type Comp = { id: string; nom: string; duree_validite_mois: number | null; categorie: string | null; groupe: string | null; ordre: number; a_autorisation_conduite: boolean };
@@ -19,12 +21,22 @@ type Row = {
   competence: { nom: string; a_recycler: boolean; a_autorisation_conduite: boolean } | null;
 };
 
-export default async function HabilitationsPage() {
+export default async function HabilitationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ atelier?: string; equipe?: string }>;
+}) {
   const { profile, perms } = await requireModule("habilitations", "read");
+  const sp = await searchParams;
   const canEdit = canWrite(perms, "habilitations");
 
   const supabase = await getServerClient();
-  const [{ data: compsD }, { data: persD }, pcD] = await Promise.all([
+  // Personnes filtrees par atelier / equipe, comme la Matrice de polyvalence.
+  let persQ = supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").order("nom");
+  if (sp.equipe) persQ = persQ.eq("equipe_id", sp.equipe);
+  if (sp.atelier) persQ = persQ.eq("atelier_id", sp.atelier);
+
+  const [{ data: compsD }, { data: persD }, pcD, ateliers, equipes] = await Promise.all([
     supabase
       .from("competence")
       .select("id, nom, duree_validite_mois, categorie, groupe, ordre, a_autorisation_conduite")
@@ -33,7 +45,7 @@ export default async function HabilitationsPage() {
       .order("ordre")
       .order("nom")
       .returns<Comp[]>(),
-    supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
+    persQ.returns<Personne[]>(),
     fetchAll<Row>(() =>
       supabase
         .from("personne_competence")
@@ -41,12 +53,17 @@ export default async function HabilitationsPage() {
         .order("id")
         .returns<Row[]>()
     ),
+    getAteliersC(),
+    getEquipesC(),
   ]);
 
   const comps = compsD ?? [];
   const personnes = persD ?? [];
+  // La vue « Liste » doit suivre le meme perimetre que la grille, sinon elle
+  // afficherait des personnes que le filtre vient d'ecarter.
+  const visibles = new Set(personnes.map((p) => p.id));
   const rows = pcD
-    .filter((r) => r.competence?.a_recycler)
+    .filter((r) => r.competence?.a_recycler && visibles.has(r.personne_id))
     .sort((a, b) => (a.date_expiration ?? "9999").localeCompare(b.date_expiration ?? "9999"));
 
   return (
@@ -56,6 +73,13 @@ export default async function HabilitationsPage() {
         <div className="headband headband-top">
         <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <PageTitle module="habilitations">Habilitations</PageTitle>
+          <AtelierEquipeFiltres
+            base="/habilitations"
+            ateliers={ateliers.map((a) => ({ id: a.id, label: a.nom }))}
+            equipes={equipes.map((e) => ({ id: e.id, label: e.nom }))}
+            atelier={sp.atelier ?? ""}
+            equipe={sp.equipe ?? ""}
+          />
           {canRead(perms, "habilitations_param") && (
             <Link href="/admin/habilitations-param" className="navlink" title="Définir les formations et leurs durées de validité">
               📜 Paramétrer les formations &rarr;

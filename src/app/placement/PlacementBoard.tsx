@@ -105,8 +105,18 @@ export default function PlacementBoard({
   }, [groups]);
   const motifById = useMemo(() => new Map(motifs.map((mo) => [mo.id, mo])), [motifs]);
 
-  const go = (patch: Partial<{ atelier: string; date: string; quart: string }>) =>
-    router.push(`/placement?atelier=${patch.atelier ?? atelierId}&date=${patch.date ?? jour}&quart=${patch.quart ?? quart}`);
+  // `vue` porte la bascule Plan / Absences : l'atelier reste selectionne dans les
+  // deux cas, c'est lui qui filtre les absences affichees.
+  const go = (patch: Partial<{ atelier: string; date: string; quart: string; vue: string }>) => {
+    const params = new URLSearchParams({
+      atelier: patch.atelier ?? atelierId,
+      date: patch.date ?? jour,
+      quart: patch.quart ?? quart,
+    });
+    const vue = patch.vue !== undefined ? patch.vue : vueAbsences ? VUE_ABSENCES : "";
+    if (vue) params.set("vue", vue);
+    router.push(`/placement?${params.toString()}`);
+  };
 
   // Personne "active" (glissee ou selectionnee) -> aide a la competence sur les postes.
   const active = drag ?? sel;
@@ -389,26 +399,24 @@ export default function PlacementBoard({
   }, [personnes, search, fEquipe, fAtelier, place, autreQuart, hidePlaced]);
 
   // Vue Absences : une carte par motif d'absence, plus « Non travaillé ».
-  // Transverse : tout l'effectif, quel que soit l'atelier ou l'equipe.
+  // Restreinte a l'atelier affiche. Les personnes dont l'atelier n'est pas
+  // renseigne sont TOUJOURS montrees : une absence ne doit pas disparaitre du
+  // point du matin a cause d'une fiche incomplete.
   const absCartes = useMemo(() => {
     if (!vueAbsences) return [];
     const tri = (a: Personne, b: Personne) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
+    const dansAtelier = (p: Personne) => !atelierId || !p.atelier_id || p.atelier_id === atelierId;
+    const gensDe = (v: string) => personnes.filter((p) => place[p.id] === v && dansAtelier(p)).sort(tri);
     const cartes: { key: string; titre: string; couleur: string; gens: Personne[]; drop?: string }[] = motifs.map((mo) => ({
       key: mo.id,
       titre: mo.libelle,
       couleur: mo.couleur,
       drop: `m:${mo.id}`,
-      gens: personnes.filter((p) => place[p.id] === `m:${mo.id}`).sort(tri),
+      gens: gensDe(`m:${mo.id}`),
     }));
-    cartes.push({
-      key: "X",
-      titre: "Non travaillé",
-      couleur: "#6b7280",
-      drop: "X",
-      gens: personnes.filter((p) => place[p.id] === "X").sort(tri),
-    });
+    cartes.push({ key: "X", titre: "Non travaillé", couleur: "#6b7280", drop: "X", gens: gensDe("X") });
     return cartes;
-  }, [vueAbsences, motifs, personnes, place]);
+  }, [vueAbsences, motifs, personnes, place, atelierId]);
 
   const searching = !!search.trim();
   const nbAplacer = personnes.filter((p) => inScope(p) && !place[p.id] && !autreQuart[p.id]).length;
@@ -435,19 +443,26 @@ export default function PlacementBoard({
           <span>Atelier</span>
           <div className="segments">
             {ateliers.map((a) => (
-              <button key={a.id} type="button" className={!vueAbsences && atelierId === a.id ? "seg active" : "seg"} onClick={() => go({ atelier: a.id })}>
+              <button key={a.id} type="button" className={atelierId === a.id ? "seg active" : "seg"} onClick={() => go({ atelier: a.id })}>
                 {a.nom}
               </button>
             ))}
-            <button
-              type="button"
-              className={vueAbsences ? "seg active" : "seg"}
-              onClick={() => go({ atelier: VUE_ABSENCES })}
-              title="Voir tous les absents du jour, tous ateliers confondus"
-            >
-              Absences
-            </button>
           </div>
+        </div>
+        <div className={s.fitem}>
+          <span>Affichage</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={vueAbsences}
+            className={`${s.vueSwitch} ${vueAbsences ? s.vueSwitchOn : ""}`}
+            onClick={() => go({ vue: vueAbsences ? "" : VUE_ABSENCES })}
+            title={vueAbsences ? "Revenir au plan de l'atelier" : "Voir les absences de cet atelier"}
+          >
+            <span className={s.vueKnob} />
+            <span className={`${s.vueLabel} ${!vueAbsences ? s.vueLabelOn : ""}`}>Plan</span>
+            <span className={`${s.vueLabel} ${vueAbsences ? s.vueLabelOn : ""}`}>Absences</span>
+          </button>
         </div>
         <div className={s.fitem}>
           <span>Jour</span>
