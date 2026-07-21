@@ -284,3 +284,13 @@
   justify-content: center;
   vertical-align: middle;
 }
+
+/* Compteurs globaux loges dans la cellule d'angle, au-dessus du bouton Bilan.
+   UNE seule colonne : sur deux, la cellule (largeur de la colonne des noms) est
+   trop etroite et les libelles se font rogner. La hauteur, elle, ne manque pas. */
+.cornerKpis {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  padding: 3px 4px;
+}

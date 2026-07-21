@@ -3,20 +3,26 @@ import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import { canWritePlacementData } from "@/lib/permissions";
 
-// POST /api/placement/copy { source, cible, quart }
+// POST /api/placement/copy { source, cible, quart, mode }
 // Copie les affectations SUR POSTE d'un quart depuis un jour source vers un jour
 // cible (upsert par personne/jour). Les absences ne sont pas copiees (specifiques
 // au jour). Perimetre : planning:write -> admin ; sinon RLS (chef -> son equipe).
+//
+// mode = "ecraser"   : la journee cible prend l'etat du jour source (defaut) ;
+//        "completer" : ne touche a AUCUNE ligne deja saisie ce jour-la — ni un
+//        placement sur poste, ni une absence. Sert a completer un debut de saisie
+//        sans defaire ce qui vient d'etre fait a la main.
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
-  const body = (await req.json().catch(() => null)) as { source?: string; cible?: string; quart?: string } | null;
+  const body = (await req.json().catch(() => null)) as { source?: string; cible?: string; quart?: string; mode?: string } | null;
   const source = String(body?.source ?? "");
   const cible = String(body?.cible ?? "");
   const quart = String(body?.quart ?? "");
+  const completer = String(body?.mode ?? "") === "completer";
   if (!isDate(source) || !isDate(cible) || !quart) return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
   if (source === cible) return NextResponse.json({ error: "Jours identiques" }, { status: 400 });
 
@@ -31,8 +37,22 @@ export async function POST(req: NextRequest) {
     .returns<{ personne_id: string; poste_id: string; equipe_id: string | null; quart_code: string | null }[]>();
   if (e1) return NextResponse.json({ error: e1.message }, { status: 403 });
 
+  // Mode « completer » : on releve d'abord qui a DEJA une ligne le jour cible —
+  // poste comme absence — pour ne pas y toucher.
+  const dejaSaisi = new Set<string>();
+  if (completer) {
+    const { data: cbl, error: e0 } = await supabase
+      .from("placement")
+      .select("personne_id")
+      .eq("jour", cible)
+      .returns<{ personne_id: string }[]>();
+    if (e0) return NextResponse.json({ error: e0.message }, { status: 403 });
+    for (const r of cbl ?? []) dejaSaisi.add(r.personne_id);
+  }
+
   const rows = (src ?? [])
     .filter((r) => (r.quart_code ?? "matin") === quart)
+    .filter((r) => !completer || !dejaSaisi.has(r.personne_id))
     .map((r) => ({
       personne_id: r.personne_id,
       jour: cible,
@@ -44,9 +64,14 @@ export async function POST(req: NextRequest) {
       created_by: profile.authId,
     }));
 
-  if (!rows.length) return NextResponse.json({ ok: true, copied: 0 });
+  if (!rows.length) return NextResponse.json({ ok: true, copied: 0, ignores: dejaSaisi.size });
 
   const { error: e2 } = await supabase.from("placement").upsert(rows, { onConflict: "personne_id,jour" });
   if (e2) return NextResponse.json({ error: e2.message }, { status: 403 });
-  return NextResponse.json({ ok: true, copied: rows.length, rows: rows.map((r) => ({ personne_id: r.personne_id, poste_id: r.poste_id })) });
+  return NextResponse.json({
+    ok: true,
+    copied: rows.length,
+    ignores: dejaSaisi.size,
+    rows: rows.map((r) => ({ personne_id: r.personne_id, poste_id: r.poste_id })),
+  });
 }

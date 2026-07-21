@@ -1,7 +1,5 @@
-import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
-import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite } from "@/lib/permissions";
 import { getAteliersC, getEquipesC, getNiveauxC } from "@/lib/refdata";
 import { fetchAll } from "@/lib/fetch-all";
@@ -132,16 +130,6 @@ export default async function MatricePage({
     <>
       <div className="pagecol">
         <AppHeader role={profile.role} active="/matrice" />
-
-        {/* Bandeau titre : reste aligne sur la colonne centree de 1500 px. */}
-        <div className="headband headband-top">
-          <div className="toolbar">
-            <PageTitle module="matrice">Matrice de polyvalence</PageTitle>
-            <Link href="/matrice/bilan" className="navlink">
-              Voir le bilan &rarr;
-            </Link>
-          </div>
-        </div>
 
         {/* La grille, elle, s'etale sur toute la largeur de la fenetre. */}
         <MatricePanel

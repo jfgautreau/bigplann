@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { isoDate, addDays } from "@/lib/week";
 import { habValable, habManqueTxt } from "@/lib/habilitations";
 import { parseNumeros } from "@/lib/numeros-rotation";
+import SlideSwitch from "@/components/SlideSwitch";
 import s from "./placement.module.css";
 
 type Atelier = { id: string; nom: string };
@@ -264,7 +265,9 @@ export default function PlacementBoard({
 
   // Copier les affectations poste d'un jour vers un autre (meme quart). La destination
   // n'est pas forcement le jour affiche : dans ce cas on y navigue pour montrer le resultat.
-  async function copyDates(src: string, dst: string) {
+  const copyImpossible = copying || !copySrc || !copyDst || copySrc === copyDst;
+
+  async function copyDates(src: string, dst: string, mode: "ecraser" | "completer") {
     if (!src || !dst || src === dst) {
       flash("Choisissez deux dates différentes.");
       return;
@@ -276,9 +279,9 @@ export default function PlacementBoard({
       const res = await fetch("/api/placement/copy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source: src, cible: dst, quart }),
+        body: JSON.stringify({ source: src, cible: dst, quart, mode }),
       });
-      const j = (await res.json().catch(() => ({}))) as { rows?: { personne_id: string; poste_id: string }[]; copied?: number; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { rows?: { personne_id: string; poste_id: string }[]; copied?: number; ignores?: number; error?: string };
       if (!res.ok) throw new Error(j.error ?? "Échec de la copie.");
       setShowCopy(false);
       if (dst !== jour) {
@@ -296,7 +299,7 @@ export default function PlacementBoard({
         return n;
       });
       setSaving("saved");
-      setMsg(`${j.copied ?? 0} affectation(s) copiée(s).`);
+      setMsg(`${j.copied ?? 0} affectation(s) copiée(s).${mode === "completer" && j.ignores ? ` ${j.ignores} déjà saisie(s) conservée(s).` : ""}`);
       setTimeout(() => {
         setSaving("idle");
         setMsg(null);
@@ -450,19 +453,14 @@ export default function PlacementBoard({
           </div>
         </div>
         <div className={s.fitem}>
-          <span>Affichage</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={vueAbsences}
-            className={`${s.vueSwitch} ${vueAbsences ? s.vueSwitchOn : ""}`}
-            onClick={() => go({ vue: vueAbsences ? "" : VUE_ABSENCES })}
-            title={vueAbsences ? "Revenir au plan de l'atelier" : "Voir les absences de cet atelier"}
-          >
-            <span className={s.vueKnob} />
-            <span className={`${s.vueLabel} ${!vueAbsences ? s.vueLabelOn : ""}`}>Plan</span>
-            <span className={`${s.vueLabel} ${vueAbsences ? s.vueLabelOn : ""}`}>Absences</span>
-          </button>
+          <span>Quart</span>
+          <div className="segments">
+            {quarts.map((qq) => (
+              <button key={qq.code} type="button" className={quart === qq.code ? "seg active" : "seg"} onClick={() => go({ quart: qq.code })}>
+                {qq.libelle}
+              </button>
+            ))}
+          </div>
         </div>
         <div className={s.fitem}>
           <span>Jour</span>
@@ -473,14 +471,17 @@ export default function PlacementBoard({
           </div>
         </div>
         <div className={s.fitem}>
-          <span>Quart</span>
-          <div className="segments">
-            {quarts.map((qq) => (
-              <button key={qq.code} type="button" className={quart === qq.code ? "seg active" : "seg"} onClick={() => go({ quart: qq.code })}>
-                {qq.libelle}
-              </button>
-            ))}
-          </div>
+          <span>Affichage</span>
+          <SlideSwitch
+            on={vueAbsences}
+            onChange={(v) => go({ vue: v ? VUE_ABSENCES : "" })}
+            offLabel="Plan"
+            onLabel="Absences"
+            offColor="#4f46e5"
+            onColor="#b45309"
+            width={168}
+            title={vueAbsences ? "Revenir au plan de l'atelier" : "Voir les absences de cet atelier"}
+          />
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <span title="Positions pourvues / requises sur les postes affichés" style={{ fontSize: 13 }}>
@@ -785,17 +786,33 @@ export default function PlacementBoard({
                 <span className="muted">Choisissez deux dates différentes.</span>
               )}
             </p>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button type="button" className={s.cancelSel} style={{ padding: "7px 16px", fontSize: 13 }} onClick={() => setShowCopy(false)}>
-                Annuler
+            {/* Deux facons de copier : l'une refait la journee, l'autre ne fait que
+                la completer. Chacune son bouton, pour qu'on lise ce qu'on declenche. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button
+                type="button"
+                disabled={copyImpossible}
+                style={{ width: "100%", margin: 0, padding: "9px 16px", fontSize: 13, fontWeight: 700, borderRadius: 8, cursor: "pointer", textAlign: "left" }}
+                onClick={() => copyDates(copySrc, copyDst, "completer")}
+              >
+                {copying ? "Copie…" : "Compléter sans rien écraser"}
+                <span style={{ display: "block", fontWeight: 500, fontSize: 11.5, opacity: 0.85 }}>
+                  Ne touche à aucune personne déjà saisie ce jour-là, poste comme absence.
+                </span>
               </button>
               <button
                 type="button"
-                disabled={copying || !copySrc || !copyDst || copySrc === copyDst}
-                style={{ width: "auto", margin: 0, padding: "7px 16px", fontSize: 13, fontWeight: 700, borderRadius: 8, cursor: "pointer" }}
-                onClick={() => copyDates(copySrc, copyDst)}
+                disabled={copyImpossible}
+                style={{ width: "100%", margin: 0, padding: "9px 16px", fontSize: 13, fontWeight: 700, borderRadius: 8, cursor: "pointer", textAlign: "left", background: "#b45309", border: "1px solid #b45309" }}
+                onClick={() => copyDates(copySrc, copyDst, "ecraser")}
               >
-                {copying ? "Copie…" : "Copier"}
+                {copying ? "Copie…" : "Écraser toute la journée"}
+                <span style={{ display: "block", fontWeight: 500, fontSize: 11.5, opacity: 0.9 }}>
+                  Les affectations du jour source remplacent celles déjà en place.
+                </span>
+              </button>
+              <button type="button" className={s.cancelSel} style={{ padding: "7px 16px", fontSize: 13, alignSelf: "flex-end" }} onClick={() => setShowCopy(false)}>
+                Annuler
               </button>
             </div>
           </div>

@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import AtelierEquipeFiltres from "@/components/AtelierEquipeFiltres";
+import SlideSwitch from "@/components/SlideSwitch";
+import PageTitle from "@/components/PageTitle";
+import Link from "next/link";
 import MatrixGrid from "./MatrixGrid";
 import LegendeModal from "./LegendeModal";
 
@@ -37,22 +40,25 @@ export default function MatricePanel({
 
   return (
     <>
-      {/* Gauche : filtres · Droite : bascule Actuel / Cible (meme ligne). */}
-      <div className="headband">
+      {/* Bandeau unique : titre · filtres · bascule Actuel / Cible — meme
+          structure que l'ecran Habilitations. */}
+      <div className="headband headband-top">
       <div className="toolbar" style={{ alignItems: "center", gap: 16, flexWrap: "wrap", justifyContent: "space-between" }}>
+        <PageTitle module="matrice">Matrice de polyvalence</PageTitle>
         <AtelierEquipeFiltres base="/matrice" ateliers={ateliers} equipes={equipes} atelier={atelier} equipe={equipe} />
-        <button
-          type="button"
-          role="switch"
-          aria-checked={mode === "cible"}
-          onClick={() => setMode((m) => (m === "actuel" ? "cible" : "actuel"))}
+        <SlideSwitch
+          on={mode === "cible"}
+          onChange={(v) => setMode(v ? "cible" : "actuel")}
+          offLabel="Actuel"
+          onLabel="Cible"
+          offColor="#1d4ed8"
+          onColor="#16a34a"
+          width={156}
           title="Basculer entre niveau actuel et niveau cible"
-          style={{ position: "relative", width: 156, height: 28, flex: "0 0 auto", margin: 0, padding: 0, border: "1px solid var(--border)", borderRadius: 999, background: "#eef2f7", cursor: "pointer", display: "flex" }}
-        >
-          <span style={{ position: "absolute", top: 2, bottom: 2, width: "calc(50% - 3px)", left: mode === "actuel" ? 3 : "auto", right: mode === "cible" ? 3 : "auto", borderRadius: 999, background: mode === "actuel" ? "#1d4ed8" : "#16a34a", transition: "left 0.18s ease, right 0.18s ease" }} />
-          <span style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mode === "actuel" ? "#fff" : "#64748b" }}>Actuel</span>
-          <span style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mode === "cible" ? "#fff" : "#64748b" }}>Cible</span>
-        </button>
+        />
+        <Link href="/matrice/bilan" className="navlink" prefetch={false}>
+          Voir le bilan &rarr;
+        </Link>
       </div>
       </div>
 

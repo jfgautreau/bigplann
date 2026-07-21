@@ -71,23 +71,36 @@ function AutorisationCell({ id, initial }: { id: string; initial: string | null 
   );
 }
 
-// Compteur du bilan : grand nombre teinte + libelle.
+// Compteur du bilan, loge dans la cellule d'angle : compact, car elle ne fait
+// qu'environ 150 px de large pour 140 px de haut.
 function Kpi({ n, label, color }: { n: number; label: string; color: string }) {
   return (
     <div
+      title={label}
       style={{
         display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "4px 14px",
+        alignItems: "baseline",
+        gap: 4,
+        minWidth: 0,
+        padding: "1px 5px",
         border: "1px solid var(--border)",
-        borderRadius: 10,
+        borderRadius: 7,
         background: "#fff",
-        minWidth: 88,
       }}
     >
-      <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, color }}>{n}</span>
-      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap" }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.1, color }}>{n}</span>
+      <span
+        style={{
+          fontSize: 9.5,
+          fontWeight: 600,
+          color: "var(--muted)",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {label}
+      </span>
     </div>
   );
 }
@@ -241,6 +254,10 @@ export default function HabilitationsList({
           </button>
         )}
       </span>
+      <div className="segments" style={{ flex: "0 0 auto" }}>
+        <button {...seg("grille")}>Grille</button>
+        <button {...seg("liste")}>Liste</button>
+      </div>
       <button type="button" className={`btn-sm btn-ghost ${g.legendBtn}`} onClick={() => setShowLegende(true)}>
         📖 Légende
       </button>
@@ -250,23 +267,6 @@ export default function HabilitationsList({
   return (
     <>
       {/* Bilan + bascule de vue : bandeau centre de 1500 px, comme la matrice. */}
-      <div className="headband">
-        <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Kpi n={bilan.global.formees} label="Personnes formées" color="#1d4ed8" />
-            <Kpi n={bilan.global.valables} label="Habilitations valables" color="#16a34a" />
-            <Kpi n={bilan.global.expirees} label="Habilitations expirées" color="#dc2626" />
-            <Kpi n={bilan.global.autorNonDelivrees} label="Autorisations non délivrées" color="#b45309" />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div className="segments">
-            <button {...seg("grille")}>Grille</button>
-            <button {...seg("liste")}>Liste</button>
-          </div>
-          </div>
-        </div>
-      </div>
-
       <div className="gridband">
         {view === "grille" ? (
           <div
@@ -290,7 +290,16 @@ export default function HabilitationsList({
                 {cols}
                 <thead>
                   <tr>
+                    {/* Cellule d'angle : les compteurs globaux, puis le bouton Bilan
+                        juste en dessous. Ils occupent une place autrement perdue et
+                        restent visibles au defilement (l'angle est fige). */}
                     <th rowSpan={3} className={g.cornerHead}>
+                      <div className={g.cornerKpis}>
+                        <Kpi n={bilan.global.formees} label="Formées" color="#1d4ed8" />
+                        <Kpi n={bilan.global.valables} label="Valables" color="#16a34a" />
+                        <Kpi n={bilan.global.expirees} label="Expirées" color="#dc2626" />
+                        <Kpi n={bilan.global.autorNonDelivrees} label="Autor. à remettre" color="#b45309" />
+                      </div>
                       <button
                         type="button"
                         onClick={() => setShowBilan((b) => !b)}
