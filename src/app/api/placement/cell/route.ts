@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
-import { canWriteModule } from "@/lib/permissions";
+import { canWritePlacementData } from "@/lib/permissions";
 import { addMonthsIso, habValable } from "@/lib/habilitations";
 
 type SupabaseClient = Awaited<ReturnType<typeof getServerClient>>;
@@ -61,9 +61,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Parametres manquants" }, { status: 400 });
   }
 
-  // Droit "planning: write" -> client admin (édition complète) ; sinon RLS
-  // (admin ou chef de l'équipe de la personne).
-  const supabase = (await canWriteModule(profile.role, "planning")) ? getAdminClient() : await getServerClient();
+  // Ecriture complete (droit Planning OU Placement) -> client admin ; sinon RLS
+  // (admin ou chef de l'équipe de la personne). Cette route sert les DEUX ecrans.
+  const supabase = (await canWritePlacementData(profile.role)) ? getAdminClient() : await getServerClient();
 
   if (value === "") {
     const { error } = await supabase

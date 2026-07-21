@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
-import { canWriteModule } from "@/lib/permissions";
+import { canWritePlacementData } from "@/lib/permissions";
 
 // POST /api/placement/copy { source, cible, quart }
 // Copie les affectations SUR POSTE d'un quart depuis un jour source vers un jour
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   if (!isDate(source) || !isDate(cible) || !quart) return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
   if (source === cible) return NextResponse.json({ error: "Jours identiques" }, { status: 400 });
 
-  const supabase = (await canWriteModule(profile.role, "planning")) ? getAdminClient() : await getServerClient();
+  const supabase = (await canWritePlacementData(profile.role)) ? getAdminClient() : await getServerClient();
 
   // Placements sur poste du quart, jour source.
   const { data: src, error: e1 } = await supabase

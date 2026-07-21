@@ -13,6 +13,7 @@ export const MODULES: { key: string; label: string; href: string; admin: boolean
   { key: "matrice", label: "Matrice", href: "/matrice", admin: false },
   { key: "habilitations", label: "Habilitations", href: "/habilitations", admin: false },
   { key: "planning", label: "Planning", href: "/planning", admin: false },
+  { key: "placement", label: "Placement", href: "/placement", admin: false },
   { key: "ordonnancement", label: "Ordonnancement", href: "/ordonnancement", admin: false },
   { key: "bilans", label: "Bilans", href: "/bilans", admin: false },
   { key: "journal", label: "Journal", href: "/journal", admin: false },
@@ -39,7 +40,8 @@ export function defaultsFor(role: string): Perms {
   const set = (o: Partial<Perms>) => Object.assign(p, o);
   switch (role) {
     case "chef_equipe":
-      set({ personnel: "read", bilans: "read", matrice: "write", habilitations: "write", planning: "write" });
+      // Placement suit Planning : c'est le meme travail par une autre saisie.
+      set({ personnel: "read", bilans: "read", matrice: "write", habilitations: "write", planning: "write", placement: "write" });
       break;
     case "ordo":
       set({ personnel: "read", matrice: "read", habilitations: "read", planning: "read", bilans: "read", ordonnancement: "write" });
@@ -71,6 +73,15 @@ export function canWrite(p: Perms, mod: string): boolean {
 export async function canWriteModule(role: string, mod: string): Promise<boolean> {
   if (role === "chef_equipe") return false;
   return canWrite(await getPermissions(role), mod);
+}
+
+// Écriture « complète » des données de placement (bypass RLS dans les API).
+// La table `placement` est alimentée par DEUX écrans — Planning et Placement —
+// qui ont chacun leur droit : l'un ou l'autre suffit. Sans ce « ou », activer
+// Placement seul donnerait un écran où aucune saisie ne s'enregistre, et retirer
+// Placement casserait la saisie du Planning.
+export async function canWritePlacementData(role: string): Promise<boolean> {
+  return (await canWriteModule(role, "planning")) || (await canWriteModule(role, "placement"));
 }
 
 // Droits effectifs d'un role = defauts surchargés par la table role_permission.

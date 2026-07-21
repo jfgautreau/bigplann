@@ -7,7 +7,7 @@ import SettingsMenu from "@/components/SettingsMenu";
 import UserMenu from "@/components/UserMenu";
 import { NavIcon, NAV_COLOR } from "@/components/NavIcons";
 
-const MAIN_ORDER = ["referentiel", "personnel", "matrice", "habilitations", "ordonnancement", "planning", "bilans"];
+const MAIN_ORDER = ["referentiel", "personnel", "matrice", "habilitations", "ordonnancement", "planning", "placement", "bilans"];
 
 // Palette des pastilles (icone blanche dessus) : source unique dans NavIcons.
 const NAV_TILE = NAV_COLOR;
@@ -40,19 +40,15 @@ export default async function AppHeader({
   }
 
   const visible = (m: (typeof MODULES)[number]) =>
-    m.admin ? canWrite(perms, m.key) : canRead(perms, m.key);
+    // Placement est un ecran de SAISIE : sa page exige "write" (cf. requireModule).
+    // Sans ecriture il n'y a rien a y faire -> on n'affiche pas l'entree, sinon le
+    // menu menerait a une redirection.
+    m.key === "placement" ? canWrite(perms, m.key) : m.admin ? canWrite(perms, m.key) : canRead(perms, m.key);
 
   // Navigation principale (ordre impose)
   const mainLinks = MAIN_ORDER.map((k) => MODULES.find((m) => m.key === k))
     .filter((m): m is (typeof MODULES)[number] => !!m)
     .filter(visible);
-  // Placement : vue de saisie par glisser-deposer, adossee au droit "planning".
-  if (canWrite(perms, "planning")) {
-    const i = mainLinks.findIndex((m) => m.key === "planning");
-    const item = { key: "placement", label: "Placement", href: "/placement", admin: false };
-    if (i >= 0) mainLinks.splice(i + 1, 0, item);
-    else mainLinks.push(item);
-  }
 
   // Reste (parametrage) regroupe sous l'engrenage. Habilitations est desormais
   // une tuile du menu principal (plus seulement la cloche d'alerte).

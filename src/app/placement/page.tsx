@@ -1,7 +1,7 @@
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
-import { requireModule, canWriteModule } from "@/lib/permissions";
+import { requireModule, canWritePlacementData } from "@/lib/permissions";
 import { fetchAll } from "@/lib/fetch-all";
 import { isoDate, mondayOf } from "@/lib/week";
 import { getRotationRefsC } from "@/lib/refdata";
@@ -29,7 +29,7 @@ export default async function PlacementPage({
 }: {
   searchParams: Promise<{ atelier?: string; date?: string; quart?: string }>;
 }) {
-  const { profile } = await requireModule("planning", "write");
+  const { profile } = await requireModule("placement", "write");
   const sp = await searchParams;
 
   const supabase = await getServerClient();
@@ -161,7 +161,9 @@ export default async function PlacementPage({
   for (const r of mat) matrice[`${r.personne_id}:${r.poste_id}`] = r.niveau_actuel;
 
   // Perimetre d'edition : ecriture complete (admin/ordo) -> tout ; chef -> son equipe.
-  const fullWrite = await canWriteModule(profile.role, "planning");
+  // Doit coller a ce qu'acceptent les API (cf. canWritePlacementData), sinon la
+  // grille se croirait editable la ou l'enregistrement echouerait.
+  const fullWrite = await canWritePlacementData(profile.role);
   const chefTeams = new Set<string>();
   if (!fullWrite) {
     const { data: ct } = await supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>();
