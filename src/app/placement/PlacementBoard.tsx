@@ -49,6 +49,7 @@ export default function PlacementBoard({
   habPers = {},
   vueAbsences = false,
   numeroInit = {},
+  quartOuvert = true,
 }: {
   title?: ReactNode;
   jour: string;
@@ -70,6 +71,7 @@ export default function PlacementBoard({
   habPers?: Record<string, string>; // `${personne}:${habilitation}` -> echeance ("" = sans echeance)
   vueAbsences?: boolean; // pseudo-atelier « Absences » : photo transverse, pas de plan
   numeroInit?: Record<string, string>; // personne -> numero de rotation occupe
+  quartOuvert?: boolean; // le quart est-il ouvert ce jour-la (Ordonnancement) ?
 }) {
   const router = useRouter();
   const [place, setPlace] = useState<Record<string, string>>(placeInit);
@@ -131,19 +133,30 @@ export default function PlacementBoard({
   // Places de l'effectif non couvertes par un numero (0 si le poste est assez numerote).
   const placesSansNum = (po: Poste) => Math.max(0, po.effectifRequis - numerosDe(po).length);
 
-  // Pastille d'une personne posee sur un poste (rouge si habilitation manquante).
+  // Pastille d'une personne posee sur un poste. Deux alertes cumulables :
+  //   • competence insuffisante (niveau < minimum du poste, restriction incluse)
+  //     -> fond rouge ;
+  //   • habilitation manquante ou perimee -> fond rouge ET encadre rouge, pour
+  //     rester distinguable du simple manque de niveau.
   const chip = (p: Personne, po: Poste) => {
     const mq = habManque(p.id, po.id);
+    const cs = compState(p.id, po);
+    const sousNiveau = cs !== "ok";
+    const alerte = mq.length > 0 || sousNiveau;
+    const raisons = [
+      cs === "restrict" ? "restriction sur ce poste" : cs === "low" ? `niveau ${niveau(p.id, po.id)} < ${po.niveauMin} requis` : "",
+      mq.length ? `manque : ${mq.join(", ")}` : "",
+    ].filter(Boolean);
     return (
       <span
         key={p.id}
-        className={`${s.chip} ${mq.length ? s.forced : ""}`}
+        className={`${s.chip} ${alerte ? s.alerte : ""} ${mq.length ? s.forced : ""}`}
         draggable={p.editable}
         onDragStart={onDragStartName(p.id)}
         onDragEnd={() => setDrag(null)}
         onClick={(e) => { e.stopPropagation(); clickName(p.id); }}
-        style={{ borderColor: mq.length ? "#dc2626" : p.couleur ?? "#cbd5e1", outline: sel === p.id ? "2px solid #4f46e5" : undefined }}
-        title={mq.length ? `${p.nom} ${p.prenom}\n⚠ Placement forcé — manque : ${mq.join(", ")}` : `${p.nom} ${p.prenom}`}
+        style={{ borderColor: mq.length ? "#dc2626" : alerte ? "#fca5a5" : p.couleur ?? "#cbd5e1", outline: sel === p.id ? "2px solid #4f46e5" : undefined }}
+        title={raisons.length ? `${p.nom} ${p.prenom}\n⚠ ${raisons.join("\n⚠ ")}` : `${p.nom} ${p.prenom}`}
       >
         <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
         {label(p)}
@@ -515,7 +528,24 @@ export default function PlacementBoard({
               ))}
             </div>
           ) : groups.length === 0 ? (
-            <p className="muted" style={{ padding: 12 }}>Aucun poste ouvert pour ce quart dans cet atelier.</p>
+            <div style={{ padding: 12 }}>
+              {!quartOuvert ? (
+                <>
+                  <p style={{ margin: "0 0 6px", fontWeight: 600 }}>
+                    Aucune ligne ouverte sur le quart {quartLib[quart] ?? quart} ce jour-là.
+                  </p>
+                  <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                    Les lignes s&apos;ouvrent dans <strong>Ordonnancement</strong> : tant que la semaine
+                    n&apos;y a pas été initialisée, aucun poste n&apos;est à pourvoir.
+                  </p>
+                </>
+              ) : (
+                <p className="muted" style={{ margin: 0 }}>
+                  Aucun poste ouvert pour ce quart dans cet atelier (lignes fermées dans
+                  l&apos;Ordonnancement, ou postes désactivés sur ce quart).
+                </p>
+              )}
+            </div>
           ) : (
             groups.map((g) => (
               <div key={g.ligneId} className={s.ligne}>
@@ -525,19 +555,25 @@ export default function PlacementBoard({
                     const occ = occupants(po.id);
                     const complet = occ.length >= po.effectifRequis && po.effectifRequis > 0;
                     const manque = occ.length < po.effectifRequis;
+                    // Sureffectif : plus de monde que l'abaque ne demande (3/2).
+                    const surEffectif = po.effectifRequis > 0 && occ.length > po.effectifRequis;
                     const cs = active ? compState(active, po) : null;
                     const isOver = over === `po:${po.id}`;
                     return (
                       <div
                         key={po.id}
-                        className={`${s.poste} ${cs ? s[cs] : ""} ${isOver ? s.over : ""}`}
+                        className={`${s.poste} ${surEffectif ? s.surEffectif : ""} ${cs ? s[cs] : ""} ${isOver ? s.over : ""}`}
                         {...overProps(`po:${po.id}`, po.id)}
                         onClick={() => clickTarget(po.id)}
                         title={active ? `${cs === "ok" ? "Compétent" : cs === "restrict" ? "Restriction !" : "Compétence insuffisante"} · niv. ${niveau(active, po.id)} / min ${po.niveauMin}` : po.nom}
                       >
                         <div className={s.posteHead}>
                           <span className={s.posteNom}>{po.nom}</span>
-                          <span className={s.eff} style={{ color: complet ? "var(--ok)" : manque ? "#b91c1c" : "var(--muted)" }}>
+                          <span
+                            className={s.eff}
+                            style={{ color: surEffectif ? "#b45309" : complet ? "var(--ok)" : manque ? "#b91c1c" : "var(--muted)" }}
+                            title={surEffectif ? `Sureffectif : ${occ.length} personnes pour ${po.effectifRequis} place(s)` : undefined}
+                          >
                             {occ.length}/{po.effectifRequis}
                           </span>
                         </div>

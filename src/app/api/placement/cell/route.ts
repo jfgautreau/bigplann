@@ -3,6 +3,7 @@ import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import { canWritePlacementData } from "@/lib/permissions";
 import { addMonthsIso, habValable } from "@/lib/habilitations";
+import { parseNumeros } from "@/lib/numeros-rotation";
 
 type SupabaseClient = Awaited<ReturnType<typeof getServerClient>>;
 
@@ -33,6 +34,43 @@ async function habManquantes(supabase: SupabaseClient, personne_id: string, post
       return !habValable({ expiration: exp });
     })
     .map((r) => r.competence?.nom ?? "habilitation");
+}
+
+// Premier numero de rotation encore libre sur ce poste, ce jour et ce quart.
+// `null` si le poste n'est pas numerote, ou si toutes les places numerotees sont
+// prises : la personne rejoint alors la zone « sans numero » de la tuile, plutot
+// que d'ecraser quelqu'un ou d'inventer un numero absent du referentiel.
+async function premierNumeroLibre(
+  supabase: SupabaseClient,
+  poste_id: string,
+  jour: string,
+  quart_code: string | null,
+  personne_id: string
+): Promise<string | null> {
+  const { data: poste } = await supabase
+    .from("poste")
+    .select("numero_rotation")
+    .eq("id", poste_id)
+    .maybeSingle<{ numero_rotation: string | null }>();
+  const numeros = parseNumeros(poste?.numero_rotation);
+  if (!numeros.length) return null;
+
+  const { data: occ } = await supabase
+    .from("placement")
+    .select("personne_id, numero_rotation, quart_code")
+    .eq("jour", jour)
+    .eq("poste_id", poste_id)
+    .returns<{ personne_id: string; numero_rotation: string | null; quart_code: string | null }[]>();
+
+  // Meme quart uniquement (le legacy `null` vaut « matin », comme partout ailleurs),
+  // et on ignore la personne qu'on est en train de (re)placer.
+  const q = quart_code ?? "matin";
+  const pris = new Set(
+    (occ ?? [])
+      .filter((r) => r.personne_id !== personne_id && (r.quart_code ?? "matin") === q && r.numero_rotation)
+      .map((r) => r.numero_rotation as string)
+  );
+  return numeros.find((n) => !pris.has(n)) ?? null;
 }
 
 // POST /api/placement/cell { personne_id, jour, equipe_id, value, forcer }
@@ -85,7 +123,17 @@ export async function POST(req: NextRequest) {
   // Le quart ne s'applique qu'a un placement sur poste (une absence/NT vaut
   // pour toute la journee, tous quarts). Idem pour le numero de rotation.
   const quart_code = poste_id ? (body?.quart ?? null) : null;
-  const numero_rotation = poste_id ? String(body?.numero ?? "").trim() || null : null;
+  let numero_rotation = poste_id ? String(body?.numero ?? "").trim() || null : null;
+
+  // Le Planning affecte a un POSTE sans choisir de place : le champ `numero` est
+  // alors ABSENT de la requete, et on prend le premier numero libre dans l'ordre du
+  // referentiel. L'ecran Placement, lui, envoie toujours `numero` — une valeur pour
+  // une case numerotee, `null` pour la zone « sans numero ». Tester `undefined` et
+  // non la faussete distingue les deux : sinon un depot volontaire hors numero se
+  // verrait attribuer une place automatiquement.
+  if (poste_id && body?.numero === undefined) {
+    numero_rotation = await premierNumeroLibre(supabase, poste_id, jour, quart_code, personne_id);
+  }
 
   // Une personne placee sur un poste un quart ne peut pas etre placee sur un
   // poste d'un autre quart le meme jour (legacy quart null = matin).

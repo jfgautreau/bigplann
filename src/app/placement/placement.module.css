@@ -196,12 +196,24 @@
   cursor: grab;
   white-space: nowrap;
 }
-/* Placement force : la personne n'a pas (ou plus) une habilitation exigee par le
-   poste. Recalcule a l'affichage : disparait des que l'habilitation est regularisee. */
+/* Competence insuffisante (niveau < minimum du poste, ou restriction) : fond rouge. */
+.alerte {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+/* Habilitation manquante ou perimee : meme fond rouge, PLUS un encadre, pour rester
+   distinguable du simple manque de niveau. Recalcule a l'affichage : disparait des
+   que l'habilitation est regularisee. */
 .forced {
   background: #fef2f2;
   color: #b91c1c;
   border-width: 2px;
+}
+/* Sureffectif (3 personnes pour 2 places) : toute la tuile passe en orange. */
+.surEffectif {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  box-shadow: inset 0 0 0 1px #f59e0b55;
 }
 .dot {
   width: 9px;

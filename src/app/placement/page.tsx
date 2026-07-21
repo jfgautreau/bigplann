@@ -82,9 +82,32 @@ export default async function PlacementPage({
     })(),
   ]);
 
+  // Ouverture des lignes decidee dans l'Ordonnancement, pour ce jour et ce quart.
+  // Memes regles que le Planning (cf. src/app/planning/page.tsx) : un quart sans
+  // ligne dans `jour_quart` est FERME (rien n'est ouvert tant que la semaine n'a pas
+  // ete initialisee) ; une ligne sans ligne dans `ouverture_quart` est ouverte.
+  const [{ data: ouvD }, { data: jqD }] = await Promise.all([
+    supabase
+      .from("ouverture_quart")
+      .select("ligne_id, ouverte")
+      .eq("quart_code", quart)
+      .eq("jour", jour)
+      .returns<{ ligne_id: string; ouverte: boolean }[]>(),
+    supabase
+      .from("jour_quart")
+      .select("actif")
+      .eq("quart_code", quart)
+      .eq("jour", jour)
+      .maybeSingle<{ actif: boolean }>(),
+  ]);
+  const quartOuvert = jqD?.actif === true;
+  const ouvMap = new Map((ouvD ?? []).map((r) => [r.ligne_id, r.ouverte]));
+  const ligneOuverte = (id: string) => quartOuvert && (ouvMap.get(id) ?? true);
+
   // Postes ouverts pour ce quart (poste actif + non desactive sur le quart), groupes par ligne.
   const pqOff = new Set((pqOffD ?? []).map((r) => `${r.poste_id}:${r.quart_code}`));
   const groups = (lignesD ?? [])
+    .filter((l) => ligneOuverte(l.id)) // ligne fermee dans l'Ordonnancement -> pas de plan
     .map((l) => ({
       ligneId: l.id,
       ligneNom: l.nom,
@@ -214,6 +237,7 @@ export default async function PlacementPage({
         habPoste={habPoste}
         habComp={habComp}
         habPers={habPers}
+        quartOuvert={quartOuvert}
       />
     </div>
   );
