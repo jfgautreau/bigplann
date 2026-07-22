@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient } from "@/lib/supabase-server";
-import { getCurrentProfile } from "@/lib/current-user";
+import { moduleWriteGuard } from "@/lib/permissions";
 import { getSemaineType, getSemaineOuverture, typeQuartActif } from "@/lib/semaine-type";
 import { dowMon } from "@/lib/week";
 
@@ -9,17 +8,19 @@ import { dowMon } from "@/lib/week";
 //  - jour_quart.actif <- semaine type, pour chaque quart x jour ;
 //  - ouverture_quart : on efface les exceptions de ces jours (lignes -> ouvert
 //    par defaut).
-// Ecriture admin/ordo (RLS).
+// Ecriture : droit `ordonnancement` dans la matrice.
 export async function POST(req: NextRequest) {
-  const profile = await getCurrentProfile();
-  if (!profile) return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+  // La matrice des droits decide, puis client admin : la RLS de ces tables
+  // nomme des roles en dur (admin/ordo) et refuserait un titulaire du droit.
+  const garde = await moduleWriteGuard("ordonnancement");
+  if (!garde.ok) return NextResponse.json({ error: garde.error }, { status: garde.status });
+  const supabase = garde.supabase;
 
   const body = (await req.json().catch(() => null)) as { isos?: string[]; profil_id?: string } | null;
   const isos = (body?.isos ?? []).filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s));
   const profil_id = body?.profil_id || undefined;
   if (isos.length === 0) return NextResponse.json({ error: "Aucun jour" }, { status: 400 });
 
-  const supabase = await getServerClient();
 
   const { data: quartsD } = await supabase
     .from("quart")

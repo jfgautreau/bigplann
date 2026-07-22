@@ -142,6 +142,26 @@ export async function requireModuleWrite(mod: string) {
   return getAdminClient();
 }
 
+// Meme garde, pour une ROUTE API : au lieu de lever, elle rend de quoi repondre.
+//
+// ⚠️ A utiliser des qu'une route ecrit dans une table de parametrage. Ces tables
+// portent une RLS qui nomme des ROLES en dur (`is_admin()`, `has_role('ordo')`) :
+// se contenter du client RLS fait echouer en silence tout titulaire du droit qui
+// ne porte pas l'un de ces roles — l'ecran propose alors un bouton qui repond 403.
+// C'est la matrice qui decide, la RLS n'est plus qu'un filet de securite.
+export async function moduleWriteGuard(mod: string): Promise<
+  | { ok: true; profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>; supabase: Awaited<ReturnType<typeof import("@/lib/supabase-server").getAdminClient>> }
+  | { ok: false; status: 401 | 403; error: string }
+> {
+  const profile = await getCurrentProfile();
+  if (!profile) return { ok: false, status: 401, error: "Non authentifié" };
+  if (profile.role !== "admin" && !(await canWriteModule(profile.role, mod))) {
+    return { ok: false, status: 403, error: "Accès refusé" };
+  }
+  const { getAdminClient } = await import("@/lib/supabase-server");
+  return { ok: true, profile, supabase: getAdminClient() };
+}
+
 export type { Role };
 
 // Garde d'acces a un module pour une page. Redirige si droit insuffisant.

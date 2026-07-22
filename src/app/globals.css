@@ -699,6 +699,15 @@ select.flat {
 .pcell.hc.over {
   box-shadow: inset 4px 0 0 0 #dc2626, inset 8px 0 0 0 #eab308;
 }
+/* Placement force : le poste exige une habilitation que la personne n'a pas (ou
+   plus). Contour rouge plein, comme au Placement. Le manque est RECALCULE a
+   l'affichage : le contour disparait de lui-meme des la regularisation. */
+.pcell.forced {
+  outline: 2px solid #dc2626;
+  outline-offset: -2px;
+  z-index: 2;
+}
+
 /* Surlignage (clic sur une pastille « Alertes ») : contour, n'ecrase pas les barres. */
 .pcell.hi {
   outline: 2px solid #6366f1;

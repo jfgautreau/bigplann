@@ -1,7 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient } from "@/lib/supabase-server";
-import { getCurrentProfile } from "@/lib/current-user";
-import { MODULE_KEYS, canWriteModule, type Niveau } from "@/lib/permissions";
+import { MODULE_KEYS, moduleWriteGuard, type Niveau } from "@/lib/permissions";
 import { ROLES } from "@/lib/roles";
 
 // POST /api/droits { role, module, niveau }
@@ -10,11 +8,11 @@ import { ROLES } from "@/lib/roles";
 const VALID: Niveau[] = ["none", "read", "write"];
 
 export async function POST(req: NextRequest) {
-  const profile = await getCurrentProfile();
-  // La matrice decide, y compris pour l'ecran qui l'edite.
-  if (!profile || (profile.role !== "admin" && !(await canWriteModule(profile.role, "utilisateurs")))) {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-  }
+  // La matrice decide, y compris pour l'ecran qui l'edite — et le client admin
+  // qui va avec : role_permission est sous RLS `is_admin()`, un titulaire du droit
+  // « utilisateurs » qui n'est pas admin se faisait refuser sans explication.
+  const garde = await moduleWriteGuard("utilisateurs");
+  if (!garde.ok) return NextResponse.json({ error: garde.error }, { status: garde.status });
 
   const body = (await req.json().catch(() => null)) as { role?: string; module?: string; niveau?: string } | null;
   const role = String(body?.role ?? "");
@@ -25,8 +23,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
   }
 
-  const supabase = await getServerClient();
-  const { error } = await supabase.from("role_permission").upsert({ role, module, niveau }, { onConflict: "role,module" });
+  const { error } = await garde.supabase
+    .from("role_permission")
+    .upsert({ role, module, niveau }, { onConflict: "role,module" });
   if (error) return NextResponse.json({ error: error.message }, { status: 403 });
   return NextResponse.json({ ok: true });
 }

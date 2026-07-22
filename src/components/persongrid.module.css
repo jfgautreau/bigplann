@@ -89,13 +89,16 @@
 }
 
 /* --- En-tetes --------------------------------------------------------- */
+/* `text-align: center` centre le bouton Bilan, seul contenu en flux inline de la
+   cellule d'angle (les tuiles de compteur sont une grille, elles n'en dependent
+   pas). Les deux ecrans, Matrice et Habilitations, en beneficient. */
 .cornerHead {
   position: sticky;
   left: 0;
   top: 0;
   z-index: 26;
   background: #fff;
-  text-align: left;
+  text-align: center;
   vertical-align: bottom;
   box-shadow: 1px 0 0 var(--border);
 }
@@ -247,6 +250,6 @@
 .cornerKpis {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 4px;
-  padding: 5px 4px;
+  gap: 5px;
+  padding: 6px 4px;
 }

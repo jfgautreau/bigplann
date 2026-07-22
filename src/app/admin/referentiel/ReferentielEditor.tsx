@@ -52,7 +52,9 @@ const REQ_BTN: React.CSSProperties = {
   flexWrap: "wrap",
   gap: 4,
   width: "100%",
-  minWidth: 130,
+  // `minWidth: 0` et non une largeur plancher : la colonne est figee par le
+  // colgroup, le bouton s'empile sur plusieurs rangees plutot que de l'elargir.
+  minWidth: 0,
   margin: 0,
   padding: "3px 6px",
   background: "#fff",
@@ -70,7 +72,12 @@ const REQ_TAG: React.CSSProperties = {
   color: "#1d4ed8",
   fontWeight: 700,
   fontSize: 11,
-  whiteSpace: "nowrap",
+  // Un nom d'habilitation trop long se replie au lieu de deborder de la colonne
+  // (« PRPO conditionnement ss atm modif » ne tient pas sur une rangee).
+  whiteSpace: "normal",
+  maxWidth: "100%",
+  overflowWrap: "anywhere",
+  lineHeight: 1.35,
 };
 
 export default function ReferentielEditor({
@@ -273,8 +280,29 @@ export default function ReferentielEditor({
                 </button>
               </div>
 
-              {/* Postes */}
-              <table style={{ width: "100%" }}>
+              {/* Postes.
+                  ⚠️ Il y a UN tableau par ligne. En largeur automatique, chacun
+                  dimensionne ses colonnes sur son propre contenu : une ligne dont
+                  les postes exigent des habilitations elargissait sa colonne et
+                  decalait tout, tableau par tableau. `table-layout: fixed` + un
+                  colgroup identique partout les remettent d'aplomb, et la cellule
+                  des habilitations se replie sur plusieurs rangees. */}
+              <table style={{ width: "100%", tableLayout: "fixed" }}>
+                <colgroup>
+                  <col style={{ width: 190 }} />{/* Poste */}
+                  <col style={{ width: 92 }} />{/* Code */}
+                  <col style={{ width: 76 }} />{/* Effectif */}
+                  <col style={{ width: 118 }} />{/* Categorie */}
+                  <col style={{ width: 62 }} />{/* Diff. */}
+                  <col style={{ width: 74 }} />{/* Niv. min */}
+                  <col style={{ width: 72 }} />{/* N° aff. */}
+                  <col style={{ width: 86 }} />{/* N° Rot */}
+                  <col style={{ width: 200 }} />{/* Habil. requises */}
+                  {quarts.map((q) => (
+                    <col key={q.code} style={{ width: 52 }} />
+                  ))}
+                  <col style={{ width: 56 }} />{/* Actif */}
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Poste</th>
@@ -298,7 +326,8 @@ export default function ReferentielEditor({
                   {l.poste.map((p) => (
                     <tr key={p.id} style={{ opacity: p.actif ? 1 : 0.5 }}>
                       <td>
-                        <input value={p.nom} placeholder="Nouveau poste" onChange={(e) => posteField(a.id, l.id, p.id, "nom", e.target.value)} style={{ width: "100%", minWidth: 170 }} />
+                        {/* minWidth: 0 — la colonne est figee, un plancher la ferait deborder. */}
+                        <input value={p.nom} placeholder="Nouveau poste" onChange={(e) => posteField(a.id, l.id, p.id, "nom", e.target.value)} style={{ width: "100%", minWidth: 0 }} />
                       </td>
                       <td>
                         <input

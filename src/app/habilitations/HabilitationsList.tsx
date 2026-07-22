@@ -84,18 +84,20 @@ function Kpi({ n, label, color }: { n: number; label: string; color: string }) {
       style={{
         display: "flex",
         alignItems: "baseline",
-        gap: 6,
+        // Chiffre et libelle centres ensemble dans la tuile.
+        justifyContent: "center",
+        gap: 7,
         minWidth: 0,
-        padding: "4px 9px",
+        padding: "6px 10px",
         border: "1px solid var(--border)",
-        borderRadius: 8,
+        borderRadius: 9,
         background: "#fff",
       }}
     >
-      <span style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.1, color }}>{n}</span>
+      <span style={{ fontSize: 23, fontWeight: 800, lineHeight: 1.1, color }}>{n}</span>
       <span
         style={{
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: 600,
           color: "var(--muted)",
           overflow: "hidden",
@@ -225,9 +227,9 @@ export default function HabilitationsList({
   }
 
   // Colonne noms adaptative, partagee par les 2 tables -> colonnes alignees.
-  // Plancher a 210 px : la cellule d'angle loge les tuiles de compteur, dont le
-  // libelle le plus long (« Autor. a remettre ») serait rogne en dessous.
-  const nameW = Math.min(320, Math.max(210, personnes.reduce((m, p) => Math.max(m, `${p.nom} ${p.prenom}`.length), 0) * 7.2 + 30));
+  // Plancher a 230 px : la cellule d'angle loge les tuiles de compteur, dont le
+  // libelle le plus long (« Autor. a remettre », 13 px) serait rogne en dessous.
+  const nameW = Math.min(320, Math.max(230, personnes.reduce((m, p) => Math.max(m, `${p.nom} ${p.prenom}`.length), 0) * 7.2 + 30));
   const cols = useMemo(
     () => (
       <colgroup>

@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient } from "@/lib/supabase-server";
-import { getCurrentProfile } from "@/lib/current-user";
+import { moduleWriteGuard } from "@/lib/permissions";
 
 // POST /api/ordonnancement/semaine-type-profil { op, ... }
-// Gestion des profils de semaine type. Ecriture admin/ordo (RLS).
+// Gestion des profils de semaine type. Ecriture : droit `ordonnancement`.
 //   op = create { nom }               -> cree un profil
 //        rename { id, nom }
 //        delete { id }                -> supprime (cascade gabarit)
@@ -11,14 +10,16 @@ import { getCurrentProfile } from "@/lib/current-user";
 const s = (v: unknown) => String(v ?? "").trim();
 
 export async function POST(req: NextRequest) {
-  const profile = await getCurrentProfile();
-  if (!profile) return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+  // La matrice des droits decide, puis client admin : la RLS de ces tables
+  // nomme des roles en dur (admin/ordo) et refuserait un titulaire du droit.
+  const garde = await moduleWriteGuard("ordonnancement");
+  if (!garde.ok) return NextResponse.json({ error: garde.error }, { status: garde.status });
+  const supabase = garde.supabase;
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const op = s(body?.op);
   if (!op) return NextResponse.json({ error: "Requete invalide" }, { status: 400 });
 
-  const supabase = await getServerClient();
 
   try {
     if (op === "create") {

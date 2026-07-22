@@ -1,13 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient } from "@/lib/supabase-server";
-import { getCurrentProfile } from "@/lib/current-user";
+import { moduleWriteGuard } from "@/lib/permissions";
 
 // POST /api/ordonnancement/semaine-type { quart_code, jour_semaine, value }
 // Active/desactive un quart pour un jour de la semaine type (gabarit).
-// Ecriture admin/ordo (RLS semaine_type_quart).
+// Ecriture : droit `ordonnancement` dans la matrice.
 export async function POST(req: NextRequest) {
-  const profile = await getCurrentProfile();
-  if (!profile) return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+  // La matrice des droits decide, puis client admin : la RLS de ces tables
+  // nomme des roles en dur (admin/ordo) et refuserait un titulaire du droit.
+  const garde = await moduleWriteGuard("ordonnancement");
+  if (!garde.ok) return NextResponse.json({ error: garde.error }, { status: garde.status });
+  const supabase = garde.supabase;
 
   const body = (await req.json().catch(() => null)) as {
     profil_id?: string;
@@ -24,7 +26,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Parametres manquants" }, { status: 400 });
   }
 
-  const supabase = await getServerClient();
   const { error } = await supabase
     .from("semaine_type_quart")
     .upsert({ profil_id, quart_code, jour_semaine, actif: value }, { onConflict: "profil_id,quart_code,jour_semaine" });

@@ -19,6 +19,7 @@ import QuartSelector from "./QuartSelector";
 import PlanningGrid from "./PlanningGrid";
 import { getRotationRefsC } from "@/lib/refdata";
 import { rotationForWeek } from "@/lib/rotation";
+import { addMonthsIso } from "@/lib/habilitations";
 
 type PosteRow = {
   id: string;
@@ -43,6 +44,8 @@ type Placement = {
   quart_code: string | null;
 };
 type MatRow = { personne_id: string; poste_id: string; niveau_actuel: number };
+type PcrRow = { poste_id: string; competence_id: string; competence: { nom: string; duree_validite_mois: number | null } | null };
+type PcDetRow = { personne_id: string; competence_id: string; date_obtention: string | null; date_expiration: string | null };
 type Motif = { id: string; code_court: string; libelle: string; couleur: string };
 
 export default async function PlanningPage({
@@ -386,6 +389,45 @@ export default async function PlanningPage({
     })),
   }));
 
+  // Habilitations exigees par les postes affiches, et celles que les gens detiennent.
+  // Meme lecture qu'au Placement : le manque est RECALCULE a l'affichage, si bien
+  // qu'un placement force redevient normal des la regularisation et repasse en
+  // rouge si l'habilitation expire. On ne se fie donc pas au drapeau `forcage_*`
+  // stocke, qui n'est qu'une trace d'audit.
+  const posteIdsAffiches = groups.flatMap((g) => g.postes.map((p) => p.id));
+  const habPoste: Record<string, string[]> = {};
+  const habComp: Record<string, string> = {};
+  const habPers: Record<string, string> = {};
+  if (posteIdsAffiches.length) {
+    const dureeComp: Record<string, number | null> = {};
+    const { data: pcrD } = await supabase
+      .from("poste_competence_requise")
+      .select("poste_id, competence_id, competence:competence_id(nom, duree_validite_mois)")
+      .in("poste_id", posteIdsAffiches)
+      .returns<PcrRow[]>();
+    for (const r of pcrD ?? []) {
+      (habPoste[r.poste_id] ??= []).push(r.competence_id);
+      habComp[r.competence_id] = r.competence?.nom ?? "habilitation";
+      dureeComp[r.competence_id] = r.competence?.duree_validite_mois ?? null;
+    }
+    const compRequisesIds = Object.keys(habComp);
+    if (compRequisesIds.length && allIds.length) {
+      // personne_competence depasse 1000 lignes -> fetchAll obligatoire.
+      const det = await fetchAll<PcDetRow>(() =>
+        supabase
+          .from("personne_competence")
+          .select("personne_id, competence_id, date_obtention, date_expiration")
+          .in("competence_id", compRequisesIds)
+          .in("personne_id", allIds)
+          .order("id")
+          .returns<PcDetRow[]>()
+      );
+      for (const d of det)
+        habPers[`${d.personne_id}:${d.competence_id}`] =
+          d.date_expiration ?? addMonthsIso(d.date_obtention, dureeComp[d.competence_id]) ?? "";
+    }
+  }
+
   const quartLabel: Record<string, string> = {};
   for (const q of quarts) quartLabel[q.code] = q.libelle.slice(0, 3);
 
@@ -442,6 +484,9 @@ export default async function PlanningPage({
           besoin={besoin}
           initial={initial}
           matrice={matrice}
+          habPoste={habPoste}
+          habComp={habComp}
+          habPers={habPers}
           quart={quart}
           otherByCell={otherByCell}
           otherPosteByCell={otherPosteByCell}

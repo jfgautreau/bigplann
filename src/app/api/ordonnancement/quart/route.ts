@@ -1,13 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient } from "@/lib/supabase-server";
-import { getCurrentProfile } from "@/lib/current-user";
+import { moduleWriteGuard } from "@/lib/permissions";
 
 // POST /api/ordonnancement/quart
 //   { type: "quart", quart_code, jour, value }            -> jour_quart.actif
 //   { type: "ligne", quart_code, ligne_id, jour, value }  -> ouverture_quart.ouverte
 export async function POST(req: NextRequest) {
-  const profile = await getCurrentProfile();
-  if (!profile) return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+  // La matrice des droits decide, puis client admin : la RLS de ces tables
+  // nomme des roles en dur (admin/ordo) et refuserait un titulaire du droit.
+  const garde = await moduleWriteGuard("ordonnancement");
+  if (!garde.ok) return NextResponse.json({ error: garde.error }, { status: garde.status });
+  const supabase = garde.supabase;
 
   const body = (await req.json().catch(() => null)) as {
     type?: string;
@@ -23,7 +25,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Parametres manquants" }, { status: 400 });
   }
 
-  const supabase = await getServerClient();
   let error;
   if (type === "quart") {
     ({ error } = await supabase

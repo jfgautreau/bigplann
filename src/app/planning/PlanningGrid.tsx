@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { dowMon } from "@/lib/week";
+import { habValable } from "@/lib/habilitations";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
 type WeekBlock = { num: number; span: number; year: number; isCurrent: boolean };
@@ -44,6 +45,9 @@ export default function PlanningGrid({
   besoin = [],
   initial = {},
   matrice = {},
+  habPoste = {},
+  habComp = {},
+  habPers = {},
   quart = "",
   otherByCell = {},
   otherPosteByCell = {},
@@ -67,6 +71,9 @@ export default function PlanningGrid({
   besoin?: number[];
   initial?: Record<string, string>;
   matrice?: Record<string, number>;
+  habPoste?: Record<string, string[]>; // poste -> habilitations exigees
+  habComp?: Record<string, string>; // habilitation -> nom
+  habPers?: Record<string, string>; // `${personne}:${habilitation}` -> echeance ("" = sans echeance)
   quart?: string;
   otherByCell?: Record<string, string>;
   otherPosteByCell?: Record<string, string>; // nom complet du poste occupe sur cet autre quart
@@ -213,6 +220,20 @@ export default function PlanningGrid({
 
   const horsComp = (pid: string, v: string) =>
     isPoste(v) && (matrice[`${pid}:${v}`] ?? 0) < (niveauMin[v] ?? 0);
+
+  // Habilitations exigees par le poste occupe que la personne n'a pas (ou plus).
+  // Recalcule a l'affichage, comme au Placement : le rouge s'efface de lui-meme
+  // des la regularisation, et revient si l'habilitation expire.
+  const habDetenue = (pid: string, cid: string) => {
+    const e = habPers[`${pid}:${cid}`];
+    return e === undefined ? null : { expiration: e === "" ? null : e };
+  };
+  const habManque = (pid: string, v: string): string[] =>
+    !isPoste(v)
+      ? []
+      : (habPoste[v] ?? [])
+          .filter((cid) => !habValable(habDetenue(pid, cid)))
+          .map((cid) => habComp[cid] ?? "habilitation");
 
   // Libelle compact de la valeur d'une case (poste / motif / NT / vide).
   const persById = useMemo(() => new Map(personnes.map((p) => [p.id, p])), [personnes]);
@@ -687,6 +708,8 @@ export default function PlanningGrid({
               {days.map((d, i) => {
                 const v = vals[key(pers.id, d.iso)] ?? "";
                 const alert = horsComp(pers.id, v);
+                // Placement force : habilitation exigee manquante ou perimee.
+                const manque = habManque(pers.id, v);
                 const over = isPoste(v) && (perDay[i].counts[v] ?? 0) > (effectif[v] ?? 0);
                 // Restriction (medicale/physique) : niveau -1 dans la matrice pour ce poste.
                 const restricted = isPoste(v) && matrice[key(pers.id, v)] === -1;
@@ -703,15 +726,19 @@ export default function PlanningGrid({
                 return (
                   <td
                     key={d.iso}
-                    className={`pcell${alert ? " hc" : ""}${over ? " over" : ""}${matchHi ? " hi" : ""}${dimHi ? " dim" : ""}`}
+                    className={`pcell${alert ? " hc" : ""}${over ? " over" : ""}${manque.length ? " forced" : ""}${matchHi ? " hi" : ""}${dimHi ? " dim" : ""}`}
                     style={{
                       textAlign: "center",
-                      background: tpb || tpr ? "#e0e7ff" : motifColor[v] ? motifColor[v] : isToday(d) ? "#eff6ff" : undefined,
+                      background: tpb || tpr ? "#e0e7ff" : motifColor[v] ? motifColor[v] : manque.length ? "#fee2e2" : isToday(d) ? "#eff6ff" : undefined,
                       padding: 0,
                       position: "relative",
                       ...sep(d),
                     }}
-                    title={[restricted ? "⛔ Restriction médicale/physique sur ce poste" : alert ? "Hors compétence" : "", over ? `Sur-effectif (${perDay[i].counts[v]}/${effectif[v] ?? 0})` : ""].filter(Boolean).join(" · ") || undefined}
+                    title={[
+                      restricted ? "⛔ Restriction médicale/physique sur ce poste" : alert ? "Hors compétence" : "",
+                      manque.length ? `⚠ Placement forcé — habilitation manquante : ${manque.join(", ")}` : "",
+                      over ? `Sur-effectif (${perDay[i].counts[v]}/${effectif[v] ?? 0})` : "",
+                    ].filter(Boolean).join(" · ") || undefined}
                   >
                     {tpr ? (
                       <div className="cell-other" style={{ color: "#3730a3" }} title={`Temps partiel — travaille ${tpr === "Mat" ? "le matin" : "l'après-midi"}`}>&rarr; {tpr}</div>
@@ -834,7 +861,9 @@ export default function PlanningGrid({
         Survolez une case et cliquez sur &raquo; pour recopier sa valeur (y compris « non-affecté ») :
         du lundi au jeudi sur la fin de la semaine en cours, à partir du vendredi sur la semaine suivante.{" "}
         <span className="legend-swatch hc" /> barre rouge = hors compétence ·{" "}
-        <span className="legend-swatch over" /> barre jaune = sur-effectif (cumulables) ·
+        <span className="legend-swatch over" /> barre jaune = sur-effectif (cumulables) ·{" "}
+        <span style={{ display: "inline-block", width: 12, height: 12, verticalAlign: "-2px", outline: "2px solid #dc2626", outlineOffset: -2 }} />{" "}
+        contour rouge = placement forcé, habilitation manquante ·
         cliquez une pastille de la ligne « Alertes » pour surligner les cases concernées ·{" "}
         <span style={{ background: "#1d4ed8", color: "#fff", borderRadius: 3, padding: "0 3px", fontSize: 10 }}>🕐</span>{" "}
         horaire spécifique (survolez une case placée) · jours sans ligne ouverte masqués ·{" "}

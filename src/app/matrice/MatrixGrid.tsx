@@ -253,6 +253,13 @@ export default function MatrixGrid({
                               min={0}
                               value={objMap[po.id] ?? 0}
                               onChange={(e) => saveObjectif(po.id, champ, Math.max(0, Number(e.target.value) || 0))}
+                              // La case contient toujours un nombre (0 par defaut) : au clic,
+                              // on le selectionne pour que la frappe le REMPLACE. Sinon le
+                              // curseur se pose a cote et l'on saisit « 03 » au lieu de « 3 ».
+                              onFocus={(e) => e.currentTarget.select()}
+                              // `onFocus` ne suffit pas : un clic dans un champ deja actif
+                              // ne refocalise pas, et un clic pose un curseur apres le focus.
+                              onClick={(e) => e.currentTarget.select()}
                               className={s.objInput}
                             />
                           ) : (
