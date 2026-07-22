@@ -8,6 +8,10 @@ import HabMark from "./HabMark";
 import HabLegendeModal from "./HabLegendeModal";
 import HabMajModal from "./HabMajModal";
 import AutorisationMark from "./AutorisationMark";
+import PageTitle from "@/components/PageTitle";
+import SlideSwitch from "@/components/SlideSwitch";
+import AtelierEquipeFiltres from "@/components/AtelierEquipeFiltres";
+import Link from "next/link";
 
 type Row = {
   id: string;
@@ -110,11 +114,21 @@ export default function HabilitationsList({
   personnes,
   comps,
   canEdit = false,
+  ateliers = [],
+  equipes = [],
+  atelier = "",
+  equipe = "",
+  lienParam = false,
 }: {
   rows: Row[];
   personnes: Personne[];
   comps: Comp[];
   canEdit?: boolean;
+  ateliers?: { id: string; label: string }[];
+  equipes?: { id: string; label: string }[];
+  atelier?: string;
+  equipe?: string;
+  lienParam?: boolean; // droit de lecture sur « Param. Habilitation »
 }) {
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"grille" | "liste">("grille"); // grille par défaut
@@ -239,30 +253,6 @@ export default function HabilitationsList({
   const anyAutor = rows.some((r) => r.competence?.a_autorisation_conduite);
   const seg = (v: "grille" | "liste") => ({ className: view === v ? "seg active" : "seg", onClick: () => setView(v), type: "button" as const });
 
-  const searchRow = (
-    <div className={g.searchRow}>
-      <span className={g.searchWrap}>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="🔍 Rechercher (nom, formation, groupe…)"
-          className={g.searchInput}
-        />
-        {search && (
-          <button type="button" onClick={() => setSearch("")} title="Effacer" className={g.searchClear}>
-            ✕
-          </button>
-        )}
-      </span>
-      <div className="segments" style={{ flex: "0 0 auto" }}>
-        <button {...seg("grille")}>Grille</button>
-        <button {...seg("liste")}>Liste</button>
-      </div>
-      <button type="button" className={`btn-sm btn-ghost ${g.legendBtn}`} onClick={() => setShowLegende(true)}>
-        📖 Légende
-      </button>
-    </div>
-  );
 
   return (
     <>
@@ -282,8 +272,6 @@ export default function HabilitationsList({
               "--accent-soft": "#1d4ed855",
             } as React.CSSProperties}
           >
-            {searchRow}
-
             {/* Tableau 1 : en-tetes figes (categorie / groupe / formation) */}
             <div className={`card ${g.headCard}`} ref={headCardRef}>
               <table className={`matrix ${g.table}`} ref={headTableRef}>
@@ -418,7 +406,6 @@ export default function HabilitationsList({
           </div>
         ) : (
           <>
-            {searchRow}
             <div className="card grow" style={{ overflow: "auto" }}>
               <table>
                 <thead>

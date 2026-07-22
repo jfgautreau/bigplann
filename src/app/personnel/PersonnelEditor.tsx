@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import ToggleSwitch from "@/components/ToggleSwitch";
+import PageTitle from "@/components/PageTitle";
 import ConfirmForm from "@/components/ConfirmForm";
 import TempsPartielModal from "./TempsPartielModal";
 import ContratsModal from "./ContratsModal";
@@ -276,59 +277,67 @@ export default function PersonnelEditor({
 
   return (
     <>
-      {/* Barre de filtres : statut puis contrat, alignes à droite (colonne centrée 1500 px) */}
-      <div className="headband">
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, marginBottom: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span className="muted" style={{ fontWeight: 600 }}>Statut :</span>
-          <div className="segments">
-            <button type="button" className={statutFilter === "" ? "seg active" : "seg"} onClick={() => setStatutFilter("")}>Tous ({rows.length})</button>
-            <button type="button" className={statutFilter === "ACTIF" ? "seg active" : "seg"} onClick={() => setStatutFilter("ACTIF")}>Actif ({counts.actif})</button>
-            <button type="button" className={statutFilter === "PARTI" ? "seg active" : "seg"} onClick={() => setStatutFilter("PARTI")}>Parti ({counts.parti})</button>
-          </div>
+      {/* En-tete en deux lignes, commun a Personnel / Matrice / Habilitations.
+          Ligne 1 : titre · recherche · nombre de personnes.
+          Ligne 2 : actions a gauche · filtres Statut et Contrat a droite. */}
+      <div className="headband headband-top">
+        <div className="hb-l1">
+          <PageTitle module="personnel">Personnel</PageTitle>
+          <span className="hb-search">
+            <input
+              value={gq}
+              onChange={(e) => setGq(e.target.value)}
+              placeholder="🔍 Rechercher : nom, matricule, badge, équipe…"
+            />
+            {gq !== "" && (
+              <button type="button" className="clear" onClick={() => setGq("")} title="Effacer la recherche">✕</button>
+            )}
+          </span>
+          <span className="hb-fin">
+            <span className="muted" style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
+              {filtered.length === rows.length ? `${rows.length} personnes` : `${filtered.length} / ${rows.length}`}
+            </span>
+            <span style={{ minWidth: 92, textAlign: "right", fontSize: 12, fontWeight: 600, color: saveColor }}>{saveLabel}</span>
+          </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span className="muted" style={{ fontWeight: 600 }}>Contrat :</span>
-          <div className="segments">
-            <button type="button" className={contratFilter === "" ? "seg active" : "seg"} onClick={() => setContratFilter("")}>Tous ({counts.tous})</button>
-            {CONTRATS.map((c) => (
-              <button key={c} type="button" className={contratFilter === c ? "seg active" : "seg"} onClick={() => setContratFilter(c)}>
-                {c === "INTERIM" ? "Intérim" : c} ({counts[c] ?? 0})
-              </button>
-            ))}
-          </div>
+
+        <div className="hb-l2">
+          {canEdit && (
+            <button type="button" className="btn-sm" style={{ width: "auto", margin: 0, whiteSpace: "nowrap" }} onClick={() => setShowCreate(true)} title="Ajouter une personne">
+              ＋ Ajouter
+            </button>
+          )}
+          {canEdit && sel.size === 2 && (
+            <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", margin: 0, whiteSpace: "nowrap" }} onClick={openMerge} title="Fusionner les 2 personnes sélectionnées">
+              🔗 Fusionner
+            </button>
+          )}
+          <span className="hb-fin">
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="muted" style={{ fontWeight: 600, fontSize: 13 }}>Statut</span>
+              <div className="segments">
+                <button type="button" className={statutFilter === "" ? "seg active" : "seg"} onClick={() => setStatutFilter("")}>Tous ({rows.length})</button>
+                <button type="button" className={statutFilter === "ACTIF" ? "seg active" : "seg"} onClick={() => setStatutFilter("ACTIF")}>Actif ({counts.actif})</button>
+                <button type="button" className={statutFilter === "PARTI" ? "seg active" : "seg"} onClick={() => setStatutFilter("PARTI")}>Parti ({counts.parti})</button>
+              </div>
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="muted" style={{ fontWeight: 600, fontSize: 13 }}>Contrat</span>
+              <div className="segments">
+                <button type="button" className={contratFilter === "" ? "seg active" : "seg"} onClick={() => setContratFilter("")}>Tous ({counts.tous})</button>
+                {CONTRATS.map((c) => (
+                  <button key={c} type="button" className={contratFilter === c ? "seg active" : "seg"} onClick={() => setContratFilter(c)}>
+                    {c === "INTERIM" ? "Intérim" : c} ({counts[c] ?? 0})
+                  </button>
+                ))}
+              </div>
+            </span>
+          </span>
         </div>
-      </div>
       </div>
 
       {/* La grille occupe toute la largeur de la fenêtre. */}
       <div className="gridband">
-      {/* Recherche centrée (fixe) + nombre de personnes ancré à droite (n'affecte pas le centrage) */}
-      <div style={{ position: "relative", display: "flex", justifyContent: "center", alignItems: "center", marginBottom: 8, minHeight: 34, flex: "0 0 auto" }}>
-        <span style={{ position: "relative", display: "inline-block", width: 360, maxWidth: "90vw" }}>
-          <span aria-hidden style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", fontSize: 13, pointerEvents: "none" }}>🔍</span>
-          <input
-            value={gq}
-            onChange={(e) => setGq(e.target.value)}
-            placeholder="Rechercher : nom, matricule, badge, équipe…"
-            style={{ width: "100%", fontSize: 13, padding: "7px 30px 7px 30px", borderRadius: 999 }}
-          />
-          {gq !== "" && (
-            <button type="button" onClick={() => setGq("")} title="Effacer la recherche"
-              style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 18, height: 18, margin: 0, padding: 0, border: "none", borderRadius: "50%", background: "var(--muted)", color: "#fff", cursor: "pointer", fontSize: 11, lineHeight: "18px", textAlign: "center" }}>✕</button>
-          )}
-        </span>
-        <span style={{ position: "absolute", right: 0, display: "flex", alignItems: "center", gap: 12 }}>
-          {canEdit && sel.size === 2 && (
-            <button type="button" className="btn-sm" style={{ width: "auto", whiteSpace: "nowrap" }} onClick={openMerge} title="Fusionner les 2 personnes sélectionnées">🔗 Fusionner</button>
-          )}
-          <span className="muted" style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
-            {filtered.length === rows.length ? `${rows.length} personnes` : `${filtered.length} / ${rows.length}`}
-          </span>
-          <span style={{ minHeight: 16, fontSize: 12, fontWeight: 600, color: saveColor }}>{saveLabel}</span>
-        </span>
-      </div>
-
       {/* Tableau 1 (fixe) : entetes + recherche + creation */}
       <div className="card" style={{ padding: "6px 10px", overflowY: "auto", scrollbarGutter: "stable" }}>
         <table className="pers-table" style={tableStyle}>
@@ -336,19 +345,7 @@ export default function PersonnelEditor({
           <thead>
             <tr>
               {COLS.map((c) => <th key={c.key} style={{ whiteSpace: "nowrap" }}>{c.label}</th>)}
-              {canEdit && (
-                <th style={{ textAlign: "center" }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowCreate(true)}
-                    className="btn-sm"
-                    style={{ width: "auto", whiteSpace: "nowrap", padding: "2px 8px" }}
-                    title="Ajouter une personne"
-                  >
-                    ＋ Ajouter
-                  </button>
-                </th>
-              )}
+              {canEdit && <th />}
             </tr>
           </thead>
         </table>

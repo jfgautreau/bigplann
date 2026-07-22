@@ -26,18 +26,17 @@ export default function MatrixGrid({
   initial = {},
   canEditObjectif = false,
   mode = "actuel",
-  onShowLegende,
+  search = "",
 }: {
   groups?: Group[];
   personnes?: Personne[];
   initial?: Record<string, Cell>;
   canEditObjectif?: boolean;
   mode?: "actuel" | "cible";
-  onShowLegende?: () => void;
+  search?: string; // saisie dans l'en-tete (cf. MatricePanel)
 }) {
   const [cells, setCells] = useState<Record<string, Cell>>(initial);
   const [showBilan, setShowBilan] = useState(false);
-  const [search, setSearch] = useState("");
   const [objActuel, setObjActuel] = useState<Record<string, number>>(() => {
     const o: Record<string, number> = {};
     for (const gr of groups) for (const p of gr.postes) o[p.id] = p.objectifActuel ?? 0;
@@ -164,28 +163,6 @@ export default function MatrixGrid({
       data-mode={mode}
       style={{ "--name-w": `${nameW}px`, "--n-cols": allPostes.length } as React.CSSProperties}
     >
-      {/* Recherche par nom (à gauche) + légende (à droite, même ligne) */}
-      <div className={g.searchRow}>
-        <span className={g.searchWrap}>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="🔍 Rechercher un nom…"
-            className={g.searchInput}
-          />
-          {search && (
-            <button type="button" onClick={() => setSearch("")} title="Effacer" className={g.searchClear}>
-              ✕
-            </button>
-          )}
-        </span>
-        {onShowLegende && (
-          <button type="button" className={`btn-sm btn-ghost ${g.legendBtn}`} onClick={onShowLegende}>
-            📖 Légende
-          </button>
-        )}
-      </div>
-
       {/* Tableau 1 : en-tetes + bilan retractable (fixe) */}
       <div className={`card ${g.headCard}`} ref={headCardRef}>
         <div className={g.saveState} data-state={saveState}>

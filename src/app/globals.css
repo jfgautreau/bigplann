@@ -61,6 +61,62 @@ body {
 .headband-top {
   padding-top: 24px;
 }
+
+/* Deux lignes d'en-tete partagees par Personnel, Matrice et Habilitations.
+   Ligne 1 : titre · recherche · complement cale a droite.
+   Ligne 2 : bascule (ou actions) a gauche · filtres cales a droite. */
+.hb-l1,
+.hb-l2 {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.hb-l1 {
+  margin-bottom: 10px;
+}
+.hb-l2 {
+  margin-bottom: 12px;
+}
+/* Pousse a droite le complement (ligne 1) et le bloc de filtres (ligne 2). */
+.hb-fin {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+/* Champ de recherche de l'en-tete : occupe la place libre entre titre et complement. */
+.hb-search {
+  position: relative;
+  flex: 1 1 280px;
+  max-width: 420px;
+}
+.hb-search input {
+  width: 100%;
+  padding: 7px 30px 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+.hb-search .clear {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--muted);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+}
 .gridband {
   flex: 1 1 auto;
   min-height: 0;

@@ -1,11 +1,8 @@
-import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import { fetchAll } from "@/lib/fetch-all";
-import PageTitle from "@/components/PageTitle";
 import { requireModule, canWrite, canRead } from "@/lib/permissions";
 import { getAteliersC, getEquipesC } from "@/lib/refdata";
-import AtelierEquipeFiltres from "@/components/AtelierEquipeFiltres";
 import HabilitationsList from "./HabilitationsList";
 
 type Comp = { id: string; nom: string; duree_validite_mois: number | null; categorie: string | null; groupe: string | null; ordre: number; a_autorisation_conduite: boolean };
@@ -69,26 +66,21 @@ export default async function HabilitationsPage({
   return (
     <>
       <div className="pagecol">
-      <AppHeader role={profile.role} active="/habilitations" />
-        <div className="headband headband-top">
-        <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center" }}>
-          <PageTitle module="habilitations">Habilitations</PageTitle>
-          <AtelierEquipeFiltres
-            base="/habilitations"
-            ateliers={ateliers.map((a) => ({ id: a.id, label: a.nom }))}
-            equipes={equipes.map((e) => ({ id: e.id, label: e.nom }))}
-            atelier={sp.atelier ?? ""}
-            equipe={sp.equipe ?? ""}
-          />
-          {canRead(perms, "habilitations_param") && (
-            <Link href="/admin/habilitations-param" className="navlink" title="Définir les formations et leurs durées de validité">
-              📜 Paramétrer les formations &rarr;
-            </Link>
-          )}
-        </div>
-        </div>
-        {/* La saisie se fait au clic sur une pastille de la grille (modale pre-remplie). */}
-        <HabilitationsList rows={rows} personnes={personnes} comps={comps} canEdit={canEdit} />
+        <AppHeader role={profile.role} active="/habilitations" />
+        {/* L'en-tete (titre, recherche, filtres) est rendu par HabilitationsList :
+            la recherche est un etat client, elle doit vivre dans le meme composant.
+            La saisie s'ouvre au clic sur une pastille de la grille. */}
+        <HabilitationsList
+          rows={rows}
+          personnes={personnes}
+          comps={comps}
+          canEdit={canEdit}
+          ateliers={ateliers.map((a) => ({ id: a.id, label: a.nom }))}
+          equipes={equipes.map((e) => ({ id: e.id, label: e.nom }))}
+          atelier={sp.atelier ?? ""}
+          equipe={sp.equipe ?? ""}
+          lienParam={canRead(perms, "habilitations_param")}
+        />
       </div>
     </>
   );
