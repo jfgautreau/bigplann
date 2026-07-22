@@ -14,6 +14,19 @@ const CAT_BILANS: { key: string; label: string }[] = [
   { key: "operateur", label: "Opérateurs" },
 ];
 type Group = { ligneNom: string; ligneId: string; atelierNom?: string; postes: Poste[] };
+
+// Le poste exige des habilitations que la personne n'a pas (ou plus). L'API repond
+// 428 en les nommant : on remonte la liste pour demander confirmation, au lieu de
+// faire revenir la case en silence. Definie au niveau du module — dans le corps du
+// composant, la classe serait recreee a chaque rendu et `instanceof` deviendrait
+// dependant du moment ou l'erreur a ete levee.
+class HabManquanteError extends Error {
+  manquantes: string[];
+  constructor(manquantes: string[]) {
+    super("Habilitation manquante");
+    this.manquantes = manquantes;
+  }
+}
 type Motif = { id: string; code: string; couleur: string };
 type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean; color?: string };
 
@@ -90,6 +103,8 @@ export default function PlanningGrid({
   // Selection d'une case (contour) pour la touche Suppr, et panneau d'affectation.
   const [selected, setSelected] = useState<string | null>(null);
   const [pick, setPick] = useState<{ pid: string; iso: string; eq: string | null; left: number; right: number; top: number; bottom: number } | null>(null);
+  // Demande de forcage en attente : le poste vise exige une habilitation absente.
+  const [askHab, setAskHab] = useState<{ pid: string; iso: string; eq: string | null; value: string; manquantes: string[] } | null>(null);
   // Recherche par nom : filtre uniquement les lignes affichees (indicateurs inchanges).
   const [search, setSearch] = useState("");
   const shown = useMemo(
@@ -273,25 +288,40 @@ export default function PlanningGrid({
     return { counts, present, alerts, overCount, catPresent, catRequis };
   });
 
-  async function postCell(pid: string, iso: string, equipe_id: string | null, value: string) {
+  // ⚠️ Ne jamais ajouter `numero` ici : son ABSENCE indique a l'API que l'appel
+  // vient du Planning, qui n'a pas de cases numerotees, et qu'elle doit prendre
+  // la premiere place libre (cf. /api/placement/cell).
+  async function postCell(pid: string, iso: string, equipe_id: string | null, value: string, forcer = false) {
     const res = await fetch("/api/placement/cell", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ personne_id: pid, jour: iso, equipe_id, value, quart }),
+      body: JSON.stringify({ personne_id: pid, jour: iso, equipe_id, value, quart, ...(forcer ? { forcer: true } : {}) }),
     });
-    if (!res.ok) throw new Error();
+    if (res.ok) return;
+    if (res.status === 428) {
+      const j = (await res.json().catch(() => ({}))) as { manquantes?: string[] };
+      throw new HabManquanteError(Array.isArray(j.manquantes) ? j.manquantes : []);
+    }
+    throw new Error();
   }
 
-  async function change(pid: string, iso: string, equipe_id: string | null, value: string) {
+  async function change(pid: string, iso: string, equipe_id: string | null, value: string, forcer = false) {
     const k = key(pid, iso);
     const prev = vals[k] ?? "";
     setVals((s) => ({ ...s, [k]: value }));
     setSaving("saving");
     try {
-      await postCell(pid, iso, equipe_id, value);
+      await postCell(pid, iso, equipe_id, value, forcer);
       setSaving("saved");
-    } catch {
+    } catch (e) {
       setVals((s) => ({ ...s, [k]: prev })); // refus serveur : on annule le changement
+      if (e instanceof HabManquanteError) {
+        // Meme comportement qu'au Placement : on propose de forcer, en nommant
+        // ce qui manque. Sans cette fenetre, le Planning refusait sans rien dire.
+        setSaving("idle");
+        setAskHab({ pid, iso, eq: equipe_id, value, manquantes: e.manquantes });
+        return;
+      }
       setSaving("error");
     }
     setTimeout(() => setSaving("idle"), 1200);
@@ -329,7 +359,11 @@ export default function PlanningGrid({
     });
     setSaving("saving");
     try {
-      await Promise.all(targets.map((t) => postCell(pers.id, t.iso, pers.equipe_id, value)));
+      // `forcer` : la recopie duplique une affectation DEJA a l'ecran, donc deja
+      // acceptee (au besoin en la forcant). Redemander confirmation pour chaque
+      // jour recopie n'apprendrait rien. Chaque ligne reste tracee, et le rouge
+      // se recalcule a l'affichage.
+      await Promise.all(targets.map((t) => postCell(pers.id, t.iso, pers.equipe_id, value, true)));
       setSaving("saved");
     } catch {
       setSaving("error");
@@ -369,7 +403,10 @@ export default function PlanningGrid({
     setVals(next);
     setSaving("saving");
     try {
-      await Promise.all(updates.map((u) => postCell(u.pid, u.iso, u.eq, u.value)));
+      // `forcer` : meme raison qu'a la recopie de semaine, on duplique un plan
+      // deja valide. Sans cela, un seul poste en manque d'habilitation ferait
+      // echouer toute la copie.
+      await Promise.all(updates.map((u) => postCell(u.pid, u.iso, u.eq, u.value, true)));
       setSaving("saved");
     } catch {
       setSaving("error");
@@ -803,6 +840,49 @@ export default function PlanningGrid({
         horaire spécifique (survolez une case placée) · jours sans ligne ouverte masqués ·{" "}
         cliquez une case puis <kbd>Suppr</kbd> pour l&apos;effacer.
       </p>
+
+      {/* Habilitation manquante : confirmer ou renoncer. Meme geste qu'au Placement —
+          sans cette fenetre, le Planning refusait le placement sans rien expliquer. */}
+      {askHab && (
+        <div
+          onClick={() => setAskHab(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+        >
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ margin: 0, width: "100%", maxWidth: 440 }}>
+            <h2 style={{ margin: "0 0 8px", fontSize: 18, color: "#b91c1c" }}>⚠ Habilitation manquante</h2>
+            <p style={{ margin: "0 0 6px", fontSize: 14 }}>
+              <strong>{persById.get(askHab.pid)?.label ?? ""}</strong> n&apos;est pas habilité(e) pour le
+              poste <strong>{posteLabel[askHab.value] ?? posteLabelAll[askHab.value] ?? "?"}</strong>.
+            </p>
+            {askHab.manquantes.length > 0 && (
+              <p style={{ margin: "0 0 14px", fontSize: 14 }}>
+                Manque : <strong style={{ color: "#b91c1c" }}>{askHab.manquantes.join(", ")}</strong>
+              </p>
+            )}
+            <p className="muted" style={{ margin: "0 0 14px", fontSize: 12 }}>
+              Un placement forcé est tracé (auteur et date) et s&apos;affiche en rouge tant que
+              l&apos;habilitation n&apos;est pas régularisée.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button type="button" className="btn-sm btn-ghost" onClick={() => setAskHab(null)}>
+                Non
+              </button>
+              <button
+                type="button"
+                className="btn-sm"
+                style={{ background: "#dc2626", color: "#fff", border: "1px solid #dc2626", fontWeight: 700 }}
+                onClick={() => {
+                  const a = askHab;
+                  setAskHab(null);
+                  change(a.pid, a.iso, a.eq, a.value, true);
+                }}
+              >
+                Oui, je force
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Panneau d'affectation (rendu une seule fois, position fixe -> pas de clipping). */}
       {pick && (() => {
