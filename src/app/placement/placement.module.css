@@ -479,21 +479,139 @@
 }
 
 /* =====================================================================
-   Feuille imprimable (bouton PDF) : masquee a l'ecran, seule visible a
-   l'impression. Largeur calee sur une A4 paysage utile (1060 px a 96 dpi) ;
-   `imprimer()` applique un zoom pour la faire tenir sur UNE page.
+   Feuille imprimable (bouton PDF) : rendue hors ecran, seule visible a
+   l'impression. `ajusterFeuille()` mesure la feuille puis la met a l'echelle
+   pour qu'elle occupe UNE page A4 paysage entiere (1060 x 730 px utiles).
+
+   ⚠️ Les regles de mise en page ci-dessous sont volontairement HORS
+   `@media print`. `ajusterFeuille()` mesure la feuille alors que le document
+   est encore en media `screen` : tant qu'elles vivaient sous `@media print`,
+   elles ne s'appliquaient pas a la mesure. Les tuiles de poste s'empilaient
+   alors en colonne sur toute la largeur, la hauteur mesuree explosait, et le
+   plan sortait minuscule dans le coin d'une page aux trois quarts blanche.
+   Ne pas les y remettre.
+
+   Deux boites : `.printSheet` est le cadre, toujours exactement une page ;
+   `.printInner` porte le contenu et la transformation. Sans ce cadre, une
+   feuille elargie a 1600 px avant reduction donnait une page de 1600 px de
+   large que le navigateur rognait ou reduisait a sa facon.
    ===================================================================== */
-/* Hors impression, la feuille est rendue HORS ECRAN plutot que masquee :
-   `display: none` la rendrait impossible a mesurer avant d'appeler print(). */
 .printSheet {
   position: fixed;
   left: -20000px;
   top: 0;
   width: 1060px;
+  height: 730px;
+  overflow: hidden;
   font-size: 10px;
   color: #000;
   background: #fff;
 }
+.printInner {
+  width: 1060px;
+  transform-origin: top left;
+}
+
+.printHead {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  border-bottom: 2px solid #000;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+.printTitre {
+  font-size: 16px;
+}
+.printCouv {
+  margin-left: auto;
+  font-weight: 700;
+}
+.printBody {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.printPlan {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.printLigne {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 5px;
+  break-inside: avoid;
+}
+.printLigneNom {
+  flex: 0 0 72px;
+  border-left: 3px solid #000;
+  padding-left: 5px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.printPostes {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.printPoste {
+  width: 150px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  padding: 2px 4px;
+  break-inside: avoid;
+}
+.printPosteHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 2px;
+}
+.printPosteNom {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.printOk { color: #166534; font-weight: 700; }
+.printTrou { color: #b91c1c; font-weight: 700; }
+.printSurNb { color: #b45309; font-weight: 700; }
+/* Sureffectif : la tuile entiere, comme a l'ecran. */
+.printSur { background: #fef3c7; border-color: #b45309; }
+.printNom { line-height: 1.35; }
+/* Competence ou habilitation manquante. */
+.printAlerte { background: #fee2e2; color: #b91c1c; font-weight: 700; }
+.printNum {
+  display: inline-block;
+  min-width: 13px;
+  margin-right: 3px;
+  padding: 0 2px;
+  border: 1px solid #94a3b8;
+  border-radius: 3px;
+  font-weight: 700;
+  text-align: center;
+}
+.printVide { color: #94a3b8; }
+
+.printAbs {
+  flex: 0 0 168px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+.printAbsTitre {
+  font-weight: 700;
+  border-bottom: 1px solid #000;
+  margin-bottom: 4px;
+  padding-bottom: 2px;
+}
+.printAbsBloc { margin-bottom: 5px; break-inside: avoid; }
+.printAbsMotif { font-weight: 700; }
+.printAbsNb { font-weight: 400; }
+.printAbsNom { padding-left: 6px; line-height: 1.3; }
 
 @media print {
   /* Tout l'ecran de saisie disparait : filtres, plan interactif, colonne des
@@ -501,113 +619,10 @@
   .board > *:not(.printSheet) {
     display: none !important;
   }
+  /* La feuille reprend sa place dans le flux ; ses dimensions ne changent pas,
+     elles valent deja une page exactement. */
   .printSheet {
     position: static;
     left: auto;
-    /* La feuille est mise a l'echelle par transform : on borne la zone a UNE
-       page, sinon l'impression reserverait la hauteur non reduite et sortirait
-       une seconde feuille blanche. */
-    height: 730px;
-    overflow: hidden;
   }
-  .printHead {
-    display: flex;
-    align-items: baseline;
-    gap: 14px;
-    border-bottom: 2px solid #000;
-    padding-bottom: 4px;
-    margin-bottom: 8px;
-  }
-  .printTitre {
-    font-size: 16px;
-  }
-  .printCouv {
-    margin-left: auto;
-    font-weight: 700;
-  }
-  .printBody {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .printPlan {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  .printLigne {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    margin-bottom: 5px;
-    break-inside: avoid;
-  }
-  .printLigneNom {
-    flex: 0 0 72px;
-    border-left: 3px solid #000;
-    padding-left: 5px;
-    font-weight: 700;
-    overflow-wrap: anywhere;
-  }
-  .printPostes {
-    flex: 1 1 auto;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  .printPoste {
-    width: 150px;
-    border: 1px solid #94a3b8;
-    border-radius: 4px;
-    padding: 2px 4px;
-    break-inside: avoid;
-  }
-  .printPosteHead {
-    display: flex;
-    justify-content: space-between;
-    gap: 4px;
-    border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 2px;
-  }
-  .printPosteNom {
-    font-weight: 700;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .printOk { color: #166534; font-weight: 700; }
-  .printTrou { color: #b91c1c; font-weight: 700; }
-  .printSurNb { color: #b45309; font-weight: 700; }
-  /* Sureffectif : la tuile entiere, comme a l'ecran. */
-  .printSur { background: #fef3c7; border-color: #b45309; }
-  .printNom { line-height: 1.35; }
-  /* Competence ou habilitation manquante. */
-  .printAlerte { background: #fee2e2; color: #b91c1c; font-weight: 700; }
-  .printNum {
-    display: inline-block;
-    min-width: 13px;
-    margin-right: 3px;
-    padding: 0 2px;
-    border: 1px solid #94a3b8;
-    border-radius: 3px;
-    font-weight: 700;
-    text-align: center;
-  }
-  .printVide { color: #94a3b8; }
-
-  .printAbs {
-    flex: 0 0 168px;
-    border: 1px solid #94a3b8;
-    border-radius: 4px;
-    padding: 4px 6px;
-  }
-  .printAbsTitre {
-    font-weight: 700;
-    border-bottom: 1px solid #000;
-    margin-bottom: 4px;
-    padding-bottom: 2px;
-  }
-  .printAbsBloc { margin-bottom: 5px; break-inside: avoid; }
-  .printAbsMotif { font-weight: 700; }
-  .printAbsNb { font-weight: 400; }
-  .printAbsNom { padding-left: 6px; line-height: 1.3; }
 }

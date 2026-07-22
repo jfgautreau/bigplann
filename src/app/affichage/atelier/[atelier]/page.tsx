@@ -185,8 +185,15 @@ export default async function AffichageAtelier({
       if (!tpHor && cfg.horaires) tpHor = cfg.horaires[d];
     }
     // Priorite : exception ponctuelle > horaires TP > horaire standard du poste.
-    const debut = ex?.debut || tpHor?.debut || std?.debut || null;
-    const fin = ex?.fin || tpHor?.fin || std?.fin || null;
+    // ⚠️ La priorite porte sur la SOURCE, pas sur chaque borne prise a part.
+    // Resoudre `debut` et `fin` independamment recomposait un horaire qui n'a
+    // jamais ete saisi nulle part : une exception renseignee cote debut seul
+    // donnait « debut de l'exception – fin du poste ». On choisit la premiere
+    // source qui dit quelque chose, puis on lui prend ses deux bornes.
+    const renseigne = (h?: { debut?: string | null; fin?: string | null } | null) => !!(h && (h.debut || h.fin));
+    const source = renseigne(ex) ? ex : renseigne(tpHor) ? tpHor : std;
+    const debut = source?.debut || null;
+    const fin = source?.fin || null;
     if (!debut && !fin) return "";
     return `${debut ?? "?"}-${fin ?? "?"}`;
   };

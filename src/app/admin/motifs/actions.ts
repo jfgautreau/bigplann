@@ -45,3 +45,33 @@ export async function toggleMotif(fd: FormData) {
     .eq("id", s(fd, "id"));
   done();
 }
+
+// ----- Agences d'interim -----
+// Liste fermee alimentant le menu deroulant « Agence » des periodes de contrat
+// (cf. src/app/personnel/PeriodesEditor.tsx). Desactiver plutot que supprimer :
+// les periodes passees referencent l'agence par son NOM, en texte libre.
+
+export async function createAgence(fd: FormData) {
+  const supabase = await requireModuleWrite("motifs");
+  const nom = s(fd, "nom");
+  if (!nom) done();
+  await supabase.from("agence_interim").insert({ nom });
+  done();
+}
+
+export async function updateAgence(fd: FormData) {
+  const supabase = await requireModuleWrite("motifs");
+  const nom = s(fd, "nom");
+  if (!nom) done();
+  await supabase.from("agence_interim").update({ nom }).eq("id", s(fd, "id"));
+  done();
+}
+
+export async function toggleAgence(fd: FormData) {
+  const supabase = await requireModuleWrite("motifs");
+  await supabase
+    .from("agence_interim")
+    .update({ actif: fd.get("actif") === "true" })
+    .eq("id", s(fd, "id"));
+  done();
+}

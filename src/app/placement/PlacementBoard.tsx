@@ -279,12 +279,17 @@ export default function PlacementBoard({
   // 96 postes reduit a 53 % occupait encore 802 px de haut, soit toujours deux
   // pages. Une transformation, elle, reduit exactement ce qu'on a mesure.
   //
-  // On essaie plusieurs largeurs de feuille avant de reduire : une feuille plus
-  // large range les postes sur moins de rangees, donc autorise une echelle plus
-  // grande. Sur le meme plan de 96 postes, 1600 px a 66 % au lieu de 1060 px a 53 %.
-  const LARGEURS_ESSAI = [1060, 1300, 1600, 1900, 2200];
+  // On essaie plusieurs largeurs de feuille : une feuille plus large range les
+  // postes sur moins de rangees et autorise une echelle plus grande (sur un plan
+  // de 96 postes, 1600 px a 66 % au lieu de 1060 px a 53 %) ; une feuille plus
+  // etroite qu'une page permet a l'inverse d'AGRANDIR un petit plan pour qu'il
+  // remplisse la feuille au lieu de se tasser dans le coin superieur gauche.
+  const LARGEURS_ESSAI = [700, 820, 940, 1060, 1300, 1600, 1900, 2200];
   const PAGE_L = 1060;
   const PAGE_H = 730;
+  // Borne haute de l'agrandissement : au-dela, un plan de deux lignes donne des
+  // pavés demesurés pour rien.
+  const ECHELLE_MAX = 1.6;
 
   function ajusterFeuille() {
     const el = printRef.current;
@@ -293,11 +298,10 @@ export default function PlacementBoard({
     let meilleur = { f: 0, w: PAGE_L };
     for (const w of LARGEURS_ESSAI) {
       el.style.width = `${w}px`;
-      const f = Math.min(1, PAGE_L / w, PAGE_H / el.scrollHeight);
+      const f = Math.min(ECHELLE_MAX, PAGE_L / w, PAGE_H / el.scrollHeight);
       if (f > meilleur.f) meilleur = { f, w };
     }
     el.style.width = `${meilleur.w}px`;
-    el.style.transformOrigin = "top left";
     el.style.transform = `scale(${meilleur.f})`;
   }
 
@@ -809,13 +813,17 @@ export default function PlacementBoard({
       </div>
 
       {/* ------------------------------------------------------------------
-          Feuille imprimable : masquee a l'ecran, seule visible a l'impression.
-          Rendue en permanence (et non a la demande) pour que `imprimer()` puisse
-          la mesurer avant d'appeler window.print(). Plan a gauche, absents du
-          jour a droite ; tous les postes y figurent, meme non pourvus.
+          Feuille imprimable : rendue hors ecran, seule visible a l'impression.
+          Montee uniquement pendant l'impression (cf. `prepImpression`), mais bien
+          MONTEE : `ajusterFeuille()` doit pouvoir la mesurer avant window.print().
+          Plan a gauche, absents du jour a droite ; tous les postes y figurent,
+          meme non pourvus.
           ------------------------------------------------------------------ */}
       {prepImpression && (
-      <div className={s.printSheet} ref={printRef} aria-hidden="true">
+      <div className={s.printSheet} aria-hidden="true">
+      {/* Cadre exterieur = une page exactement ; ce bloc interieur porte le
+          contenu et la mise a l'echelle (cf. placement.module.css). */}
+      <div className={s.printInner} ref={printRef}>
         <div className={s.printHead}>
           <strong className={s.printTitre}>{ateliers.find((a) => a.id === atelierId)?.nom ?? "Atelier"}</strong>
           <span>{quartLib[quart] ?? quart}</span>
@@ -883,6 +891,7 @@ export default function PlacementBoard({
             {absPrint.length === 0 && <div className={s.printVide}>Aucun absent.</div>}
           </div>
         </div>
+      </div>
       </div>
       )}
 

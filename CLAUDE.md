@@ -27,6 +27,9 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
    Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0033`.**
+   ⏳ **`0034_agence_interim.sql` est écrite mais PAS encore exécutée** : tant qu'elle ne l'est
+   pas, l'écran Param. RH affiche un message à la place des agences et la colonne Agence des
+   contrats reste en saisie libre (replis volontaires, rien ne casse).
 5. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
 6. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
@@ -225,4 +228,7 @@ prochain gros chantier, pas une optimisation cosmétique.
 - Bilans : `src/app/bilans/*` (Cockpit + 4 catégories, impression PDF via `@media print`).
 - Affichage TV : `src/app/affichage/atelier/[atelier]/page.tsx` (public, refresh 5 min,
   **vue par nom uniquement**).
-- Migrations : `supabase/migrations/0001..0033`.
+- Param. RH (ex-« Motifs d'absence », clé de droit toujours `motifs`, route toujours
+  `/admin/motifs`) : `src/app/admin/motifs/{page,actions}.ts(x)` — motifs d'absence **et**
+  agences d'intérim, ces dernières servant le menu déroulant Agence de `PeriodesEditor`.
+- Migrations : `supabase/migrations/0001..0034`.

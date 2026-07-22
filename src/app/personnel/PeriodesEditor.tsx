@@ -36,6 +36,9 @@ export default function PeriodesEditor({
   onSync?: (reflet: RefletContrat) => void;
 }) {
   const [rows, setRows] = useState<Periode[]>([]);
+  // Agences parametrees dans Param. RH. Vide = migration 0034 non appliquee :
+  // on retombe alors sur la saisie libre (cf. le rendu de la colonne Agence).
+  const [agences, setAgences] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -72,15 +75,20 @@ export default function PeriodesEditor({
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const res = await fetch("/api/personnel", {
+    const call = (payload: Record<string, unknown>) =>
+      fetch("/api/personnel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "periode-list", personne_id: personneId }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { rows?: Periode[] };
+        body: JSON.stringify(payload),
+      }).then((r) => r.json().catch(() => ({})));
+    (async () => {
+      const [periodes, ag] = await Promise.all([
+        call({ op: "periode-list", personne_id: personneId }) as Promise<{ rows?: Periode[] }>,
+        call({ op: "agences" }) as Promise<{ agences?: string[] }>,
+      ]);
       if (!cancelled) {
-        setRows(j.rows ?? []);
+        setRows(periodes.rows ?? []);
+        setAgences(ag.agences ?? []);
         setLoading(false);
       }
     })();
@@ -164,12 +172,33 @@ export default function PeriodesEditor({
                   </select>
                 </td>
                 <td>
-                  <input
-                    value={r.agence_interim ?? ""}
-                    disabled={r.type_contrat !== "INTERIM"}
-                    onChange={(e) => edit(r.id, "agence_interim", e.target.value)}
-                    style={{ ...inp, opacity: r.type_contrat !== "INTERIM" ? 0.5 : 1 }}
-                  />
+                  {agences.length === 0 ? (
+                    // Aucune agence parametree (ou migration 0034 non appliquee) :
+                    // saisie libre, comme avant, plutot qu'un menu vide inutilisable.
+                    <input
+                      value={r.agence_interim ?? ""}
+                      disabled={r.type_contrat !== "INTERIM"}
+                      onChange={(e) => edit(r.id, "agence_interim", e.target.value)}
+                      style={{ ...inp, opacity: r.type_contrat !== "INTERIM" ? 0.5 : 1 }}
+                    />
+                  ) : (
+                    <select
+                      value={r.agence_interim ?? ""}
+                      disabled={r.type_contrat !== "INTERIM"}
+                      onChange={(e) => edit(r.id, "agence_interim", e.target.value, true)}
+                      style={{ ...inp, opacity: r.type_contrat !== "INTERIM" ? 0.5 : 1 }}
+                    >
+                      <option value="">—</option>
+                      {agences.map((a) => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
+                      {/* Valeur historique saisie en texte libre, absente de la liste :
+                          on la garde en option pour ne pas l'effacer a l'ouverture. */}
+                      {r.agence_interim && !agences.includes(r.agence_interim) && (
+                        <option value={r.agence_interim}>{r.agence_interim} (hors liste)</option>
+                      )}
+                    </select>
+                  )}
                 </td>
                 <td><input type="date" value={r.date_debut ?? ""} onChange={(e) => edit(r.id, "date_debut", e.target.value, true)} style={inp} /></td>
                 <td><input type="date" value={r.date_fin ?? ""} onChange={(e) => edit(r.id, "date_fin", e.target.value, true)} style={inp} /></td>

@@ -191,6 +191,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    // Agences d'interim actives, pour le menu deroulant des periodes de contrat.
+    // Parametrees dans Param. RH (/admin/motifs). Si la table n'existe pas encore
+    // (migration 0034 non appliquee), on renvoie une liste vide : l'ecran retombe
+    // alors sur la saisie libre au lieu de casser.
+    if (op === "agences") {
+      const { data, error } = await supabase
+        .from("agence_interim")
+        .select("nom")
+        .eq("actif", true)
+        .order("nom")
+        .returns<{ nom: string }[]>();
+      return NextResponse.json({ ok: true, agences: error ? [] : (data ?? []).map((a) => a.nom) });
+    }
+
     // ----- Periodes de contrat -----
     if (op === "periode-list") {
       const personne_id = s(body.personne_id);

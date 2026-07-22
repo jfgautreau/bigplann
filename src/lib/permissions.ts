@@ -22,7 +22,10 @@ export const MODULES: { key: string; label: string; href: string; admin: boolean
   { key: "equipes", label: "Équipes", href: "/admin/equipes", admin: true },
   { key: "competences", label: "Compétences", href: "/admin/competences", admin: true },
   { key: "habilitations_param", label: "Param. Habilitation", href: "/admin/habilitations-param", admin: true },
-  { key: "motifs", label: "Motifs d'absence", href: "/admin/motifs", admin: true },
+  // Cle `motifs` conservee : elle est stockee dans role_permission, la renommer
+  // reinitialiserait les droits deja accordes. Seul le libelle a change, l'ecran
+  // couvrant desormais les motifs d'absence ET les agences d'interim.
+  { key: "motifs", label: "Param. RH", href: "/admin/motifs", admin: true },
   { key: "horaires", label: "Horaires", href: "/admin/horaires", admin: true },
   { key: "utilisateurs", label: "Utilisateurs", href: "/admin/users", admin: true },
   { key: "rgpd", label: "RGPD", href: "/admin/rgpd", admin: true },
