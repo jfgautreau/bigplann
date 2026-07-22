@@ -4,7 +4,17 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 type Atelier = { id: string; nom: string };
 
-export default function ReportAtelierFilter({ ateliers, atelier }: { ateliers: Atelier[]; atelier: string }) {
+export default function ReportAtelierFilter({
+  ateliers,
+  atelier,
+  avecTous = true,
+}: {
+  ateliers: Atelier[];
+  atelier: string;
+  // Certains rapports n'ont de sens que par atelier (Adequation charge/capacite) :
+  // melanger les besoins de tous les ateliers n'y veut rien dire.
+  avecTous?: boolean;
+}) {
   const router = useRouter();
   const sp = useSearchParams();
   const path = usePathname();
@@ -23,9 +33,11 @@ export default function ReportAtelierFilter({ ateliers, atelier }: { ateliers: A
     <div className="noprint" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
       <span className="muted" style={{ fontWeight: 600 }}>Atelier :</span>
       <div className="segments">
-        <button type="button" className={atelier === "" ? "seg active" : "seg"} onClick={() => go("")}>
-          Tous
-        </button>
+        {avecTous && (
+          <button type="button" className={atelier === "" ? "seg active" : "seg"} onClick={() => go("")}>
+            Tous
+          </button>
+        )}
         {ateliers.map((a) => (
           <button key={a.id} type="button" className={atelier === a.id ? "seg active" : "seg"} onClick={() => go(a.id)}>
             {a.nom}

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
-import PrintButton from "@/components/PrintButton";
 import OrdoMonthNav from "@/app/ordonnancement/OrdoMonthNav";
 import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
+import ReportActions from "@/app/bilans/ReportActions";
 import { requireModule } from "@/lib/permissions";
 import { fetchAll } from "@/lib/fetch-all";
 import { parseMois, monthDays, monthLabel } from "@/lib/week";
@@ -18,7 +18,7 @@ const isWeekend = (iso: string) => dow(iso) === 0 || dow(iso) === 6;
 export default async function CouvertureReport({ searchParams }: { searchParams: Promise<{ mois?: string; atelier?: string }> }) {
   const { profile } = await requireModule("bilans", "read");
   const sp = await searchParams;
-  const atelier = sp.atelier ?? "";
+  const atelierDemande = sp.atelier ?? "";
   const { year, month0 } = parseMois(sp.mois);
   const days = monthDays(year, month0);
   const isos = days.map((d) => d.iso);
@@ -42,6 +42,11 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
       supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").returns<Named[]>(),
       supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<{ id: string; nom: string }[]>(),
     ]);
+
+  // Ce rapport n'a de sens qu'atelier par atelier : la vue « Tous » melangeait
+  // des besoins sans rapport. A defaut de choix, on ouvre sur le premier atelier.
+  const ateliers = atD ?? [];
+  const atelier = atelierDemande || ateliers[0]?.id || "";
 
   const quartList = quartsD ?? [];
   const quarts = quartList.map((q) => q.code);
@@ -110,23 +115,33 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
   );
 
   // 3 lignes Besoin / Present / Delta pour un couple (besoinOf, presentOf).
-  const metricRows = (kp: string, besoinOf: (iso: string) => number, presentOf: (iso: string) => number) => [
-    <tr key={kp + "b"}>
-      <td style={{ paddingLeft: 18, color: "var(--muted)" }}>Besoin</td>
-      {joursOuverts.map((j) => (<td key={j.iso} style={{ textAlign: "center", fontWeight: 700, color: "var(--muted)" }}>{besoinOf(j.iso)}</td>))}
-    </tr>,
-    <tr key={kp + "p"}>
-      <td style={{ paddingLeft: 18 }}>Présent</td>
-      {joursOuverts.map((j) => (<td key={j.iso} style={{ textAlign: "center", fontWeight: 700 }}>{presentOf(j.iso)}</td>))}
-    </tr>,
-    <tr key={kp + "d"}>
-      <td style={{ paddingLeft: 18 }}>Delta</td>
-      {joursOuverts.map((j) => {
-        const d = presentOf(j.iso) - besoinOf(j.iso);
-        return (<td key={j.iso} style={{ textAlign: "center", fontWeight: 700, color: d < 0 ? "var(--danger)" : d > 0 ? "#9a3412" : "var(--ok)", background: d < 0 ? "#fee2e2" : undefined }}>{d > 0 ? `+${d}` : d}</td>);
-      })}
-    </tr>,
-  ];
+  // ⚠️ Une case dont la ligne n'est pas ouverte (aucun besoin ET personne de
+  // place) reste VIDE : une grille de zeros noyait les journees qui comptent.
+  const metricRows = (kp: string, besoinOf: (iso: string) => number, presentOf: (iso: string) => number) => {
+    const vide = (iso: string) => besoinOf(iso) === 0 && presentOf(iso) === 0;
+    return [
+      <tr key={kp + "b"}>
+        <td style={{ paddingLeft: 18, color: "var(--muted)" }}>Besoin</td>
+        {joursOuverts.map((j) => (
+          <td key={j.iso} style={{ textAlign: "center", fontWeight: 700, color: "var(--muted)" }}>{vide(j.iso) ? "" : besoinOf(j.iso)}</td>
+        ))}
+      </tr>,
+      <tr key={kp + "p"}>
+        <td style={{ paddingLeft: 18 }}>Présent</td>
+        {joursOuverts.map((j) => (
+          <td key={j.iso} style={{ textAlign: "center", fontWeight: 700 }}>{vide(j.iso) ? "" : presentOf(j.iso)}</td>
+        ))}
+      </tr>,
+      <tr key={kp + "d"}>
+        <td style={{ paddingLeft: 18 }}>Delta</td>
+        {joursOuverts.map((j) => {
+          if (vide(j.iso)) return <td key={j.iso} />;
+          const d = presentOf(j.iso) - besoinOf(j.iso);
+          return (<td key={j.iso} style={{ textAlign: "center", fontWeight: 700, color: d < 0 ? "var(--danger)" : d > 0 ? "#9a3412" : "var(--ok)", background: d < 0 ? "#fee2e2" : undefined }}>{d > 0 ? `+${d}` : d}</td>);
+        })}
+      </tr>,
+    ];
+  };
   const quartHead = (label: string, bg: string) => (
     <tr><td colSpan={joursOuverts.length + 1} style={{ background: bg, fontWeight: 700, padding: "3px 8px" }}>{label}</td></tr>
   );
@@ -156,21 +171,6 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
     }))
     .sort((a, b) => a.jour.localeCompare(b.jour));
 
-  // ---- 3.3 Equite de charge & rotation ----
-  const charge = new Map<string, { jours: number; nuits: number; we: number; postes: Set<string> }>();
-  for (const r of placements) {
-    if (!r.poste_id || !scopedPosteIds.has(r.poste_id)) continue;
-    const c = charge.get(r.personne_id) ?? { jours: 0, nuits: 0, we: 0, postes: new Set<string>() };
-    c.jours++;
-    if (r.quart_code === "nuit") c.nuits++;
-    if (isWeekend(r.jour)) c.we++;
-    c.postes.add(r.poste_id);
-    charge.set(r.personne_id, c);
-  }
-  const chargeRows = [...charge.entries()]
-    .map(([id, c]) => ({ personne: persNom(id), jours: c.jours, nuits: c.nuits, we: c.we, nbPostes: c.postes.size }))
-    .sort((a, b) => b.jours - a.jours);
-
   const fmtJJ = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
 
   return (
@@ -179,17 +179,15 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
       <div className="container" style={{ maxWidth: 1500 }}>
         <div className="report-head">
           <div>
-            <h1>Couverture de poste</h1>
+            <h1>Adéquation Charge / capacité</h1>
             <div className="sub">{monthLabel(year, month0)} · besoin d&apos;après l&apos;ordonnancement, présents d&apos;après les placements</div>
           </div>
-          <div className="noprint" style={{ display: "flex", gap: 8 }}>
-            <Link href="/bilans" className="navlink">&larr; Cockpit</Link>
+          <ReportActions>
             <Link href="/bilans/competences" className="navlink">Compétences disponibles</Link>
-            <PrintButton />
-          </div>
+          </ReportActions>
         </div>
 
-        <ReportAtelierFilter ateliers={atD ?? []} atelier={atelier} />
+        <ReportAtelierFilter ateliers={ateliers} atelier={atelier} avecTous={false} />
         <div className="noprint"><OrdoMonthNav base="/bilans/couverture" year={year} month0={month0} /></div>
 
         <div className="kpi-grid">
@@ -207,12 +205,13 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
                 <tr><th style={{ textAlign: "left" }}></th>{joursOuverts.map((j) => (<th key={j.iso} style={{ textAlign: "center", minWidth: 30 }}>{j.nom.slice(0, 2)}<br /><span className="muted" style={{ fontWeight: 400, fontSize: 10 }}>{j.num.slice(0, 2)}</span></th>))}</tr>
               </thead>
               <tbody>
-                {quartHead("Total — tous quarts", "#e2e8f0")}
-                {metricRows("tot", besoinJour, (iso) => presentJour.get(iso) ?? 0)}
                 {usedQuarts.flatMap((q) => [
                   <tr key={q.code + "h"}><td colSpan={joursOuverts.length + 1} style={{ background: "#eef2ff", fontWeight: 700, padding: "3px 8px" }}>{q.libelle}</td></tr>,
                   ...metricRows(q.code, (iso) => besoinQJ(q.code, iso), (iso) => presentQD.get(`${q.code}:${iso}`) ?? 0),
                 ])}
+                {/* Total en BAS : on lit d'abord le detail par quart, la somme conclut. */}
+                {quartHead("Total — tous quarts", "#e2e8f0")}
+                {metricRows("tot", besoinJour, (iso) => presentJour.get(iso) ?? 0)}
               </tbody>
             </table>
             {joursOuverts.length === 0 && <p className="muted">Aucun jour ouvert ce mois-ci (ordonnancement non initialisé).</p>}
@@ -237,28 +236,6 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
           </div>
         </div>
 
-        {/* 3.3 Equite & rotation */}
-        <div className="report-section">
-          <h2>Équité de charge &amp; rotation — {monthLabel(year, month0)}</h2>
-          <div className="card" style={{ overflowX: "auto" }}>
-            {chargeRows.length === 0 ? <p className="muted">Aucun placement ce mois-ci.</p> : (
-              <table>
-                <thead><tr><th>Personne</th><th style={{ textAlign: "center" }}>Jours travaillés</th><th style={{ textAlign: "center" }}>Nuits</th><th style={{ textAlign: "center" }}>Week-ends</th><th style={{ textAlign: "center" }}>Postes différents</th></tr></thead>
-                <tbody>
-                  {chargeRows.map((c, i) => (
-                    <tr key={i}>
-                      <td>{c.personne}</td>
-                      <td style={{ textAlign: "center", fontWeight: 700 }}>{c.jours}</td>
-                      <td style={{ textAlign: "center" }}>{c.nuits || "—"}</td>
-                      <td style={{ textAlign: "center" }}>{c.we || "—"}</td>
-                      <td style={{ textAlign: "center" }}>{c.nbPostes}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
       </div>
     </>
   );

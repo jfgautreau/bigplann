@@ -98,8 +98,9 @@ export default async function CockpitPage() {
 
   const categories = [
     { href: "/bilans/personnel", ic: "👥", t: "Personnel", d: "Effectif, contrats, absentéisme, mouvements.", on: true },
-    { href: "/bilans/polyvalence", ic: "🎯", t: "Polyvalence & compétences", d: "Postes fragiles, écarts cible, plan de montée en compétence, habilitations.", on: true },
-    { href: "/bilans/couverture", ic: "🛡️", t: "Couverture de poste", d: "Couverture vs besoin, placements hors-compétence, équité de charge.", on: true },
+    { href: "/bilans/polyvalence", ic: "🎯", t: "Polyvalence & compétences", d: "Compétence moyenne par atelier, postes fragiles, écarts cible, habilitations.", on: true },
+    { href: "/bilans/montee-competence", ic: "📈", t: "Plan de montée en compétence", d: "Actuel vs cible en global, puis qui former sur quel poste, atelier par atelier.", on: true },
+    { href: "/bilans/couverture", ic: "🛡️", t: "Adéquation Charge / capacité", d: "Besoin d'après l'ordonnancement vs présents, par quart et par atelier.", on: true },
     { href: "/bilans/anticipation", ic: "🔭", t: "Anticipation", d: "Capacité vs charge à venir, impact des absences et des fins de contrat.", on: true },
   ];
 

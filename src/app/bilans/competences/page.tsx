@@ -1,6 +1,6 @@
 import Link from "next/link";
 import AppHeader from "@/components/AppHeader";
-import PrintButton from "@/components/PrintButton";
+import ReportActions from "@/app/bilans/ReportActions";
 import { requireModule } from "@/lib/permissions";
 import { fetchAll } from "@/lib/fetch-all";
 import { getServerClient } from "@/lib/supabase-server";
@@ -168,8 +168,7 @@ export default async function CompetencesDispoPage({
       <div className="container" style={{ maxWidth: 1500 }}>
         <div className="toolbar">
           <h1 style={{ margin: 0 }}>Compétences disponibles</h1>
-          <Link href="/bilans" className="navlink">&larr; Bilans</Link>
-          <PrintButton />
+          <ReportActions />
         </div>
         <CompetenceNav year={year} month0={month0} seuil={seuil} />
 

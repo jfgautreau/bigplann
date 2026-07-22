@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
-import PrintButton from "@/components/PrintButton";
+import ReportActions from "@/app/bilans/ReportActions";
 import OrdoMonthNav from "@/app/ordonnancement/OrdoMonthNav";
 import Bars from "@/app/bilans/Bars";
 import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
@@ -97,17 +97,13 @@ export default async function PersonnelReport({ searchParams }: { searchParams: 
     .filter((x) => x.n > 0)
     .sort((a, b) => b.n - a.n);
 
-  const absParPersonne = new Map<string, number>();
-  for (const r of placements) if (r.motif_absence_id) absParPersonne.set(r.personne_id, (absParPersonne.get(r.personne_id) ?? 0) + 1);
-  const topAbsents = [...absParPersonne.entries()]
-    .map(([id, n]) => ({ label: persNom(id), n }))
-    .sort((a, b) => b.n - a.n)
-    .slice(0, 10);
-
   // ---- 1.3 Mouvements (mois) ----
+  // HORS INTERIM : les entrees et sorties d'interimaires sont permanentes et
+  // noieraient le signal ; ce bloc suit les mouvements de l'effectif propre.
   const inMonth = (d: string | null) => !!d && d >= moisDebut && d <= moisFin;
-  const arrivees = persons.filter((p) => inMonth(p.date_debut)).sort((a, b) => (a.date_debut ?? "").localeCompare(b.date_debut ?? ""));
-  const departs = persons.filter((p) => inMonth(p.date_fin)).sort((a, b) => (a.date_fin ?? "").localeCompare(b.date_fin ?? ""));
+  const permanents = persons.filter((p) => p.type_contrat !== "INTERIM");
+  const arrivees = permanents.filter((p) => inMonth(p.date_debut)).sort((a, b) => (a.date_debut ?? "").localeCompare(b.date_debut ?? ""));
+  const departs = permanents.filter((p) => inMonth(p.date_fin)).sort((a, b) => (a.date_fin ?? "").localeCompare(b.date_fin ?? ""));
 
   return (
     <>
@@ -118,10 +114,7 @@ export default async function PersonnelReport({ searchParams }: { searchParams: 
             <h1>Personnel</h1>
             <div className="sub">Effectif au {fmtDate(todayIso)} · absences et mouvements sur {monthLabel(year, month0)}</div>
           </div>
-          <div className="noprint" style={{ display: "flex", gap: 8 }}>
-            <Link href="/bilans" className="navlink">&larr; Cockpit</Link>
-            <PrintButton />
-          </div>
+          <ReportActions />
         </div>
 
         <ReportAtelierFilter ateliers={atD ?? []} atelier={atelier} />
@@ -187,29 +180,25 @@ export default async function PersonnelReport({ searchParams }: { searchParams: 
             <div className="kpi"><div className="v">{absDays}</div><div className="l">Jours d&apos;absence</div></div>
             <div className="kpi"><div className="v">{presentDays}</div><div className="l">Jours travaillés</div></div>
           </div>
-          <div className="report-grid2">
-            <div className="card">
-              <h2 style={{ marginTop: 0, fontSize: 15 }}>Jours d&apos;absence par motif</h2>
-              <Bars items={absParMotif} />
-            </div>
-            <div className="card">
-              <h2 style={{ marginTop: 0, fontSize: 15 }}>Personnes les plus absentes</h2>
-              <Bars items={topAbsents} accent="var(--danger)" />
-            </div>
+          {/* « Personnes les plus absentes » retire : nommer les gens dans un
+              rapport imprimable posait plus de problemes qu'il n'en resolvait. */}
+          <div className="card">
+            <h2 style={{ marginTop: 0, fontSize: 15 }}>Jours d&apos;absence par motif</h2>
+            <Bars items={absParMotif} />
           </div>
         </div>
 
         {/* 1.3 Mouvements */}
         <div className="report-section">
-          <h2>Mouvements · {monthLabel(year, month0)}</h2>
+          <h2>Mouvements hors intérim · {monthLabel(year, month0)}</h2>
           <div className="kpi-grid">
-            <div className="kpi ok"><div className="v">{arrivees.length}</div><div className="l">Arrivées</div></div>
-            <div className="kpi warn"><div className="v">{departs.length}</div><div className="l">Départs / fins de contrat</div></div>
+            <div className="kpi ok"><div className="v">{arrivees.length}</div><div className="l">Entrées</div></div>
+            <div className="kpi warn"><div className="v">{departs.length}</div><div className="l">Sorties / fins de contrat</div></div>
           </div>
           <div className="report-grid2">
             <div className="card">
-              <h2 style={{ marginTop: 0, fontSize: 15 }}>Arrivées du mois</h2>
-              {arrivees.length === 0 ? <p className="muted">Aucune arrivée.</p> : (
+              <h2 style={{ marginTop: 0, fontSize: 15 }}>Entrées du mois</h2>
+              {arrivees.length === 0 ? <p className="muted">Aucune entrée.</p> : (
                 <table><tbody>
                   {arrivees.map((p) => (
                     <tr key={p.id}><td>{p.nom} {p.prenom}</td><td className="muted">{p.type_contrat} · {eqNom(p.equipe_id)}</td><td style={{ textAlign: "right" }}>{fmtDate(p.date_debut)}</td></tr>
@@ -218,8 +207,8 @@ export default async function PersonnelReport({ searchParams }: { searchParams: 
               )}
             </div>
             <div className="card">
-              <h2 style={{ marginTop: 0, fontSize: 15 }}>Départs / fins de contrat du mois</h2>
-              {departs.length === 0 ? <p className="muted">Aucun départ.</p> : (
+              <h2 style={{ marginTop: 0, fontSize: 15 }}>Sorties / fins de contrat du mois</h2>
+              {departs.length === 0 ? <p className="muted">Aucune sortie.</p> : (
                 <table><tbody>
                   {departs.map((p) => (
                     <tr key={p.id}><td>{p.nom} {p.prenom}</td><td className="muted">{p.type_contrat} · {eqNom(p.equipe_id)}</td><td style={{ textAlign: "right" }}>{fmtDate(p.date_fin)}</td></tr>
@@ -229,7 +218,9 @@ export default async function PersonnelReport({ searchParams }: { searchParams: 
             </div>
           </div>
           <p className="muted" style={{ marginTop: 8 }}>
-            Arrivées = début de contrat dans le mois · Départs = fin de contrat dans le mois.
+            Entrées = début de contrat dans le mois · Sorties = fin de contrat dans le mois.
+            <strong> Les intérimaires sont exclus</strong> : leurs entrées et sorties, très
+            nombreuses, masqueraient les mouvements de l&apos;effectif propre.
           </p>
         </div>
       </div>

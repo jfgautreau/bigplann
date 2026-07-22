@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
-import PrintButton from "@/components/PrintButton";
+import ReportActions from "@/app/bilans/ReportActions";
 import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import OrdoMonthNav from "@/app/ordonnancement/OrdoMonthNav";
 import { requireModule } from "@/lib/permissions";
@@ -179,10 +179,9 @@ export default async function AnticipationReport({ searchParams }: { searchParam
   });
   const sepDay = (i: number): React.CSSProperties => (isWeekStart[i] ? { borderLeft: "2px solid #94a3b8" } : {});
 
-  // ---- 4.2 Impact des absences connues (14 prochains jours) ----
-  const prochainesAbsences = horizonIsos
-    .filter((iso) => iso >= todayIso && (absByDay.get(iso)?.length ?? 0) > 0)
-    .map((iso) => ({ iso, noms: absByDay.get(iso)!, besoin: besoinJour(iso), dispo: activeCount - (absByDay.get(iso)?.length ?? 0) - contractEndedBy(iso) }));
+  // Compteur d'en-tete : le detail jour par jour (« Impact des absences
+  // connues ») a ete retire, seul l'indicateur reste.
+  const joursAvecAbsence = horizonIsos.filter((iso) => iso >= todayIso && (absByDay.get(iso)?.length ?? 0) > 0).length;
 
   // ---- 4.3 Impact des fins de contrat sur la polyvalence ----
   const compByPoste = new Map<string, Set<string>>();
@@ -213,10 +212,7 @@ export default async function AnticipationReport({ searchParams }: { searchParam
             <h1>Anticipation</h1>
             <div className="sub">{monthLabel(year, month0)} · projection compétences vs besoin · {activeCount} personnes actives</div>
           </div>
-          <div className="noprint" style={{ display: "flex", gap: 8 }}>
-            <Link href="/bilans" className="navlink">&larr; Cockpit</Link>
-            <PrintButton />
-          </div>
+          <ReportActions />
         </div>
 
         <ReportAtelierFilter ateliers={atD ?? []} atelier={atelier} />
@@ -224,7 +220,7 @@ export default async function AnticipationReport({ searchParams }: { searchParam
 
         <div className="kpi-grid">
           <div className={`kpi ${joursTension > 0 ? "danger" : "ok"}`}><div className="v">{joursTension}</div><div className="l">Jours en tension</div><div className="s">compétences dispo &lt; besoin</div></div>
-          <div className={`kpi ${prochainesAbsences.length > 0 ? "warn" : "ok"}`}><div className="v">{prochainesAbsences.length}</div><div className="l">Jours avec absences saisies</div></div>
+          <div className={`kpi ${joursAvecAbsence > 0 ? "warn" : "ok"}`}><div className="v">{joursAvecAbsence}</div><div className="l">Jours avec absences saisies</div></div>
           <div className={`kpi ${postesMisEnRisque > 0 ? "danger" : "ok"}`}><div className="v">{postesMisEnRisque}</div><div className="l">Postes mis en risque</div><div className="s">par fins de contrat</div></div>
         </div>
 
@@ -276,27 +272,6 @@ export default async function AnticipationReport({ searchParams }: { searchParam
               <strong>Disponibles / besoin</strong> par catégorie et par jour. Disponibles = personnes actives compétentes (niveau ≥ {SEUIL}) non absentes (motif saisi) et hors fin de contrat. <strong>Une personne polyvalente n&apos;est comptée qu&apos;une seule fois</strong> : elle est affectée en priorité au besoin le plus haut (Manager &gt; Conducteur &gt; Opérateur), le surplus étant rattaché à sa catégorie la plus élevée. Besoin = ordonnancement. En{" "}
               <span style={{ color: "#7f1d1d", background: "#fee2e2", padding: "0 4px" }}>rouge</span> quand les disponibles ne couvrent pas le besoin.
             </p>
-          </div>
-        </div>
-
-        {/* 4.2 Absences connues */}
-        <div className="report-section">
-          <h2>Impact des absences connues</h2>
-          <div className="card">
-            {prochainesAbsences.length === 0 ? <p className="muted">Aucune absence saisie sur l&apos;horizon.</p> : (
-              <table>
-                <thead><tr><th>Jour</th><th>Absents</th><th style={{ textAlign: "center" }}>Dispo / besoin</th></tr></thead>
-                <tbody>
-                  {prochainesAbsences.map((a) => (
-                    <tr key={a.iso}>
-                      <td>{fmtDate(a.iso)}</td>
-                      <td>{a.noms.join(", ")}</td>
-                      <td style={{ textAlign: "center" }}>{a.besoin > 0 ? <span className={`rbadge ${a.dispo < a.besoin ? "danger" : "ok"}`}>{a.dispo} / {a.besoin}</span> : <span className="muted">—</span>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
           </div>
         </div>
 

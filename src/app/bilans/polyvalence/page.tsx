@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
-import PrintButton from "@/components/PrintButton";
+import ReportActions from "@/app/bilans/ReportActions";
 import Bars from "@/app/bilans/Bars";
 import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import { requireModule } from "@/lib/permissions";
@@ -9,7 +9,12 @@ import { isoDate, addDays } from "@/lib/week";
 import { fetchAll } from "@/lib/fetch-all";
 
 type Named = { id: string; nom: string; prenom?: string };
-type LigneRow = { id: string; nom: string; atelier_id: string | null; poste: { id: string; nom: string; actif: boolean }[] };
+type LigneRow = { id: string; nom: string; atelier_id: string | null; poste: { id: string; nom: string; actif: boolean; categorie: string | null }[] };
+const CATS = [
+  { key: "manager", label: "Managers" },
+  { key: "conducteur", label: "Conducteurs" },
+  { key: "operateur", label: "Opérateurs" },
+] as const;
 type Mat = { personne_id: string; poste_id: string; niveau_actuel: number; niveau_cible: number };
 type Comp = { id: string; nom: string; a_recycler: boolean };
 type PC = { personne_id: string; competence_id: string; date_expiration: string | null };
@@ -28,7 +33,7 @@ export default async function PolyvalenceReport({ searchParams }: { searchParams
   const supabase = await getServerClient();
   const [{ data: persD }, { data: lignesD }, matD, { data: compD }, pcD, { data: atD }] = await Promise.all([
     supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").returns<Named[]>(),
-    supabase.from("ligne").select("id, nom, atelier_id, poste(id, nom, actif)").eq("actif", true).order("nom").returns<LigneRow[]>(),
+    supabase.from("ligne").select("id, nom, atelier_id, poste(id, nom, actif, categorie)").eq("actif", true).order("nom").returns<LigneRow[]>(),
     fetchAll<Mat>(() =>
       supabase.from("matrice").select("personne_id, poste_id, niveau_actuel, niveau_cible").order("id").returns<Mat[]>()
     ),
@@ -49,10 +54,45 @@ export default async function PolyvalenceReport({ searchParams }: { searchParams
   // Postes du perimetre (filtre atelier via ligne.atelier_id).
   const lignesScoped = (lignesD ?? []).filter((l) => !atelier || l.atelier_id === atelier);
   const postes = lignesScoped.flatMap((l) =>
-    (l.poste ?? []).filter((p) => p.actif).map((p) => ({ id: p.id, nom: p.nom, ligne: l.nom }))
+    (l.poste ?? []).filter((p) => p.actif).map((p) => ({ id: p.id, nom: p.nom, ligne: l.nom, categorie: p.categorie ?? "operateur", atelierId: l.atelier_id }))
   );
   const posteNom = new Map(postes.map((p) => [p.id, p]));
   const scopedPosteIds = new Set(postes.map((p) => p.id));
+
+  // ---- 2.0 Competence moyenne par atelier et par categorie ----
+  // Moyenne ARITHMETIQUE des niveaux (0 a 4) sur toutes les cases de la matrice
+  // qui croisent une personne active et un poste actif de la categorie, dans cet
+  // atelier. Une case absente de la matrice vaut 0 : on la compte, sinon un
+  // atelier ou personne n'est forme afficherait une moyenne flatteuse.
+  const ateliers = atD ?? [];
+  const postesTousAteliers = (lignesD ?? []).flatMap((l) =>
+    (l.poste ?? []).filter((p) => p.actif).map((p) => ({ id: p.id, categorie: p.categorie ?? "operateur", atelierId: l.atelier_id }))
+  );
+  const niveauDe = new Map<string, number>();
+  for (const r of matD) niveauDe.set(`${r.personne_id}:${r.poste_id}`, r.niveau_actuel);
+  const moyenne = (atelierId: string | null, cat: string) => {
+    const ids = postesTousAteliers.filter((p) => p.atelierId === atelierId && p.categorie === cat).map((p) => p.id);
+    if (ids.length === 0 || active.length === 0) return null;
+    let somme = 0;
+    let n = 0;
+    for (const p of active) {
+      for (const pid of ids) {
+        // Une restriction (-1) n'est pas un niveau : elle ne pese pas la moyenne.
+        const v = niveauDe.get(`${p.id}:${pid}`) ?? 0;
+        if (v < 0) continue;
+        somme += v;
+        n++;
+      }
+    }
+    return n ? somme / n : null;
+  };
+  const lignesMoyennes = ateliers
+    .map((a) => ({ nom: a.nom, valeurs: CATS.map((c) => moyenne(a.id, c.key)) }))
+    .filter((r) => r.valeurs.some((v) => v !== null));
+  const fmtMoy = (v: number | null) => (v === null ? "—" : v.toFixed(2).replace(".", ","));
+  // Teinte : rouge sous 1, orange sous 2 (le seuil de competence), vert au-dela.
+  const teinteMoy = (v: number | null) =>
+    v === null ? undefined : v < 1 ? "#fee2e2" : v < SEUIL ? "#ffedd5" : "#dcfce7";
 
   // Matrice cote personnes actives ET postes du perimetre.
   const mat = matD.filter((r) => activeIds.has(r.personne_id) && scopedPosteIds.has(r.poste_id));
@@ -77,21 +117,6 @@ export default async function PolyvalenceReport({ searchParams }: { searchParams
     .filter((e) => e.n > 0)
     .sort((a, b) => b.n - a.n);
   const ecartTotal = ecarts.reduce((s, e) => s + e.n, 0);
-
-  // ---- 2.3 Plan de montee en competence ----
-  const fragileSet = new Set(fragiles.map((p) => p.id));
-  const gaps = mat
-    .filter((r) => r.niveau_actuel < r.niveau_cible)
-    .map((r) => ({
-      personne: persNom(r.personne_id),
-      poste: posteNom.get(r.poste_id)?.nom ?? "?",
-      ligne: posteNom.get(r.poste_id)?.ligne ?? "",
-      actuel: r.niveau_actuel,
-      cible: r.niveau_cible,
-      gap: r.niveau_cible - r.niveau_actuel,
-      prio: fragileSet.has(r.poste_id),
-    }))
-    .sort((a, b) => Number(b.prio) - Number(a.prio) || b.gap - a.gap);
 
   // ---- 2.4 Habilitations a echeance ----
   const recyclables = new Set((compD ?? []).filter((c) => c.a_recycler).map((c) => c.id));
@@ -125,11 +150,9 @@ export default async function PolyvalenceReport({ searchParams }: { searchParams
             <h1>Polyvalence &amp; compétences</h1>
             <div className="sub">Compétent = niveau ≥ {SEUIL} · {active.length} personnes actives · {postes.length} postes actifs</div>
           </div>
-          <div className="noprint" style={{ display: "flex", gap: 8 }}>
-            <Link href="/bilans" className="navlink">&larr; Cockpit</Link>
+          <ReportActions>
             <Link href="/matrice" className="navlink">Saisie matrice</Link>
-            <PrintButton />
-          </div>
+          </ReportActions>
         </div>
 
         <ReportAtelierFilter ateliers={atD ?? []} atelier={atelier} />
@@ -140,6 +163,43 @@ export default async function PolyvalenceReport({ searchParams }: { searchParams
           <div className={`kpi ${ecartTotal > 0 ? "warn" : "ok"}`}><div className="v">{ecartTotal}</div><div className="l">Écart à combler</div><div className="s">compétences manquantes vs cible</div></div>
           <div className={`kpi ${echeancesCritiques > 0 ? "danger" : "ok"}`}><div className="v">{echeances.length}</div><div className="l">Habilitations à échéance</div><div className="s">{echeancesCritiques} critique(s)</div></div>
           <div className="kpi accent"><div className="v">{polyMoy}</div><div className="l">Polyvalence moyenne</div><div className="s">postes maîtrisés / personne</div></div>
+        </div>
+
+        {/* 2.0 Competence moyenne par atelier */}
+        <div className="report-section">
+          <h2>Compétence moyenne par atelier</h2>
+          <div className="card">
+            {lignesMoyennes.length === 0 ? (
+              <p className="muted">Aucun poste actif rattaché à un atelier.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Atelier</th>
+                    {CATS.map((c) => (
+                      <th key={c.key} style={{ textAlign: "center" }}>{c.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {lignesMoyennes.map((r) => (
+                    <tr key={r.nom}>
+                      <td><strong>{r.nom}</strong></td>
+                      {r.valeurs.map((v, i) => (
+                        <td key={i} style={{ textAlign: "center", fontWeight: 700, background: teinteMoy(v) }}>{fmtMoy(v)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>
+              Moyenne des niveaux de la matrice (0 à 4) sur l&apos;ensemble des couples
+              personne active × poste actif de la catégorie, dans cet atelier. Une compétence
+              non saisie compte pour 0 ; une restriction médicale est exclue du calcul.
+              Rouge &lt; 1 · orange &lt; {SEUIL} · vert ≥ {SEUIL}.
+            </p>
+          </div>
         </div>
 
         {/* 2.1 Postes fragiles */}
@@ -176,27 +236,19 @@ export default async function PolyvalenceReport({ searchParams }: { searchParams
           </div>
         </div>
 
-        {/* 2.3 Plan de montee en competence */}
+        {/* Le plan de montee en competence a son propre rapport : on ne garde
+            ici qu'un renvoi, pour eviter deux tableaux a maintenir en parallele. */}
         <div className="report-section">
-          <h2>Plan de montée en compétence <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>({gaps.length} écarts individuels)</span></h2>
-          <div className="card" style={{ overflowX: "auto" }}>
-            {gaps.length === 0 ? <p className="muted">Aucun écart individuel : tous au niveau cible.</p> : (
-              <table>
-                <thead><tr><th>Personne</th><th>Poste</th><th>Ligne</th><th style={{ textAlign: "center" }}>Actuel → Cible</th><th style={{ textAlign: "right" }}>Priorité</th></tr></thead>
-                <tbody>
-                  {gaps.slice(0, 25).map((g, i) => (
-                    <tr key={i}>
-                      <td>{g.personne}</td>
-                      <td><strong>{g.poste}</strong></td>
-                      <td className="muted">{g.ligne}</td>
-                      <td style={{ textAlign: "center" }}>{g.actuel} → {g.cible}</td>
-                      <td style={{ textAlign: "right" }}>{g.prio && <span className="rbadge danger">poste fragile</span>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            {gaps.length > 25 && <p className="muted" style={{ marginTop: 6 }}>… et {gaps.length - 25} autres.</p>}
+          <h2>Plan de montée en compétence</h2>
+          <div className="card">
+            <p style={{ margin: 0 }}>
+              {ecartTotal === 0
+                ? "Tous les objectifs de polyvalence sont atteints."
+                : `${ecartTotal} compétence(s) à acquérir pour atteindre les cibles.`}{" "}
+              <Link href="/bilans/montee-competence" className="navlink">
+                Ouvrir le plan détaillé &rarr;
+              </Link>
+            </p>
           </div>
         </div>
 
