@@ -251,12 +251,58 @@ export default function HabilitationsList({
   }
 
   const anyAutor = rows.some((r) => r.competence?.a_autorisation_conduite);
-  const seg = (v: "grille" | "liste") => ({ className: view === v ? "seg active" : "seg", onClick: () => setView(v), type: "button" as const });
-
 
   return (
     <>
-      {/* Bilan + bascule de vue : bandeau centre de 1500 px, comme la matrice. */}
+      {/* En-tete en deux lignes, commun a Personnel / Matrice / Habilitations.
+          Ligne 1 : titre · recherche · legende et lien de parametrage.
+          Ligne 2 : bascule Grille / Liste a gauche · filtres a droite.
+          Il est rendu ICI et non dans la page : la recherche est un etat client,
+          elle doit vivre dans le meme composant que le champ. */}
+      <div className="headband headband-top">
+        <div className="hb-l1">
+          <PageTitle module="habilitations">Habilitations</PageTitle>
+          <span className="hb-search">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="🔍 Rechercher (nom, formation, groupe…)"
+            />
+            {search && (
+              <button type="button" className="clear" onClick={() => setSearch("")} title="Effacer la recherche">
+                ✕
+              </button>
+            )}
+          </span>
+          <span className="hb-fin">
+            <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", margin: 0 }} onClick={() => setShowLegende(true)}>
+              📖 Légende
+            </button>
+            {lienParam && (
+              <Link href="/admin/habilitations-param" className="navlink" prefetch={false} title="Définir les formations et leurs durées de validité">
+                📜 Paramétrer les formations &rarr;
+              </Link>
+            )}
+          </span>
+        </div>
+
+        <div className="hb-l2">
+          <SlideSwitch
+            on={view === "liste"}
+            onChange={(v) => setView(v ? "liste" : "grille")}
+            offLabel="Grille"
+            onLabel="Liste"
+            offColor="#4f46e5"
+            onColor="#4f46e5"
+            width={156}
+            title="Basculer entre la grille et la liste par échéance"
+          />
+          <span className="hb-fin">
+            <AtelierEquipeFiltres base="/habilitations" ateliers={ateliers} equipes={equipes} atelier={atelier} equipe={equipe} />
+          </span>
+        </div>
+      </div>
+
       <div className="gridband">
         {view === "grille" ? (
           <div
