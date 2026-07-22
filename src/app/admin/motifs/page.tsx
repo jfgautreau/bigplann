@@ -6,6 +6,7 @@ import AppHeader from "@/components/AppHeader";
 import { requireModule, canWrite } from "@/lib/permissions";
 import LectureSeule from "@/components/LectureSeule";
 import { createMotif, updateMotif, toggleMotif, createAgence, updateAgence, toggleAgence } from "./actions";
+import AjoutModal from "./AjoutModal";
 
 type Motif = {
   id: string;
@@ -51,6 +52,24 @@ export default async function MotifsPage({
           Ces motifs apparaissent dans les listes du planning. Le comptage en
           rapports sera ajouté ultérieurement.
         </p>
+
+        <AjoutModal libelle="Ajouter un motif" titre="Ajouter un motif d'absence">
+          <form action={createMotif} autoComplete="off" className="inline-form">
+            <div className="field">
+              <span>Couleur</span>
+              <input name="couleur" type="color" defaultValue="#e5e7eb" style={{ width: 48, padding: 2 }} />
+            </div>
+            <div className="field">
+              <span>Libellé</span>
+              <input name="libelle" placeholder="Ex. Congé payé" required />
+            </div>
+            <div className="field">
+              <span>Code</span>
+              <input name="code_court" placeholder="CP" maxLength={6} required />
+            </div>
+            <button type="submit" className="btn-sm">Ajouter</button>
+          </form>
+        </AjoutModal>
 
         <div className="card" style={{ marginBottom: 24 }}>
           <table>
@@ -120,25 +139,6 @@ export default async function MotifsPage({
           </table>
         </div>
 
-        <div className="card">
-          <h2>Ajouter un motif</h2>
-          <form action={createMotif} autoComplete="off" className="inline-form">
-            <div className="field">
-              <span>Couleur</span>
-              <input name="couleur" type="color" defaultValue="#e5e7eb" style={{ width: 48, padding: 2 }} />
-            </div>
-            <div className="field">
-              <span>Libellé</span>
-              <input name="libelle" placeholder="Ex. Congé payé" required />
-            </div>
-            <div className="field">
-              <span>Code</span>
-              <input name="code_court" placeholder="CP" maxLength={6} required />
-            </div>
-            <button type="submit" className="btn-sm">Ajouter</button>
-          </form>
-        </div>
-
         {/* ---------------- Agences d'interim ---------------- */}
         <h2 style={{ marginTop: 32, marginBottom: 4 }}>Agences d&apos;intérim</h2>
         <p className="muted" style={{ marginBottom: 16 }}>
@@ -157,6 +157,16 @@ export default async function MotifsPage({
           </div>
         ) : (
           <>
+            <AjoutModal libelle="Ajouter une agence" titre="Ajouter une agence d'intérim">
+              <form action={createAgence} autoComplete="off" className="inline-form">
+                <div className="field">
+                  <span>Nom</span>
+                  <input name="nom" placeholder="Ex. Adecco" required />
+                </div>
+                <button type="submit" className="btn-sm">Ajouter</button>
+              </form>
+            </AjoutModal>
+
             <div className="card" style={{ marginBottom: 24 }}>
               <table>
                 <thead>
@@ -211,16 +221,6 @@ export default async function MotifsPage({
               </table>
             </div>
 
-            <div className="card">
-              <h2>Ajouter une agence</h2>
-              <form action={createAgence} autoComplete="off" className="inline-form">
-                <div className="field">
-                  <span>Nom</span>
-                  <input name="nom" placeholder="Ex. Adecco" required />
-                </div>
-                <button type="submit" className="btn-sm">Ajouter</button>
-              </form>
-            </div>
           </>
         )}
         </LectureSeule>

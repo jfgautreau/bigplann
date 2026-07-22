@@ -917,12 +917,18 @@ select.flat {
   text-overflow: ellipsis;
 }
 .barrow .track {
+  display: block;
   background: #eef2f7;
   border-radius: 6px;
   height: 16px;
   overflow: hidden;
 }
+/* ⚠️ `display: block` indispensable : c'est un <span>, donc inline par defaut,
+   et `width` / `height` / `min-width` ne s'appliquent PAS a un inline non
+   remplace. Sans cette ligne, la barre etait invisible et l'on ne voyait que la
+   piste grise sur toute la largeur — les rapports semblaient « vides a 100 % ». */
 .barrow .fill {
+  display: block;
   height: 100%;
   border-radius: 6px;
   background: var(--primary);

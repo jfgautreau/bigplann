@@ -959,18 +959,30 @@ export default function PlanningGrid({
         const curClosed = isPoste(cur) && !oset.has(posteLigne[cur] ?? "");
         const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
         const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-        // Case dans la moitie droite de l'ecran -> on ancre le bord droit du panneau
-        // sur la case et il s'etend vers la gauche (sinon il deborderait a droite).
-        const alignRight = pick.left > vw * 0.5;
-        const hstyle: React.CSSProperties = alignRight
-          ? { right: Math.max(8, vw - pick.right), maxWidth: pick.right - 16 }
-          : { left: Math.max(8, pick.left), maxWidth: vw - Math.max(8, pick.left) - 8 };
+        // Le panneau s'ancre sur la case, mais il doit tenir EN ENTIER dans la
+        // fenetre. Sans filtre atelier il est large (tous les ateliers cote a
+        // cote) : ancre sur une case du milieu, il n'avait qu'une demi-fenetre et
+        // debordait. On mesure la place de chaque cote et, si aucun n'est assez
+        // large, on l'etale sur toute la fenetre plutot que de le rogner.
+        const MARGE = 8;
+        const LARGE = 720; // largeur en dessous de laquelle le panneau est a l'etroit
+        const dispoDroite = vw - pick.left - MARGE;
+        const dispoGauche = pick.right - MARGE;
+        const hstyle: React.CSSProperties =
+          dispoDroite >= LARGE
+            ? { left: Math.max(MARGE, pick.left), maxWidth: dispoDroite }
+            : dispoGauche >= LARGE
+            ? { right: Math.max(MARGE, vw - pick.right), maxWidth: dispoGauche }
+            : { left: MARGE, right: MARGE };
+
         const spaceBelow = vh - pick.bottom;
         // Ouvre vers le haut si peu de place dessous (case en bas de l'ecran).
         const openUp = spaceBelow < 280 && pick.top > spaceBelow;
+        // Hauteur bornee a la place disponible + defilement interne : un panneau
+        // plus haut que la fenetre etait tronque, sans moyen d'atteindre le bas.
         const vstyle: React.CSSProperties = openUp
-          ? { bottom: vh - pick.top + 2 }
-          : { top: pick.bottom + 2 };
+          ? { bottom: vh - pick.top + 2, maxHeight: pick.top - 2 - MARGE, overflowY: "auto" }
+          : { top: pick.bottom + 2, maxHeight: spaceBelow - 2 - MARGE, overflowY: "auto" };
         return (
           <div
             className="cellpick"

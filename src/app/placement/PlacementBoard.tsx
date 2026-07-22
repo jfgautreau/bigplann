@@ -801,9 +801,8 @@ export default function PlacementBoard({
             </button>
           );
         })}
-        <button type="button" className={`${s.motif} ${over === "X" ? s.over : ""}`} {...overProps("X", "X")} onClick={() => clickTarget("X")} title="Jour non travaillé">
-          Non travaillé
-        </button>
+        {/* Plus de bouton « Non travaillé » en dur : il doublonnait le motif JNT
+            paramétré dans Param. RH. Seuls les motifs de la table sont proposés. */}
         {sel && (
           <span className={s.selHint}>
             {(() => { const p = persById.get(sel); return p ? label(p) : ""; })()} sélectionné — cliquez un poste ou une absence
