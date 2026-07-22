@@ -128,8 +128,7 @@ la moindre migration.
 - **Tu n'exécutes jamais de DDL toi-même.** `SUPABASE_DB_URL` est vide et le MCP
   Supabase pointe sur un autre compte. Tu écris les migrations numérotées dans
   `supabase/migrations/` et tu me demandes de les exécuter dans le SQL Editor.
-  La dernière migration appliquée est la `0033` ; la `0034` est écrite mais pas
-  encore passée — tiens-en compte.
+  La dernière migration appliquée est la `0034`.
 - **`npm run build` doit passer avant chaque commit**, et `npm test` aussi.
 - **La sécurité ne se déduit pas, elle se prouve.** Pour chaque politique RLS
   réécrite, indique comment tu vérifies qu'un compte du site A ne peut pas lire
