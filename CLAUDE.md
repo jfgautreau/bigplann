@@ -55,6 +55,12 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
   personnes et sur les server actions de Compétences / Motifs / Personnel).
   - Server actions et routes de paramétrage → `requireModuleWrite(mod)`
     (vérifie la matrice **et** rend le client admin, ces tables étant sous RLS `is_admin()`).
+    Variante **route API** : `moduleWriteGuard(mod)` → `{ ok, supabase }` ou `{ ok:false, status }`.
+  - ⚠️ **Une route qui écrit dans une table de paramétrage ne doit JAMAIS se contenter
+    de `getServerClient()`.** Ces RLS nomment des rôles en dur (`is_admin()`,
+    `has_role('ordo')`) : tout titulaire du droit qui ne porte pas ce rôle est refusé
+    **en silence**, et l'écran offre un bouton qui répond 403. Bug vécu sur les 6 routes
+    d'ordonnancement (un CODIR ne pouvait pas initialiser les semaines) et sur `/api/droits`.
   - Table `placement` : écrite par **deux** écrans (Planning et Placement) via
     `/api/placement/cell` → `canWritePlacementData()` = write sur l'un **ou** l'autre.
   - Restent volontairement en dur : les droits par défaut de l'admin ; le refus de

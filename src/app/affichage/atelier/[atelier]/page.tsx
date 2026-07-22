@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getAdminClient } from "@/lib/supabase-server";
 import { isoDate, mondayOf, parseMonday, weekDays } from "@/lib/week";
 import AutoRefresh from "@/components/AutoRefresh";
-import PrintButton from "@/components/PrintButton";
+import AffichageBarre from "./AffichageBarre";
 
 export const dynamic = "force-dynamic";
 
@@ -239,13 +239,15 @@ export default async function AffichageAtelier({
   const noWork = shownDays.length === 0;
 
   return (
-    <div style={{ padding: "18px 24px" }}>
+    // Deux boites imbriquees pour l'impression : `affichage-feuille` est le cadre,
+    // borne a UNE page A3 verticale ; `affichage-contenu` porte la mise a l'echelle
+    // mesuree par AffichageBarre. A l'ecran, elles sont transparentes.
+    <div id="affichage-feuille" style={{ padding: "18px 24px" }}>
       <AutoRefresh seconds={300} />
+      <div id="affichage-contenu" style={{ transformOrigin: "top left" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <h1 style={{ fontSize: 30, margin: 0 }}>{atelier.nom}</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <PrintButton label="Imprimer / PDF" />
-        </div>
+        <AffichageBarre cadreId="affichage-feuille" contenuId="affichage-contenu" />
       </div>
 
       {noWork ? (
@@ -308,6 +310,7 @@ export default async function AffichageAtelier({
         · <span style={{ background: FLUO, padding: "0 6px" }}>Aujourd&apos;hui</span> · horaires en bleu ·{" "}
         <span style={{ color: "#b91c1c" }}>Absence</span>{" "}
         · mise à jour auto toutes les 5 min.
+      </div>
       </div>
     </div>
   );
