@@ -1,4 +1,4 @@
-# Installation — BigPlann'
+# Installation — Polaris
 
 ## Prérequis
 - Node.js 20+

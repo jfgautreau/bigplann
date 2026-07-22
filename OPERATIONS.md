@@ -1,4 +1,4 @@
-# Exploitation — BigPlann'
+# Exploitation — Polaris
 
 ## Mises à jour de l'application
 - Modifier le code, vérifier : `npm run build` puis `npm test`.

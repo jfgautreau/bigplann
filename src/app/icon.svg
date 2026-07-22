@@ -1,13 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <linearGradient id="bp" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#4338ca"/>
-      <stop offset="0.55" stop-color="#6d28d9"/>
-      <stop offset="1" stop-color="#7c3aed"/>
+    <linearGradient id="pbg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#172554"/>
+      <stop offset="0.55" stop-color="#1d4ed8"/>
+      <stop offset="1" stop-color="#3b82f6"/>
     </linearGradient>
+    <radialGradient id="pglow" cx="32" cy="31" r="23" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="url(#bp)"/>
-  <text x="30" y="47" text-anchor="middle" fill="#fff"
-        font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="900">B</text>
-  <circle cx="47" cy="20" r="3.4" fill="#c4b5fd"/>
+  <rect width="64" height="64" rx="14" fill="url(#pbg)"/>
+  <circle cx="32" cy="31" r="23" fill="url(#pglow)"/>
+  <path d="M32 6 C32 23 46 31 53 31 C46 31 32 39 32 56 C32 39 18 31 11 31 C18 31 32 23 32 6 Z" fill="#ffffff"/>
+  <circle cx="14" cy="14" r="2" fill="#ffffff" opacity="0.85"/>
+  <circle cx="51" cy="17" r="1.2" fill="#ffffff" opacity="0.6"/>
+  <circle cx="49" cy="49" r="1.6" fill="#ffffff" opacity="0.72"/>
 </svg>

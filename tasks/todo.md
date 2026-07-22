@@ -1,4 +1,4 @@
-# État & TODO — BigPlann'
+# État & TODO — Polaris
 
 État au 2026-07-10. L'historique détaillé des lots 0 à 9 (tous livrés) est dans
 l'historique git et `docs/LOT0-CADRAGE.md` / `docs/LOT-C-CADRAGE.md`.

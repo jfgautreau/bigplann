@@ -1,4 +1,4 @@
-# BigPlann' — brief agent
+# Polaris — brief agent
 
 App web de gestion des plannings d'une usine agroalimentaire. **Réponds en français.**
 

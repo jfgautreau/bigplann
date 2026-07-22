@@ -5,6 +5,7 @@ import { isoDate, addDays } from "@/lib/week";
 import { MODULES, getPermissions, canRead, canWrite } from "@/lib/permissions";
 import SettingsMenu from "@/components/SettingsMenu";
 import UserMenu from "@/components/UserMenu";
+import Logo from "@/components/Logo";
 import { NavIcon, NAV_COLOR } from "@/components/NavIcons";
 
 const MAIN_ORDER = ["referentiel", "personnel", "matrice", "habilitations", "ordonnancement", "planning", "placement", "bilans"];
@@ -65,19 +66,8 @@ export default async function AppHeader({
     <header className="appheader">
       <nav className="appnav">
         <Link href="/" className="brand" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 9 }}>
-          <svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true" style={{ display: "block" }}>
-            <defs>
-              <linearGradient id="bpLogo" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stopColor="#4338ca" />
-                <stop offset="0.55" stopColor="#6d28d9" />
-                <stop offset="1" stopColor="#7c3aed" />
-              </linearGradient>
-            </defs>
-            <rect width="64" height="64" rx="14" fill="url(#bpLogo)" />
-            <text x="30" y="47" textAnchor="middle" fill="#fff" fontFamily="Arial, Helvetica, sans-serif" fontSize="40" fontWeight="900">B</text>
-            <circle cx="47" cy="20" r="3.4" fill="#ddd6fe" />
-          </svg>
-          BigPlann&apos;
+          <Logo size={26} id="header" />
+          Polaris
         </Link>
         {mainLinks.map((l) => {
           const tile = NAV_TILE[l.key];

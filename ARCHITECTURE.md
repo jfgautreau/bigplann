@@ -1,4 +1,4 @@
-# Architecture — BigPlann'
+# Architecture — Polaris
 
 Application web de gestion des plannings d'usine (matrice de polyvalence,
 placement journalier, habilitations, affichage couloir, bilans).

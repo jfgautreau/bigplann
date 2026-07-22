@@ -6,7 +6,7 @@ import "./globals.css";
 export const preferredRegion = ["cdg1"];
 
 export const metadata: Metadata = {
-  title: "BigPlann'",
+  title: "Polaris",
   description: "Gestion des plannings d'usine",
 };
 

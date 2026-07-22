@@ -1,4 +1,4 @@
-# BigPlann'
+# Polaris
 
 Application web interne de gestion des plannings d'une usine agroalimentaire :
 référentiel (ateliers/lignes/postes), matrice de polyvalence, planning de placement,

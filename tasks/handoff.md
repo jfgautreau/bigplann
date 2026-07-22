@@ -1,4 +1,4 @@
-# Détail métier & patterns — BigPlann'
+# Détail métier & patterns — Polaris
 
 > **Ne pas lire d'office.** Les règles de travail, la stack, les permissions et les pièges
 > tiennent dans **`CLAUDE.md`** (chargé automatiquement). Ce fichier est la couche de
@@ -146,7 +146,7 @@ Modale `TempsPartielModal`, API `/api/personnel` op `tp`.
 - **Menu principal** (`MAIN_ORDER`) avec pastille colorée + icône (`NAV_TILE` + `NavIcon`) :
   Référentiel (vert) → Personnel (bleu) → Matrice (violet) → Ordonnancement (orange) →
   Planning (teal) → Bilans (rose).
-- Logo « BigPlann' » → **`/`** (accueil : logo centré + titre « planning »).
+- Logo « Polaris » → **`/`** (accueil : logo centré + titre « planning »).
 - **Engrenage** (`SettingsMenu`) : Équipes, Compétences, Param. Habilitation, Motifs,
   Horaires, Affichage, Journal, RGPD, Rotation des équipes, Droits.
 - 🔔 cloche = habilitations à recycler (compteur ≤ 90 j).
