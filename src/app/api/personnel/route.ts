@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import { canWriteModule } from "@/lib/permissions";
+import { normaliseNom, normalisePrenom } from "@/lib/noms";
 
 // POST /api/personnel { op, ... }
 // Saisie inline du personnel. Ecriture admin (RLS personne).
@@ -82,8 +83,11 @@ export async function POST(req: NextRequest) {
 
   try {
     if (op === "create") {
-      const nom = s(body.nom);
-      const prenom = s(body.prenom);
+      // Casse imposee a la source : NOM en capitales, Prenom capitalise. Le
+      // controle de presence porte sur la saisie brute, la normalisation ne peut
+      // pas vider une chaine non vide.
+      const nom = normaliseNom(s(body.nom));
+      const prenom = normalisePrenom(s(body.prenom));
       if (!nom || !prenom) return NextResponse.json({ error: "Nom et prénom requis" }, { status: 400 });
       const type_contrat = CONTRATS.includes(s(body.type_contrat)) ? s(body.type_contrat) : "CDI";
       let matricule = orNull(s(body.matricule));
@@ -195,7 +199,9 @@ export async function POST(req: NextRequest) {
         .from("contrat_periode")
         .select(PERIODE_COLS)
         .eq("personne_id", personne_id)
-        .order("date_debut", { ascending: false, nullsFirst: false })
+        // Les periodes sans date de debut (celles qu'on vient de creer et qui
+        // restent a remplir) passent en tete, la ou le bouton Ajouter les depose.
+        .order("date_debut", { ascending: false, nullsFirst: true })
         .order("created_at", { ascending: false });
       if (error) throw error;
       return NextResponse.json({ ok: true, rows: data ?? [] });

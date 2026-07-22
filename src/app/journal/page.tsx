@@ -70,6 +70,16 @@ const CHAMP_FR: Record<string, string> = {
 // Champs techniques masques du diff (bruit : ids, horodatages, auteur deja affiche).
 const TECH = new Set(["id", "created_at", "updated_at", "date_maj", "auteur_app_user_id", "created_by"]);
 
+// ⚠️ Fuseau force. `audit_log.created_at` est un timestamptz, mais cette page est
+// un composant serveur : le formatage a lieu sur Vercel, dont l'horloge est en UTC.
+// Sans `timeZone`, le journal affichait donc les heures avec 1 h (hiver) ou 2 h
+// (ete) de retard sur l'usine. L'application n'est utilisee qu'en France.
+const HORODATAGE = new Intl.DateTimeFormat("fr-FR", {
+  dateStyle: "short",
+  timeStyle: "medium",
+  timeZone: "Europe/Paris",
+});
+
 const champLabel = (k: string) => CHAMP_FR[k] ?? k;
 
 export default async function JournalPage() {
@@ -201,7 +211,7 @@ export default async function JournalPage() {
             <tbody>
               {rendered.map(({ e, before, after }) => (
                 <tr key={e.id}>
-                  <td style={{ whiteSpace: "nowrap" }}>{new Date(e.created_at).toLocaleString("fr-FR")}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>{HORODATAGE.format(new Date(e.created_at))}</td>
                   <td style={{ whiteSpace: "nowrap" }}>{who(e.app_user_id)}</td>
                   <td>{ACTION_FR[e.action] ?? e.action}</td>
                   <td>{TABLE_FR[e.table_name] ?? e.table_name}</td>

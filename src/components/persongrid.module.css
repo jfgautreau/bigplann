@@ -247,6 +247,6 @@
 .cornerKpis {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 2px;
-  padding: 3px 4px;
+  gap: 4px;
+  padding: 5px 4px;
 }

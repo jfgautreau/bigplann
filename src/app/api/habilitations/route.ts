@@ -60,3 +60,35 @@ export async function POST(req: NextRequest) {
   revalidatePath("/habilitations");
   return NextResponse.json({ ok: true });
 }
+
+// DELETE /api/habilitations { personne_id, competence_id }
+// Retire l'habilitation : erreur de saisie, ou perte de l'habilitation a la suite
+// d'un incident. On supprime la ligne plutot que de la marquer expiree — une
+// habilitation expiree se recycle, une habilitation retiree n'a jamais existe.
+export async function DELETE(req: NextRequest) {
+  const profile = await getCurrentProfile();
+  if (!profile) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+
+  const body = (await req.json().catch(() => null)) as {
+    personne_id?: string;
+    competence_id?: string;
+  } | null;
+
+  const personne_id = String(body?.personne_id ?? "").trim();
+  const competence_id = String(body?.competence_id ?? "").trim();
+  if (!personne_id || !competence_id) {
+    return NextResponse.json({ error: "Personne et formation sont requises." }, { status: 400 });
+  }
+
+  const supabase = (await canWriteModule(profile.role, "habilitations")) ? getAdminClient() : await getServerClient();
+
+  const { error } = await supabase
+    .from("personne_competence")
+    .delete()
+    .eq("personne_id", personne_id)
+    .eq("competence_id", competence_id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 403 });
+
+  revalidatePath("/habilitations");
+  return NextResponse.json({ ok: true });
+}

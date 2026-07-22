@@ -33,10 +33,19 @@ export default function HabMajModal({
   const [dateAutor, setDateAutor] = useState(initial.dateAutorisation ?? "");
   const [state, setState] = useState<"idle" | "saving" | "error">("idle");
   const [err, setErr] = useState<string | null>(null);
+  // Suppression : confirmation en deux temps, dans la modale plutot qu'en
+  // `confirm()` natif (le reste de l'app n'utilise jamais les boites du navigateur).
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const comp = comps.find((c) => c.id === competenceId);
   // Recyclage : la personne detient deja cette formation (une date etait pre-remplie).
   const recyclage = !!initial.dateObtention;
+  // On ne propose la suppression que sur la ligne effectivement ouverte : si l'on
+  // change de personne ou de formation dans les listes, la cible n'existe plus
+  // forcement et l'on supprimerait autre chose que ce qui est affiche.
+  const peutSupprimer =
+    recyclage && personneId === initial.personneId && competenceId === initial.competenceId;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,6 +70,28 @@ export default function HabMajModal({
       onClose();
     } catch (e2) {
       setState("error");
+      setErr(e2 instanceof Error ? e2.message : "Échec.");
+    }
+  }
+
+  async function supprimer() {
+    setDeleting(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/habilitations", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personne_id: initial.personneId, competence_id: initial.competenceId }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? "Échec de la suppression.");
+      }
+      router.refresh();
+      onClose();
+    } catch (e2) {
+      setDeleting(false);
+      setConfirmDel(false);
       setErr(e2 instanceof Error ? e2.message : "Échec.");
     }
   }
@@ -120,7 +151,60 @@ export default function HabMajModal({
             <button type="submit" className="btn-sm" disabled={state === "saving"}>
               {state === "saving" ? "Enregistrement…" : "Enregistrer"}
             </button>
+
+            {peutSupprimer && !confirmDel && (
+              <button
+                type="button"
+                onClick={() => setConfirmDel(true)}
+                title="Supprimer cette habilitation"
+                className="btn-sm"
+                style={{
+                  background: "#fff",
+                  // Fond clair : la couleur du texte doit etre posee explicitement,
+                  // le style global des boutons impose du blanc (cf. CLAUDE.md).
+                  color: "var(--danger)",
+                  border: "1px solid var(--danger)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                  <path d="M10 11v6M14 11v6" />
+                </svg>
+                Supprimer
+              </button>
+            )}
+
+            {peutSupprimer && confirmDel && (
+              <>
+                <button
+                  type="button"
+                  onClick={supprimer}
+                  disabled={deleting}
+                  className="btn-sm"
+                  style={{ background: "var(--danger)", color: "#fff", border: "1px solid var(--danger)" }}
+                >
+                  {deleting ? "Suppression…" : "Confirmer la suppression"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDel(false)}
+                  disabled={deleting}
+                  className="btn-sm btn-ghost"
+                >
+                  Annuler
+                </button>
+              </>
+            )}
           </form>
+
+          {peutSupprimer && confirmDel && (
+            <p style={{ color: "var(--danger)", fontSize: 13, marginTop: 8, marginBottom: 0 }}>
+              L&apos;habilitation sera retirée du dossier de la personne. Cette action est définitive.
+            </p>
+          )}
 
           {err && <p style={{ color: "var(--danger)", fontSize: 13, marginBottom: 0 }}>{err}</p>}
           <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>

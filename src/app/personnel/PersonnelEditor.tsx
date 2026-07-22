@@ -8,6 +8,7 @@ import ConfirmForm from "@/components/ConfirmForm";
 import TempsPartielModal from "./TempsPartielModal";
 import ContratsModal from "./ContratsModal";
 import { anonymiserPersonne, supprimerPersonne } from "./actions";
+import { normaliseNom, normalisePrenom } from "@/lib/noms";
 
 type HMap = Record<string, { debut: string; fin: string }>;
 type TpConfig = { demi?: { mode: string; source: string; matin?: HMap; aprem?: HMap }; off?: Record<string, string[]>; horaires?: HMap };
@@ -260,13 +261,6 @@ export default function PersonnelEditor({
   const C = (k: ColKey): React.CSSProperties => (CENTER.has(k) ? { textAlign: "center", textAlignLast: "center" } : {});
   const interimStyle = (t: string) => (t === "INTERIM" ? { background: "#fde68a", color: "#92400e", fontWeight: 600 } : {});
 
-  const counts = {
-    tous: rows.length,
-    actif: rows.filter((r) => r.statut === "ACTIF").length,
-    parti: rows.filter((r) => r.statut !== "ACTIF").length,
-    ...Object.fromEntries(CONTRATS.map((c) => [c, rows.filter((r) => r.type_contrat === c).length])),
-  } as Record<string, number>;
-
   const Cols = () => (
     <colgroup>
       {COLS.map((c) => <col key={c.key} style={{ width: `${c.w}%` }} />)}
@@ -316,18 +310,18 @@ export default function PersonnelEditor({
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span className="muted" style={{ fontWeight: 600, fontSize: 13 }}>Statut</span>
               <div className="segments">
-                <button type="button" className={statutFilter === "" ? "seg active" : "seg"} onClick={() => setStatutFilter("")}>Tous ({rows.length})</button>
-                <button type="button" className={statutFilter === "ACTIF" ? "seg active" : "seg"} onClick={() => setStatutFilter("ACTIF")}>Actif ({counts.actif})</button>
-                <button type="button" className={statutFilter === "PARTI" ? "seg active" : "seg"} onClick={() => setStatutFilter("PARTI")}>Parti ({counts.parti})</button>
+                <button type="button" className={statutFilter === "" ? "seg active" : "seg"} onClick={() => setStatutFilter("")}>Tous</button>
+                <button type="button" className={statutFilter === "ACTIF" ? "seg active" : "seg"} onClick={() => setStatutFilter("ACTIF")}>Actif</button>
+                <button type="button" className={statutFilter === "PARTI" ? "seg active" : "seg"} onClick={() => setStatutFilter("PARTI")}>Parti</button>
               </div>
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span className="muted" style={{ fontWeight: 600, fontSize: 13 }}>Contrat</span>
               <div className="segments">
-                <button type="button" className={contratFilter === "" ? "seg active" : "seg"} onClick={() => setContratFilter("")}>Tous ({counts.tous})</button>
+                <button type="button" className={contratFilter === "" ? "seg active" : "seg"} onClick={() => setContratFilter("")}>Tous</button>
                 {CONTRATS.map((c) => (
                   <button key={c} type="button" className={contratFilter === c ? "seg active" : "seg"} onClick={() => setContratFilter(c)}>
-                    {c === "INTERIM" ? "Intérim" : c} ({counts[c] ?? 0})
+                    {c === "INTERIM" ? "Intérim" : c}
                   </button>
                 ))}
               </div>
@@ -564,13 +558,16 @@ export default function PersonnelEditor({
                 <span>Badge</span>
                 <input value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="badge" />
               </div>
+              {/* Casse normalisee des la sortie du champ (« GAUTREAU Jean-François »).
+                  L'API la reapplique de toute facon : ici c'est pour que la saisie
+                  montre tout de suite ce qui sera enregistre. */}
               <div className="field">
                 <span>Nom *</span>
-                <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom" />
+                <input value={nom} onChange={(e) => setNom(e.target.value)} onBlur={() => setNom(normaliseNom)} placeholder="Nom" />
               </div>
               <div className="field">
                 <span>Prénom *</span>
-                <input value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Prénom" />
+                <input value={prenom} onChange={(e) => setPrenom(e.target.value)} onBlur={() => setPrenom(normalisePrenom)} placeholder="Prénom" />
               </div>
               <div className="field">
                 <span>H/F</span>

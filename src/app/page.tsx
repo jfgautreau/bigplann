@@ -27,7 +27,9 @@ export default async function Home() {
           <Logo size={180} id="home" />
           <div style={{ fontSize: 44, fontWeight: 900, letterSpacing: "1px", color: "#1d4ed8" }}>Polaris</div>
         </Link>
-        <h1 style={{ margin: 0, fontSize: 30, fontWeight: 700, color: "#334155" }}>planning</h1>
+        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 600, color: "#334155", textAlign: "center" }}>
+          anticiper aujourd&apos;hui, réussir demain
+        </h1>
       </div>
     </>
   );

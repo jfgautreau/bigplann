@@ -105,7 +105,10 @@ export default function PeriodesEditor({
 
   async function add() {
     const j = await post("periode-create", { personne_id: personneId, type_contrat: "INTERIM" });
-    if (j?.row) setRows((rs) => [...rs, j.row as Periode]);
+    // En tete de liste : le bouton est au-dessus du tableau, la ligne creee doit
+    // apparaitre juste en dessous, sous les yeux. Le tri du serveur place lui aussi
+    // les periodes sans date de debut en premier (cf. op periode-list).
+    if (j?.row) setRows((rs) => [j.row as Periode, ...rs]);
   }
 
   async function remove(id: string) {
@@ -128,6 +131,12 @@ export default function PeriodesEditor({
       <p className="muted" style={{ marginTop: 0 }}>
         Historique complet des contrats. La <strong>fin du contrat le plus récent</strong> est ce qui s&apos;affiche dans la liste Personnel.
       </p>
+
+      {/* Au-dessus du tableau : la ligne creee apparait juste en dessous du bouton,
+          sans avoir a chercher le bas d'un historique qui peut etre long. */}
+      <button type="button" onClick={add} style={{ width: "auto", margin: "0 0 10px", padding: "8px 16px" }}>
+        + Ajouter une période
+      </button>
 
       {loading ? (
         <p className="muted">Chargement…</p>
@@ -181,10 +190,6 @@ export default function PeriodesEditor({
           </tbody>
         </table>
       )}
-
-      <button type="button" onClick={add} style={{ width: "auto", marginTop: 10, padding: "8px 16px" }}>
-        + Ajouter une période
-      </button>
     </div>
   );
 }

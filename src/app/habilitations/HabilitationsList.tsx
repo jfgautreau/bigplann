@@ -84,18 +84,18 @@ function Kpi({ n, label, color }: { n: number; label: string; color: string }) {
       style={{
         display: "flex",
         alignItems: "baseline",
-        gap: 4,
+        gap: 6,
         minWidth: 0,
-        padding: "1px 5px",
+        padding: "4px 9px",
         border: "1px solid var(--border)",
-        borderRadius: 7,
+        borderRadius: 8,
         background: "#fff",
       }}
     >
-      <span style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.1, color }}>{n}</span>
+      <span style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.1, color }}>{n}</span>
       <span
         style={{
-          fontSize: 9.5,
+          fontSize: 12,
           fontWeight: 600,
           color: "var(--muted)",
           overflow: "hidden",
@@ -225,7 +225,9 @@ export default function HabilitationsList({
   }
 
   // Colonne noms adaptative, partagee par les 2 tables -> colonnes alignees.
-  const nameW = Math.min(320, Math.max(150, personnes.reduce((m, p) => Math.max(m, `${p.nom} ${p.prenom}`.length), 0) * 7.2 + 30));
+  // Plancher a 210 px : la cellule d'angle loge les tuiles de compteur, dont le
+  // libelle le plus long (« Autor. a remettre ») serait rogne en dessous.
+  const nameW = Math.min(320, Math.max(210, personnes.reduce((m, p) => Math.max(m, `${p.nom} ${p.prenom}`.length), 0) * 7.2 + 30));
   const cols = useMemo(
     () => (
       <colgroup>
