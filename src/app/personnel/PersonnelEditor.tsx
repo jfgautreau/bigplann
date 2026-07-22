@@ -33,7 +33,7 @@ type Row = {
   tp_type: string | null;
   tp_config: TpConfig | null;
 };
-type Equipe = { id: string; nom: string; couleur?: string | null };
+type Equipe = { id: string; nom: string; couleur?: string | null; quart_fixe?: string | null };
 type Atelier = { id: string; nom: string };
 
 const CONTRATS = ["CDI", "CDD", "INTERIM"];
@@ -89,11 +89,15 @@ export default function PersonnelEditor({
   equipes,
   ateliers,
   canEdit,
+  quarts = [],
+  rotationRefs = [],
 }: {
   initial: Row[];
   equipes: Equipe[];
   ateliers: Atelier[];
   canEdit: boolean;
+  quarts?: { code: string; libelle: string }[];
+  rotationRefs?: { semaine: string; equipe_id: string; quart_code: string }[];
 }) {
   const [rows, setRows] = useState<Row[]>(initial);
   const [gq, setGq] = useState("");
@@ -420,6 +424,9 @@ export default function PersonnelEditor({
       {tpFor && (
         <TempsPartielModal
           personne={{ id: tpFor.id, label: `${tpFor.nom} ${tpFor.prenom}`, temps_partiel: tpFor.temps_partiel, tp_type: tpFor.tp_type, tp_config: tpFor.tp_config }}
+          equipe={equipes.find((e) => e.id === tpFor.equipe_id) ?? null}
+          quarts={quarts}
+          rotationRefs={rotationRefs}
           onClose={() => setTpFor(null)}
           onSaved={(u) => { setRow(tpFor.id, (r) => ({ ...r, ...u })); setTpFor(null); }}
         />
