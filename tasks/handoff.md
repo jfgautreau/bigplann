@@ -4,10 +4,12 @@
 > tiennent dans **`CLAUDE.md`** (chargé automatiquement). Ce fichier est la couche de
 > détail : à consulter quand on touche précisément un des sujets ci-dessous.
 >
-> État au 2026-07-16 · migrations appliquées jusqu'à **0031**.
+> État au 2026-07-23 · migrations appliquées jusqu'à **0033**.
 >
-> Dernier chantier : **écran `/placement`** (saisie du planning par glisser-déposer) et
-> **rotation par référence datée** (`rotation_reference`). Avant : ossature de page partagée
+> Dernier chantier : **application stricte de la matrice des droits** (plus aucun rôle en
+> dur), **numéros de rotation** et **habilitations exigées par poste** sur `/placement`,
+> **mot de passe par lien** sur `/admin/users`, en-tête commun aux trois écrans de gestion.
+> Avant : écran `/placement` et **rotation par référence datée** (`rotation_reference`). Avant : ossature de page partagée
 > (`.pagecol` / `.headband` / `.gridband`), grille « personnes × colonnes » mutualisée entre
 > Matrice et Habilitations, pagination des lectures Supabase (`fetchAll`).
 
@@ -20,11 +22,16 @@ date_livret_accueil + contrat_periode.motif · `0025` temps partiel
 `0028` semaine-type profils · `0029` paramétrage des habilitations ·
 `0030` `rotation_reference` (rotation par référence datée) ·
 `0031` `audit_trigger` : auteur en repli sur `created_by` / `auteur_app_user_id`
-quand `auth.uid()` est null (écritures service role).
+quand `auth.uid()` est null (écritures service role) ·
+`0032` `poste.numero_rotation`, table `poste_competence_requise` (habilitations exigées
+par un poste), `placement.forcage_*` (traçabilité d'un placement forcé) ·
+`0033` `placement.numero_rotation` (place occupée sur le poste).
 
 ## Écran Placement (`/placement`) — V1
-Saisie « un jour / un quart » par glisser-déposer, adossée au droit `planning` (pas de
-module de droits dédié ; l'entrée de nav est injectée en dur dans `AppHeader`).
+Saisie « un jour / un quart » par glisser-déposer. ⚠️ **Placement est désormais un module
+de droits à part entière** (`MODULES`, entrée normale de `MAIN_ORDER`) : l'injection en dur
+dans `AppHeader` a disparu. Sa page exige `write` — c'est un écran de saisie —, donc
+l'entrée de menu suit l'écriture et non la lecture.
 - **Écrit dans `placement`** via `/api/placement/cell` (même route que le planning) → lien
   automatique avec planning, bilans et affichage TV. Aucune table nouvelle.
 - Plan **schématique auto-généré** (postes de l'atelier groupés par ligne) = zones de dépôt
@@ -35,15 +42,26 @@ module de droits dédié ; l'entrée de nav est injectée en dur dans `AppHeader
   autre quart*.
 - **Aide à la compétence** : au glissement, postes compatibles en vert, restrictions
   (`matrice` = -1) en rouge, insuffisants grisés.
-- `/api/placement/copy` : reprend les affectations poste d'un jour de référence (J-1 / S-1)
-  pour le même quart.
+- `/api/placement/copy` : copie les affectations poste d'un jour vers un autre, même quart,
+  en **deux modes** — `ecraser` (défaut) ou `completer`, qui ne touche à aucune personne
+  déjà saisie ce jour-là, poste **comme** absence. Le mode est appliqué côté serveur.
 - ⚠️ `placement` est unique par **(personne, jour)** : une personne ne peut être que sur un
   quart par jour. `/api/placement/cell` renvoie **409** si on la pose sur un autre quart ;
   le board la libère d'abord (delete puis upsert).
 - Le board est **keyé** sur `atelier|jour|quart` : il remonte à chaque changement de filtre,
   ce qui réinitialise proprement l'état local depuis les props serveur.
-- Non fait en V1 : filtrage fin des lignes fermées un jour donné (`ouverture_quart` /
-  `jour_quart`) — le plan montre tous les postes du quart de l'atelier.
+- **Lignes fermées** : le plan applique désormais `jour_quart` / `ouverture_quart` comme le
+  Planning (cf. CLAUDE.md pour l'asymétrie des défauts). Une semaine non initialisée donne
+  donc un plan **vide**, accompagné d'un message qui renvoie vers l'Ordonnancement.
+- **Cases numérotées** : `poste.numero_rotation` développé par `parseNumeros()` ; les places
+  au-delà des numéros saisis, et les postes non numérotés, gardent une zone « sans numéro ».
+- **Couleurs d'alerte** : sureffectif → toute la tuile en orange ; compétence sous le minimum
+  du poste → pastille rouge ; habilitation manquante ou périmée → rouge **encadré**, pour
+  rester distinguable du simple manque de niveau.
+- **Vue Absences** : `SlideSwitch` Plan / Absences (`?vue=absences`), une carte par motif,
+  filtrée par l'atelier affiché ; les personnes sans atelier renseigné restent visibles.
+- **Bouton PDF** : feuille A4 paysage (en-tête atelier · quart · date · couverture, plan à
+  gauche, absents à droite), mise à l'échelle **mesurée** — cf. `tasks/lessons.md` L16.
 
 ## Temps partiel (`personne.tp_config`, jsonb, options cumulables)
 Modale `TempsPartielModal`, API `/api/personnel` op `tp`.
@@ -97,8 +115,8 @@ Modale `TempsPartielModal`, API `/api/personnel` op `tp`.
 - **Même grille que la matrice**, au composant près (`persongrid.module.css`,
   `usePersonGrid`). Deux pages distinctes parce que les droits d'écriture diffèrent :
   `chef_equipe` écrit dans la matrice, pas dans les habilitations.
-- Vue **Grille** (pastilles) ou **Liste**, bascule dans le bandeau du titre avec le bouton
-  « MàJ », là où la matrice a sa bascule Actuel/Cible.
+- Vue **Grille** (pastilles) ou **Liste** : `SlideSwitch` en ligne 2 de l'en-tête, là où la
+  matrice a sa bascule Actuel/Cible. Le bouton « MàJ » **n'existe plus**.
 - Pastille de 28 px comme la matrice. « Non habilité » = **cercle vide**, exactement comme
   le niveau 0 : un cercle vide veut dire « rien » dans les deux écrans.
 - Accent des en-têtes **neutre** (gris) : sur la matrice la couleur encode le mode
@@ -107,10 +125,20 @@ Modale `TempsPartielModal`, API `/api/personnel` op `tp`.
 - Les en-têtes de formation ne sont **plus rognés** (ils l'étaient à 112 px). La plus
   longue (« Gestion de crise - Retrait / Rappel », 35 car.) porte la bande d'en-tête à
   243 px, contre 170 px sur la matrice.
-- Légende = modale `HabLegendeModal` ouverte depuis la ligne de recherche.
+- Légende = modale `HabLegendeModal`, ouverte depuis la ligne 1 de l'en-tête.
 - Recherche **multi-critères** : si la saisie matche des personnes on filtre les lignes,
   si elle matche des formations on filtre les colonnes.
-- La mise à jour se fait dans une **modale** ouverte par le bouton « MàJ ».
+- La saisie s'ouvre **au clic sur une pastille** de la grille (`HabMajModal`), pré-remplie
+  avec la personne, la formation et la date du jour ; sur une case déjà remplie, elle
+  rappelle le dernier passage et enregistre un recyclage. Elle poste vers
+  `/api/habilitations` : un composant client ne peut pas pré-remplir un
+  `<form action={serverAction}>`.
+- Filtres **Atelier / Équipe** identiques à la matrice (`AtelierEquipeFiltres`, portés par
+  l'URL) ; la vue Liste suit le même périmètre que la grille.
+- Les **compteurs globaux** sont dans la cellule d'angle du tableau, au-dessus du bouton
+  Bilan. Le marqueur « autorisation de conduite » est un **volant blanc sur pastille bleue**
+  (`AutorisationMark`) : l'emoji apparaissait à l'envers dans les en-têtes en écriture
+  verticale, et le bleu ne porte aucun statut ici, contrairement au vert ou à l'orange.
 - Formation sans durée de validité → échéance affichée « **-** ».
 - Paramétrage dans `/admin/habilitations-param`, atteint par un lien texte dans le bandeau.
 

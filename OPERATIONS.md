@@ -18,11 +18,28 @@
 - Export manuel : *Database > Backups* (ou `pg_dump` via la chaîne de connexion).
 
 ## Gestion des utilisateurs
-- `/admin/users` : créer un compte (email + mot de passe + rôle). Pas d'email requis.
-- Rôles : `admin`, `chef_equipe`, `ordo`, `rh`, `codir`, `planning`.
+- `/admin/users` : bouton **« ＋ Ajouter »** (modale) — nom, email, rôle. **Aucun mot de
+  passe à choisir** : le compte créé, un **lien** s'affiche ; transmettez-le (Teams, SMS,
+  de vive voix), la personne définit elle-même son mot de passe.
+- Même principe pour un oubli : bouton **« Lien de mot de passe »** sur la ligne du compte.
+  Le lien est **à usage unique** et en générer un nouveau annule le précédent.
+  Aucun e-mail n'est envoyé — le SMTP du projet n'est pas configuré, c'est assumé.
+  ⚠️ Générez-le depuis l'**application en ligne** : depuis un `npm run dev`, le lien
+  pointerait sur `localhost` et ne marcherait que sur votre machine (l'encart vous prévient).
+- Le **rôle** s'enregistre dès que vous le changez dans la liste (plus de bouton Valider).
+- Rôles : `admin`, `chef_equipe`, `ordo`, `rh`, `codir`, `planning`. Les droits fins se
+  règlent dans la **matrice rôle × module**, en bas du même écran ; elle fait foi partout
+  (aucun rôle n'est câblé en dur dans le code).
 - Désigner les chefs d'équipe dans `/admin/equipes` (pilote le périmètre d'édition
   de la matrice / du planning / des habilitations).
-- Réinitialiser un mot de passe : Supabase *Authentication > Users*, ou via `/forgot`.
+- L'utilisateur peut changer son propre mot de passe depuis son menu (`/compte`), ou
+  passer par `/forgot` s'il n'arrive plus à se connecter.
+
+## Documentation utilisateur
+- **Guide utilisateur** : accessible depuis la bulle du profil (avatar en haut à droite),
+  sous « Changer le mot de passe ». Document autonome `public/guide.html`, ouvert dans un
+  onglet séparé pour ne pas perdre une saisie en cours. Il reste derrière l'authentification.
+- Pour le modifier : éditer `public/guide.html` (HTML statique, aucune dépendance) et pousser.
 
 ## RGPD
 - Fiche personne (`/personnel/[id]`) : **Exporter** (JSON), **Anonymiser**, **Supprimer**.

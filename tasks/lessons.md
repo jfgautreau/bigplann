@@ -125,3 +125,36 @@ tort le code. La seule preuve est le build : `grep -rho '.\{0,10\}mon texte' .ne
 **Règle** : dès qu'un texte suit une balise inline fermante, poser un `{" "}` explicite et
 faire commencer le texte sans espace. C'est déjà le pattern du projet (cf. `/planning`).
 Piège dormant : un texte correct aujourd'hui casse le jour où l'on y ajoute une apostrophe.
+
+## L15 — Lien de récupération : `generateLink` renvoie un `action_link` inutilisable ici
+Symptôme : le lien créé depuis `/admin/users` atterrissait sur `/login#access_token=…`,
+sans ouvrir de session — donc impossible de définir son mot de passe.
+**Deux causes cumulées**, toutes deux dues à `properties.action_link` :
+1. il passe par `/auth/v1/verify` avec un `redirect_to` qui doit figurer dans la liste
+   blanche « Redirect URLs » du projet ; absent, Supabase retombe **en silence** sur la
+   Site URL (le fragment `#` survit aux redirections HTTP, d'où l'URL trompeuse) ;
+2. il répond en **flux implicite** : jetons dans le fragment, qu'une route serveur ne voit
+   jamais. `/auth/callback` attend un `?code=` (PKCE), **structurellement impossible** ici —
+   le `code_verifier` PKCE naît dans le navigateur de qui lance la demande, or c'est
+   l'admin qui génère le lien.
+**Règle** : utiliser `properties.hashed_token` et fabriquer sa propre URL
+`{base}/reset?token_hash=…` ; la page appelle `verifyOtp({ token_hash, type: "recovery" })`
+puis nettoie l'URL. Aucune liste blanche à configurer, marche en local comme en ligne.
+**Corollaire** : ne pas bâtir le lien sur l'origine de la requête — un admin sur
+localhost fabriquerait des liens morts pour ses collègues. Cf. `baseApplication()` dans
+`src/lib/password-link.ts` (NEXT_PUBLIC_SITE_URL > VERCEL_PROJECT_PRODUCTION_URL > origine).
+
+## L16 — Impression : `zoom` refait la mise en page, `transform: scale()` non
+Pour faire tenir une vue sur **une** page, aucune règle CSS ne sait « réduire jusqu'à ce
+que ça rentre » : il faut mesurer puis mettre à l'échelle.
+⚠️ `zoom` **relayoute** : la hauteur ne diminue pas proportionnellement. Mesuré sur le plan
+de placement — 96 postes, 1377 px de haut, zoom 0,53 → encore **802 px**, soit deux pages.
+`transform: scale()` ne change que le rendu : 1377 × 0,53 = 730 exactement.
+Il faut alors **borner le conteneur à la hauteur d'une page** (`height` + `overflow:hidden`),
+sinon l'impression réserve la hauteur non réduite et sort une feuille blanche.
+**Astuce de lisibilité** : réduire à largeur fixe gaspille la page (à 53 %, la moitié de la
+largeur reste blanche). Essayer plusieurs largeurs de feuille et garder le meilleur facteur
+— une feuille plus large range le contenu sur moins de rangées. Même plan : 1600 px à 66 %
+au lieu de 1060 px à 53 %. Cf. `ajusterFeuille()` dans `PlacementBoard`.
+**Mesurer avant d'imprimer** suppose que l'élément soit rendu : le garder hors écran
+(`position: fixed; left: -20000px`) plutôt que `display: none`, qui donne `scrollHeight = 0`.
