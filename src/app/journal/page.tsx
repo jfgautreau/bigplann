@@ -180,7 +180,7 @@ export default async function JournalPage() {
   return (
     <>
       <AppHeader role={profile.role} active="/journal" />
-      <div className="container">
+      <div className="container" style={{ maxWidth: 1500 }}>
         <h1>Journal d&apos;audit</h1>
         <p className="muted" style={{ marginBottom: 16 }}>
           200 dernières modifications : qui, quoi, valeur avant et après, date et heure. Visible par

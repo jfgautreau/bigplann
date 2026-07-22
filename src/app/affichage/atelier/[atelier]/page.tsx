@@ -1,4 +1,3 @@
-import { Fragment } from "react";
 import Link from "next/link";
 import { getAdminClient } from "@/lib/supabase-server";
 import { isoDate, mondayOf, parseMonday, weekDays } from "@/lib/week";
@@ -30,11 +29,10 @@ export default async function AffichageAtelier({
   searchParams,
 }: {
   params: Promise<{ atelier: string }>;
-  searchParams: Promise<{ date?: string; vue?: string }>;
+  searchParams: Promise<{ date?: string }>;
 }) {
   const { atelier: param } = await params;
   const sp = await searchParams;
-  const vue = sp.vue === "noms" ? "noms" : "postes";
   const ref = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? parseMonday(sp.date) : mondayOf();
   const days = weekDays(ref);
   const isos = days.map((d) => d.iso);
@@ -77,7 +75,6 @@ export default async function AffichageAtelier({
   const posteNom = new Map<string, string>();
   for (const l of lignes) for (const p of l.poste) { posteLigne.set(p.id, l.id); posteNom.set(p.id, p.nom); }
 
-  const byPoste = new Map<string, PlacementRow[]>(); // `${poste}:${iso}`
   const horMap = new Map<string, { debut: string | null; fin: string | null }>(); // `${poste}:${quart}:${dow}`
   const excMap = new Map<string, { debut: string | null; fin: string | null; motif: string | null }>(); // `${personne}:${iso}` (horaire specifique + commentaire)
   type TpHM = Record<string, { debut: string; fin: string }>;
@@ -145,8 +142,6 @@ export default async function AffichageAtelier({
       const lid = posteLigne.get(r.poste_id);
       if (lid && !isOpen(lid, qc, r.jour)) continue; // jour/ligne ferme -> on n'affiche pas
       workedDays.add(r.jour);
-      const k = `${r.poste_id}:${r.jour}`;
-      (byPoste.get(k) ?? byPoste.set(k, []).get(k)!).push(r);
       if (r.personne) persons.set(r.personne_id, r.personne);
       const pk = `${r.personne_id}:${r.jour}`;
       (byPerson.get(pk) ?? byPerson.set(pk, []).get(pk)!).push(r);
@@ -203,30 +198,6 @@ export default async function AffichageAtelier({
   const colBg = (iso: string) => (iso === todayIso ? FLUO : undefined);
   const cellBorder = "1px solid #d9dce1";
 
-  // Cellule vue "par poste" : qui est sur ce poste ce jour-la (nom + horaire dessous).
-  const cellPoste = (posteId: string, iso: string) => {
-    const rows = byPoste.get(`${posteId}:${iso}`) ?? [];
-    if (!rows.length) return <span style={{ color: "#cbd5e1" }}>—</span>;
-    return rows.map((r, i) => {
-      const p = r.personne;
-      if (!p) return null;
-      const interim = p.type_contrat === "INTERIM";
-      const h = horaireTxt(r.personne_id, posteId, r.quart_code, iso);
-      const cmt = commentTxt(r.personne_id, iso);
-      return (
-        <div key={i} style={{ lineHeight: 1.2, marginBottom: i < rows.length - 1 ? 6 : 0 }}>
-          <div>
-            <span style={{ background: interim ? "#bbf7d0" : undefined, padding: interim ? "0 4px" : 0, borderRadius: 3 }}>
-              {p.nom} {p.prenom}
-            </span>
-          </div>
-          {h && <div style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 13 }}>{h}</div>}
-          {cmt && <div style={{ color: "#6b7280", fontStyle: "italic", fontSize: 12 }}>{cmt}</div>}
-        </div>
-      );
-    });
-  };
-
   // Cellule vue "par nom" : sur quel poste cette personne est placee ce jour-la (poste + horaire dessous).
   const cellNom = (personId: string, iso: string) => {
     const rows = byPerson.get(`${personId}:${iso}`) ?? [];
@@ -234,7 +205,7 @@ export default async function AffichageAtelier({
       // Aucune affectation poste : si la personne est en absence ce jour-la, on
       // affiche un simple "Absence" (sans detail du motif).
       if (absByPerson.get(personId)?.has(iso)) {
-        return <span style={{ fontWeight: 700, color: "#b91c1c" }}>Absence</span>;
+        return <span style={{ color: "#b91c1c" }}>Absence</span>;
       }
       return <span style={{ color: "#cbd5e1" }}>—</span>;
     }
@@ -245,7 +216,7 @@ export default async function AffichageAtelier({
       return (
         <div key={i} style={{ lineHeight: 1.2, marginBottom: i < rows.length - 1 ? 6 : 0 }}>
           <div style={{ fontWeight: 600 }}>{posteNom.get(r.poste_id) ?? "?"}</div>
-          {h && <div style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 13 }}>{h}</div>}
+          {h && <div style={{ color: "#1d4ed8", fontSize: 13 }}>{h}</div>}
           {cmt && <div style={{ color: "#6b7280", fontStyle: "italic", fontSize: 12 }}>{cmt}</div>}
         </div>
       );
@@ -260,27 +231,12 @@ export default async function AffichageAtelier({
   const shownDays = days.filter((d) => workedDays.has(d.iso));
   const noWork = shownDays.length === 0;
 
-  const dateQ = sp.date ? `&date=${sp.date}` : "";
-  const postesHref = `/affichage/atelier/${param}${sp.date ? `?date=${sp.date}` : ""}`;
-  const nomsHref = `/affichage/atelier/${param}?vue=noms${dateQ}`;
-  const tab = (active: boolean): React.CSSProperties => ({
-    padding: "6px 16px",
-    borderRadius: 8,
-    textDecoration: "none",
-    fontSize: 15,
-    fontWeight: 600,
-    background: active ? "#1e3a8a" : "#e2e8f0",
-    color: active ? "#fff" : "#1e293b",
-  });
-
   return (
     <div style={{ padding: "18px 24px" }}>
       <AutoRefresh seconds={300} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <h1 style={{ fontSize: 30, margin: 0 }}>{atelier.nom}</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href={postesHref} style={tab(vue === "postes")}>Par poste</Link>
-          <Link href={nomsHref} style={tab(vue === "noms")}>Par nom</Link>
           <PrintButton label="Imprimer / PDF" />
         </div>
       </div>
@@ -293,7 +249,7 @@ export default async function AffichageAtelier({
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 16, tableLayout: "fixed" }}>
         <thead>
           <tr>
-            <th style={{ width: 180, border: cellBorder, background: "#1e3a8a", color: "#fff", padding: "8px 10px" }}></th>
+            <th style={{ width: 260, border: cellBorder, background: "#1e3a8a", color: "#fff", padding: "8px 10px" }}></th>
             {shownDays.map((d) => (
               <th
                 key={d.iso}
@@ -313,38 +269,11 @@ export default async function AffichageAtelier({
           </tr>
         </thead>
         <tbody>
-          {vue === "postes" &&
-            lignes.map((l) => (
-              <Fragment key={l.id}>
-                <tr>
-                  <td
-                    colSpan={shownDays.length + 1}
-                    style={{ background: "#eef2ff", fontWeight: 800, fontSize: 17, padding: "6px 10px", border: cellBorder }}
-                  >
-                    {l.nom}
-                  </td>
-                </tr>
-                {l.poste.map((p) => (
-                  <tr key={p.id}>
-                    <td style={{ border: cellBorder, padding: "5px 10px", fontWeight: 600, overflowWrap: "anywhere", wordBreak: "break-word" }}>
-                      {p.nom}
-                    </td>
-                    {shownDays.map((d) => (
-                      <td key={d.iso} style={{ border: cellBorder, padding: "4px 6px", verticalAlign: "top", overflowWrap: "anywhere", wordBreak: "break-word" }}>
-                        {cellPoste(p.id, d.iso)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </Fragment>
-            ))}
-
-          {vue === "noms" &&
-            personList.map((p) => {
+          {            personList.map((p) => {
               const interim = p.type_contrat === "INTERIM";
               return (
                 <tr key={p.id}>
-                  <td style={{ border: cellBorder, padding: "5px 10px", fontWeight: 600, overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                  <td style={{ border: cellBorder, padding: "5px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>
                     <span style={{ background: interim ? "#bbf7d0" : undefined, padding: interim ? "0 4px" : 0, borderRadius: 3 }}>
                       {p.nom} {p.prenom}
                     </span>
@@ -358,12 +287,7 @@ export default async function AffichageAtelier({
               );
             })}
 
-          {vue === "postes" && lignes.length === 0 && (
-            <tr>
-              <td colSpan={shownDays.length + 1} className="muted" style={{ padding: 10 }}>Aucun poste.</td>
-            </tr>
-          )}
-          {vue === "noms" && personList.length === 0 && (
+          {personList.length === 0 && (
             <tr>
               <td colSpan={shownDays.length + 1} className="muted" style={{ padding: 10 }}>Personne de placé cette semaine.</td>
             </tr>
@@ -375,8 +299,8 @@ export default async function AffichageAtelier({
       <div style={{ marginTop: 14, fontSize: 14, color: "#6b7280" }}>
         Légende : <span style={{ background: "#bbf7d0", padding: "0 6px" }}>Intérimaire</span>{" "}
         · <span style={{ background: FLUO, padding: "0 6px" }}>Aujourd&apos;hui</span> · horaires en bleu ·{" "}
-        <span style={{ color: "#b91c1c", fontWeight: 700 }}>Absence</span>{" "}
-        (vue par nom) · mise à jour auto toutes les 5 min.
+        <span style={{ color: "#b91c1c" }}>Absence</span>{" "}
+        · mise à jour auto toutes les 5 min.
       </div>
     </div>
   );

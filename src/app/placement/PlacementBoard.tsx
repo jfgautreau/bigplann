@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { isoDate, addDays } from "@/lib/week";
 import { habValable, habManqueTxt } from "@/lib/habilitations";
@@ -97,6 +97,11 @@ export default function PlacementBoard({
   const [over, setOver] = useState<string | null>(null); // cible de depot survolee
   // Demande de forcage en attente : habilitation manquante sur le poste vise.
   const [ask, setAsk] = useState<{ persId: string; posteId: string; manque: string[]; numero: string | null } | null>(null);
+
+  const printRef = useRef<HTMLDivElement>(null);
+  // La feuille n'est montee QU'AU moment d'imprimer : la garder en permanence
+  // doublerait le cout de rendu du plan, deja l'ecran le plus lourd.
+  const [prepImpression, setPrepImpression] = useState(false);
 
   const persById = useMemo(() => new Map(personnes.map((p) => [p.id, p])), [personnes]);
   const posteNom = useMemo(() => {
@@ -265,6 +270,47 @@ export default function PlacementBoard({
 
   // Copier les affectations poste d'un jour vers un autre (meme quart). La destination
   // n'est pas forcement le jour affiche : dans ce cas on y navigue pour montrer le resultat.
+  // Impression : la feuille doit tenir sur UNE page A4 paysage (1123 x 794 px a
+  // 96 dpi, moins les marges de 8 mm du @page). Aucune regle CSS ne sait « faire
+  // rentrer » un contenu : on mesure, puis on met a l'echelle.
+  //
+  // `transform: scale()` et non `zoom` : zoom refait la mise en page, si bien que
+  // la hauteur ne diminue pas proportionnellement — mesure faite, un plan de
+  // 96 postes reduit a 53 % occupait encore 802 px de haut, soit toujours deux
+  // pages. Une transformation, elle, reduit exactement ce qu'on a mesure.
+  //
+  // On essaie plusieurs largeurs de feuille avant de reduire : une feuille plus
+  // large range les postes sur moins de rangees, donc autorise une echelle plus
+  // grande. Sur le meme plan de 96 postes, 1600 px a 66 % au lieu de 1060 px a 53 %.
+  const LARGEURS_ESSAI = [1060, 1300, 1600, 1900, 2200];
+  const PAGE_L = 1060;
+  const PAGE_H = 730;
+
+  function ajusterFeuille() {
+    const el = printRef.current;
+    if (!el) return;
+    el.style.transform = "none";
+    let meilleur = { f: 0, w: PAGE_L };
+    for (const w of LARGEURS_ESSAI) {
+      el.style.width = `${w}px`;
+      const f = Math.min(1, PAGE_L / w, PAGE_H / el.scrollHeight);
+      if (f > meilleur.f) meilleur = { f, w };
+    }
+    el.style.width = `${meilleur.w}px`;
+    el.style.transformOrigin = "top left";
+    el.style.transform = `scale(${meilleur.f})`;
+  }
+
+  // La feuille doit etre montee (donc mesurable) avant d'ouvrir la boite d'impression.
+  useEffect(() => {
+    if (!prepImpression) return;
+    ajusterFeuille();
+    window.print();
+    setPrepImpression(false);
+  });
+
+  const imprimer = () => setPrepImpression(true);
+
   const copyImpossible = copying || !copySrc || !copyDst || copySrc === copyDst;
 
   async function copyDates(src: string, dst: string, mode: "ecraser" | "completer") {
@@ -405,6 +451,19 @@ export default function PlacementBoard({
   // Restreinte a l'atelier affiche. Les personnes dont l'atelier n'est pas
   // renseigne sont TOUJOURS montrees : une absence ne doit pas disparaitre du
   // point du matin a cause d'une fiche incomplete.
+  // Absents de l'atelier pour la FEUILLE IMPRIMEE : calcules quelle que soit la vue
+  // a l'ecran (on imprime aussi bien depuis le plan), et motifs vides ecartes pour
+  // ne pas gaspiller la colonne.
+  const absPrint = useMemo(() => {
+    const tri = (a: Personne, b: Personne) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
+    const dansAtelier = (p: Personne) => !atelierId || !p.atelier_id || p.atelier_id === atelierId;
+    const gensDe = (v: string) => personnes.filter((p) => place[p.id] === v && dansAtelier(p)).sort(tri);
+    return [
+      ...motifs.map((mo) => ({ key: mo.id, titre: mo.libelle, gens: gensDe(`m:${mo.id}`) })),
+      { key: "X", titre: "Non travaillé", gens: gensDe("X") },
+    ].filter((c) => c.gens.length > 0);
+  }, [motifs, personnes, place, atelierId]);
+
   const absCartes = useMemo(() => {
     if (!vueAbsences) return [];
     const tri = (a: Personne, b: Personne) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
@@ -495,6 +554,14 @@ export default function PlacementBoard({
             title="Copier les affectations d'un jour vers un autre (même quart)"
           >
             Copier…
+          </button>
+          <button
+            type="button"
+            className={s.navbtn}
+            onClick={imprimer}
+            title="Imprimer le plan de cet atelier (1 page A4 paysage)"
+          >
+            🖨 PDF
           </button>
           <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
             <input type="checkbox" checked={hidePlaced} onChange={(e) => setHidePlaced(e.target.checked)} style={{ width: "auto" }} />
@@ -740,6 +807,84 @@ export default function PlacementBoard({
           </span>
         )}
       </div>
+
+      {/* ------------------------------------------------------------------
+          Feuille imprimable : masquee a l'ecran, seule visible a l'impression.
+          Rendue en permanence (et non a la demande) pour que `imprimer()` puisse
+          la mesurer avant d'appeler window.print(). Plan a gauche, absents du
+          jour a droite ; tous les postes y figurent, meme non pourvus.
+          ------------------------------------------------------------------ */}
+      {prepImpression && (
+      <div className={s.printSheet} ref={printRef} aria-hidden="true">
+        <div className={s.printHead}>
+          <strong className={s.printTitre}>{ateliers.find((a) => a.id === atelierId)?.nom ?? "Atelier"}</strong>
+          <span>{quartLib[quart] ?? quart}</span>
+          <span>{jourLabel(jour)}</span>
+          <span className={s.printCouv}>
+            Couverture {coverage.cov}/{coverage.req}
+          </span>
+        </div>
+
+        <div className={s.printBody}>
+          <div className={s.printPlan}>
+            {groups.map((g) => (
+              <div key={g.ligneId} className={s.printLigne}>
+                <div className={s.printLigneNom}>{g.ligneNom}</div>
+                <div className={s.printPostes}>
+                  {g.postes.map((po) => {
+                    const occ = occupants(po.id);
+                    const sur = po.effectifRequis > 0 && occ.length > po.effectifRequis;
+                    const trou = occ.length < po.effectifRequis;
+                    return (
+                      <div key={po.id} className={`${s.printPoste} ${sur ? s.printSur : ""}`}>
+                        <div className={s.printPosteHead}>
+                          <span className={s.printPosteNom}>{po.nom}</span>
+                          <span className={trou ? s.printTrou : sur ? s.printSurNb : s.printOk}>
+                            {occ.length}/{po.effectifRequis}
+                          </span>
+                        </div>
+                        {occ.length === 0 ? (
+                          <div className={s.printVide}>—</div>
+                        ) : (
+                          occ.map((p) => {
+                            const mq = habManque(p.id, po.id);
+                            const cs = compState(p.id, po);
+                            return (
+                              <div key={p.id} className={`${s.printNom} ${mq.length || cs !== "ok" ? s.printAlerte : ""}`}>
+                                {numero[p.id] && <span className={s.printNum}>{numero[p.id]}</span>}
+                                {p.nom} {p.prenom.charAt(0).toUpperCase()}.
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            {groups.length === 0 && <p className={s.printVide}>Aucune ligne ouverte ce jour-là sur ce quart.</p>}
+          </div>
+
+          <div className={s.printAbs}>
+            <div className={s.printAbsTitre}>Absents du jour</div>
+            {absPrint.map((c) => (
+              <div key={c.key} className={s.printAbsBloc}>
+                <div className={s.printAbsMotif}>
+                  {c.titre} <span className={s.printAbsNb}>({c.gens.length})</span>
+                </div>
+                {c.gens.map((p) => (
+                  <div key={p.id} className={s.printAbsNom}>
+                    {p.nom} {p.prenom.charAt(0).toUpperCase()}.
+                  </div>
+                ))}
+              </div>
+            ))}
+            {absPrint.length === 0 && <div className={s.printVide}>Aucun absent.</div>}
+          </div>
+        </div>
+      </div>
+      )}
 
       {/* Copie des affectations d'un jour vers un autre (meme quart) */}
       {showCopy && (
