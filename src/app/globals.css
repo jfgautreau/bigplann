@@ -587,7 +587,31 @@ select.flat {
   cursor: pointer;
 }
 .pick-chip:hover { background: #dbe3ec; border-color: #94a3b8; }
-.pick-chip.on { background: #2563eb; color: #fff; border-color: #2563eb; }
+/* Aide a la competence, memes teintes qu'au Placement (.ok / .restrict / .low) :
+   la personne dont on ouvre la case est-elle competente sur ce poste ? */
+.pick-chip.comp-ok {
+  background: #f0fdf4;
+  border-color: #16a34a;
+  box-shadow: inset 0 0 0 1px #16a34a55;
+}
+.pick-chip.comp-ok:hover { background: #dcfce7; }
+.pick-chip.comp-restrict {
+  background: #fef2f2;
+  border-color: #dc2626;
+  box-shadow: inset 0 0 0 1px #dc262655;
+}
+.pick-chip.comp-restrict:hover { background: #fee2e2; }
+.pick-chip.comp-low { opacity: 0.55; }
+/* L'etat « poste actuel » prime sur l'aide a la competence. */
+.pick-chip.on,
+.pick-chip.on.comp-ok,
+.pick-chip.on.comp-restrict {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+  box-shadow: none;
+  opacity: 1;
+}
 .cellpick-abs { display: flex; flex-direction: column; gap: 4px; width: 130px; flex: 0 0 auto; border-left: 1px solid #e2e8f0; padding-left: 12px; }
 
 /* Case verrouillee : personne deja placee sur un autre quart ce jour-la (-> Mat). */
@@ -688,23 +712,34 @@ select.flat {
   cursor: default;
 }
 
-/* --- Alertes planning : barres verticales a gauche de la case (cumulables) --- */
-/* Hors-competence : barre rouge. Sur-effectif : barre jaune. Les deux : rouge puis jaune. */
+/* --- Alertes planning : MEME code couleur qu'au Placement ---------------
+   fond rouge = manque de competence · fond jaune = sureffectif ·
+   encadre rouge = forcage (habilitation manquante ou perimee).
+   Les fonds sont poses en style inline par PlanningGrid (ils entrent en
+   concurrence avec la couleur du motif d'absence et celle du jour) ; il ne
+   reste ici que la couleur du texte et le cas ou les deux alertes se cumulent. */
 .pcell.hc {
-  box-shadow: inset 4px 0 0 0 #dc2626;
+  color: #b91c1c;
+  font-weight: 600;
 }
 .pcell.over {
-  box-shadow: inset 4px 0 0 0 #eab308;
+  color: #92400e;
 }
+/* Rouge et jaune ensemble : le fond rouge l'emporte (plus grave), le sureffectif
+   garde une barre jaune a gauche pour ne pas disparaitre de la lecture. */
 .pcell.hc.over {
-  box-shadow: inset 4px 0 0 0 #dc2626, inset 8px 0 0 0 #eab308;
+  box-shadow: inset 4px 0 0 0 #eab308;
+  color: #b91c1c;
 }
 /* Placement force : le poste exige une habilitation que la personne n'a pas (ou
-   plus). Contour rouge plein, comme au Placement. Le manque est RECALCULE a
-   l'affichage : le contour disparait de lui-meme des la regularisation. */
+   plus). Fond rouge ET encadre, comme au Placement (`.forced`) — l'encadre le
+   distingue du simple manque de niveau, qui n'a que le fond. Le manque est
+   RECALCULE a l'affichage : tout disparait des la regularisation. */
 .pcell.forced {
   outline: 2px solid #dc2626;
   outline-offset: -2px;
+  color: #b91c1c;
+  font-weight: 600;
   z-index: 2;
 }
 

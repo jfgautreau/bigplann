@@ -18,6 +18,10 @@ const PAGE_H = 1525;
 const LARGEURS_ESSAI = [700, 820, 940, 1060, 1300, 1600, 1900];
 const ECHELLE_MAX = 1.6;
 
+// Gabarit commun aux deux commandes : le bouton porte une bordure, le logo n'en
+// a pas — sans taille imposee, ils ne tombaient pas d'aplomb.
+const TAILLE = 42;
+
 export default function AffichageBarre({ cadreId, contenuId }: { cadreId: string; contenuId: string }) {
   function imprimer() {
     const el = document.getElementById(contenuId);
@@ -65,36 +69,30 @@ export default function AffichageBarre({ cadreId, contenuId }: { cadreId: string
           type="button"
           onClick={imprimer}
           title="Imprimer / enregistrer en PDF (A3 vertical, une page)"
-          aria-label="Imprimer en PDF"
+          aria-label="Imprimer"
           style={{
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            width: 40,
-            height: 40,
+            // Meme gabarit que le logo Polaris a cote.
+            width: TAILLE,
+            height: TAILLE,
             padding: 0,
             margin: 0,
             // Fond clair : la couleur doit etre posee explicitement, le style
             // global des boutons impose du blanc (cf. CLAUDE.md).
             background: "#fff",
-            color: "#b91c1c",
+            color: "#1d4ed8",
             border: "1px solid var(--border)",
             borderRadius: 9,
             cursor: "pointer",
           }}
         >
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-            <path
-              d="M6 2h8l4 4v16H6z"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinejoin="round"
-            />
-            <path d="M14 2v4h4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-            <text x="12" y="17.5" textAnchor="middle" fill="currentColor" fontSize="6.5" fontWeight="700" fontFamily="Arial, Helvetica, sans-serif">
-              PDF
-            </text>
+          {/* Imprimante : capot, corps, feuille qui sort. */}
+          <svg viewBox="0 0 24 24" width={Math.round(TAILLE * 0.62)} height={Math.round(TAILLE * 0.62)} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M7 9V3h10v6" />
+            <path d="M7 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" />
+            <rect x="7" y="15" width="10" height="6" rx="1" />
           </svg>
         </button>
 
@@ -104,7 +102,7 @@ export default function AffichageBarre({ cadreId, contenuId }: { cadreId: string
           aria-label="Revenir à l'application"
           style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}
         >
-          <Logo size={40} id="affichage" />
+          <Logo size={TAILLE} id="affichage" />
         </Link>
       </div>
     </>

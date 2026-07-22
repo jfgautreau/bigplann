@@ -228,6 +228,14 @@ export default function PlanningGrid({
     const e = habPers[`${pid}:${cid}`];
     return e === undefined ? null : { expiration: e === "" ? null : e };
   };
+  // Aide a la competence dans le panneau d'affectation, calquee sur le Placement :
+  // vert = competent, rouge = restriction medicale, estompe = niveau insuffisant.
+  const compState = (pid: string, posteId: string): "ok" | "restrict" | "low" => {
+    const n = matrice[`${pid}:${posteId}`] ?? 0;
+    if (n === -1) return "restrict";
+    return n >= (niveauMin[posteId] ?? 0) ? "ok" : "low";
+  };
+
   const habManque = (pid: string, v: string): string[] =>
     !isPoste(v)
       ? []
@@ -729,7 +737,20 @@ export default function PlanningGrid({
                     className={`pcell${alert ? " hc" : ""}${over ? " over" : ""}${manque.length ? " forced" : ""}${matchHi ? " hi" : ""}${dimHi ? " dim" : ""}`}
                     style={{
                       textAlign: "center",
-                      background: tpb || tpr ? "#e0e7ff" : motifColor[v] ? motifColor[v] : manque.length ? "#fee2e2" : isToday(d) ? "#eff6ff" : undefined,
+                      // Priorite des fonds, alignee sur le Placement :
+                      // temps partiel > motif d'absence > rouge (competence ou
+                      // habilitation) > jaune (sureffectif) > aujourd'hui.
+                      background: tpb || tpr
+                        ? "#e0e7ff"
+                        : motifColor[v]
+                        ? motifColor[v]
+                        : alert || manque.length
+                        ? "#fef2f2"
+                        : over
+                        ? "#fffbeb"
+                        : isToday(d)
+                        ? "#eff6ff"
+                        : undefined,
                       padding: 0,
                       position: "relative",
                       ...sep(d),
@@ -860,10 +881,12 @@ export default function PlanningGrid({
       <p className="muted" style={{ margin: "6px 12px 0", fontSize: 11 }}>
         Survolez une case et cliquez sur &raquo; pour recopier sa valeur (y compris « non-affecté ») :
         du lundi au jeudi sur la fin de la semaine en cours, à partir du vendredi sur la semaine suivante.{" "}
-        <span className="legend-swatch hc" /> barre rouge = hors compétence ·{" "}
-        <span className="legend-swatch over" /> barre jaune = sur-effectif (cumulables) ·{" "}
-        <span style={{ display: "inline-block", width: 12, height: 12, verticalAlign: "-2px", outline: "2px solid #dc2626", outlineOffset: -2 }} />{" "}
-        contour rouge = placement forcé, habilitation manquante ·
+        <span style={{ display: "inline-block", width: 12, height: 12, verticalAlign: "-2px", background: "#fef2f2", border: "1px solid #fca5a5" }} />{" "}
+        fond rouge = hors compétence ·{" "}
+        <span style={{ display: "inline-block", width: 12, height: 12, verticalAlign: "-2px", background: "#fffbeb", border: "1px solid #f59e0b" }} />{" "}
+        fond jaune = sur-effectif ·{" "}
+        <span style={{ display: "inline-block", width: 12, height: 12, verticalAlign: "-2px", background: "#fef2f2", outline: "2px solid #dc2626", outlineOffset: -2 }} />{" "}
+        encadré rouge = forçage, habilitation manquante ·
         cliquez une pastille de la ligne « Alertes » pour surligner les cases concernées ·{" "}
         <span style={{ background: "#1d4ed8", color: "#fff", borderRadius: 3, padding: "0 3px", fontSize: 10 }}>🕐</span>{" "}
         horaire spécifique (survolez une case placée) · jours sans ligne ouverte masqués ·{" "}
@@ -976,9 +999,21 @@ export default function PlanningGrid({
                         <div key={g.ligneId} className="cellpick-ligne">
                           <span className="cellpick-lg" title={g.ligneNom}>{g.ligneNom}</span>
                           <span className="pick-chips">
-                            {g.postes.map((po) => (
-                              <button key={po.id} type="button" className={`pick-chip${cur === po.id ? " on" : ""}`} title={po.nom} onClick={() => choose(po.id)}>{po.nom}</button>
-                            ))}
+                            {g.postes.map((po) => {
+                              const cs = compState(pick.pid, po.id);
+                              const niv = matrice[`${pick.pid}:${po.id}`] ?? 0;
+                              return (
+                                <button
+                                  key={po.id}
+                                  type="button"
+                                  className={`pick-chip comp-${cs}${cur === po.id ? " on" : ""}`}
+                                  title={`${po.nom} — ${cs === "ok" ? "Compétent" : cs === "restrict" ? "Restriction !" : "Compétence insuffisante"} · niv. ${niv} / min ${po.niveauMin}`}
+                                  onClick={() => choose(po.id)}
+                                >
+                                  {po.nom}
+                                </button>
+                              );
+                            })}
                           </span>
                         </div>
                       ))}
