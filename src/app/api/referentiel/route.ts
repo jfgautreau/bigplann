@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   if (!profile) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   // Droit de module, et non « admin » en dur : la matrice accorde ce module a
   // d'autres roles, l'API doit honorer ce qu'elle promet.
-  if (profile.role !== "admin" && !(await canWriteModule(profile.role, "referentiel"))) {
+  if (!(await canWriteModule(profile.role, "referentiel"))) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 

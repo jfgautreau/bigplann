@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerClient, getAdminClient } from "@/lib/supabase-server";
-import { canWriteModule } from "@/lib/permissions";
+import { userAdminGuard } from "@/lib/permissions";
 import { isRole } from "@/lib/roles";
 import { genererLienMotDePasse, motDePasseAleatoire } from "@/lib/password-link";
 
@@ -10,26 +9,10 @@ import { genererLienMotDePasse, motDePasseAleatoire } from "@/lib/password-link"
 // passe aleatoire que personne ne connait — il ne sert qu'a satisfaire Supabase.
 // Aucun email n'est envoye (cf. src/lib/password-link.ts).
 //
-// Securite : seul un admin authentifie peut appeler cette route.
+// Securite : droit « utilisateurs: write » (via la matrice) ET anti-escalade —
+// on ne cree pas un compte plus puissant que soi, puisqu'on repart avec son lien
+// de connexion.
 export async function POST(req: NextRequest) {
-  const supabase = await getServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
-  }
-
-  const { data: caller, error: callerErr } = await supabase
-    .from("app_user")
-    .select("role")
-    .eq("user_id", user.id)
-    .single<{ role: string }>();
-  // La matrice decide : admin (qui a tout par defaut) ou droit « utilisateurs: write ».
-  if (callerErr || (caller?.role !== "admin" && !(await canWriteModule(caller?.role ?? "", "utilisateurs")))) {
-    return NextResponse.json({ error: "Acces refuse" }, { status: 403 });
-  }
-
   const body = (await req.json().catch(() => null)) as {
     email?: string;
     name?: string;
@@ -37,7 +20,7 @@ export async function POST(req: NextRequest) {
   } | null;
   const email = body?.email?.trim().toLowerCase();
   const name = body?.name?.trim() ?? "";
-  const role = body?.role ?? "direction";
+  const role = String(body?.role ?? "");
 
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
     return NextResponse.json({ error: "Email invalide" }, { status: 400 });
@@ -46,7 +29,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Role invalide" }, { status: 400 });
   }
 
-  const admin = getAdminClient();
+  const garde = await userAdminGuard({ roleVise: role });
+  if (!garde.ok) return NextResponse.json({ error: garde.error }, { status: garde.status });
+  const admin = garde.supabase;
+
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password: motDePasseAleatoire(),
@@ -57,12 +43,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  // Positionne role + nom (le trigger a insere la ligne par defaut 'direction').
+  // Positionne role + nom et ACTIVE le compte : le trigger `handle_new_user` cree
+  // desormais la ligne inactive (fermeture par defaut, cf. migration 0036).
   if (data.user) {
-    await admin
+    const { error: majErr } = await admin
       .from("app_user")
-      .update({ role, name })
+      .update({ role, name, is_active: true })
       .eq("user_id", data.user.id);
+    if (majErr) {
+      return NextResponse.json({ error: `Compte cree mais non active : ${majErr.message}` }, { status: 500 });
+    }
   }
 
   // Le compte existe : sans ce lien, l'utilisateur n'a aucun moyen d'entrer.

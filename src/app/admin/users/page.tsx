@@ -95,14 +95,19 @@ export default async function AdminUsersPage() {
               <span style={{ background: "#fff", border: "1px solid #cbd5e1", padding: "1px 8px", borderRadius: 5 }}>Aucun</span>{" "}
               &rarr; <span style={{ background: "#1d4ed8", color: "#fff", padding: "1px 8px", borderRadius: 5 }}>Lecture</span>{" "}
               &rarr; <span style={{ background: "#7c3aed", color: "#fff", padding: "1px 8px", borderRadius: 5 }}>Modif.</span>.
-              L&apos;administrateur a tous les droits. Chaque changement est <strong>enregistré
-              automatiquement</strong>. La sécurité base (RLS) reste un garde-fou.
+              Votre propre rôle apparaît <strong>grisé</strong> : on ne modifie pas ses
+              propres droits, sous peine de ne plus pouvoir rouvrir cet écran. Vous ne
+              pouvez pas non plus accorder un droit que vous n&apos;avez pas vous-même.
+              Chaque changement est <strong>enregistré automatiquement</strong>. La
+              sécurité base (RLS) reste un garde-fou.
             </p>
             <div style={{ overflowX: "auto" }}>
               <DroitsMatrix
                 roles={ROLES.map((r) => ({ key: r, label: ROLE_LABELS[r] }))}
                 modules={MODULES.map((m) => ({ key: m.key, label: m.label }))}
-                initial={Object.fromEntries(ROLES.filter((r) => r !== "admin").map((r) => [r, allPerms[r]]))}
+                initial={Object.fromEntries(ROLES.map((r) => [r, allPerms[r]]))}
+                roleAppelant={profile.role}
+                permsAppelant={perms}
               />
             </div>
           </div>

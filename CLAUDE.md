@@ -26,10 +26,10 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `supabase/migrations/` et **demande à l'utilisateur de l'exécuter** dans le SQL Editor.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
-   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0033`.**
-   ⏳ **`0034_agence_interim.sql` est écrite mais PAS encore exécutée** : tant qu'elle ne l'est
-   pas, l'écran Param. RH affiche un message à la place des agences et la colonne Agence des
-   contrats reste en saisie libre (replis volontaires, rien ne casse).
+   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0035`.**
+   ⏳ **`0036_audit_droits_et_comptes.sql` est écrite mais PAS encore exécutée** : tant qu'elle
+   ne l'est pas, les changements de rôle et de droits ne sont pas tracés dans le journal, et
+   un profil créé automatiquement naît *actif* au lieu d'inactif. Rien ne casse.
 5. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
 6. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
@@ -63,9 +63,22 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
     d'ordonnancement (un CODIR ne pouvait pas initialiser les semaines) et sur `/api/droits`.
   - Table `placement` : écrite par **deux** écrans (Planning et Placement) via
     `/api/placement/cell` → `canWritePlacementData()` = write sur l'un **ou** l'autre.
-  - Restent volontairement en dur : les droits par défaut de l'admin ; le refus de
-    modifier les droits de l'admin (`/api/droits`) ; l'exclusion du chef d'équipe
-    ci-dessus, qui est un **périmètre**, pas un droit de module.
+  - Restent volontairement en dur : les droits par défaut de l'admin (`defaultsFor`) ;
+    l'exclusion du chef d'équipe ci-dessus, qui est un **périmètre**, pas un droit de
+    module. Un test (`routes-gardees.test.ts`) échoue si un `role === "admin"`
+    réapparaît dans une route API.
+- **Anti-escalade — `droitsCouvertsPar(role, appelant)`** : « on ne donne pas ce qu'on
+  n'a pas ». Vrai si les droits de `role` ne dépassent **nulle part** ceux de l'appelant,
+  calculé sur la matrice — aucun nom de rôle en dur. Sans cela, un titulaire de
+  `utilisateurs: write` créait un compte, le nommait admin, récupérait son **lien de mot
+  de passe affiché en clair** et s'y connectait. Les 4 routes `/api/users/*` passent par
+  `userAdminGuard({ cibleUserId, roleVise })`, qui vérifie le droit **et** l'escalade dans
+  les deux sens (promotion *et* rétrogradation d'un compte qui vous domine).
+  `/api/droits` applique la même règle, plus un **anti-verrou** : on ne modifie pas les
+  droits de **son propre** rôle (sinon on se retire `utilisateurs` et l'écran devient
+  inaccessible à tous) — la colonne de son rôle est grisée dans `DroitsMatrix`.
+- **`is_active` est vérifié par `getCurrentProfile()`** (pas seulement par la RLS) :
+  un compte désactivé n'a plus de profil, donc plus de navigation.
 - **Les 8 écrans de réglage s'ouvrent en LECTURE** (`requireModule(mod, "read")`) et
   passent en consultation seule via `<LectureSeule>` — un `<fieldset disabled>` neutralise
   tous les champs d'un coup. Le menu apparaît dès la lecture. Seul **Placement** fait
@@ -237,4 +250,9 @@ prochain gros chantier, pas une optimisation cosmétique.
 - Param. RH (ex-« Motifs d'absence », clé de droit toujours `motifs`, route toujours
   `/admin/motifs`) : `src/app/admin/motifs/{page,actions}.ts(x)` — motifs d'absence **et**
   agences d'intérim, ces dernières servant le menu déroulant Agence de `PeriodesEditor`.
-- Migrations : `supabase/migrations/0001..0034`.
+- Migrations : `supabase/migrations/0001..0036`.
+- Tests (Vitest) : règles pures + `permissions.test.ts` (droits par défaut, périmètre du
+  chef d'équipe, anti-escalade) et `routes-gardees.test.ts` (inventaire : **toute route
+  API porte une garde** — le proxy exclut `api/`, une route nouvelle serait publique —
+  et aucun rôle en dur). `vitest.config.ts` résout l'alias `@/`, sans quoi le socle
+  n'est pas testable.

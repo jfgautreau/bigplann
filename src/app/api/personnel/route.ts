@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   // Écriture personnel : admin OU droit "personnel: write".
-  if (profile.role !== "admin" && !(await canWriteModule(profile.role, "personnel"))) {
+  if (!(await canWriteModule(profile.role, "personnel"))) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 

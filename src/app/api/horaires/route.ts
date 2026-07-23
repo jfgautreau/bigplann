@@ -11,7 +11,7 @@ type Cell = { poste_id?: string; quart_code?: string; jour?: number; debut?: str
 
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
-  const ok = profile && (profile.role === "admin" || (await canWriteModule(profile.role, "horaires")));
+  const ok = profile && (await canWriteModule(profile.role, "horaires"));
   if (!ok) return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
   const body = (await req.json().catch(() => null)) as { cells?: Cell[] } | null;

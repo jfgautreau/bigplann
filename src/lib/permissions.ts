@@ -69,6 +69,25 @@ export function canWrite(p: Perms, mod: string): boolean {
   return p[mod] === "write";
 }
 
+// Ordre des niveaux, pour comparer deux profils de droits.
+export const RANG: Record<Niveau, number> = { none: 0, read: 1, write: 2 };
+
+// Vrai si les droits de `role` sont ENTIEREMENT couverts par ceux de `appelant` :
+// nulle part `role` ne detient plus que lui.
+//
+// C'est la regle « on ne donne pas ce qu'on n'a pas », et c'est la MATRICE qui la
+// calcule — aucun nom de role n'est ecrit ici. Un titulaire du droit
+// « utilisateurs: write » ne peut donc pas se fabriquer un compte plus puissant
+// que lui puis s'y connecter (le lien de mot de passe est affiche en clair), ni
+// retrograder un compte qui le domine. Si la matrice accorde un jour tous les
+// modules a un role, ce role pourra promouvoir admin : c'est cohérent, il aura
+// deja tous les droits.
+export async function droitsCouvertsPar(role: string, appelant: string): Promise<boolean> {
+  if (role === appelant) return true;
+  const [cible, moi] = await Promise.all([getPermissions(role), getPermissions(appelant)]);
+  return MODULE_KEYS.every((m) => RANG[cible[m] ?? "none"] <= RANG[moi[m] ?? "none"]);
+}
+
 // Écriture "complète" d'un module (édite tout le monde / global) selon la matrice
 // des droits -> client admin dans les API. Le CHEF D'ÉQUIPE en est exclu : il
 // garde uniquement son périmètre (édition de SON équipe via la RLS
@@ -135,7 +154,7 @@ export async function getAllPermissions(): Promise<Record<string, Perms>> {
 export async function requireModuleWrite(mod: string) {
   const profile = await getCurrentProfile();
   if (!profile) throw new Error("Non authentifié.");
-  if (profile.role !== "admin" && !(await canWriteModule(profile.role, mod))) {
+  if (!(await canWriteModule(profile.role, mod))) {
     throw new Error("Accès refusé.");
   }
   const { getAdminClient } = await import("@/lib/supabase-server");
@@ -155,11 +174,45 @@ export async function moduleWriteGuard(mod: string): Promise<
 > {
   const profile = await getCurrentProfile();
   if (!profile) return { ok: false, status: 401, error: "Non authentifié" };
-  if (profile.role !== "admin" && !(await canWriteModule(profile.role, mod))) {
+  if (!(await canWriteModule(profile.role, mod))) {
     return { ok: false, status: 403, error: "Accès refusé" };
   }
   const { getAdminClient } = await import("@/lib/supabase-server");
   return { ok: true, profile, supabase: getAdminClient() };
+}
+
+// Garde des routes de GESTION DE COMPTES (creation, role, activation, lien de
+// mot de passe). Elle ajoute a `moduleWriteGuard("utilisateurs")` le controle
+// anti-escalade : l'appelant ne peut agir que sur un compte dont les droits ne
+// depassent nulle part les siens.
+//
+// `cibleUserId` : le compte vise, s'il existe deja.
+// `roleVise`    : le role que l'on cherche a attribuer, le cas echeant.
+export async function userAdminGuard(opts: { cibleUserId?: string; roleVise?: string } = {}): Promise<
+  | { ok: true; profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>; supabase: Awaited<ReturnType<typeof import("@/lib/supabase-server").getAdminClient>> }
+  | { ok: false; status: 401 | 403 | 404; error: string }
+> {
+  const garde = await moduleWriteGuard("utilisateurs");
+  if (!garde.ok) return garde;
+
+  // On ne s'attribue pas un role qu'on ne detient pas soi-meme.
+  if (opts.roleVise && !(await droitsCouvertsPar(opts.roleVise, garde.profile.role))) {
+    return { ok: false, status: 403, error: "Ce rôle accorde des droits que vous n'avez pas vous-même." };
+  }
+
+  // On ne touche pas a un compte qui nous domine (promotion comme retrogradation).
+  if (opts.cibleUserId && opts.cibleUserId !== garde.profile.authId) {
+    const { data: cible } = await garde.supabase
+      .from("app_user")
+      .select("role")
+      .eq("user_id", opts.cibleUserId)
+      .maybeSingle<{ role: string }>();
+    if (!cible) return { ok: false, status: 404, error: "Compte introuvable" };
+    if (!(await droitsCouvertsPar(cible.role, garde.profile.role))) {
+      return { ok: false, status: 403, error: "Ce compte détient des droits que vous n'avez pas vous-même." };
+    }
+  }
+  return garde;
 }
 
 export type { Role };

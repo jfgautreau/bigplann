@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   // Meme regle que le reste de l'ecran Personnel : admin OU droit "personnel: write".
   // La fusion est destructrice (le doublon est supprime), elle reste donc reservee
   // a ceux qui peuvent modifier les fiches — pas a ceux qui les consultent.
-  if (profile.role !== "admin" && !(await canWriteModule(profile.role, "personnel"))) {
+  if (!(await canWriteModule(profile.role, "personnel"))) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 

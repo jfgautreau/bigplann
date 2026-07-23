@@ -21,11 +21,16 @@ export const getCurrentProfile = cache(async function getCurrentProfile(): Promi
 
   const { data } = await supabase
     .from("app_user")
-    .select("email, name, role")
+    .select("email, name, role, is_active")
     .eq("user_id", userId)
-    .single<{ email: string; name: string; role: string }>();
+    .single<{ email: string; name: string; role: string; is_active: boolean }>();
 
-  if (!data) return null;
+  // `is_active` etait lu par la RLS (is_admin / has_role) mais JAMAIS par
+  // l'application : un compte desactive directement en base gardait toute sa
+  // navigation. La desactivation via /admin/users bannit aussi le compte cote
+  // Auth, ce qui masquait le trou. On ferme ici, a la source du profil : plus de
+  // profil, donc redirection vers /login par requireModule.
+  if (!data || !data.is_active) return null;
   return { authId: userId, email: data.email, name: data.name, role: data.role };
 });
 

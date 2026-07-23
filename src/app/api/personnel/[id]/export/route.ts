@@ -12,7 +12,7 @@ export async function GET(
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
   // La matrice decide : admin ou droit « personnel: write », comme le reste de l'ecran.
-  if (profile.role !== "admin" && !(await canWriteModule(profile.role, "personnel"))) {
+  if (!(await canWriteModule(profile.role, "personnel"))) {
     return NextResponse.json({ error: "Acces refuse" }, { status: 403 });
   }
 

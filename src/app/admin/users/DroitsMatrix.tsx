@@ -7,6 +7,7 @@ type RoleOpt = { key: string; label: string };
 type ModuleOpt = { key: string; label: string };
 
 const NEXT: Record<Niveau, Niveau> = { none: "read", read: "write", write: "none" };
+const RANG: Record<Niveau, number> = { none: 0, read: 1, write: 2 };
 const STYLE: Record<Niveau, { bg: string; fg: string; label: string; border: string }> = {
   none: { bg: "#ffffff", fg: "#6b7280", label: "Aucun", border: "1px solid #cbd5e1" },
   read: { bg: "#1d4ed8", fg: "#ffffff", label: "Lecture", border: "1px solid #1d4ed8" },
@@ -17,17 +18,32 @@ export default function DroitsMatrix({
   roles,
   modules,
   initial,
+  roleAppelant,
+  permsAppelant,
 }: {
-  roles: RoleOpt[]; // tous les roles, admin inclus
+  roles: RoleOpt[]; // tous les roles
   modules: ModuleOpt[];
-  initial: Record<string, Record<string, Niveau>>; // par role (hors admin)
+  initial: Record<string, Record<string, Niveau>>; // par role
+  roleAppelant: string; // le role de qui edite : sa propre colonne est verrouillee
+  permsAppelant: Record<string, Niveau>; // plafond : on n'accorde pas plus qu'on n'a
 }) {
   const [m, setM] = useState<Record<string, Record<string, Niveau>>>(initial);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
+  // Le cycle ne propose jamais un niveau superieur a celui que l'on detient
+  // soi-meme sur ce module : la route /api/droits le refuserait (anti-escalade),
+  // autant ne pas offrir un bouton qui echoue.
+  function suivant(cur: Niveau, mod: string): Niveau {
+    const plafond = RANG[permsAppelant[mod] ?? "none"];
+    let n = NEXT[cur];
+    for (let i = 0; i < 3 && RANG[n] > plafond; i++) n = NEXT[n];
+    return n;
+  }
+
   async function cycle(role: string, mod: string) {
     const cur = m[role]?.[mod] ?? "none";
-    const next = NEXT[cur];
+    const next = suivant(cur, mod);
+    if (next === cur) return;
     setM((prev) => ({ ...prev, [role]: { ...(prev[role] ?? {}), [mod]: next } }));
     setSave("saving");
     try {
@@ -65,10 +81,29 @@ export default function DroitsMatrix({
               {mod.label}
             </td>
             {roles.map((r) => {
-              if (r.key === "admin") {
+              // Son propre role n'est pas modifiable : sinon on peut se retirer
+              // le droit « utilisateurs » et plus personne ne rouvre cet ecran.
+              // Aucun nom de role en dur — c'est celui de qui edite.
+              if (r.key === roleAppelant) {
+                const sien = STYLE[permsAppelant[mod.key] ?? "none"];
                 return (
-                  <td key={r.key} style={{ textAlign: "center" }}>
-                    <span className="muted">Tout</span>
+                  <td key={r.key} style={{ textAlign: "center", padding: 3 }} title="Votre propre rôle : non modifiable ici.">
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: 78,
+                        padding: "5px 6px",
+                        background: sien.bg,
+                        color: sien.fg,
+                        border: sien.border,
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        opacity: 0.55,
+                      }}
+                    >
+                      {sien.label}
+                    </span>
                   </td>
                 );
               }
