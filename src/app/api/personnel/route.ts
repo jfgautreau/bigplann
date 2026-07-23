@@ -56,7 +56,8 @@ async function syncPersonneFromPeriodes(
       date_debut: latest.date_debut,
       date_fin: latest.date_fin,
     };
-    await supabase.from("personne").update(reflet).eq("id", personne_id);
+    const { error: refletErr } = await supabase.from("personne").update(reflet).eq("id", personne_id);
+    if (refletErr) throw refletErr;
     // Debut du contrat le PLUS ANCIEN : sert l'alerte « > 18 mois » de la liste,
     // il ne suit pas la periode la plus recente (cf. src/app/personnel/page.tsx).
     const debuts = periods.map((p) => p.date_debut).filter((d): d is string => !!d).sort();
@@ -111,17 +112,17 @@ export async function POST(req: NextRequest) {
       if (error) throw error;
       // Periode de contrat initiale (best-effort : ignore si table absente).
       const created = data as { id: string };
-      try {
-        await supabase.from("contrat_periode").insert({
-          personne_id: created.id,
-          type_contrat,
-          agence_interim: type_contrat === "INTERIM" ? orNull(s(body.agence_interim)) : null,
-          date_debut: orNull(s(body.date_debut)),
-          date_fin: orNull(s(body.date_fin)),
-        });
-      } catch {
-        /* migration 0017 non appliquee : on garde juste personne */
-      }
+      // La periode de contrat initiale n'est plus « best-effort » : le `catch`
+      // muet datait de la migration 0017, appliquee depuis des mois, et avalait
+      // desormais de vraies erreurs — laissant une personne sans historique.
+      const { error: periodeErr } = await supabase.from("contrat_periode").insert({
+        personne_id: created.id,
+        type_contrat,
+        agence_interim: type_contrat === "INTERIM" ? orNull(s(body.agence_interim)) : null,
+        date_debut: orNull(s(body.date_debut)),
+        date_fin: orNull(s(body.date_fin)),
+      });
+      if (periodeErr) throw periodeErr;
       // Affectation atelier (best-effort : colonne ajoutee en 0020). Hors insert/COLS
       // pour ne pas casser la creation si la migration n'est pas encore appliquee.
       const atelier_id = orNull(s(body.atelier_id));

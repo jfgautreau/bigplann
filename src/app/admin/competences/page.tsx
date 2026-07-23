@@ -3,10 +3,16 @@ import { requireModule, canWrite } from "@/lib/permissions";
 import LectureSeule from "@/components/LectureSeule";
 import { getServerClient } from "@/lib/supabase-server";
 import { saveEchelle } from "./actions";
+import BandeauErreur from "@/components/BandeauErreur";
 
 type Niveau = { niveau: number; libelle: string };
 
-export default async function CompetencesPage() {
+export default async function CompetencesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ err?: string }>;
+}) {
+  const sp = await searchParams;
   const { profile, perms } = await requireModule("competences", "read");
 
   const supabase = await getServerClient();
@@ -24,6 +30,7 @@ export default async function CompetencesPage() {
       <AppHeader role={profile.role} active="/admin/competences" />
       <div className="container">
         <h1>Compétences</h1>
+        <BandeauErreur message={sp.err} />
         <LectureSeule actif={!canWrite(perms, "competences")}>
 
         {/* Echelle de niveaux */}

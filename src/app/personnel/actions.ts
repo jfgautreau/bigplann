@@ -3,82 +3,40 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireModuleWrite } from "@/lib/permissions";
+import { messageErreur, urlAvecErreur, type ErreurPg } from "@/lib/erreurs";
 
+const PATH = "/personnel";
 const s = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const orNull = (v: string) => (v === "" ? null : v);
 
-type Contrat = "CDI" | "CDD" | "INTERIM";
-
-function buildData(fd: FormData) {
-  const type_contrat = (s(fd, "type_contrat") || "CDI") as Contrat;
-  let matricule: string | null = orNull(s(fd, "matricule"));
-  // Matricule auto-genere si interimaire sans matricule (cf. cahier 5.3).
-  if (!matricule && type_contrat === "INTERIM") {
-    matricule = `INT-${Date.now().toString(36).toUpperCase()}`;
-  }
-  return {
-    matricule,
-    nom: s(fd, "nom"),
-    prenom: s(fd, "prenom"),
-    equipe_id: orNull(s(fd, "equipe_id")),
-    type_contrat,
-    agence_interim: type_contrat === "INTERIM" ? orNull(s(fd, "agence_interim")) : null,
-    date_debut: orNull(s(fd, "date_debut")),
-    date_fin: orNull(s(fd, "date_fin")),
-    pointure: orNull(s(fd, "pointure")),
-    commentaire: orNull(s(fd, "commentaire")),
-  };
+// `err` non nul -> message remonte a l'ecran via l'URL (cf. BandeauErreur).
+// Un matricule en double, par exemple, se soldait par un retour silencieux a la
+// liste, la personne n'ayant pas ete enregistree.
+function done(err: ErreurPg = null): never {
+  const msg = messageErreur(err);
+  revalidatePath(PATH);
+  redirect(urlAvecErreur(PATH, msg));
 }
 
-export async function createPersonne(fd: FormData) {
-  const supabase = await requireModuleWrite("personnel");
-  const data = buildData(fd);
-  if (!data.nom || !data.prenom) return;
-  await supabase.from("personne").insert(data);
-  revalidatePath("/personnel");
-}
-
-export async function updatePersonne(fd: FormData) {
-  const supabase = await requireModuleWrite("personnel");
-  const id = s(fd, "id");
-  if (!id) return;
-  // Champs niveau-personne uniquement. Le type de contrat et les dates sont
-  // gérés via les périodes (table contrat_periode) et le reflet est synchronisé
-  // côté API — on ne les touche donc pas ici pour ne pas écraser l'historique.
-  await supabase
-    .from("personne")
-    .update({
-      nom: s(fd, "nom"),
-      prenom: s(fd, "prenom"),
-      matricule: orNull(s(fd, "matricule")),
-      equipe_id: orNull(s(fd, "equipe_id")),
-      pointure: orNull(s(fd, "pointure")),
-      commentaire: orNull(s(fd, "commentaire")),
-    })
-    .eq("id", id);
-  revalidatePath("/personnel");
-  redirect("/personnel");
-}
-
-export async function toggleStatut(fd: FormData) {
-  const supabase = await requireModuleWrite("personnel");
-  const id = s(fd, "id");
-  const statut = s(fd, "statut") === "PARTI" ? "PARTI" : "ACTIF";
-  await supabase.from("personne").update({ statut }).eq("id", id);
-  revalidatePath("/personnel");
-}
+// ⚠️ `createPersonne`, `updatePersonne` et `toggleStatut` ont ete SUPPRIMES :
+// aucun ecran ne les appelait. La creation, la modification et le changement de
+// statut passent tous par la route `/api/personnel`, qui normalise le nom et le
+// prenom et cree la periode de contrat initiale — ce que ces actions ne
+// faisaient pas. Les garder revenait a maintenir un second chemin d'ecriture,
+// divergent et mort. Ne restent ici que les deux actions RGPD, seules appelees
+// (depuis PersonnelEditor).
 
 // RGPD : anonymisation (conserve l'historique de placement, retire l'identite).
 export async function anonymiserPersonne(fd: FormData) {
   const supabase = await requireModuleWrite("personnel");
   const id = s(fd, "id");
-  if (!id) return;
+  if (!id) done();
   const { data: p } = await supabase
     .from("personne")
     .select("matricule")
     .eq("id", id)
     .single<{ matricule: string | null }>();
-  await supabase
+  const { error } = await supabase
     .from("personne")
     .update({
       nom: "Ex-collaborateur",
@@ -90,16 +48,14 @@ export async function anonymiserPersonne(fd: FormData) {
       anonymise_at: new Date().toISOString(),
     })
     .eq("id", id);
-  revalidatePath("/personnel");
-  redirect("/personnel");
+  done(error);
 }
 
 // RGPD : droit a l'oubli (suppression definitive + cascade).
 export async function supprimerPersonne(fd: FormData) {
   const supabase = await requireModuleWrite("personnel");
   const id = s(fd, "id");
-  if (!id) return;
-  await supabase.from("personne").delete().eq("id", id);
-  revalidatePath("/personnel");
-  redirect("/personnel");
+  if (!id) done();
+  const { error } = await supabase.from("personne").delete().eq("id", id);
+  done(error);
 }

@@ -17,6 +17,7 @@ import {
   deleteRotationReference,
 } from "./actions";
 import TeamColorPicker from "./TeamColorPicker";
+import BandeauErreur from "@/components/BandeauErreur";
 
 type Chef = { id: string; app_user_id: string };
 type Equipe = { id: string; nom: string; actif: boolean; couleur: string; quart_fixe: string | null; equipe_chef: Chef[] };
@@ -25,7 +26,12 @@ type Quart = { code: string; libelle: string; debut: string | null; fin: string 
 
 const NB_APERCU = 8;
 
-export default async function EquipesPage() {
+export default async function EquipesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ err?: string }>;
+}) {
+  const sp = await searchParams;
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   const perms = await getPermissions(profile.role);
@@ -90,6 +96,7 @@ export default async function EquipesPage() {
       <AppHeader role={profile.role} active="/admin/equipes" />
       <div className="container">
         <h1>Équipes</h1>
+        <BandeauErreur message={sp.err} />
 
         {voitEquipes && (
         <LectureSeule actif={!canEquipes}>

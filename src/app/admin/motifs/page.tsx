@@ -7,6 +7,7 @@ import { requireModule, canWrite } from "@/lib/permissions";
 import LectureSeule from "@/components/LectureSeule";
 import { createMotif, updateMotif, toggleMotif, createAgence, updateAgence, toggleAgence } from "./actions";
 import AjoutModal from "./AjoutModal";
+import BandeauErreur from "@/components/BandeauErreur";
 
 type Motif = {
   id: string;
@@ -21,7 +22,7 @@ type Agence = { id: string; nom: string; actif: boolean };
 export default async function MotifsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string }>;
+  searchParams: Promise<{ edit?: string; err?: string }>;
 }) {
   const { profile, perms } = await requireModule("motifs", "read");
 
@@ -46,6 +47,7 @@ export default async function MotifsPage({
       <AppHeader role={profile.role} active="/admin/motifs" />
       <div className="container">
         <h1>Paramètres RH</h1>
+        <BandeauErreur message={sp.err} />
         <LectureSeule actif={!canWrite(perms, "motifs")}>
         <h2 style={{ marginBottom: 4 }}>Motifs d&apos;absence</h2>
         <p className="muted" style={{ marginBottom: 16 }}>

@@ -29,12 +29,17 @@ export async function POST(req: NextRequest) {
   const supabase = (await canWritePlacementData(profile.role)) ? getAdminClient() : await getServerClient();
 
   // Placements sur poste du quart, jour source.
+  // `numero_rotation` fait partie de la copie : la place occupee dans le poste
+  // est une donnee du plan, pas un detail d'affichage. Cette route ayant ete
+  // ecrite AVANT la migration 0033 qui l'a introduite, elle la perdait — apres
+  // « copier le jour precedent », tout le monde retombait dans la zone « sans
+  // numero » et le plan imprime changeait de forme sans raison visible.
   const { data: src, error: e1 } = await supabase
     .from("placement")
-    .select("personne_id, poste_id, equipe_id, quart_code")
+    .select("personne_id, poste_id, equipe_id, quart_code, numero_rotation")
     .eq("jour", source)
     .not("poste_id", "is", null)
-    .returns<{ personne_id: string; poste_id: string; equipe_id: string | null; quart_code: string | null }[]>();
+    .returns<{ personne_id: string; poste_id: string; equipe_id: string | null; quart_code: string | null; numero_rotation: string | null }[]>();
   if (e1) return NextResponse.json({ error: e1.message }, { status: 403 });
 
   // Mode « completer » : on releve d'abord qui a DEJA une ligne le jour cible —
@@ -59,6 +64,7 @@ export async function POST(req: NextRequest) {
       poste_id: r.poste_id,
       equipe_id: r.equipe_id,
       quart_code: quart,
+      numero_rotation: r.numero_rotation,
       motif_absence_id: null,
       non_travaille: false,
       created_by: profile.authId,

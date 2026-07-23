@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import { canWriteModule } from "@/lib/permissions";
+import { tropLongue, MSG_TROP_LONGUE } from "@/lib/absence";
+import { messageErreur } from "@/lib/erreurs";
 
 // POST /api/absence { op, ... }
 // op = "save"   { personne_id, date_debut, date_fin, motif_absence_id, commentaire }
@@ -9,20 +11,6 @@ import { canWriteModule } from "@/lib/permissions";
 // op = "delete" { id }  -> supprime l'absence (cascade : placements lies effaces).
 const s = (v: unknown) => String(v ?? "").trim();
 const orNull = (v: string) => (v === "" ? null : v);
-
-// Liste des jours ISO (YYYY-MM-DD) de date_debut a date_fin inclus.
-function joursRange(debut: string, fin: string): string[] {
-  const out: string[] = [];
-  const d = new Date(debut + "T00:00:00");
-  const end = new Date(fin + "T00:00:00");
-  let guard = 0;
-  while (d <= end && guard < 800) {
-    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-    d.setDate(d.getDate() + 1);
-    guard++;
-  }
-  return out;
-}
 
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
@@ -50,35 +38,24 @@ export async function POST(req: NextRequest) {
       if (!motif_absence_id) {
         return NextResponse.json({ error: "Motif d'absence requis." }, { status: 400 });
       }
-
-      // 1) Cree la plage d'absence (source de verite).
-      const { data: abs, error: aErr } = await supabase
-        .from("absence")
-        .insert({ personne_id, motif_absence_id, date_debut, date_fin, commentaire, created_by: profile.authId })
-        .select("id, personne_id, motif_absence_id, date_debut, date_fin, commentaire")
-        .single();
-      if (aErr) throw aErr;
-      const absence = abs as { id: string };
-
-      // 2) Materialise un placement par jour (le motif apparait dans le planning).
-      const rows = joursRange(date_debut, date_fin).map((jour) => ({
-        personne_id,
-        jour,
-        equipe_id: null,
-        poste_id: null,
-        motif_absence_id,
-        non_travaille: false,
-        quart_code: null,
-        absence_id: absence.id,
-        created_by: profile.authId,
-      }));
-      const { error: pErr } = await supabase.from("placement").upsert(rows, { onConflict: "personne_id,jour" });
-      if (pErr) {
-        // Rollback de la plage si la materialisation echoue.
-        await supabase.from("absence").delete().eq("id", absence.id);
-        throw pErr;
+      if (tropLongue(date_debut, date_fin)) {
+        return NextResponse.json({ error: MSG_TROP_LONGUE }, { status: 400 });
       }
-      return NextResponse.json({ ok: true, row: abs });
+
+      // Creation de la plage ET materialisation d'un placement par jour, en UNE
+      // transaction (fonction `creer_absence`, migration 0037). L'ancien rollback
+      // manuel — supprimer l'absence si la materialisation echouait — pouvait
+      // lui-meme echouer et laisser une absence sans jours.
+      const { data: id, error } = await supabase.rpc("creer_absence", {
+        p_personne: personne_id,
+        p_motif: motif_absence_id,
+        p_debut: date_debut,
+        p_fin: date_fin,
+        p_commentaire: commentaire,
+        p_auteur: profile.authId,
+      });
+      if (error) throw error;
+      return NextResponse.json({ ok: true, row: { id, personne_id, motif_absence_id, date_debut, date_fin, commentaire } });
     }
 
     if (op === "update") {
@@ -96,38 +73,24 @@ export async function POST(req: NextRequest) {
       if (!motif_absence_id) {
         return NextResponse.json({ error: "Motif d'absence requis." }, { status: 400 });
       }
+      if (tropLongue(date_debut, date_fin)) {
+        return NextResponse.json({ error: MSG_TROP_LONGUE }, { status: 400 });
+      }
 
-      // Personne de l'absence (pour rematerialiser les placements).
-      const { data: cur, error: cErr } = await supabase
-        .from("absence")
-        .select("personne_id")
-        .eq("id", id)
-        .single();
-      if (cErr) throw cErr;
-      const personne_id = (cur as { personne_id: string }).personne_id;
-
-      const { error: uErr } = await supabase
-        .from("absence")
-        .update({ motif_absence_id, date_debut, date_fin, commentaire })
-        .eq("id", id);
-      if (uErr) throw uErr;
-
-      // Rematerialise : on retire les anciens jours de cette absence puis on recree
-      // un placement par jour de la nouvelle plage (le motif suit dans le planning).
-      await supabase.from("placement").delete().eq("absence_id", id);
-      const rows = joursRange(date_debut, date_fin).map((jour) => ({
-        personne_id,
-        jour,
-        equipe_id: null,
-        poste_id: null,
-        motif_absence_id,
-        non_travaille: false,
-        quart_code: null,
-        absence_id: id,
-        created_by: profile.authId,
-      }));
-      const { error: pErr } = await supabase.from("placement").upsert(rows, { onConflict: "personne_id,jour" });
-      if (pErr) throw pErr;
+      // Mise a jour de la plage ET rematerialisation des jours, en UNE
+      // transaction (fonction `maj_absence`, migration 0037). Auparavant, la
+      // suppression des anciens jours precedait leur recreation en deux requetes
+      // distinctes : un echec laissait l'absence visible dans sa liste mais
+      // DISPARUE du planning, sans message.
+      const { error } = await supabase.rpc("maj_absence", {
+        p_id: id,
+        p_motif: motif_absence_id,
+        p_debut: date_debut,
+        p_fin: date_fin,
+        p_commentaire: commentaire,
+        p_auteur: profile.authId,
+      });
+      if (error) throw error;
       return NextResponse.json({ ok: true });
     }
 
@@ -142,7 +105,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ error: "Op inconnue" }, { status: 400 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Erreur";
-    return NextResponse.json({ error: msg }, { status: 403 });
+    // Les erreurs Supabase portent un `code` : on le traduit plutot que de
+    // renvoyer le message brut de Postgres a l'ecran.
+    const pg = e as { code?: string; message?: string; details?: string | null };
+    const msg = messageErreur({ code: pg?.code, message: pg?.message ?? "Erreur", details: pg?.details ?? null });
+    return NextResponse.json({ error: msg ?? "Erreur" }, { status: 403 });
   }
 }

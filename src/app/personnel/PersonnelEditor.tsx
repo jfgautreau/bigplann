@@ -8,6 +8,7 @@ import ConfirmForm from "@/components/ConfirmForm";
 import TempsPartielModal from "./TempsPartielModal";
 import ContratsModal from "./ContratsModal";
 import { anonymiserPersonne, supprimerPersonne } from "./actions";
+import BandeauErreur from "@/components/BandeauErreur";
 import { normaliseNom, normalisePrenom } from "@/lib/noms";
 
 type HMap = Record<string, { debut: string; fin: string }>;
@@ -91,6 +92,7 @@ export default function PersonnelEditor({
   canEdit,
   quarts = [],
   rotationRefs = [],
+  erreur,
 }: {
   initial: Row[];
   equipes: Equipe[];
@@ -98,6 +100,8 @@ export default function PersonnelEditor({
   canEdit: boolean;
   quarts?: { code: string; libelle: string }[];
   rotationRefs?: { semaine: string; equipe_id: string; quart_code: string }[];
+  // Message des server actions RGPD, repasse par l URL (cf. BandeauErreur).
+  erreur?: string;
 }) {
   const [rows, setRows] = useState<Row[]>(initial);
   const [gq, setGq] = useState("");
@@ -275,6 +279,11 @@ export default function PersonnelEditor({
 
   return (
     <>
+      {erreur && (
+        <div className="headband" style={{ paddingTop: 12, paddingBottom: 0 }}>
+          <BandeauErreur message={erreur} />
+        </div>
+      )}
       {/* En-tete en deux lignes, commun a Personnel / Matrice / Habilitations.
           Ligne 1 : titre · recherche · nombre de personnes.
           Ligne 2 : actions a gauche · filtres Statut et Contrat a droite. */}

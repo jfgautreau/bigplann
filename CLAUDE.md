@@ -26,10 +26,12 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `supabase/migrations/` et **demande à l'utilisateur de l'exécuter** dans le SQL Editor.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
-   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0035`.**
-   ⏳ **`0036_audit_droits_et_comptes.sql` est écrite mais PAS encore exécutée** : tant qu'elle
-   ne l'est pas, les changements de rôle et de droits ne sont pas tracés dans le journal, et
-   un profil créé automatiquement naît *actif* au lieu d'inactif. Rien ne casse.
+   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0036`.**
+   ⚠️ **`0037_ecritures_atomiques.sql` est écrite mais PAS encore exécutée.** Contrairement
+   aux précédentes, celle-ci n'a **pas de repli** : tant qu'elle n'est pas passée,
+   l'enregistrement d'une **rotation** et la création/modification d'une **absence** échouent
+   avec le message « migration non appliquée ». Échec *propre* — les fonctions n'existant pas,
+   rien n'est exécuté, aucune donnée n'est touchée — mais ces deux fonctions sont indisponibles.
 5. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
 6. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
@@ -264,7 +266,16 @@ prochain gros chantier, pas une optimisation cosmétique.
 - Param. RH (ex-« Motifs d'absence », clé de droit toujours `motifs`, route toujours
   `/admin/motifs`) : `src/app/admin/motifs/{page,actions}.ts(x)` — motifs d'absence **et**
   agences d'intérim, ces dernières servant le menu déroulant Agence de `PeriodesEditor`.
-- Migrations : `supabase/migrations/0001..0036`.
+- Migrations : `supabase/migrations/0001..0037`.
+- **Écritures : lire l'erreur, toujours.** `messageErreur()` (`src/lib/erreurs.ts`) traduit
+  les codes Postgres ; les server actions repassent le message par l'URL
+  (`urlAvecErreur` → `?err=`) et la page l'affiche via `<BandeauErreur>`. Un test
+  (`ecritures-verifiees.test.ts`) échoue si une écriture n'est pas destructurée.
+- **Séquences « effacer puis réécrire » → fonction SQL.** `set_rotation_reference`,
+  `creer_absence`, `maj_absence` (migration 0037, `SECURITY INVOKER` : le modèle
+  d'autorisation est inchangé). En deux requêtes applicatives, un échec de la seconde
+  perdait la donnée en silence — la rotation n'est pas reconstituable. Le même test
+  interdit le retour au `delete` + `insert` applicatif sur ces tables.
 - Tests (Vitest) : règles pures + `permissions.test.ts` (droits par défaut, périmètre du
   chef d'équipe, anti-escalade) et `routes-gardees.test.ts` (inventaire : **toute route
   API porte une garde** — le proxy exclut `api/`, une route nouvelle serait publique —

@@ -31,7 +31,12 @@ type Row = {
 type HMap = Record<string, { debut: string; fin: string }>;
 type TpConfig = { demi?: { mode: string; source: string; matin?: HMap; aprem?: HMap }; off?: Record<string, string[]>; horaires?: HMap };
 
-export default async function PersonnelPage() {
+export default async function PersonnelPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ err?: string }>;
+}) {
+  const sp = await searchParams;
   const { profile, perms } = await requireModule("personnel", "read");
   const canEdit = canWrite(perms, "personnel");
 
@@ -77,6 +82,7 @@ export default async function PersonnelPage() {
           equipes={equipesData ?? []}
           ateliers={ateliersData ?? []}
           canEdit={canEdit}
+          erreur={sp.err}
           quarts={quartsData ?? []}
           rotationRefs={rotationRefs}
         />

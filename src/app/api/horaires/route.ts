@@ -35,11 +35,15 @@ export async function POST(req: NextRequest) {
     const { error } = await supabase.from("horaire_poste").upsert(ups, { onConflict: "poste_id,quart_code,jour" });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  // Suppressions en parallele (une case videe = ligne retiree).
-  await Promise.all(
+  // Suppressions en parallele (une case videe = ligne retiree). Leurs erreurs
+  // etaient ignorees : vider une case pouvait echouer sans que rien ne le dise,
+  // et l'horaire restait affiche au rechargement.
+  const effacements = await Promise.all(
     dels.map((d) =>
       supabase.from("horaire_poste").delete().eq("poste_id", d.poste_id).eq("quart_code", d.quart_code).eq("jour", d.jour)
     )
   );
+  const rate = effacements.find((r) => r.error);
+  if (rate?.error) return NextResponse.json({ error: rate.error.message }, { status: 500 });
   return NextResponse.json({ ok: true, saved: ups.length, cleared: dels.length });
 }
