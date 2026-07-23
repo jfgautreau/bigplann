@@ -1,7 +1,7 @@
 import { getServerClient } from "@/lib/supabase-server";
 import { roleLabel, ROLES, ROLE_LABELS } from "@/lib/roles";
 import AppHeader from "@/components/AppHeader";
-import { requireModule, canWrite, MODULES, getAllPermissions } from "@/lib/permissions";
+import { requireModule, canWrite, MODULES, getAllPermissions, roleModifiablePar } from "@/lib/permissions";
 import LectureSeule from "@/components/LectureSeule";
 import NouvelUtilisateur from "./NouvelUtilisateur";
 import UserRoleSelect from "./UserRoleSelect";
@@ -32,6 +32,17 @@ export default async function AdminUsersPage() {
   // seul role admin, qui l'obtient de toute facon par la matrice.
   const peutEditerDroits = canWrite(perms, "utilisateurs");
   const allPerms = peutEditerDroits ? await getAllPermissions() : null;
+
+  // Quels roles cet appelant peut-il reellement editer ? La regle est cote
+  // serveur (roleModifiablePar) ; l'ecran ne fait que la refleter, pour ne pas
+  // afficher un bouton que /api/droits refuserait. L'admin n'y figure jamais :
+  // soit c'est le role de l'appelant (anti-verrou), soit il le domine
+  // (anti-retrogradation).
+  const rolesModifiables = peutEditerDroits
+    ? (await Promise.all(ROLES.map(async (r) => ((await roleModifiablePar(r, profile.role)) ? r : null)))).filter(
+        (r): r is (typeof ROLES)[number] => r !== null
+      )
+    : [];
 
   return (
     <>
@@ -95,17 +106,20 @@ export default async function AdminUsersPage() {
               <span style={{ background: "#fff", border: "1px solid #cbd5e1", padding: "1px 8px", borderRadius: 5 }}>Aucun</span>{" "}
               &rarr; <span style={{ background: "#1d4ed8", color: "#fff", padding: "1px 8px", borderRadius: 5 }}>Lecture</span>{" "}
               &rarr; <span style={{ background: "#7c3aed", color: "#fff", padding: "1px 8px", borderRadius: 5 }}>Modif.</span>.
-              Votre propre rôle apparaît <strong>grisé</strong> : on ne modifie pas ses
-              propres droits, sous peine de ne plus pouvoir rouvrir cet écran. Vous ne
-              pouvez pas non plus accorder un droit que vous n&apos;avez pas vous-même.
-              Chaque changement est <strong>enregistré automatiquement</strong>. La
-              sécurité base (RLS) reste un garde-fou.
+              Les colonnes <strong>grisées</strong> ne sont pas modifiables : votre propre
+              rôle (sinon vous pourriez vous retirer l&apos;accès à cet écran) et tout rôle
+              qui détient des droits que vous n&apos;avez pas — l&apos;<strong>administrateur</strong>{" "}
+              en particulier, qui conserve donc toujours tous les droits. Vous ne pouvez pas
+              non plus accorder un niveau supérieur au vôtre. Chaque changement est{" "}
+              <strong>enregistré automatiquement</strong>. La sécurité base (RLS) reste un
+              garde-fou.
             </p>
             <div style={{ overflowX: "auto" }}>
               <DroitsMatrix
                 roles={ROLES.map((r) => ({ key: r, label: ROLE_LABELS[r] }))}
                 modules={MODULES.map((m) => ({ key: m.key, label: m.label }))}
                 initial={Object.fromEntries(ROLES.map((r) => [r, allPerms[r]]))}
+                rolesModifiables={rolesModifiables}
                 roleAppelant={profile.role}
                 permsAppelant={perms}
               />

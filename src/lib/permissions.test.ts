@@ -21,6 +21,9 @@ const {
   canWriteModule,
   canWritePlacementData,
   droitsCouvertsPar,
+  roleModifiablePar,
+  verifierChangementDroit,
+  ROLE_TOUT_PUISSANT,
   MODULE_KEYS,
   RANG,
 } = await import("@/lib/permissions");
@@ -113,6 +116,80 @@ describe("droitsCouvertsPar — anti-escalade de privileges", () => {
     expect(await droitsCouvertsPar("admin", "planning")).toBe(false);
     expect(await droitsCouvertsPar("admin", "chef_equipe")).toBe(false);
     expect(await droitsCouvertsPar("admin", "ordo")).toBe(false);
+  });
+});
+
+describe("roleModifiablePar — colonnes de la matrice des droits", () => {
+  it("personne ne peut modifier les droits de l'admin, pas meme l'admin", async () => {
+    for (const r of ROLES) expect(await roleModifiablePar("admin", r)).toBe(false);
+  });
+
+  it("nul ne modifie son propre role (anti-verrou)", async () => {
+    for (const r of ROLES) expect(await roleModifiablePar(r, r)).toBe(false);
+  });
+
+  it("l'admin peut modifier tous les autres roles", async () => {
+    for (const r of ROLES) {
+      if (r === "admin") continue;
+      expect(await roleModifiablePar(r, "admin")).toBe(true);
+    }
+  });
+
+  it("le role tout-puissant est DEDUIT de la matrice, pas ecrit en dur", () => {
+    expect(ROLE_TOUT_PUISSANT).toBe("admin");
+    for (const m of MODULE_KEYS) expect(defaultsFor(ROLE_TOUT_PUISSANT!)[m]).toBe("write");
+  });
+
+  it("un delegue garde une matrice UTILISABLE : tous les roles sauf admin et le sien", async () => {
+    // Garde-fou d'ergonomie. Une regle plus stricte — n'editer que les roles
+    // strictement plus faibles que soi — grisait TOUTE la matrice, les roles
+    // n'etant pas ordonnes entre eux.
+    const ouverts: string[] = [];
+    for (const r of ROLES) if (await roleModifiablePar(r, "planning")) ouverts.push(r);
+    expect(ouverts).not.toContain("admin");
+    expect(ouverts).not.toContain("planning");
+    expect(ouverts.length).toBe(ROLES.length - 2);
+  });
+});
+
+describe("verifierChangementDroit — les 3 verrous de /api/droits", () => {
+  it("REGRESSION : un delegue ne peut pas DEGRADER l'admin", async () => {
+    // Bug remonte le 23/07/2026 : l'anti-escalade seule laissait passer la
+    // retrogradation. Baisser un droit de l'admin est un abaissement, donc
+    // invisible pour un controle qui ne regarde que « accorde-t-on trop ? ».
+    for (const r of ROLES) {
+      if (r === "admin") continue;
+      for (const niveau of ["none", "read", "write"] as const) {
+        const v = await verifierChangementDroit(r, "admin", "personnel", niveau);
+        expect(v.ok, `${r} ne doit pas pouvoir mettre admin.personnel a ${niveau}`).toBe(false);
+      }
+    }
+  });
+
+  it("l'admin lui-meme ne peut pas toucher aux droits de l'admin (anti-verrou)", async () => {
+    const v = await verifierChangementDroit("admin", "admin", "utilisateurs", "none");
+    expect(v.ok).toBe(false);
+    if (!v.ok) expect(v.status).toBe(400);
+  });
+
+  it("refuse d'accorder un niveau qu'on n'a pas soi-meme (anti-escalade)", async () => {
+    // ordo n'a que `personnel: read` -> il ne peut pas donner `personnel: write`.
+    const v = await verifierChangementDroit("ordo", "rh", "personnel", "write");
+    expect(v.ok).toBe(false);
+    if (!v.ok) expect(v.status).toBe(403);
+  });
+
+  it("laisse passer un changement legitime", async () => {
+    expect((await verifierChangementDroit("admin", "ordo", "bilans", "write")).ok).toBe(true);
+    expect((await verifierChangementDroit("admin", "rh", "journal", "none")).ok).toBe(true);
+  });
+
+  it("l'admin garde tous ses droits quel que soit l'appelant et le module", async () => {
+    for (const m of MODULE_KEYS) {
+      for (const r of ROLES) {
+        expect((await verifierChangementDroit(r, "admin", m, "none")).ok).toBe(false);
+      }
+    }
   });
 });
 

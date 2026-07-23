@@ -88,6 +88,59 @@ export async function droitsCouvertsPar(role: string, appelant: string): Promise
   return MODULE_KEYS.every((m) => RANG[cible[m] ?? "none"] <= RANG[moi[m] ?? "none"]);
 }
 
+// Le rôle « tout-puissant » : celui à qui `defaultsFor` accorde l'écriture sur
+// TOUS les modules. Il vaut `admin` aujourd'hui, mais il est **déduit** de la
+// matrice, pas écrit en dur — si la liste des rôles change, la règle suit.
+//
+// Ses droits ne sont modifiables par personne : c'est le socle sur lequel repose
+// la possibilité de réparer tout le reste. Le laisser modifiable, c'est offrir à
+// un délégué `utilisateurs: write` le moyen de déclasser l'administration.
+export const ROLE_TOUT_PUISSANT: string | undefined = ROLES.find((r) =>
+  MODULE_KEYS.every((m) => defaultsFor(r)[m] === "write")
+);
+
+// Un rôle est-il modifiable dans la matrice des droits par `appelant` ?
+//
+// Deux verrous, aucun nom de rôle littéral :
+//  - **anti-verrou** : on ne touche pas à SON PROPRE rôle. Sinon on se retire
+//    `utilisateurs` et plus personne ne rouvre l'écran.
+//  - **protection du rôle tout-puissant** : la colonne de l'admin reste visible,
+//    affichant ses droits réels, mais grisée — pour tout le monde, lui compris.
+//
+// Ce que ces verrous ne couvrent PAS, volontairement : un délégué peut abaisser
+// les droits d'un rôle intermédiaire. Ce n'est pas une escalade (il ne gagne
+// rien), c'est une nuisance — désormais tracée au journal (migration 0036).
+// Interdire aussi cela reviendrait à n'autoriser que les rôles strictement plus
+// faibles que soi, et comme les rôles ne sont pas ordonnés entre eux, la matrice
+// deviendrait entièrement grisée pour tout autre qu'un admin.
+export async function roleModifiablePar(role: string, appelant: string): Promise<boolean> {
+  if (role === appelant) return false;
+  if (role === ROLE_TOUT_PUISSANT) return false;
+  return true;
+}
+
+// Décision complète d'un changement de droit (rôle × module → niveau), pour
+// /api/droits. Rendue ici plutôt que dans la route : c'est la règle de sécurité,
+// elle doit être testable sans passer par HTTP.
+export async function verifierChangementDroit(
+  appelant: string,
+  role: string,
+  module: string,
+  niveau: Niveau
+): Promise<{ ok: true } | { ok: false; status: 400 | 403; error: string }> {
+  if (role === appelant) {
+    return { ok: false, status: 400, error: "Vous ne pouvez pas modifier les droits de votre propre rôle." };
+  }
+  if (role === ROLE_TOUT_PUISSANT) {
+    return { ok: false, status: 403, error: "L'administrateur conserve tous les droits." };
+  }
+  const miens = await getPermissions(appelant);
+  if (RANG[niveau] > RANG[miens[module] ?? "none"]) {
+    return { ok: false, status: 403, error: "Vous ne pouvez pas accorder un droit que vous n'avez pas vous-même." };
+  }
+  return { ok: true };
+}
+
 // Écriture "complète" d'un module (édite tout le monde / global) selon la matrice
 // des droits -> client admin dans les API. Le CHEF D'ÉQUIPE en est exclu : il
 // garde uniquement son périmètre (édition de SON équipe via la RLS

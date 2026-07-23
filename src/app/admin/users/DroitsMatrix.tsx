@@ -18,17 +18,23 @@ export default function DroitsMatrix({
   roles,
   modules,
   initial,
+  rolesModifiables,
   roleAppelant,
   permsAppelant,
 }: {
-  roles: RoleOpt[]; // tous les roles
+  roles: RoleOpt[]; // tous les roles, y compris ceux qu'on ne peut pas editer
   modules: ModuleOpt[];
   initial: Record<string, Record<string, Niveau>>; // par role
-  roleAppelant: string; // le role de qui edite : sa propre colonne est verrouillee
+  roleAppelant: string; // pour distinguer les deux raisons de verrouillage
+  // Roles que l'appelant peut editer, decides par la matrice cote serveur
+  // (roleModifiablePar). Les autres — son propre role, et tout role qui detient
+  // des droits qu'il n'a pas, dont l'admin — restent VISIBLES mais grises.
+  rolesModifiables: string[];
   permsAppelant: Record<string, Niveau>; // plafond : on n'accorde pas plus qu'on n'a
 }) {
   const [m, setM] = useState<Record<string, Record<string, Niveau>>>(initial);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const modifiables = new Set(rolesModifiables);
 
   // Le cycle ne propose jamais un niveau superieur a celui que l'on detient
   // soi-meme sur ce module : la route /api/droits le refuserait (anti-escalade),
@@ -81,28 +87,37 @@ export default function DroitsMatrix({
               {mod.label}
             </td>
             {roles.map((r) => {
-              // Son propre role n'est pas modifiable : sinon on peut se retirer
-              // le droit « utilisateurs » et plus personne ne rouvre cet ecran.
-              // Aucun nom de role en dur — c'est celui de qui edite.
-              if (r.key === roleAppelant) {
-                const sien = STYLE[permsAppelant[mod.key] ?? "none"];
+              // Colonne verrouillee : on affiche les droits REELS du role, grises.
+              // Le serveur refuse de toute facon (verifierChangementDroit) — on ne
+              // propose donc pas un bouton qui echouerait.
+              if (!modifiables.has(r.key)) {
+                const fige = STYLE[initial[r.key]?.[mod.key] ?? "none"];
                 return (
-                  <td key={r.key} style={{ textAlign: "center", padding: 3 }} title="Votre propre rôle : non modifiable ici.">
+                  <td
+                    key={r.key}
+                    style={{ textAlign: "center", padding: 3 }}
+                    title={
+                      r.key === roleAppelant
+                        ? "Votre propre rôle : non modifiable, sinon vous pourriez vous retirer l'accès à cet écran."
+                        : "Ce rôle détient des droits que vous n'avez pas vous-même : vous ne pouvez pas le modifier."
+                    }
+                  >
                     <span
                       style={{
                         display: "inline-block",
                         width: 78,
                         padding: "5px 6px",
-                        background: sien.bg,
-                        color: sien.fg,
-                        border: sien.border,
+                        background: fige.bg,
+                        color: fige.fg,
+                        border: fige.border,
                         borderRadius: 6,
                         fontSize: 12,
                         fontWeight: 600,
-                        opacity: 0.55,
+                        opacity: 0.45,
+                        cursor: "not-allowed",
                       }}
                     >
-                      {sien.label}
+                      {fige.label}
                     </span>
                   </td>
                 );

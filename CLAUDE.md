@@ -74,9 +74,23 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
   de passe affiché en clair** et s'y connectait. Les 4 routes `/api/users/*` passent par
   `userAdminGuard({ cibleUserId, roleVise })`, qui vérifie le droit **et** l'escalade dans
   les deux sens (promotion *et* rétrogradation d'un compte qui vous domine).
-  `/api/droits` applique la même règle, plus un **anti-verrou** : on ne modifie pas les
-  droits de **son propre** rôle (sinon on se retire `utilisateurs` et l'écran devient
-  inaccessible à tous) — la colonne de son rôle est grisée dans `DroitsMatrix`.
+  ⚠️ Conséquence assumée : déléguer `utilisateurs: write` à un rôle ne lui permet de
+  gérer que les comptes dont le rôle est **entièrement couvert** par le sien. C'est le
+  prix de « pas d'escalade » : le lien de mot de passe donne la session du compte visé.
+- **`/api/droits` (matrice des droits)** obéit à `verifierChangementDroit()`, testée,
+  avec trois verrous et **aucun rôle littéral** :
+  1. **anti-verrou** — on ne modifie pas les droits de **son propre** rôle (sinon on se
+     retire `utilisateurs` et l'écran devient inaccessible à tous) ;
+  2. **`ROLE_TOUT_PUISSANT`** — le rôle à qui `defaultsFor` donne `write` partout (donc
+     `admin`, mais **déduit**, pas écrit) n'est modifiable par personne, lui compris :
+     sa colonne reste visible avec ses droits réels, grisée ;
+  3. **anti-escalade** — on n'accorde pas un niveau supérieur au sien sur un module.
+
+  Volontairement **non** couvert : abaisser les droits d'un rôle intermédiaire. Ce n'est
+  pas une escalade (l'auteur n'y gagne rien) et c'est tracé au journal depuis la 0036.
+  L'interdire supposerait de n'ouvrir que les rôles strictement plus faibles que soi —
+  or les rôles ne sont pas ordonnés entre eux, la matrice serait **entièrement grisée**
+  pour tout autre qu'un admin (vérifié sur les données réelles).
 - **`is_active` est vérifié par `getCurrentProfile()`** (pas seulement par la RLS) :
   un compte désactivé n'a plus de profil, donc plus de navigation.
 - **Les 8 écrans de réglage s'ouvrent en LECTURE** (`requireModule(mod, "read")`) et
