@@ -10,6 +10,8 @@ import ContratsModal from "./ContratsModal";
 import { anonymiserPersonne, supprimerPersonne } from "./actions";
 import BandeauErreur from "@/components/BandeauErreur";
 import { normaliseNom, normalisePrenom } from "@/lib/noms";
+import AbsencesModal from "./AbsencesModal";
+import { etatDepart } from "@/lib/absences-periodes";
 
 type HMap = Record<string, { debut: string; fin: string }>;
 type TpConfig = { demi?: { mode: string; source: string; matin?: HMap; aprem?: HMap }; off?: Record<string, string[]>; horaires?: HMap };
@@ -33,9 +35,12 @@ type Row = {
   temps_partiel: boolean;
   tp_type: string | null;
   tp_config: TpConfig | null;
+  date_depart_prevu: string | null;
+  motif_depart: string | null;
 };
 type Equipe = { id: string; nom: string; couleur?: string | null; quart_fixe?: string | null };
 type Atelier = { id: string; nom: string };
+type Motif = { id: string; code_court: string; libelle: string; couleur: string };
 
 const CONTRATS = ["CDI", "CDD", "INTERIM"];
 const sortRows = (a: Row, b: Row) => (a.nom + a.prenom).localeCompare(b.nom + b.prenom);
@@ -65,7 +70,7 @@ function SexePill({ sexe }: { sexe: string | null }) {
 
 type ColKey =
   | "type_contrat" | "matricule" | "numero_badge" | "nom" | "prenom" | "sexe"
-  | "equipe" | "atelier" | "date_livret_accueil" | "date_fin" | "alerte" | "pointure" | "tp" | "statut";
+  | "equipe" | "atelier" | "date_livret_accueil" | "absences" | "alerte" | "pointure" | "tp" | "statut";
 const COLS: { key: ColKey; label: string; w: number; search?: boolean }[] = [
   { key: "type_contrat", label: "Contrat", w: 6, search: true },
   { key: "matricule", label: "Matricule", w: 7, search: true },
@@ -76,14 +81,66 @@ const COLS: { key: ColKey; label: string; w: number; search?: boolean }[] = [
   { key: "equipe", label: "Équipe", w: 6, search: true },
   { key: "atelier", label: "Atelier", w: 6, search: true },
   { key: "date_livret_accueil", label: "Livret accueil", w: 8.5 },
-  { key: "date_fin", label: "Fin contrat", w: 8.5 },
+  { key: "absences", label: "Absences", w: 6 },
   { key: "alerte", label: "⚠ 18 mois", w: 5 },
   { key: "pointure", label: "Pointure", w: 5, search: true },
   { key: "tp", label: "TP", w: 5 },
   { key: "statut", label: "Statut", w: 6.5, search: true },
 ];
 // Colonnes dont le contenu est centre.
-const CENTER = new Set<ColKey>(["type_contrat", "matricule", "numero_badge", "sexe", "equipe", "atelier", "tp", "pointure"]);
+const CENTER = new Set<ColKey>(["type_contrat", "matricule", "numero_badge", "sexe", "equipe", "atelier", "tp", "pointure", "absences"]);
+
+// Bouton « Absences » de la ligne : ouvre l'historique et la déclaration.
+// Le calendrier barré dit « jours non travaillés » ; une pastille signale le
+// départ prévu, orange à venir, rouge une fois la date dépassée.
+function BoutonAbsences({ row, onOpen }: { row: Row; onOpen: () => void }) {
+  const etat = etatDepart(row.date_depart_prevu, new Date().toISOString().slice(0, 10));
+  const titre =
+    etat === "aucun"
+      ? "Absences : historique et déclaration"
+      : `Absences — départ prévu le ${fmtDate(row.date_depart_prevu)}${row.motif_depart ? ` (${row.motif_depart})` : ""}`;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title={titre}
+      style={{
+        width: "auto",
+        margin: 0,
+        padding: "2px 7px",
+        background: "#fff",
+        color: etat === "depasse" ? "#b91c1c" : etat === "a_venir" ? "#b45309" : "#4f46e5",
+        border: `1px solid ${etat === "depasse" ? "#fca5a5" : etat === "a_venir" ? "#fcd34d" : "var(--border)"}`,
+        borderRadius: 7,
+        cursor: "pointer",
+        fontSize: 15,
+        lineHeight: 1.1,
+        position: "relative",
+      }}
+    >
+      {/* Calendrier barré : l'absence, par opposition aux jours travaillés. */}
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true">
+        <rect x="3" y="4.5" width="18" height="16" rx="2" />
+        <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
+        <path d="M9 14.5l6 4M15 14.5l-6 4" />
+      </svg>
+      {etat !== "aucun" && (
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: -3,
+            right: -3,
+            width: 8,
+            height: 8,
+            borderRadius: 999,
+            background: etat === "depasse" ? "var(--danger)" : "#f59e0b",
+          }}
+        />
+      )}
+    </button>
+  );
+}
 
 export default function PersonnelEditor({
   initial,
@@ -92,6 +149,7 @@ export default function PersonnelEditor({
   canEdit,
   quarts = [],
   rotationRefs = [],
+  motifs = [],
   erreur,
 }: {
   initial: Row[];
@@ -100,6 +158,7 @@ export default function PersonnelEditor({
   canEdit: boolean;
   quarts?: { code: string; libelle: string }[];
   rotationRefs?: { semaine: string; equipe_id: string; quart_code: string }[];
+  motifs?: Motif[];
   // Message des server actions RGPD, repasse par l URL (cf. BandeauErreur).
   erreur?: string;
 }) {
@@ -109,6 +168,7 @@ export default function PersonnelEditor({
   const [contratFilter, setContratFilter] = useState("");
   const [tpFor, setTpFor] = useState<Row | null>(null);
   const [contratsFor, setContratsFor] = useState<Row | null>(null);
+  const [absFor, setAbsFor] = useState<Row | null>(null);
   const [infoFor, setInfoFor] = useState<Row | null>(null);
   const [rgpdFor, setRgpdFor] = useState<Row | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -378,10 +438,7 @@ export default function PersonnelEditor({
                       <td><select value={r.equipe_id ?? ""} onChange={(e) => field(r.id, "equipe_id", e.target.value, true)} style={{ ...inp, ...C("equipe"), ...eqStyle(r.equipe_id) }}><option value="">-</option>{equipes.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
                       <td><select value={r.atelier_id ?? ""} onChange={(e) => field(r.id, "atelier_id", e.target.value, true)} style={{ ...inp, ...C("atelier") }}><option value="">-</option>{ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
                       <td><input type="date" value={r.date_livret_accueil ?? ""} onChange={(e) => field(r.id, "date_livret_accueil", e.target.value, true)} style={inp} /></td>
-                      <td style={{ textAlign: "center", whiteSpace: "nowrap", color: "var(--muted)" }} title="Fin du contrat le plus récent (gérée sur la fiche)">
-                        {fmtDate(r.date_fin)}
-                        <button type="button" onClick={() => setContratsFor(r)} title="Voir tous les contrats" style={{ width: "auto", margin: "0 0 0 3px", padding: "1px 3px", background: "transparent", border: "none", cursor: "pointer", fontSize: 13 }}>🔍</button>
-                      </td>
+                      <td style={{ textAlign: "center" }}><BoutonAbsences row={r} onOpen={() => setAbsFor(r)} /></td>
                       <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Contrat de ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
                       <td><input value={r.pointure ?? ""} maxLength={5} onChange={(e) => field(r.id, "pointure", e.target.value)} style={{ ...inp, ...C("pointure") }} /></td>
                       <td style={{ textAlign: "center" }}>
@@ -394,6 +451,7 @@ export default function PersonnelEditor({
                       <td><ToggleSwitch on={r.statut === "ACTIF"} onChange={(v) => toggleStatut(r.id, v)} onLabel="Actif" offLabel="Parti" title="Actif / Parti" /></td>
                       <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                         <input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleSel(r.id)} disabled={!sel.has(r.id) && sel.size >= 2} title="Sélectionner pour fusionner (2 max)" style={{ width: "auto", marginRight: 3, verticalAlign: "middle" }} />
+                        <button type="button" className="btn-sm btn-ghost" title="Périodes de contrat" onClick={() => setContratsFor(r)} style={{ width: "auto", padding: "2px 5px", fontSize: 13 }}>🔍</button>
                         <button type="button" className="btn-sm btn-ghost" title="Informations (commentaire)" onClick={() => setInfoFor(r)} style={{ width: "auto", padding: "2px 5px", fontSize: 15 }}>ⓘ</button>
                         <button type="button" className="btn-sm btn-ghost" title="RGPD (export / anonymiser / supprimer)" onClick={() => setRgpdFor(r)} style={{ width: "auto", padding: "2px 5px", fontSize: 14 }}>⚙️</button>
                       </td>
@@ -409,10 +467,7 @@ export default function PersonnelEditor({
                       <td style={{ textAlign: "center" }}>{equipeNom(r.equipe_id) || "-"}</td>
                       <td style={{ textAlign: "center" }}>{atelierNom(r.atelier_id) || "-"}</td>
                       <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>{fmtDate(r.date_livret_accueil)}</td>
-                      <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-                        {fmtDate(r.date_fin)}
-                        <button type="button" onClick={() => setContratsFor(r)} title="Voir tous les contrats" style={{ width: "auto", margin: "0 0 0 3px", padding: "1px 3px", background: "transparent", border: "none", cursor: "pointer", fontSize: 13 }}>🔍</button>
-                      </td>
+                      <td style={{ textAlign: "center" }}><BoutonAbsences row={r} onOpen={() => setAbsFor(r)} /></td>
                       <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Contrat de ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
                       <td style={{ textAlign: "center" }}>{r.pointure || "-"}</td>
                       <td style={{ textAlign: "center" }}>{r.temps_partiel ? <span className="sexe-pill" style={{ background: "#e0e7ff", color: "#3730a3" }}>TP</span> : <span className="muted">—</span>}</td>
@@ -440,6 +495,19 @@ export default function PersonnelEditor({
           onSaved={(u) => { setRow(tpFor.id, (r) => ({ ...r, ...u })); setTpFor(null); }}
         />
       )}
+      {absFor && (
+        <AbsencesModal
+          personne={{ id: absFor.id, label: `${absFor.nom} ${absFor.prenom}` }}
+          motifs={motifs}
+          depart={{ date: absFor.date_depart_prevu, motif: absFor.motif_depart }}
+          canEdit={canEdit}
+          onClose={() => setAbsFor(null)}
+          onDepartChange={(d) =>
+            setRow(absFor.id, (r) => ({ ...r, date_depart_prevu: d.date, motif_depart: d.motif }))
+          }
+        />
+      )}
+
       {contratsFor && (
         <ContratsModal
           personne={{ id: contratsFor.id, label: `${contratsFor.nom} ${contratsFor.prenom}` }}

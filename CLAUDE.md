@@ -26,11 +26,11 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `supabase/migrations/` et **demande à l'utilisateur de l'exécuter** dans le SQL Editor.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
-   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0037`.**
-   ⏳ **`0038_nettoyage_quarts_et_tables_mortes.sql` est écrite mais PAS encore exécutée.**
-   Elle **supprime trois tables** (`equipe_quart_semaine`, `ligne_ouverture`, `jour_equipe`) :
-   irréversible, mais aucune lecture applicative ne les touche plus. Elle normalise aussi les
-   7 placements historiques sans quart. Tant qu'elle n'est pas passée, rien ne casse.
+   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0038`.**
+   ⏳ **`0039_depart_prevu.sql` est écrite mais PAS encore exécutée** — sans effet visible :
+   les colonnes `personne.date_depart_prevu` et `motif_depart` existent DÉJÀ en base (elles
+   n'étaient créées par aucune migration). La 0039 est idempotente : elle ne fait qu'ajouter
+   l'index et les commentaires, et inscrire ces colonnes dans l'historique des migrations.
 5. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
 6. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
@@ -260,7 +260,14 @@ prochain gros chantier, pas une optimisation cosmétique.
 - Matrice : `src/app/matrice/{page,MatricePanel,MatrixGrid,Pie,LegendeModal}.tsx` + `matrice.module.css`.
   L'en-tête (titre · recherche · légende · bascule Actuel/Cible · filtres) est dans
   `MatricePanel` ; `MatrixGrid` reçoit `search` en prop.
-- Personnel : `src/app/personnel/*` + `src/app/api/personnel/{route,merge/route,[id]/export/route}.ts`.
+- Personnel : `src/app/personnel/*` + `src/app/api/personnel/{route,merge/route,[id]/export/route,[id]/absences/route}.ts`.
+  Colonne **Absences** (calendrier barré) : historique regroupé en périodes, déclaration
+  d'une absence, et **départ prévu**. Le regroupement vit dans `src/lib/absences-periodes.ts`
+  (testé) : il part des **jours** et non de la table `absence` — 401 des 421 jours sont
+  saisis au Planning sans période déclarée. Il enjambe les week-ends (écart ≤ 3 jours) et
+  ne réunit jamais deux motifs différents. `date_depart_prevu` ≠ `date_fin`, qui est le
+  reflet réécrit automatiquement du contrat le plus récent ; le statut n'est **pas**
+  basculé tout seul (aucune tâche planifiée sur ce projet).
   L'en-tête complet est dans `PersonnelEditor` (la page ne rend que `AppHeader`).
 - Référentiel : `src/app/admin/referentiel/*` + `src/app/api/referentiel/route.ts`
   (colonnes **N° Rot** et **Habil. requises**).
@@ -276,7 +283,7 @@ prochain gros chantier, pas une optimisation cosmétique.
 - Param. RH (ex-« Motifs d'absence », clé de droit toujours `motifs`, route toujours
   `/admin/motifs`) : `src/app/admin/motifs/{page,actions}.ts(x)` — motifs d'absence **et**
   agences d'intérim, ces dernières servant le menu déroulant Agence de `PeriodesEditor`.
-- Migrations : `supabase/migrations/0001..0038`.
+- Migrations : `supabase/migrations/0001..0039`.
 - **Écritures : lire l'erreur, toujours.** `messageErreur()` (`src/lib/erreurs.ts`) traduit
   les codes Postgres ; les server actions repassent le message par l'URL
   (`urlAvecErreur` → `?err=`) et la page l'affiche via `<BandeauErreur>`. Un test

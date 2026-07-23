@@ -7,6 +7,7 @@ import { getRotationRefsC } from "@/lib/refdata";
 type Equipe = { id: string; nom: string; couleur: string | null; quart_fixe: string | null };
 type Quart = { code: string; libelle: string };
 type Atelier = { id: string; nom: string };
+type Motif = { id: string; code_court: string; libelle: string; couleur: string };
 type Row = {
   id: string;
   matricule: string | null;
@@ -20,6 +21,8 @@ type Row = {
   type_contrat: string;
   date_debut: string | null;
   date_fin: string | null;
+  date_depart_prevu: string | null;
+  motif_depart: string | null;
   contrat_debut: string | null; // debut du contrat le plus ancien (alerte 18 mois)
   pointure: string | null;
   commentaire: string | null;
@@ -30,6 +33,13 @@ type Row = {
 };
 type HMap = Record<string, { debut: string; fin: string }>;
 type TpConfig = { demi?: { mode: string; source: string; matin?: HMap; aprem?: HMap }; off?: Record<string, string[]>; horaires?: HMap };
+
+const COLS_PERSONNE =
+  "id, matricule, nom, prenom, equipe_id, atelier_id, sexe, numero_badge, date_livret_accueil, " +
+  "type_contrat, date_debut, date_fin, pointure, commentaire, statut, temps_partiel, tp_type, tp_config, " +
+  // Départ prévu (migration 0039) : distinct de `date_fin`, qui est le reflet
+  // automatique de la période de contrat la plus récente.
+  "date_depart_prevu, motif_depart";
 
 export default async function PersonnelPage({
   searchParams,
@@ -46,18 +56,16 @@ export default async function PersonnelPage({
   // `quart_fixe` + rotation + quarts : servent l'apercu de quinzaine de la modale
   // temps partiel (l'alternance « une semaine sur deux » vient de la rotation de
   // l'equipe, pas du temps partiel lui-meme).
-  const [{ data: equipesData }, { data: ateliersData }, { data: rowsData }, { data: cpData }, { data: quartsData }, rotationRefs] =
+  const [{ data: equipesData }, { data: ateliersData }, { data: rowsData }, { data: cpData }, { data: quartsData }, rotationRefs, { data: motifsData }] =
     await Promise.all([
       supabase.from("equipe").select("id, nom, couleur, quart_fixe").order("nom").returns<Equipe[]>(),
       supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
-      supabase
-        .from("personne")
-        .select("id, matricule, nom, prenom, equipe_id, atelier_id, sexe, numero_badge, date_livret_accueil, type_contrat, date_debut, date_fin, pointure, commentaire, statut, temps_partiel, tp_type, tp_config")
-        .order("nom")
-        .returns<Omit<Row, "contrat_debut">[]>(),
+      supabase.from("personne").select(COLS_PERSONNE).order("nom").returns<Omit<Row, "contrat_debut">[]>(),
       supabase.from("contrat_periode").select("personne_id, date_debut").returns<{ personne_id: string; date_debut: string | null }[]>(),
       supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
       getRotationRefsC(),
+      // Motifs d absence : alimentent la declaration depuis la modale Absences.
+      supabase.from("motif_absence").select("id, code_court, libelle, couleur").eq("actif", true).order("libelle").returns<Motif[]>(),
     ]);
 
   // Debut du contrat le plus ancien par personne (pour l'alerte > 18 mois).
@@ -85,6 +93,7 @@ export default async function PersonnelPage({
           erreur={sp.err}
           quarts={quartsData ?? []}
           rotationRefs={rotationRefs}
+          motifs={motifsData ?? []}
         />
       </div>
     </>

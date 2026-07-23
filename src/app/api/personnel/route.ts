@@ -165,6 +165,11 @@ export async function POST(req: NextRequest) {
           case "numero_badge":
           case "date_livret_accueil":
           case "commentaire":
+          // Départ prévu : date à laquelle la personne quitte l'effectif.
+          // Distinct de `date_fin`, qui est le reflet — réécrit automatiquement —
+          // de la période de contrat la plus récente (cf. migration 0039).
+          case "date_depart_prevu":
+          case "motif_depart":
             patch[k] = orNull(s(v));
             break;
           case "type_contrat":
