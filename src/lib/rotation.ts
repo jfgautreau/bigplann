@@ -30,6 +30,32 @@ export function weeksBetween(aIso: string, bIso: string): number {
 // Quart de chaque equipe tournante pour la semaine `cibleIso` (lundi ISO), selon
 // les references fournies. Retourne { equipe_id -> quart_code } ; vide si aucune
 // reference n'est active pour cette semaine.
+// Équipes travaillant chaque quart une semaine donnée : celles dont le quart est
+// FIXE, plus celle que la rotation y place. Sert le filtre du Placement, où
+// choisir « Matin » doit remonter « Fixe Matin » ET l'équipe qui tourne au matin.
+//
+// Une équipe à quart fixe qui figurerait aussi dans une référence de rotation
+// n'est comptée qu'une fois, et son quart FIXE l'emporte : c'est la règle du
+// modèle (`equipe.quart_fixe` = « ne tourne pas »).
+export function equipesParQuart(
+  equipes: { id: string; quart_fixe?: string | null }[],
+  rotWeek: Record<string, string>
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  const fixes = new Set<string>();
+  for (const e of equipes) {
+    if (!e.quart_fixe) continue;
+    (out[e.quart_fixe] ??= []).push(e.id);
+    fixes.add(e.id);
+  }
+  for (const [equipeId, quart] of Object.entries(rotWeek)) {
+    if (fixes.has(equipeId)) continue;
+    if (!equipes.some((e) => e.id === equipeId)) continue; // équipe désactivée
+    (out[quart] ??= []).push(equipeId);
+  }
+  return out;
+}
+
 export function rotationForWeek(refs: RotationRef[], cibleIso: string): Record<string, string> {
   // Reference active : plus grande semaine <= cible (comparaison lexicographique
   // = chronologique sur des dates ISO).

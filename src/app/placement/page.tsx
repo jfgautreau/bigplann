@@ -6,7 +6,7 @@ import { fetchAll } from "@/lib/fetch-all";
 import { quartParDefaut, quartOuDefaut, memeQuart } from "@/lib/quarts";
 import { isoDate, mondayOf } from "@/lib/week";
 import { getRotationRefsC } from "@/lib/refdata";
-import { rotationForWeek } from "@/lib/rotation";
+import { rotationForWeek, equipesParQuart } from "@/lib/rotation";
 import { addMonthsIso } from "@/lib/habilitations";
 import PlacementBoard from "./PlacementBoard";
 
@@ -217,17 +217,7 @@ export default async function PlacementPage({
   // remonter « Fixe matin » ET l'équipe qui tourne au matin, pas une seule des
   // deux comme le faisait l'ancien pré-filtre.
   const rotWeek = rotationForWeek(await getRotationRefsC(), isoDate(mondayOf(new Date(jour + "T00:00"))));
-  const equipesParQuart: Record<string, string[]> = {};
-  const ajoute = (qc: string, id: string) => {
-    if (!qc) return;
-    (equipesParQuart[qc] ??= []).push(id);
-  };
-  for (const e of equipes) if (e.quart_fixe) ajoute(e.quart_fixe, e.id);
-  // La rotation ne concerne que les équipes tournantes : une équipe à quart fixe
-  // qui y figurerait quand même ne doit pas être comptée deux fois.
-  for (const [eqId, qc] of Object.entries(rotWeek)) {
-    if (!equipesParQuart[qc]?.includes(eqId)) ajoute(qc, eqId);
-  }
+  const parQuart = equipesParQuart(equipes, rotWeek);
 
   return (
     <div className="pagecol">
@@ -250,7 +240,7 @@ export default async function PlacementPage({
         autreQuart={autreQuart}
         matrice={matrice}
         motifs={motifs.map((m) => ({ id: m.id, code: m.code_court, libelle: m.libelle, couleur: m.couleur }))}
-        equipesParQuart={equipesParQuart}
+        equipesParQuart={parQuart}
         habPoste={habPoste}
         habComp={habComp}
         habPers={habPers}
