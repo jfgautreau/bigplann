@@ -93,12 +93,21 @@ export async function POST(req: NextRequest) {
       const type_contrat = CONTRATS.includes(s(body.type_contrat)) ? s(body.type_contrat) : "CDI";
       let matricule = orNull(s(body.matricule));
       if (!matricule && type_contrat === "INTERIM") matricule = `INT-${Date.now().toString(36).toUpperCase()}`;
+
+      // ⚠️ Cette creation enchainait CINQ requetes : un insert, puis trois
+      // updates successifs (atelier, sexe, badge+livret) entoures de gardes
+      // « best-effort ». Ces gardes dataient des migrations 0020/0022/0024,
+      // appliquees depuis des mois : elles n'avaient plus d'objet et avalaient
+      // desormais de vraies erreurs, laissant une personne a moitie creee.
+      // Tout part maintenant dans le MEME insert.
+      const sexe = s(body.sexe);
       const { data, error } = await supabase
         .from("personne")
         .insert({
           nom,
           prenom,
           equipe_id: orNull(s(body.equipe_id)),
+          atelier_id: orNull(s(body.atelier_id)),
           type_contrat,
           matricule,
           agence_interim: type_contrat === "INTERIM" ? orNull(s(body.agence_interim)) : null,
@@ -106,15 +115,17 @@ export async function POST(req: NextRequest) {
           date_fin: orNull(s(body.date_fin)),
           pointure: orNull(s(body.pointure)),
           commentaire: orNull(s(body.commentaire)),
+          sexe: sexe === "H" || sexe === "F" ? sexe : null,
+          numero_badge: orNull(s(body.numero_badge)),
+          date_livret_accueil: orNull(s(body.date_livret_accueil)),
         })
         .select(COLS)
         .single();
       if (error) throw error;
-      // Periode de contrat initiale (best-effort : ignore si table absente).
       const created = data as { id: string };
-      // La periode de contrat initiale n'est plus « best-effort » : le `catch`
-      // muet datait de la migration 0017, appliquee depuis des mois, et avalait
-      // desormais de vraies erreurs — laissant une personne sans historique.
+
+      // La periode de contrat initiale n'est plus « best-effort » non plus : son
+      // `catch` muet laissait une personne sans historique de contrat.
       const { error: periodeErr } = await supabase.from("contrat_periode").insert({
         personne_id: created.id,
         type_contrat,
@@ -123,20 +134,6 @@ export async function POST(req: NextRequest) {
         date_fin: orNull(s(body.date_fin)),
       });
       if (periodeErr) throw periodeErr;
-      // Affectation atelier (best-effort : colonne ajoutee en 0020). Hors insert/COLS
-      // pour ne pas casser la creation si la migration n'est pas encore appliquee.
-      const atelier_id = orNull(s(body.atelier_id));
-      if (atelier_id) await supabase.from("personne").update({ atelier_id }).eq("id", created.id);
-      // Sexe (best-effort : colonne ajoutee en 0022).
-      const sexe = s(body.sexe);
-      if (sexe === "H" || sexe === "F") await supabase.from("personne").update({ sexe }).eq("id", created.id);
-      // Badge + livret d'accueil (best-effort : colonnes ajoutees en 0024).
-      const ext: Record<string, unknown> = {};
-      const badge = orNull(s(body.numero_badge));
-      const livret = orNull(s(body.date_livret_accueil));
-      if (badge) ext.numero_badge = badge;
-      if (livret) ext.date_livret_accueil = livret;
-      if (Object.keys(ext).length) await supabase.from("personne").update(ext).eq("id", created.id);
       return NextResponse.json({ ok: true, row: data });
     }
 

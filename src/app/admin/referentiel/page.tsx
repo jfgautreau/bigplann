@@ -10,7 +10,6 @@ type Poste = {
   id: string;
   nom: string;
   nom_court: string | null;
-  est_conducteur: boolean;
   categorie: string;
   effectif_requis: number;
   difficulte_formation: number | null;
@@ -32,7 +31,7 @@ export default async function ReferentielPage() {
     supabase
       .from("atelier")
       .select(
-        "id, nom, actif, ligne(id, nom, actif, ordre_affichage, poste(id, nom, nom_court, est_conducteur, categorie, effectif_requis, difficulte_formation, niveau_min_requis, ordre_affichage, numero_rotation, actif))"
+        "id, nom, actif, ligne(id, nom, actif, ordre_affichage, poste(id, nom, nom_court, categorie, effectif_requis, difficulte_formation, niveau_min_requis, ordre_affichage, numero_rotation, actif))"
       )
       .order("nom")
       .returns<Atelier[]>(),

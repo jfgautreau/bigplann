@@ -3,6 +3,7 @@ import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
 import { requireModule, canWritePlacementData } from "@/lib/permissions";
 import { fetchAll } from "@/lib/fetch-all";
+import { quartParDefaut, quartOuDefaut, memeQuart } from "@/lib/quarts";
 import { isoDate, mondayOf } from "@/lib/week";
 import { getRotationRefsC } from "@/lib/refdata";
 import { rotationForWeek } from "@/lib/rotation";
@@ -11,7 +12,7 @@ import PlacementBoard from "./PlacementBoard";
 
 type Atelier = { id: string; nom: string };
 type Equipe = { id: string; nom: string; couleur: string | null; quart_fixe?: string | null };
-type Quart = { code: string; libelle: string };
+type Quart = { code: string; libelle: string; ordre: number };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null };
 type PosteRow = { id: string; nom: string; nom_court: string | null; actif: boolean; effectif_requis: number; niveau_min_requis: number; ordre_affichage: number; numero_rotation: string | null };
 type LigneRow = { id: string; nom: string; ordre_affichage: number; atelier_id: string; poste: PosteRow[] };
@@ -38,7 +39,7 @@ export default async function PlacementPage({
   const [{ data: ateliersD }, { data: equipesD }, { data: quartsD }, { data: persD }, { data: motifsD }] = await Promise.all([
     supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
     supabase.from("equipe").select("id, nom, couleur, quart_fixe").eq("actif", true).order("nom").returns<Equipe[]>(),
-    supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
+    supabase.from("quart").select("code, libelle, ordre").order("ordre").returns<Quart[]>(),
     supabase.from("personne").select("id, nom, prenom, equipe_id, atelier_id").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
     supabase.from("motif_absence").select("id, code_court, libelle, couleur").eq("actif", true).order("libelle").returns<Motif[]>(),
   ]);
@@ -50,7 +51,7 @@ export default async function PlacementPage({
   const personnes = persD ?? [];
   const motifs = motifsD ?? [];
 
-  const quart = sp.quart && quartCodes.includes(sp.quart) ? sp.quart : quartCodes.includes("matin") ? "matin" : quartCodes[0] ?? "matin";
+  const quart = sp.quart && quartCodes.includes(sp.quart) ? sp.quart : quartParDefaut(quarts);
   // Bascule Plan / Absences portee par ?vue : l'atelier reste selectionne dans les
   // deux cas, c'est lui qui filtre les absences affichees.
   const vueAbsences = sp.vue === "absences";
@@ -178,10 +179,10 @@ export default async function PlacementPage({
   for (const r of plD ?? []) {
     if (r.non_travaille) placeInit[r.personne_id] = "X";
     else if (r.motif_absence_id) placeInit[r.personne_id] = `m:${r.motif_absence_id}`;
-    else if (r.poste_id && (r.quart_code ?? "matin") === quart) {
+    else if (r.poste_id && memeQuart(r.quart_code, quart, quarts)) {
       placeInit[r.personne_id] = r.poste_id;
       if (r.numero_rotation) numeroInit[r.personne_id] = r.numero_rotation;
-    } else if (r.poste_id) autreQuart[r.personne_id] = r.quart_code ?? "matin";
+    } else if (r.poste_id) autreQuart[r.personne_id] = quartOuDefaut(r.quart_code, quarts);
   }
 
   // Niveau de competence par (personne, poste) pour l'aide au placement.

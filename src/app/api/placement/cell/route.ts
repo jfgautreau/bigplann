@@ -4,6 +4,8 @@ import { getCurrentProfile } from "@/lib/current-user";
 import { canWritePlacementData } from "@/lib/permissions";
 import { addMonthsIso, habValable } from "@/lib/habilitations";
 import { parseNumeros } from "@/lib/numeros-rotation";
+import { getQuartsC } from "@/lib/refdata";
+import { quartOuDefaut, memeQuart, type QuartRef } from "@/lib/quarts";
 
 type SupabaseClient = Awaited<ReturnType<typeof getServerClient>>;
 
@@ -45,7 +47,8 @@ async function premierNumeroLibre(
   poste_id: string,
   jour: string,
   quart_code: string | null,
-  personne_id: string
+  personne_id: string,
+  quarts: QuartRef[]
 ): Promise<string | null> {
   const { data: poste } = await supabase
     .from("poste")
@@ -62,12 +65,13 @@ async function premierNumeroLibre(
     .eq("poste_id", poste_id)
     .returns<{ personne_id: string; numero_rotation: string | null; quart_code: string | null }[]>();
 
-  // Meme quart uniquement (le legacy `null` vaut « matin », comme partout ailleurs),
-  // et on ignore la personne qu'on est en train de (re)placer.
-  const q = quart_code ?? "matin";
+  // Meme quart uniquement (le repli des placements sans `quart_code` est commun a
+  // tous les ecrans, cf. src/lib/quarts.ts), et on ignore la personne qu'on est en
+  // train de (re)placer.
+  const q = quartOuDefaut(quart_code, quarts);
   const pris = new Set(
     (occ ?? [])
-      .filter((r) => r.personne_id !== personne_id && (r.quart_code ?? "matin") === q && r.numero_rotation)
+      .filter((r) => r.personne_id !== personne_id && memeQuart(r.quart_code, q, quarts) && r.numero_rotation)
       .map((r) => r.numero_rotation as string)
   );
   return numeros.find((n) => !pris.has(n)) ?? null;
@@ -102,6 +106,8 @@ export async function POST(req: NextRequest) {
   // Ecriture complete (droit Planning OU Placement) -> client admin ; sinon RLS
   // (admin ou chef de l'équipe de la personne). Cette route sert les DEUX ecrans.
   const supabase = (await canWritePlacementData(profile.role)) ? getAdminClient() : await getServerClient();
+  // Repli des placements historiques sans `quart_code` (cf. src/lib/quarts.ts).
+  const quarts = await getQuartsC();
 
   if (value === "") {
     const { error } = await supabase
@@ -132,7 +138,7 @@ export async function POST(req: NextRequest) {
   // non la faussete distingue les deux : sinon un depot volontaire hors numero se
   // verrait attribuer une place automatiquement.
   if (poste_id && body?.numero === undefined) {
-    numero_rotation = await premierNumeroLibre(supabase, poste_id, jour, quart_code, personne_id);
+    numero_rotation = await premierNumeroLibre(supabase, poste_id, jour, quart_code, personne_id, quarts);
   }
 
   // Une personne placee sur un poste un quart ne peut pas etre placee sur un
@@ -145,8 +151,8 @@ export async function POST(req: NextRequest) {
       .eq("jour", jour)
       .maybeSingle<{ poste_id: string | null; quart_code: string | null }>();
     if (existing?.poste_id) {
-      const exQ = existing.quart_code ?? "matin";
-      const newQ = quart_code ?? "matin";
+      const exQ = quartOuDefaut(existing.quart_code, quarts);
+      const newQ = quartOuDefaut(quart_code, quarts);
       if (exQ !== newQ) {
         return NextResponse.json(
           { error: "Personne deja placee sur un autre quart ce jour-la." },

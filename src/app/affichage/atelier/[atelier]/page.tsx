@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getAdminClient } from "@/lib/supabase-server";
 import { fetchAll } from "@/lib/fetch-all";
+import { getQuartsC } from "@/lib/refdata";
+import { quartOuDefaut } from "@/lib/quarts";
 import { isoDate, mondayOf, parseMonday, weekDays } from "@/lib/week";
 import AutoRefresh from "@/components/AutoRefresh";
 import AffichageBarre from "./AffichageBarre";
@@ -8,7 +10,7 @@ import AffichageBarre from "./AffichageBarre";
 export const dynamic = "force-dynamic";
 
 type Atelier = { id: string; nom: string };
-type Poste = { id: string; nom: string; est_conducteur: boolean; ordre_affichage: number };
+type Poste = { id: string; nom: string; ordre_affichage: number };
 type Ligne = { id: string; nom: string; ordre_affichage: number; poste: (Poste & { actif: boolean })[] };
 type PlacementRow = {
   poste_id: string | null;
@@ -40,6 +42,9 @@ export default async function AffichageAtelier({
   const todayIso = isoDate(new Date());
 
   const admin = getAdminClient();
+  // Liste des quarts du parametrage : sert de repli aux placements historiques
+  // sans `quart_code` (cf. src/lib/quarts.ts).
+  const quarts = await getQuartsC();
 
   const { data: ateliers } = await admin.from("atelier").select("id, nom").returns<Atelier[]>();
   const decoded = decodeURIComponent(param).toLowerCase();
@@ -56,7 +61,7 @@ export default async function AffichageAtelier({
 
   const { data: lignesD } = await admin
     .from("ligne")
-    .select("id, nom, ordre_affichage, poste(id, nom, est_conducteur, ordre_affichage, actif)")
+    .select("id, nom, ordre_affichage, poste(id, nom, ordre_affichage, actif)")
     .eq("atelier_id", atelier.id)
     .eq("actif", true)
     .returns<Ligne[]>();
@@ -159,7 +164,7 @@ export default async function AffichageAtelier({
 
     for (const r of pl) {
       if (!r.poste_id) continue;
-      const qc = r.quart_code ?? "matin";
+      const qc = quartOuDefaut(r.quart_code, quarts);
       const lid = posteLigne.get(r.poste_id);
       if (lid && !isOpen(lid, qc, r.jour)) continue; // jour/ligne ferme -> on n'affiche pas
       workedDays.add(r.jour);
@@ -197,7 +202,7 @@ export default async function AffichageAtelier({
   }
 
   const horaireTxt = (personId: string, posteId: string, quartCode: string | null, iso: string) => {
-    const q = quartCode ?? "matin";
+    const q = quartOuDefaut(quartCode, quarts);
     const std = horMap.get(`${posteId}:${q}:${dow(iso)}`);
     const ex = excMap.get(`${personId}:${iso}`);
     // Temps partiel : demi-journee a horaires saisis (selon le quart du placement),
@@ -206,6 +211,13 @@ export default async function AffichageAtelier({
     let tpHor: { debut?: string; fin?: string } | undefined;
     if (cfg) {
       const d = String(isoDow(iso));
+      // ⚠️ Couplage assume : `tp_config` stocke ses demi-journees sous les clefs
+      // « matin » / « aprem », qui se trouvent porter les memes noms que deux
+      // codes de quart. Ce n'est PAS le meme vocabulaire (un creneau de
+      // demi-journee n'est pas un quart), mais la correspondance est ecrite ici
+      // en dur. Un site dont les quarts porteraient d'autres codes n'aurait pas
+      // d'horaires de temps partiel par demi-journee — repli silencieux, sans
+      // casse. A traiter avec le modele de `tp_config`, pas avec les quarts.
       if (cfg.demi?.source === "horaires") {
         if (q === "matin") tpHor = cfg.demi.matin?.[d];
         else if (q === "apres_midi") tpHor = cfg.demi.aprem?.[d];

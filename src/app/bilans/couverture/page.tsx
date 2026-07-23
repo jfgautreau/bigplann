@@ -6,6 +6,7 @@ import ReportAtelierFilter from "@/app/bilans/ReportAtelierFilter";
 import ReportActions from "@/app/bilans/ReportActions";
 import { requireModule } from "@/lib/permissions";
 import { fetchAll } from "@/lib/fetch-all";
+import { quartOuDefaut } from "@/lib/quarts";
 import { parseMois, monthDays, monthLabel } from "@/lib/week";
 
 type LigneRow = { id: string; atelier_id: string | null; poste: { id: string; actif: boolean; effectif_requis: number; niveau_min_requis: number }[] };
@@ -27,7 +28,7 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
   const [{ data: lignesD }, { data: quartsD }, { data: jqD }, ovD, { data: pqOffD }, plD, matD, { data: persD }, { data: atD }] =
     await Promise.all([
       supabase.from("ligne").select("id, atelier_id, poste(id, actif, effectif_requis, niveau_min_requis)").eq("actif", true).returns<LigneRow[]>(),
-      supabase.from("quart").select("code, libelle").order("ordre").returns<{ code: string; libelle: string }[]>(),
+      supabase.from("quart").select("code, libelle, ordre").order("ordre").returns<{ code: string; libelle: string; ordre: number }[]>(),
       supabase.from("jour_quart").select("jour, quart_code, actif").in("jour", isos).returns<{ jour: string; quart_code: string; actif: boolean }[]>(),
       fetchAll<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }>(() =>
         supabase.from("ouverture_quart").select("jour, ligne_id, quart_code, ouverte").in("jour", isos).order("jour").order("ligne_id").order("quart_code").returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>()
@@ -93,7 +94,7 @@ export default async function CouvertureReport({ searchParams }: { searchParams:
   for (const r of placements)
     if (r.poste_id && scopedPosteIds.has(r.poste_id)) {
       presentJour.set(r.jour, (presentJour.get(r.jour) ?? 0) + 1);
-      const qc = r.quart_code ?? "matin";
+      const qc = quartOuDefaut(r.quart_code, quartList);
       presentQD.set(`${qc}:${r.jour}`, (presentQD.get(`${qc}:${r.jour}`) ?? 0) + 1);
     }
 

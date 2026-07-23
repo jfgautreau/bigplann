@@ -77,12 +77,21 @@ export async function removeChef(fd: FormData) {
 }
 
 // --- Rotation des quarts (fusionnee dans la page Equipes) ---
-const VALID_QUART = ["journee", "matin", "apres_midi", "nuit"];
+//
+// ⚠️ La liste des quarts etait recopiee en dur ici
+// (`["journee","matin","apres_midi","nuit"]`). La table `quart` etant du
+// PARAMETRAGE, ajouter un quart ne suffisait pas : il fallait aussi modifier ce
+// fichier, sans quoi le nouveau quart etait ignore par les horaires et par la
+// rotation. On lit desormais la liste reelle.
+async function codesQuarts(supabase: Awaited<ReturnType<typeof requireOrdoWrite>>): Promise<string[]> {
+  const { data } = await supabase.from("quart").select("code").order("ordre").returns<{ code: string }[]>();
+  return (data ?? []).map((q) => q.code);
+}
 
 // Horaires des quarts (libelle + debut/fin).
 export async function saveQuartHoraires(fd: FormData) {
   const supabase = await requireOrdoWrite();
-  for (const code of VALID_QUART) {
+  for (const code of await codesQuarts(supabase)) {
     const libelle = s(fd, `lib_${code}`);
     const debut = s(fd, `debut_${code}`) || null;
     const fin = s(fd, `fin_${code}`) || null;
@@ -108,13 +117,14 @@ export async function saveQuartHoraires(fd: FormData) {
 export async function saveRotationReference(fd: FormData) {
   const supabase = await requireOrdoWrite();
   const semaine = isoDate(parseMonday(s(fd, "semaine")));
+  const valides = await codesQuarts(supabase);
 
   const rows: { equipe_id: string; quart_code: string }[] = [];
   for (const [k, v] of fd.entries()) {
     if (!k.startsWith("quart_")) continue;
     const equipe_id = k.slice("quart_".length);
     const quart = String(v);
-    if (equipe_id && VALID_QUART.includes(quart)) rows.push({ equipe_id, quart_code: quart });
+    if (equipe_id && valides.includes(quart)) rows.push({ equipe_id, quart_code: quart });
   }
 
   const { error } = await supabase.rpc("set_rotation_reference", { p_semaine: semaine, p_rows: rows });

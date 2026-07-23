@@ -20,6 +20,7 @@ import PlanningGrid from "./PlanningGrid";
 import { getRotationRefsC } from "@/lib/refdata";
 import { rotationForWeek } from "@/lib/rotation";
 import { addMonthsIso } from "@/lib/habilitations";
+import { quartParDefaut, quartOuDefaut, memeQuart } from "@/lib/quarts";
 
 type PosteRow = {
   id: string;
@@ -33,7 +34,7 @@ type PosteRow = {
 };
 type LigneRow = { id: string; nom: string; ordre_affichage: number; atelier: { id: string; nom: string } | null; poste: PosteRow[] };
 type Equipe = { id: string; nom: string; couleur: string; quart_fixe: string | null };
-type Quart = { code: string; libelle: string };
+type Quart = { code: string; libelle: string; ordre: number };
 type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null };
 type Placement = {
   personne_id: string;
@@ -96,7 +97,7 @@ export default async function PlanningPage({
       .eq("actif", true)
       .order("libelle")
       .returns<Motif[]>(),
-    supabase.from("quart").select("code, libelle").order("ordre").returns<Quart[]>(),
+    supabase.from("quart").select("code, libelle, ordre").order("ordre").returns<Quart[]>(),
     supabase.from("personne").select("id, nom, prenom, equipe_id").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
     canEditPlanningFull
       ? Promise.resolve({ data: [] as { equipe_id: string }[] })
@@ -121,7 +122,7 @@ export default async function PlanningPage({
       quart = rotWeek[equipe];
     }
   }
-  if (!quart) quart = quartCodes.includes("matin") ? "matin" : quartCodes[0] ?? "matin";
+  if (!quart) quart = quartParDefaut(quarts);
 
   // Équipe par défaut de chaque quart cette semaine (rotation + quart fixe) : sert
   // à auto-sélectionner l'équipe quand on clique un quart (forçage possible ensuite).
@@ -273,8 +274,11 @@ export default async function PlanningPage({
   const displayedSet = new Set(displayed.map((p) => p.id));
 
   // Une affectation sur poste n'apparait que pour le quart courant ; une absence/NT
-  // vaut pour tous les quarts. matchQuart gere les anciens placements (quart null -> matin).
-  const matchQuart = (qc: string | null) => (qc ? qc === quart : quart === (quartCodes[0] ?? "matin"));
+  // vaut pour tous les quarts. Les placements historiques sans quart passent par le
+  // repli commun (`memeQuart`) : cet ecran utilisait `quartCodes[0]` — « journee » —
+  // la ou le Placement et la TV utilisaient « matin », si bien que les memes lignes
+  // s'affichaient sous deux quarts differents selon l'ecran.
+  const matchQuart = (qc: string | null) => memeQuart(qc, quart, quarts);
 
   const initial: Record<string, string> = {};
   const otherByCell: Record<string, string> = {}; // place sur un autre quart -> code du quart
@@ -322,7 +326,7 @@ export default async function PlanningPage({
       else if (r.motif_absence_id) initial[k] = `m:${r.motif_absence_id}`;
       else if (r.poste_id && matchQuart(r.quart_code)) initial[k] = r.poste_id;
       else if (r.poste_id && displayedSet.has(r.personne_id)) {
-        otherByCell[k] = r.quart_code ?? (quartCodes[0] ?? "matin");
+        otherByCell[k] = quartOuDefaut(r.quart_code, quarts);
         // Poste desactive depuis : absent de posteNomAll -> l'infobulle se limite au quart.
         if (posteNomAll[r.poste_id]) otherPosteByCell[k] = posteNomAll[r.poste_id];
       }

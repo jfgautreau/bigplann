@@ -8,7 +8,7 @@ import { canWriteModule } from "@/lib/permissions";
 // Ops : create-atelier | create-ligne | create-poste | update-atelier |
 //       update-ligne | update-poste | toggle.
 const POSTE_COLS =
-  "id, nom, nom_court, est_conducteur, categorie, effectif_requis, difficulte_formation, niveau_min_requis, ordre_affichage, numero_rotation, actif";
+  "id, nom, nom_court, categorie, effectif_requis, difficulte_formation, niveau_min_requis, ordre_affichage, numero_rotation, actif";
 const CATEGORIES = ["manager", "conducteur", "operateur"];
 
 type Body = Record<string, unknown>;
@@ -22,8 +22,6 @@ function posteValue(key: string, value: unknown) {
       return s(value);
     case "nom_court":
       return s(value).slice(0, 6) || null;
-    case "est_conducteur":
-      return value === true || value === "true";
     case "categorie":
       return CATEGORIES.includes(s(value)) ? s(value) : undefined;
     case "effectif_requis":

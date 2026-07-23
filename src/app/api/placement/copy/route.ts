@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import { canWritePlacementData } from "@/lib/permissions";
+import { getQuartsC } from "@/lib/refdata";
+import { memeQuart } from "@/lib/quarts";
 
 // POST /api/placement/copy { source, cible, quart, mode }
 // Copie les affectations SUR POSTE d'un quart depuis un jour source vers un jour
@@ -27,6 +29,8 @@ export async function POST(req: NextRequest) {
   if (source === cible) return NextResponse.json({ error: "Jours identiques" }, { status: 400 });
 
   const supabase = (await canWritePlacementData(profile.role)) ? getAdminClient() : await getServerClient();
+  // Repli des placements historiques sans `quart_code` (cf. src/lib/quarts.ts).
+  const quarts = await getQuartsC();
 
   // Placements sur poste du quart, jour source.
   // `numero_rotation` fait partie de la copie : la place occupee dans le poste
@@ -56,7 +60,7 @@ export async function POST(req: NextRequest) {
   }
 
   const rows = (src ?? [])
-    .filter((r) => (r.quart_code ?? "matin") === quart)
+    .filter((r) => memeQuart(r.quart_code, quart, quarts))
     .filter((r) => !completer || !dejaSaisi.has(r.personne_id))
     .map((r) => ({
       personne_id: r.personne_id,

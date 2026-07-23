@@ -26,12 +26,11 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `supabase/migrations/` et **demande à l'utilisateur de l'exécuter** dans le SQL Editor.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
-   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0036`.**
-   ⚠️ **`0037_ecritures_atomiques.sql` est écrite mais PAS encore exécutée.** Contrairement
-   aux précédentes, celle-ci n'a **pas de repli** : tant qu'elle n'est pas passée,
-   l'enregistrement d'une **rotation** et la création/modification d'une **absence** échouent
-   avec le message « migration non appliquée ». Échec *propre* — les fonctions n'existant pas,
-   rien n'est exécuté, aucune donnée n'est touchée — mais ces deux fonctions sont indisponibles.
+   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0037`.**
+   ⏳ **`0038_nettoyage_quarts_et_tables_mortes.sql` est écrite mais PAS encore exécutée.**
+   Elle **supprime trois tables** (`equipe_quart_semaine`, `ligne_ouverture`, `jour_equipe`) :
+   irréversible, mais aucune lecture applicative ne les touche plus. Elle normalise aussi les
+   7 placements historiques sans quart. Tant qu'elle n'est pas passée, rien ne casse.
 5. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
 6. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
@@ -136,7 +135,18 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
   (`placement.forcage_*`) mais le **rouge est recalculé à l'affichage**, il s'efface donc
   dès la régularisation.
 - **`poste.categorie`** ∈ manager/conducteur/operateur (source des bilans).
-  `est_conducteur` est **déprécié**.
+  `est_conducteur` est **déprécié et n'est plus lu nulle part** (colonne conservée en base,
+  mais divergente : 9 postes ont `categorie='conducteur'` et `est_conducteur=false`).
+  Un test échoue si une lecture réapparaît.
+- **Quarts : aucun code en dur.** `src/lib/quarts.ts` porte les deux règles qui étaient
+  recopiées partout — le **quart par défaut** d'un écran (`matin` s'il existe, sinon le
+  premier dans l'ordre) et le **repli des placements historiques** sans `quart_code`.
+  ⚠️ Ces deux règles divergeaient : `/planning` utilisait `quartCodes[0]` (= `journee`,
+  ordre 0) là où Placement, TV, copie et `/api/placement/cell` utilisaient `matin` — les
+  mêmes lignes s'affichaient sous deux quarts selon l'écran. La migration 0038 a normalisé
+  les 7 placements concernés. Un test interdit le retour d'un code de quart en dur.
+  Exception documentée : `tp_config` stocke ses demi-journées sous les clés `matin`/`aprem`
+  — vocabulaire distinct, à traiter avec le modèle du temps partiel, pas avec les quarts.
 - **Habilitations** : `competence` (`a_recycler=true`, `duree_validite_mois`, `ordre`,
   `groupe`, `categorie`) × `personne_competence`. ⚠️ `date_expiration` est **stockée au
   moment de la saisie**, pas recalculée en lecture : si la durée de validité change
@@ -266,7 +276,7 @@ prochain gros chantier, pas une optimisation cosmétique.
 - Param. RH (ex-« Motifs d'absence », clé de droit toujours `motifs`, route toujours
   `/admin/motifs`) : `src/app/admin/motifs/{page,actions}.ts(x)` — motifs d'absence **et**
   agences d'intérim, ces dernières servant le menu déroulant Agence de `PeriodesEditor`.
-- Migrations : `supabase/migrations/0001..0037`.
+- Migrations : `supabase/migrations/0001..0038`.
 - **Écritures : lire l'erreur, toujours.** `messageErreur()` (`src/lib/erreurs.ts`) traduit
   les codes Postgres ; les server actions repassent le message par l'URL
   (`urlAvecErreur` → `?err=`) et la page l'affiche via `<BandeauErreur>`. Un test

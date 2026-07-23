@@ -7,7 +7,6 @@ type Poste = {
   id: string;
   nom: string;
   nom_court: string | null;
-  est_conducteur: boolean;
   categorie: string;
   effectif_requis: number;
   difficulte_formation: number | null;
