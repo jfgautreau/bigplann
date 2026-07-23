@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { libellePeriode, etatDepart, type PeriodeAbsence } from "@/lib/absences-periodes";
+import DateRangePicker from "@/components/DateRangePicker";
 
 type Motif = { id: string; code_court: string; libelle: string; couleur: string };
 
@@ -146,25 +147,20 @@ export default function AbsencesModal({
               </button>
             ) : (
               <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10 }}>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-                  <label style={{ fontSize: 12, fontWeight: 600 }}>
-                    Motif
-                    <select value={motifId} onChange={(e) => setMotifId(e.target.value)} style={{ display: "block", minWidth: 170 }}>
-                      <option value="">—</option>
-                      {motifs.map((m) => (
-                        <option key={m.id} value={m.id}>{m.libelle}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label style={{ fontSize: 12, fontWeight: 600 }}>
-                    Du
-                    <input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} style={{ display: "block" }} />
-                  </label>
-                  <label style={{ fontSize: 12, fontWeight: 600 }}>
-                    Au
-                    <input type="date" value={fin} onChange={(e) => setFin(e.target.value)} style={{ display: "block" }} />
-                  </label>
-                </div>
+                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 8 }}>
+                  Motif
+                  <select value={motifId} onChange={(e) => setMotifId(e.target.value)} style={{ display: "block", minWidth: 170 }}>
+                    <option value="">—</option>
+                    {motifs.map((m) => (
+                      <option key={m.id} value={m.id}>{m.libelle}</option>
+                    ))}
+                  </select>
+                </label>
+                {/* Sélection de la période en deux clics (début puis fin). */}
+                <DateRangePicker
+                  value={{ debut: debut || null, fin: fin || null }}
+                  onChange={(p) => { setDebut(p.debut ?? ""); setFin(p.fin ?? ""); }}
+                />
                 <input
                   value={commentaire}
                   onChange={(e) => setCommentaire(e.target.value)}

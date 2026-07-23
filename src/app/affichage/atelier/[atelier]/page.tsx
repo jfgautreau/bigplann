@@ -3,6 +3,7 @@ import { getAdminClient } from "@/lib/supabase-server";
 import { fetchAll } from "@/lib/fetch-all";
 import { getQuartsC } from "@/lib/refdata";
 import { quartOuDefaut } from "@/lib/quarts";
+import { INTERIM_BG } from "@/lib/interim";
 import { isoDate, joursAutour, parseJour } from "@/lib/week";
 import AutoRefresh from "@/components/AutoRefresh";
 import AffichageBarre from "./AffichageBarre";
@@ -258,8 +259,11 @@ export default async function AffichageAtelier({
   // Commentaire de l'horaire specifique (saisi dans le planning), affiche sous l'horaire.
   const commentTxt = (personId: string, iso: string) => (excMap.get(`${personId}:${iso}`)?.motif || "").trim();
 
-  const FLUO = "#fde047"; // jaune fluo pour le jour
-  const colBg = (iso: string) => (iso === todayIso ? FLUO : undefined);
+  // Le jour courant passe du jaune au VERT : le jaune est désormais réservé aux
+  // intérimaires, sur tous les écrans (cf. src/lib/interim.ts). Le vert, libéré
+  // par l'intérim, sert donc à marquer « aujourd'hui ».
+  const AUJOURDHUI = "#86efac"; // vert 300, franc sur le fond blanc de la TV
+  const colBg = (iso: string) => (iso === todayIso ? AUJOURDHUI : undefined);
   const cellBorder = "1px solid #d9dce1";
 
   // Cellule vue "par nom" : sur quel poste cette personne est placee ce jour-la (poste + horaire dessous).
@@ -342,7 +346,7 @@ export default async function AffichageAtelier({
               return (
                 <tr key={p.id}>
                   <td style={{ border: cellBorder, padding: "5px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>
-                    <span style={{ background: interim ? "#bbf7d0" : undefined, padding: interim ? "0 4px" : 0, borderRadius: 3 }}>
+                    <span style={{ background: interim ? INTERIM_BG : undefined, padding: interim ? "0 4px" : 0, borderRadius: 3 }}>
                       {p.nom} {p.prenom}
                     </span>
                   </td>
@@ -365,8 +369,8 @@ export default async function AffichageAtelier({
       )}
 
       <div style={{ marginTop: 14, fontSize: 14, color: "#6b7280" }}>
-        Légende : <span style={{ background: "#bbf7d0", padding: "0 6px" }}>Intérimaire</span>{" "}
-        · <span style={{ background: FLUO, padding: "0 6px" }}>Aujourd&apos;hui</span> · horaires en bleu ·{" "}
+        Légende : <span style={{ background: INTERIM_BG, padding: "0 6px" }}>Intérimaire</span>{" "}
+        · <span style={{ background: AUJOURDHUI, padding: "0 6px" }}>Aujourd&apos;hui</span> · horaires en bleu ·{" "}
         <span style={{ color: "#b91c1c" }}>Absence</span>{" "}
         · mise à jour auto toutes les 5 min.
       </div>

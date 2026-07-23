@@ -29,7 +29,7 @@ export default async function HabilitationsPage({
 
   const supabase = await getServerClient();
   // Personnes filtrees par atelier / equipe, comme la Matrice de polyvalence.
-  let persQ = supabase.from("personne").select("id, nom, prenom").eq("statut", "ACTIF").order("nom");
+  let persQ = supabase.from("personne").select("id, nom, prenom, type_contrat").eq("statut", "ACTIF").order("nom");
   if (sp.equipe) persQ = persQ.eq("equipe_id", sp.equipe);
   if (sp.atelier) persQ = persQ.eq("atelier_id", sp.atelier);
 

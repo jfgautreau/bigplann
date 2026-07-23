@@ -91,8 +91,11 @@ export async function POST(req: NextRequest) {
       const prenom = normalisePrenom(s(body.prenom));
       if (!nom || !prenom) return NextResponse.json({ error: "Nom et prénom requis" }, { status: 400 });
       const type_contrat = CONTRATS.includes(s(body.type_contrat)) ? s(body.type_contrat) : "CDI";
-      let matricule = orNull(s(body.matricule));
-      if (!matricule && type_contrat === "INTERIM") matricule = `INT-${Date.now().toString(36).toUpperCase()}`;
+      // Matricule laisse VIDE si non saisi (y compris pour un interimaire) : la
+      // generation automatique d'un « INT-… » produisait un identifiant factice
+      // qui polluait la recherche et l'export. `personne.matricule` est nullable
+      // (contrainte unique partielle : plusieurs NULL autorises).
+      const matricule = orNull(s(body.matricule));
 
       // ⚠️ Cette creation enchainait CINQ requetes : un insert, puis trois
       // updates successifs (atelier, sexe, badge+livret) entoures de gardes

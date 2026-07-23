@@ -35,7 +35,7 @@ type PosteRow = {
 type LigneRow = { id: string; nom: string; ordre_affichage: number; atelier: { id: string; nom: string } | null; poste: PosteRow[] };
 type Equipe = { id: string; nom: string; couleur: string; quart_fixe: string | null };
 type Quart = { code: string; libelle: string; ordre: number };
-type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null };
+type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; type_contrat: string };
 type Placement = {
   personne_id: string;
   jour: string;
@@ -98,7 +98,7 @@ export default async function PlanningPage({
       .order("libelle")
       .returns<Motif[]>(),
     supabase.from("quart").select("code, libelle, ordre").order("ordre").returns<Quart[]>(),
-    supabase.from("personne").select("id, nom, prenom, equipe_id").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
+    supabase.from("personne").select("id, nom, prenom, equipe_id, type_contrat").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
     canEditPlanningFull
       ? Promise.resolve({ data: [] as { equipe_id: string }[] })
       : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
@@ -383,6 +383,7 @@ export default async function PlanningPage({
     id: p.id,
     label: `${p.nom} ${p.prenom}`,
     equipe_id: p.equipe_id,
+    interim: p.type_contrat === "INTERIM",
     color: p.equipe_id ? equipeColor[p.equipe_id] : undefined,
     editable: canEditPlanningFull || (p.equipe_id != null && chefEquipes.has(p.equipe_id)),
   }));

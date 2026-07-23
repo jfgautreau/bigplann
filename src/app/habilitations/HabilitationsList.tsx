@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { joursRestants, habStatut, addMonthsIso, fmtDateFr, HAB_COLOR, type HabStatut } from "@/lib/habilitations";
 import { usePersonGrid } from "@/components/usePersonGrid";
+import { INTERIM_BG } from "@/lib/interim";
 import g from "@/components/persongrid.module.css";
 import HabMark from "./HabMark";
 import HabLegendeModal from "./HabLegendeModal";
@@ -23,7 +24,7 @@ type Row = {
   personne: { nom: string; prenom: string } | null;
   competence: { nom: string; a_recycler: boolean; a_autorisation_conduite: boolean } | null;
 };
-type Personne = { id: string; nom: string; prenom: string };
+type Personne = { id: string; nom: string; prenom: string; type_contrat?: string };
 type Comp = { id: string; nom: string; duree_validite_mois: number | null; categorie: string | null; groupe: string | null; ordre: number; a_autorisation_conduite: boolean };
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -412,7 +413,7 @@ export default function HabilitationsList({
                   {shownPersonnes.map((p) => (
                     <tr key={p.id}>
                       <td className={g.nameCell}>
-                        {p.nom} {p.prenom}
+                        <span style={p.type_contrat === "INTERIM" ? { background: INTERIM_BG, borderRadius: 3, padding: "0 4px" } : undefined}>{p.nom} {p.prenom}</span>
                       </td>
                       {shownOrdered.map((c) => {
                         const { statut, title } = cellOf(p.id, c);

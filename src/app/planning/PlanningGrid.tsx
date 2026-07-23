@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { dowMon } from "@/lib/week";
 import { habValable } from "@/lib/habilitations";
+import { INTERIM_BG } from "@/lib/interim";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
 type WeekBlock = { num: number; span: number; year: number; isCurrent: boolean };
@@ -29,7 +30,7 @@ class HabManquanteError extends Error {
   }
 }
 type Motif = { id: string; code: string; couleur: string };
-type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean; color?: string };
+type Personne = { id: string; label: string; equipe_id: string | null; editable: boolean; color?: string; interim?: boolean };
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
@@ -714,7 +715,7 @@ export default function PlanningGrid({
                     verticalAlign: "middle",
                   }}
                 />
-                {pers.label}
+                <span style={pers.interim ? { background: INTERIM_BG, borderRadius: 3, padding: "0 4px" } : undefined}>{pers.label}</span>
                 {!pers.editable && <span className="muted"> (lecture)</span>}
               </td>
               {days.map((d, i) => {

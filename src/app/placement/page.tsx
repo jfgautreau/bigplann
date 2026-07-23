@@ -13,7 +13,7 @@ import PlacementBoard from "./PlacementBoard";
 type Atelier = { id: string; nom: string };
 type Equipe = { id: string; nom: string; couleur: string | null; quart_fixe?: string | null };
 type Quart = { code: string; libelle: string; ordre: number };
-type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null };
+type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null; type_contrat: string };
 type PosteRow = { id: string; nom: string; nom_court: string | null; actif: boolean; effectif_requis: number; niveau_min_requis: number; ordre_affichage: number; numero_rotation: string | null };
 type LigneRow = { id: string; nom: string; ordre_affichage: number; atelier_id: string; poste: PosteRow[] };
 type Placement = { personne_id: string; poste_id: string | null; motif_absence_id: string | null; non_travaille: boolean; quart_code: string | null; numero_rotation: string | null };
@@ -40,7 +40,7 @@ export default async function PlacementPage({
     supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
     supabase.from("equipe").select("id, nom, couleur, quart_fixe").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase.from("quart").select("code, libelle, ordre").order("ordre").returns<Quart[]>(),
-    supabase.from("personne").select("id, nom, prenom, equipe_id, atelier_id").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
+    supabase.from("personne").select("id, nom, prenom, equipe_id, atelier_id, type_contrat").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
     supabase.from("motif_absence").select("id, code_court, libelle, couleur").eq("actif", true).order("libelle").returns<Motif[]>(),
   ]);
 
@@ -204,6 +204,7 @@ export default async function PlacementPage({
     prenom: p.prenom,
     equipe_id: p.equipe_id,
     atelier_id: p.atelier_id,
+    type_contrat: p.type_contrat,
     couleur: equipes.find((e) => e.id === p.equipe_id)?.couleur ?? null,
     editable: fullWrite || (p.equipe_id ? chefTeams.has(p.equipe_id) : false),
   }));

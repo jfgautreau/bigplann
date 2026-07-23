@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useRef, useState } from "react";
 import { LevelMark, FILL, RESTRICT } from "./Pie";
 import { usePersonGrid } from "@/components/usePersonGrid";
+import { INTERIM_BG } from "@/lib/interim";
 import g from "@/components/persongrid.module.css";
 import s from "./matrice.module.css";
 
@@ -13,7 +14,7 @@ const norm = (s2: string) => s2.normalize("NFD").replace(/[̀-ͯ]/g, "").toLower
 
 type Poste = { id: string; nom: string; objectifActuel?: number; objectifCible?: number };
 type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
-type Personne = { id: string; label: string; editable: boolean };
+type Personne = { id: string; label: string; editable: boolean; interim?: boolean };
 type Cell = { a: number; c: number };
 // Agregat par poste, calcule en une seule passe sur toutes les personnes.
 type Stat = { lvl: number[]; restrict: number; geA: number; geC: number };
@@ -302,7 +303,7 @@ export default function MatrixGrid({
             {shown.map((pers) => (
               <tr key={pers.id}>
                 <td className={g.nameCell}>
-                  {pers.label}
+                  <span style={pers.interim ? { background: INTERIM_BG, borderRadius: 3, padding: "0 4px" } : undefined}>{pers.label}</span>
                   {!pers.editable && <span className="muted"> (lecture)</span>}
                 </td>
                 {allPostes.map((po) => {

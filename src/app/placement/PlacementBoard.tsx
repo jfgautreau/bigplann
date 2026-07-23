@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { isoDate, addDays } from "@/lib/week";
 import { habValable, habManqueTxt } from "@/lib/habilitations";
 import { parseNumeros } from "@/lib/numeros-rotation";
+import { styleInterim, estInterim } from "@/lib/interim";
 import SlideSwitch from "@/components/SlideSwitch";
 import s from "./placement.module.css";
 
@@ -13,7 +14,7 @@ type Equipe = { id: string; nom: string; couleur: string | null };
 type Quart = { code: string; libelle: string };
 type Poste = { id: string; nom: string; nomCourt: string | null; effectifRequis: number; niveauMin: number; numeroRotation: string | null };
 type Group = { ligneId: string; ligneNom: string; postes: Poste[] };
-type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null; couleur: string | null; editable: boolean };
+type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null; type_contrat: string; couleur: string | null; editable: boolean };
 type Motif = { id: string; code: string; libelle: string; couleur: string };
 
 // Pseudo-atelier de la vue Absences (valeur du parametre ?atelier=).
@@ -181,7 +182,7 @@ export default function PlacementBoard({
         title={raisons.length ? `${p.nom} ${p.prenom}\n⚠ ${raisons.join("\n⚠ ")}` : `${p.nom} ${p.prenom}`}
       >
         <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
-        {label(p)}
+        <span style={{ ...styleInterim(p.type_contrat), padding: estInterim(p.type_contrat) ? "0 3px" : 0 }}>{label(p)}</span>
       </span>
     );
   };
@@ -627,7 +628,7 @@ export default function PlacementBoard({
                         title={`${p.nom} ${p.prenom}`}
                       >
                         <span className={s.dot} style={{ background: p.couleur ?? "#e5e7eb" }} />
-                        <span className={s.absNom}>{p.nom} {p.prenom}</span>
+                        <span className={s.absNom} style={{ ...styleInterim(p.type_contrat), padding: estInterim(p.type_contrat) ? "0 4px" : 0 }}>{p.nom} {p.prenom}</span>
                       </div>
                     ))}
                   </div>
