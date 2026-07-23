@@ -3,7 +3,7 @@ import { getAdminClient } from "@/lib/supabase-server";
 import { fetchAll } from "@/lib/fetch-all";
 import { getQuartsC } from "@/lib/refdata";
 import { quartOuDefaut } from "@/lib/quarts";
-import { isoDate, mondayOf, parseMonday, weekDays } from "@/lib/week";
+import { isoDate, joursAutour, parseJour } from "@/lib/week";
 import AutoRefresh from "@/components/AutoRefresh";
 import AffichageBarre from "./AffichageBarre";
 
@@ -36,8 +36,10 @@ export default async function AffichageAtelier({
 }) {
   const { atelier: param } = await params;
   const sp = await searchParams;
-  const ref = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? parseMonday(sp.date) : mondayOf();
-  const days = weekDays(ref);
+  // Fenetre glissante J-1 -> J+4 (6 jours), et non plus la semaine calendaire :
+  // un ecran de couloir sert a savoir ce qui vient, pas a relire le lundi passe.
+  // `?date` deplace le pivot (sans recalage sur le lundi).
+  const days = joursAutour(parseJour(sp.date), 1, 4);
   const isos = days.map((d) => d.iso);
   const todayIso = isoDate(new Date());
 
@@ -92,6 +94,7 @@ export default async function AffichageAtelier({
   const persons = new Map<string, Personne>(); // personne_id -> infos
   const byPerson = new Map<string, PlacementRow[]>(); // `${personne_id}:${iso}`
   const workedDays = new Set<string>(); // jours (iso) ou au moins une personne travaille
+  const openDays = new Set<string>();   // jours (iso) ouverts par l Ordonnancement
 
   if (posteIds.length) {
     // Trois de ces lectures couvrent une SEMAINE ENTIERE, tous quarts confondus,
@@ -101,9 +104,9 @@ export default async function AffichageAtelier({
     // trie sur leur cle composite. Ecran non surveille : une troncature y
     // afficherait des horaires faux ou des postes manquants sans que personne
     // ne s'en apercoive.
-    //   - placement       : 7 jours x personnes placees dans l'atelier
+    //   - placement       : 6 jours x personnes placees dans l atelier
     //   - horaire_poste   : postes de l'atelier x 4 quarts x 7 jours
-    //   - ouverture_quart : 7 jours x 4 quarts x lignes (NON filtre par atelier)
+    //   - ouverture_quart : 6 jours x 4 quarts x lignes (NON filtre par atelier)
     // `jour_quart` (28 lignes au plus) et `horaire_exception` restent directs.
     const [pl, hor, { data: jq }, ov, { data: exc }, { data: tpH }] = await Promise.all([
       fetchAll<PlacementRow>(() =>
@@ -161,6 +164,20 @@ export default async function AffichageAtelier({
       const k = `${quart}:${ligneId}:${iso}`;
       return ouvMap.has(k) ? ouvMap.get(k)! : true;
     };
+
+    // Jours OUVERTS au sens de l'Ordonnancement : au moins une ligne de cet
+    // atelier ouverte sur au moins un quart. C'est desormais ce qui decide des
+    // colonnes affichees — auparavant on ne gardait que les jours ou quelqu'un
+    // etait deja PLACE, si bien qu'une journee ouverte mais pas encore remplie
+    // disparaissait de l'ecran, au lieu d'apparaitre vide et d'appeler la saisie.
+    for (const iso of isos) {
+      for (const q of quarts) {
+        if (lignes.some((l) => isOpen(l.id, q.code, iso))) {
+          openDays.add(iso);
+          break;
+        }
+      }
+    }
 
     for (const r of pl) {
       if (!r.poste_id) continue;
@@ -274,8 +291,9 @@ export default async function AffichageAtelier({
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (a.nom + a.prenom).localeCompare(b.nom + b.prenom));
 
-  // On n'affiche que les jours ou au moins une personne travaille (week-end ferme masque).
-  const shownDays = days.filter((d) => workedDays.has(d.iso));
+  // Colonnes affichees : les jours OUVERTS par l Ordonnancement, meme si aucune
+  // affectation n y figure encore. Une journee ouverte et vide doit se voir.
+  const shownDays = days.filter((d) => openDays.has(d.iso));
   const noWork = shownDays.length === 0;
 
   return (
@@ -292,7 +310,8 @@ export default async function AffichageAtelier({
 
       {noWork ? (
         <p className="muted" style={{ fontSize: 18, padding: 20 }}>
-          Personne ne travaille cette semaine dans cet atelier.
+          Aucun jour ouvert dans cet atelier sur la période affichée (J-1 à J+4).
+          Vérifiez l’ouverture des lignes dans Ordonnancement.
         </p>
       ) : (
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 16, tableLayout: "fixed" }}>
@@ -338,7 +357,7 @@ export default async function AffichageAtelier({
 
           {personList.length === 0 && (
             <tr>
-              <td colSpan={shownDays.length + 1} className="muted" style={{ padding: 10 }}>Personne de placé cette semaine.</td>
+              <td colSpan={shownDays.length + 1} className="muted" style={{ padding: 10 }}>Aucune affectation sur la période affichée.</td>
             </tr>
           )}
         </tbody>

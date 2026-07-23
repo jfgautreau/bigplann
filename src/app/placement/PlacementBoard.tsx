@@ -44,7 +44,7 @@ export default function PlacementBoard({
   autreQuart: autreQuartInit,
   matrice,
   motifs,
-  defaultEquipeId = "",
+  equipesParQuart = {},
   habPoste = {},
   habComp = {},
   habPers = {},
@@ -66,7 +66,8 @@ export default function PlacementBoard({
   autreQuart: Record<string, string>;
   matrice: Record<string, number>;
   motifs: Motif[];
-  defaultEquipeId?: string;
+  // Équipes travaillant chaque quart ce jour-là (quart fixe + rotation datée).
+  equipesParQuart?: Record<string, string[]>;
   habPoste?: Record<string, string[]>; // poste -> habilitations exigees
   habComp?: Record<string, string>; // habilitation -> nom
   habPers?: Record<string, string>; // `${personne}:${habilitation}` -> echeance ("" = sans echeance)
@@ -82,8 +83,13 @@ export default function PlacementBoard({
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [msg, setMsg] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  // Pre-filtre : par defaut l'equipe qui tourne ce quart ce jour (elargissable).
-  const [fEquipe, setFEquipe] = useState(defaultEquipeId);
+  // Pre-filtre des noms. Deux formes de valeur :
+  //   ""            -> tout le monde
+  //   "q:<code>"    -> les equipes qui travaillent ce quart ce jour (fixe + rotation)
+  //   "<equipe_id>" -> une equipe precise
+  // Par defaut : le quart affiche, donc « Fixe matin + A » plutot qu'une seule
+  // des deux equipes comme auparavant.
+  const [fEquipe, setFEquipe] = useState(`q:${quart}`);
   // Pre-filtre atelier : celui du plan affiche (elargissable pour aller chercher un renfort).
   const [fAtelier, setFAtelier] = useState(atelierId);
   const [hidePlaced, setHidePlaced] = useState(false);
@@ -424,7 +430,21 @@ export default function PlacementBoard({
     const v = place[persId];
     return v === "X" || (!!v && v.startsWith("m:"));
   };
-  const inScope = (p: Personne) => (!fEquipe || p.equipe_id === fEquipe) && (!fAtelier || p.atelier_id === fAtelier);
+  // Une personne SANS ÉQUIPE est toujours retenue : intérimaires, renforts et
+  // nouveaux arrivants n'ont pas de rattachement, et les filtrer par équipe les
+  // faisait disparaître de l'écran alors qu'ils sont précisément ceux qu'on
+  // cherche à placer.
+  const equipeOk = (p: Personne) => {
+    if (!p.equipe_id) return true;
+    if (!fEquipe) return true;
+    if (fEquipe.startsWith("q:")) return (equipesParQuart[fEquipe.slice(2)] ?? []).includes(p.equipe_id);
+    return p.equipe_id === fEquipe;
+  };
+
+  // Même règle que la liste : sans équipe = toujours dans le périmètre, filtre
+  // atelier compris (un intérimaire n'est souvent rattaché à aucun des deux).
+  const inScope = (p: Personne) =>
+    !p.equipe_id || (equipeOk(p) && (!fAtelier || p.atelier_id === fAtelier));
 
   // Liste des noms filtree + regroupee : a placer -> absents -> sur poste -> autre quart.
   // Une recherche cherche dans TOUT l'effectif : les pre-filtres equipe/atelier ne sont
@@ -435,8 +455,8 @@ export default function PlacementBoard({
       if (q) {
         if (!norm(`${p.nom} ${p.prenom}`).includes(q)) return false;
       } else {
-        if (fEquipe && p.equipe_id !== fEquipe) return false;
-        if (fAtelier && p.atelier_id !== fAtelier) return false;
+        if (!equipeOk(p)) return false;
+        if (p.equipe_id && fAtelier && p.atelier_id !== fAtelier) return false;
       }
       if (hidePlaced && (place[p.id] || autreQuart[p.id])) return false;
       return true;
@@ -721,11 +741,29 @@ export default function PlacementBoard({
             </span>
             {/* Pendant une recherche les filtres sont ignores : on grise pour le dire. */}
             <div className={s.namesFilters} style={searching ? { opacity: 0.45 } : undefined} title={searching ? "Ignorés pendant une recherche" : undefined}>
-              <select value={fEquipe} onChange={(e) => setFEquipe(e.target.value)}>
+              <select
+                value={fEquipe}
+                onChange={(e) => setFEquipe(e.target.value)}
+                title="Les personnes sans équipe restent toujours affichées."
+              >
                 <option value="">Toutes équipes</option>
-                {equipes.map((e) => (
-                  <option key={e.id} value={e.id}>{e.nom}</option>
-                ))}
+                <optgroup label="Par quart (rotation du jour)">
+                  {quarts.map((qq) => {
+                    const ids = equipesParQuart[qq.code] ?? [];
+                    const noms = ids.map((id) => equipes.find((e) => e.id === id)?.nom).filter(Boolean);
+                    return (
+                      <option key={qq.code} value={`q:${qq.code}`}>
+                        {qq.libelle}
+                        {noms.length ? ` — ${noms.join(" + ")}` : " — aucune équipe"}
+                      </option>
+                    );
+                  })}
+                </optgroup>
+                <optgroup label="Une équipe précise">
+                  {equipes.map((e) => (
+                    <option key={e.id} value={e.id}>{e.nom}</option>
+                  ))}
+                </optgroup>
               </select>
               <select value={fAtelier} onChange={(e) => setFAtelier(e.target.value)}>
                 <option value="">Tous ateliers</option>

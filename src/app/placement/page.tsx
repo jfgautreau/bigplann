@@ -211,12 +211,23 @@ export default async function PlacementPage({
   const quartLib: Record<string, string> = {};
   for (const q of quarts) quartLib[q.code] = q.libelle;
 
-  // Equipe qui tourne ce quart ce jour (rotation datee + quart fixe) -> pre-filtre.
+  // Équipes qui travaillent chaque quart ce jour-là : celles dont le quart est
+  // FIXE, plus celle que la rotation datée y place cette semaine (A ou B).
+  // Le filtre du panneau des noms s'appuie dessus — choisir « Matin » doit
+  // remonter « Fixe matin » ET l'équipe qui tourne au matin, pas une seule des
+  // deux comme le faisait l'ancien pré-filtre.
   const rotWeek = rotationForWeek(await getRotationRefsC(), isoDate(mondayOf(new Date(jour + "T00:00"))));
-  const quartToEquipe: Record<string, string> = {};
-  for (const [eqId, qc] of Object.entries(rotWeek)) if (!(qc in quartToEquipe)) quartToEquipe[qc] = eqId;
-  for (const e of equipes) if (e.quart_fixe && !(e.quart_fixe in quartToEquipe)) quartToEquipe[e.quart_fixe] = e.id;
-  const defaultEquipeId = quartToEquipe[quart] ?? "";
+  const equipesParQuart: Record<string, string[]> = {};
+  const ajoute = (qc: string, id: string) => {
+    if (!qc) return;
+    (equipesParQuart[qc] ??= []).push(id);
+  };
+  for (const e of equipes) if (e.quart_fixe) ajoute(e.quart_fixe, e.id);
+  // La rotation ne concerne que les équipes tournantes : une équipe à quart fixe
+  // qui y figurerait quand même ne doit pas être comptée deux fois.
+  for (const [eqId, qc] of Object.entries(rotWeek)) {
+    if (!equipesParQuart[qc]?.includes(eqId)) ajoute(qc, eqId);
+  }
 
   return (
     <div className="pagecol">
@@ -239,7 +250,7 @@ export default async function PlacementPage({
         autreQuart={autreQuart}
         matrice={matrice}
         motifs={motifs.map((m) => ({ id: m.id, code: m.code_court, libelle: m.libelle, couleur: m.couleur }))}
-        defaultEquipeId={defaultEquipeId}
+        equipesParQuart={equipesParQuart}
         habPoste={habPoste}
         habComp={habComp}
         habPers={habPers}

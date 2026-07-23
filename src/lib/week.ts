@@ -40,6 +40,34 @@ export function weekDays(monday: Date): Jour[] {
   });
 }
 
+// Fenetre glissante autour d'un jour pivot : `avant` jours en arriere,
+// `apres` en avant, pivot compris. Sert l'ecran TV, qui affiche J-1 a J+4 —
+// une semaine calendaire y perdait la fin de semaine des le lundi, et gardait
+// des jours passes sans interet jusqu'au dimanche.
+export function joursAutour(pivot: Date, avant: number, apres: number): Jour[] {
+  const debut = new Date(pivot.getFullYear(), pivot.getMonth(), pivot.getDate());
+  debut.setDate(debut.getDate() - avant);
+  return Array.from({ length: avant + apres + 1 }, (_, i) => {
+    const d = new Date(debut);
+    d.setDate(debut.getDate() + i);
+    return {
+      iso: isoDate(d),
+      nom: JOURS[(d.getDay() + 6) % 7],
+      num: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
+    };
+  });
+}
+
+// Parse 'YYYY-MM-DD' en Date locale, sans recalage sur le lundi (ou aujourd'hui).
+export function parseJour(s?: string): Date {
+  if (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+}
+
 export function addDays(d: Date, n: number): Date {
   const x = new Date(d);
   x.setDate(x.getDate() + n);

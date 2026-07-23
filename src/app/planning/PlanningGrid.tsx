@@ -97,9 +97,13 @@ export default function PlanningGrid({
   // Horaires specifiques (exceptions) : etat local + popover d'edition par case.
   // Affichage du bilan : persiste dans localStorage car la grille est remontee
   // (prop `key`) a chaque changement de filtre -> sinon l'etat serait reinitialise.
-  const [showInd, setShowInd] = useState(true); // afficher la zone Bilan & alertes
+  // Le bilan est REPLIE au chargement : c'est une synthese que l'on consulte au
+  // besoin, pas la raison d'ouvrir le planning — deplie, il mange la hauteur utile
+  // de la grille. Qui le deplie le retrouve deplie (localStorage), mais un nouvel
+  // arrivant part replie.
+  const [showInd, setShowInd] = useState(false);
   useEffect(() => {
-    if (typeof window !== "undefined" && window.localStorage.getItem("planning.showBilan") === "0") setShowInd(false);
+    if (typeof window !== "undefined" && window.localStorage.getItem("planning.showBilan") === "1") setShowInd(true);
   }, []);
   const toggleInd = () =>
     setShowInd((s) => {
