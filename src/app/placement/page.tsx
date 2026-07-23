@@ -86,6 +86,11 @@ export default async function PlacementPage({
   // Memes regles que le Planning (cf. src/app/planning/page.tsx) : un quart sans
   // ligne dans `jour_quart` est FERME (rien n'est ouvert tant que la semaine n'a pas
   // ete initialisee) ; une ligne sans ligne dans `ouverture_quart` est ouverte.
+  // Pas de fetchAll ici, contrairement au Planning et a l'affichage TV : la
+  // lecture porte sur UN jour et UN quart, elle est donc bornee au nombre de
+  // lignes de production (une vingtaine). Il faudrait 1000 lignes pour atteindre
+  // le plafond PostgREST. Si cette requete est un jour elargie a une semaine,
+  // il faudra la passer par fetchAll (cf. L8).
   const [{ data: ouvD }, { data: jqD }] = await Promise.all([
     supabase
       .from("ouverture_quart")

@@ -186,14 +186,21 @@ export default async function PlanningPage({
   for (const g of groups)
     lineEffectif[g.ligneId] = g.postes.reduce((s, p) => s + (p.effectif_requis ?? 0), 0);
 
-  // Ouverture par quart selectionne
-  const [{ data: ouv }, { data: jq }] = await Promise.all([
-    supabase
-      .from("ouverture_quart")
-      .select("jour, ligne_id, ouverte")
-      .eq("quart_code", quart)
-      .in("jour", allIsos)
-      .returns<{ jour: string; ligne_id: string; ouverte: boolean }[]>(),
+  // Ouverture par quart selectionne.
+  // `ouverture_quart` passe par fetchAll : 3 semaines x 1 quart x N lignes, soit
+  // ~420 lignes aujourd'hui mais 1000 des ~48 lignes de production (cf. L8 —
+  // PostgREST tronque a 1000 SANS erreur, et le planning afficherait alors des
+  // lignes fermees comme ouvertes). `jour_quart` reste direct : 21 lignes au plus.
+  const [ouv, { data: jq }] = await Promise.all([
+    fetchAll<{ jour: string; ligne_id: string; ouverte: boolean }>(() =>
+      supabase
+        .from("ouverture_quart")
+        .select("jour, ligne_id, ouverte")
+        .eq("quart_code", quart)
+        .in("jour", allIsos)
+        .order("jour").order("ligne_id").order("quart_code")
+        .returns<{ jour: string; ligne_id: string; ouverte: boolean }[]>()
+    ),
     supabase
       .from("jour_quart")
       .select("jour, actif")
@@ -202,7 +209,7 @@ export default async function PlanningPage({
       .returns<{ jour: string; actif: boolean }[]>(),
   ]);
   const ouvMap = new Map<string, boolean>();
-  for (const r of ouv ?? []) ouvMap.set(`${r.jour}:${r.ligne_id}`, r.ouverte);
+  for (const r of ouv) ouvMap.set(`${r.jour}:${r.ligne_id}`, r.ouverte);
   const actMap = new Map<string, boolean>();
   for (const r of jq ?? []) actMap.set(r.jour, r.actif);
 

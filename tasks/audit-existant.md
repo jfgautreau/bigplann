@@ -260,7 +260,17 @@ il doit **refuser** plutôt que tronquer.
 
 ## C. Performance
 
-### C1 — `placement.absence_id` : cascade sans index — **Moyen, croissant**
+> **Mesures relevées le 23/07/2026** (script de lecture seule, base de production),
+> qui corrigent deux estimations de cette section :
+> `placement` **821** lignes · `absence` **0** · `ouverture_quart` **1385** ·
+> `matrice` **2327** · `personne_competence` **1421** · `horaire_poste` **725** ·
+> `personne` **386** · `poste` **90** · `ligne` **31** · 5 ateliers, 4 quarts.
+>
+> Conséquences : **C1 est préventif et non curatif** (la table `absence` est vide,
+> la cascade ne balaye rien aujourd'hui) ; **C2 était incomplet** — l'écran TV,
+> que je n'avais pas listé, est le plus exposé (cf. C2 révisé).
+
+### C1 — `placement.absence_id` : cascade sans index — **Préventif**
 
 **Preuve** : [0023_absence.sql:25](supabase/migrations/0023_absence.sql:25) crée
 `placement.absence_id … on delete cascade`. **Aucun index** ne le couvre (les
@@ -279,24 +289,30 @@ indexées : c'est la suppression d'un motif qui balaye).
 **Correctif** : `create index concurrently placement_absence_idx on placement
 (absence_id);` — quatre index à ajouter, effet immédiat, aucun risque.
 
-### C2 — `ouverture_quart` lu sans `fetchAll()` — **Latent**
+### C2 (révisé après mesure) — 5 lectures exposées à la troncature — **Moyen**
 
-**Preuve** : [planning/page.tsx:190](src/app/planning/page.tsx:190) et
-[placement/page.tsx:91](src/app/placement/page.tsx:91).
+Le plafond est **réel et déjà atteint** : lire `ouverture_quart` sans protection
+renvoie exactement **1000 lignes sur 1385**, `error` à `null`. Vérifié en
+production.
 
-Aujourd'hui sans danger : le planning filtre sur **un** quart et 21 jours, soit
-~420 lignes pour ~20 lignes de production — sous le plafond de 1000. Mais la
-requête n'a **ni `fetchAll()` ni `.order()` déterministe** : le jour où le
-référentiel dépasse ~48 lignes de production, la lecture se met à tronquer
-**silencieusement** (leçon L8) et le planning affiche des lignes fermées comme
-ouvertes.
+| Lecture | Volume mesuré | Seuil de rupture | Verdict |
+|---|---|---|---|
+| **TV — `horaire_poste`** (postes de l'atelier × 4 quarts × 7 j) | **520** (Condi, 37 postes) | ~71 postes dans un atelier | **le plus exposé** — déjà à mi-chemin |
+| Planning — `ouverture_quart` (3 sem. × 1 quart) | 199 | ~48 lignes de production | réel |
+| TV — `ouverture_quart` (7 j × 4 quarts, **non filtré par atelier**) | 175 | ~35 lignes | réel |
+| TV — absences (7 j, **tout le site**, filtré ensuite en mémoire) | 89 | ~1000 absences/sem. | faible |
+| TV — `placement` (postes × 7 j) | 75 | ~1000 placements/sem. | faible |
+| Placement — `ouverture_quart` (**1 jour × 1 quart**) | ~20 | ~1000 lignes de production | **aucun** — non modifié |
 
-C'est le même piège que celui déjà payé sur `matrice`, à un facteur d'échelle
-près. Les bilans, eux, l'utilisent correctement.
+L'écran TV concentre 4 des 5 lectures à risque : il balaie une semaine entière,
+tous quarts confondus, et il n'est **surveillé par personne**. Une troncature y
+afficherait des horaires faux ou des postes manquants en silence.
 
-**Correctif** : passer ces deux lectures par `fetchAll()` avec `.order("jour")
-.order("ligne_id").order("quart_code")`. Coût nul aujourd'hui, assurance pour
-plus tard.
+**Correctif appliqué** (étape 1, 23/07/2026) : `fetchAll()` + `.order()`
+déterministe sur les 5 lectures réellement exposées. `placement/page.tsx` est
+volontairement **laissé tel quel** — borné à un jour et un quart — avec un
+commentaire qui évite de refaire l'analyse. Résultats vérifiés identiques
+avant/après sur les 6 requêtes.
 
 ### C3 — Le plafond de `/matrice` reste entier — **Connu, non traité**
 

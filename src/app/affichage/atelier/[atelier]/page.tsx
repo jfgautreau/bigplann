@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getAdminClient } from "@/lib/supabase-server";
+import { fetchAll } from "@/lib/fetch-all";
 import { isoDate, mondayOf, parseMonday, weekDays } from "@/lib/week";
 import AutoRefresh from "@/components/AutoRefresh";
 import AffichageBarre from "./AffichageBarre";
@@ -88,28 +89,48 @@ export default async function AffichageAtelier({
   const workedDays = new Set<string>(); // jours (iso) ou au moins une personne travaille
 
   if (posteIds.length) {
-    const [{ data: pl }, { data: hor }, { data: jq }, { data: ov }, { data: exc }, { data: tpH }] = await Promise.all([
-      admin
-        .from("placement")
-        .select("poste_id, jour, quart_code, personne_id, personne:personne_id(nom, prenom, type_contrat)")
-        .in("jour", isos)
-        .in("poste_id", posteIds)
-        .returns<PlacementRow[]>(),
-      admin
-        .from("horaire_poste")
-        .select("poste_id, quart_code, jour, debut, fin")
-        .in("poste_id", posteIds)
-        .returns<HoraireRow[]>(),
+    // Trois de ces lectures couvrent une SEMAINE ENTIERE, tous quarts confondus,
+    // et peuvent depasser le plafond de 1000 lignes que PostgREST applique SANS
+    // erreur (cf. L8). Elles passent donc par fetchAll, avec un `.order()`
+    // deterministe — `horaire_poste` et `ouverture_quart` n'ont pas d'`id`, on
+    // trie sur leur cle composite. Ecran non surveille : une troncature y
+    // afficherait des horaires faux ou des postes manquants sans que personne
+    // ne s'en apercoive.
+    //   - placement       : 7 jours x personnes placees dans l'atelier
+    //   - horaire_poste   : postes de l'atelier x 4 quarts x 7 jours
+    //   - ouverture_quart : 7 jours x 4 quarts x lignes (NON filtre par atelier)
+    // `jour_quart` (28 lignes au plus) et `horaire_exception` restent directs.
+    const [pl, hor, { data: jq }, ov, { data: exc }, { data: tpH }] = await Promise.all([
+      fetchAll<PlacementRow>(() =>
+        admin
+          .from("placement")
+          .select("poste_id, jour, quart_code, personne_id, personne:personne_id(nom, prenom, type_contrat)")
+          .in("jour", isos)
+          .in("poste_id", posteIds)
+          .order("id")
+          .returns<PlacementRow[]>()
+      ),
+      fetchAll<HoraireRow>(() =>
+        admin
+          .from("horaire_poste")
+          .select("poste_id, quart_code, jour, debut, fin")
+          .in("poste_id", posteIds)
+          .order("poste_id").order("quart_code").order("jour")
+          .returns<HoraireRow[]>()
+      ),
       admin
         .from("jour_quart")
         .select("jour, quart_code, actif")
         .in("jour", isos)
         .returns<{ jour: string; quart_code: string; actif: boolean }[]>(),
-      admin
-        .from("ouverture_quart")
-        .select("jour, ligne_id, quart_code, ouverte")
-        .in("jour", isos)
-        .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>(),
+      fetchAll<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }>(() =>
+        admin
+          .from("ouverture_quart")
+          .select("jour, ligne_id, quart_code, ouverte")
+          .in("jour", isos)
+          .order("jour").order("ligne_id").order("quart_code")
+          .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>()
+      ),
       admin
         .from("horaire_exception")
         .select("personne_id, jour, debut, fin, motif")
@@ -121,11 +142,11 @@ export default async function AffichageAtelier({
         .eq("temps_partiel", true)
         .returns<{ id: string; tp_config: TpCfg | null }[]>(),
     ]);
-    for (const h of hor ?? []) horMap.set(`${h.poste_id}:${h.quart_code}:${h.jour}`, { debut: h.debut, fin: h.fin });
+    for (const h of hor) horMap.set(`${h.poste_id}:${h.quart_code}:${h.jour}`, { debut: h.debut, fin: h.fin });
     for (const e of exc ?? []) excMap.set(`${e.personne_id}:${e.jour}`, { debut: e.debut, fin: e.fin, motif: e.motif });
     for (const r of tpH ?? []) if (r.tp_config) tpCfgMap.set(r.id, r.tp_config);
     for (const r of jq ?? []) actMap.set(`${r.quart_code}:${r.jour}`, r.actif);
-    for (const r of ov ?? []) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
+    for (const r of ov) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
 
     // Une cellule est affichee seulement si la ligne est ouverte ce jour-la pour ce
     // quart (coherent avec le planning / l'ordonnancement).
@@ -136,7 +157,7 @@ export default async function AffichageAtelier({
       return ouvMap.has(k) ? ouvMap.get(k)! : true;
     };
 
-    for (const r of pl ?? []) {
+    for (const r of pl) {
       if (!r.poste_id) continue;
       const qc = r.quart_code ?? "matin";
       const lid = posteLigne.get(r.poste_id);
@@ -154,13 +175,20 @@ export default async function AffichageAtelier({
   const absByPerson = new Map<string, Set<string>>(); // personne_id -> jours (iso) absents
   {
     type AbsP = { personne_id: string; jour: string; personne: { nom: string; prenom: string; type_contrat: string; atelier_id: string | null } | null };
-    const { data: absPl } = await admin
-      .from("placement")
-      .select("personne_id, jour, personne:personne_id(nom, prenom, type_contrat, atelier_id)")
-      .in("jour", isos)
-      .not("motif_absence_id", "is", null)
-      .returns<AbsP[]>();
-    for (const r of absPl ?? []) {
+    // Lecture de TOUT le site (7 jours x toutes les absences), filtree ensuite
+    // par atelier en memoire : c'est la requete la plus large de la page, et
+    // celle qui atteindra le plafond des 1000 lignes en premier. fetchAll +
+    // `.order("id")` la mettent hors de portee de la troncature silencieuse.
+    const absPl = await fetchAll<AbsP>(() =>
+      admin
+        .from("placement")
+        .select("personne_id, jour, personne:personne_id(nom, prenom, type_contrat, atelier_id)")
+        .in("jour", isos)
+        .not("motif_absence_id", "is", null)
+        .order("id")
+        .returns<AbsP[]>()
+    );
+    for (const r of absPl) {
       const p = r.personne;
       if (!p || p.atelier_id !== atelier.id) continue; // seulement les gens de cet atelier
       (absByPerson.get(r.personne_id) ?? absByPerson.set(r.personne_id, new Set()).get(r.personne_id)!).add(r.jour);
