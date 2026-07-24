@@ -4,7 +4,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import DateRangePicker from "@/components/DateRangePicker";
 import { libellePeriode } from "@/lib/absences-periodes";
-import SaveIcon from "@/components/SaveIcon";
+import { SaveIcon, TrashIcon } from "@/components/icons";
+
+const saveBtn: React.CSSProperties = { width: "auto", margin: 0, padding: "3px 9px", background: "#fff", color: "#2563eb", border: "1px solid var(--border)", borderRadius: 7, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" };
+const trashBtn: React.CSSProperties = { width: "auto", margin: 0, padding: "3px 8px", background: "#fff", color: "#dc2626", border: "1px solid var(--border)", borderRadius: 7, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" };
 
 type Personne = { id: string; nom: string; prenom: string; atelier_id: string | null };
 type Atelier = { id: string; nom: string };
@@ -283,10 +286,10 @@ export default function AbsencesEditor({
             />
           </td>
           <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
-            <button type="button" className="btn-sm" disabled={enCours} onClick={verifierEtEnregistrer} style={{ width: "auto", padding: "2px 8px", display: "inline-flex", alignItems: "center", justifyContent: "center" }} title="Enregistrer">
+            <button type="button" disabled={enCours} onClick={verifierEtEnregistrer} style={saveBtn} title="Enregistrer">
               {enCours ? "…" : <SaveIcon />}
             </button>
-            <button type="button" className="btn-sm btn-ghost" onClick={annulerEdition} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }} title="Annuler">
+            <button type="button" className="btn-sm btn-ghost" onClick={annulerEdition} style={{ width: "auto", padding: "2px 8px", fontSize: 12, marginLeft: 4 }} title="Annuler">
               ✕
             </button>
           </td>
@@ -296,40 +299,40 @@ export default function AbsencesEditor({
             <td colSpan={6} style={{ padding: 0, border: "none" }}>
               <div ref={popRef} style={{ position: "relative", padding: "6px 4px 10px" }}>
                 {ouvertPop === "personne" ? (
-                  <div style={{ maxWidth: 320, border: "1px solid var(--border)", borderRadius: 8, background: "#fff", padding: 6 }}>
+                  <div style={{ maxWidth: 320 }}>
                     <input
                       autoFocus
                       value={rechPers}
                       onChange={(e) => setRechPers(e.target.value)}
-                      placeholder="🔍 rechercher"
-                      style={{ width: "100%", fontSize: 13, padding: "4px 6px", marginBottom: 6 }}
+                      placeholder="🔍 rechercher un nom"
+                      style={{ width: "100%", fontSize: 13, padding: "5px 8px", marginBottom: 6 }}
                     />
-                    <div style={{ maxHeight: 220, overflow: "auto" }}>
+                    <div className="picklist">
                       {persOptions.map((p) => (
                         <button
                           key={p.id}
                           type="button"
+                          className="picklist-item"
                           onClick={() => { setEdit((s) => s ? { ...s, personne_id: p.id } : s); setOuvertPop(null); setRechPers(""); }}
-                          className="btn-sm btn-ghost"
-                          style={{ display: "block", width: "100%", textAlign: "left", padding: "3px 8px", fontSize: 13 }}
                         >
                           {p.nom} {p.prenom}
                         </button>
                       ))}
-                      {persOptions.length === 0 && <p className="muted" style={{ padding: 8, fontSize: 12 }}>Aucun nom.</p>}
+                      {persOptions.length === 0 && <p className="muted" style={{ padding: 8, fontSize: 12, margin: 0 }}>Aucun nom.</p>}
                     </div>
                   </div>
                 ) : ouvertPop === "motif" ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 6, border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }}>
+                  <div className="picklist" style={{ maxWidth: 320 }}>
                     {motifs.map((mo) => (
                       <button
                         key={mo.id}
                         type="button"
+                        className="picklist-item"
                         onClick={() => { setEdit((s) => s ? { ...s, motif_absence_id: mo.id } : s); setOuvertPop(null); }}
-                        className="btn-sm btn-ghost"
-                        style={{ width: "auto", padding: "3px 10px", fontSize: 13, background: mo.couleur, color: "#1f2937", fontWeight: 600, border: "1px solid #cbd5e1" }}
                       >
-                        <strong>{mo.code_court}</strong> · {mo.libelle}
+                        <span style={{ width: 12, height: 12, borderRadius: 3, background: mo.couleur || "#cbd5e1", border: "1px solid #cbd5e1", flex: "0 0 auto" }} />
+                        <strong style={{ minWidth: 44 }}>{mo.code_court}</strong>
+                        <span>{mo.libelle}</span>
                       </button>
                     ))}
                   </div>
@@ -379,7 +382,7 @@ export default function AbsencesEditor({
           </div>
           {(fNom || fAtelier || fDu || fAu) && (
             <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", padding: "6px 12px", marginBottom: 2 }} onClick={() => { setFNom(""); setFAtelier(""); setFDu(""); setFAu(""); }}>
-              Effacer
+              Réinitialiser
             </button>
           )}
           <span className="muted" style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600 }}>
@@ -434,7 +437,7 @@ export default function AbsencesEditor({
                   </td>
                   <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
                     <button type="button" className="btn-sm btn-ghost" onClick={() => commencerEdition(a)} style={{ width: "auto", padding: "2px 6px", fontSize: 14 }} title={a.absence_id ? "Modifier" : "Modifier (re-déclare la période)"}>✏️</button>
-                    <button type="button" className="btn-sm btn-ghost" onClick={() => supprimer(a)} style={{ width: "auto", padding: "2px 6px", fontSize: 14, color: "var(--danger)" }} title="Supprimer">🗑</button>
+                    <button type="button" onClick={() => supprimer(a)} style={{ ...trashBtn, marginLeft: 4 }} title="Supprimer"><TrashIcon /></button>
                   </td>
                 </tr>
               );

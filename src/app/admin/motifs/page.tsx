@@ -12,7 +12,24 @@ import {
 import AjoutModal from "./AjoutModal";
 import BandeauErreur from "@/components/BandeauErreur";
 import FenetreAffichageInline from "./FenetreAffichageInline";
-import SaveIcon from "@/components/SaveIcon";
+import { CheckIcon } from "@/components/icons";
+
+// Bouton d'action inline (valider) : fond transparent, bord gris, icône colorée
+// — même esprit que le crayon ✏️. Le style global `button` force du texte blanc,
+// d'où le `color` explicite (vert pour la validation).
+const valBtn: React.CSSProperties = {
+  width: "auto",
+  margin: 0,
+  padding: "3px 9px",
+  background: "#fff",
+  color: "#16a34a",
+  border: "1px solid var(--border)",
+  borderRadius: 7,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
 
 type Motif = { id: string; libelle: string; code_court: string; couleur: string; actif: boolean };
 type Agence = { id: string; nom: string; actif: boolean };
@@ -98,26 +115,23 @@ export default async function MotifsPage({
             <tbody>
               {motifs.map((m) =>
                 sp.edit === `motif:${m.id}` ? (
-                  <tr key={m.id}>
-                    <td colSpan={5}>
-                      <form action={updateMotif} autoComplete="off" className="inline-form">
-                        <input type="hidden" name="id" value={m.id} />
-                        <div className="field">
-                          <span>Couleur</span>
-                          <input name="couleur" type="color" defaultValue={m.couleur} style={{ width: 48, padding: 2 }} />
-                        </div>
-                        <div className="field">
-                          <span>Libellé</span>
-                          <input name="libelle" defaultValue={m.libelle} autoFocus required />
-                        </div>
-                        <div className="field">
-                          <span>Code</span>
-                          <input name="code_court" defaultValue={m.code_court} maxLength={6} style={{ width: 80 }} required />
-                        </div>
-                        <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><SaveIcon /></button>
-                        <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler">✕</Link>
-                      </form>
+                  // Édition INLINE : les champs se déverrouillent DANS leurs colonnes
+                  // (le `<form>` vide est relié aux inputs par l'attribut `form=`,
+                  // HTML valide et compatible server action). Plus de ligne pleine
+                  // largeur qui cassait l'alignement.
+                  <tr key={m.id} style={{ background: "#fefce8" }}>
+                    <td>
+                      <form id={`ed-motif-${m.id}`} action={updateMotif} autoComplete="off" />
+                      <input form={`ed-motif-${m.id}`} type="hidden" name="id" value={m.id} />
+                      <input form={`ed-motif-${m.id}`} name="couleur" type="color" defaultValue={m.couleur} style={{ width: 40, height: 26, padding: 1 }} />
                     </td>
+                    <td><input form={`ed-motif-${m.id}`} name="libelle" defaultValue={m.libelle} autoFocus required style={{ width: "100%" }} /></td>
+                    <td><input form={`ed-motif-${m.id}`} name="code_court" defaultValue={m.code_court} maxLength={6} required style={{ width: 90 }} /></td>
+                    <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                      <button form={`ed-motif-${m.id}`} type="submit" title="Valider" style={valBtn}><CheckIcon /></button>
+                      <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler" style={{ textDecoration: "none", marginLeft: 4 }}>✕</Link>
+                    </td>
+                    <td style={{ textAlign: "center" }}><ActifCheckbox id={m.id} actif={m.actif} action={toggleMotif} /></td>
                   </tr>
                 ) : (
                   <tr key={m.id} style={{ opacity: m.actif ? 1 : 0.55 }}>
@@ -177,18 +191,17 @@ export default async function MotifsPage({
                 <tbody>
                   {agences.map((a) =>
                     sp.edit === `agence:${a.id}` ? (
-                      <tr key={a.id}>
-                        <td colSpan={3}>
-                          <form action={updateAgence} autoComplete="off" className="inline-form">
-                            <input type="hidden" name="id" value={a.id} />
-                            <div className="field">
-                              <span>Nom</span>
-                              <input name="nom" defaultValue={a.nom} autoFocus required />
-                            </div>
-                            <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><SaveIcon /></button>
-                            <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler">✕</Link>
-                          </form>
+                      <tr key={a.id} style={{ background: "#fefce8" }}>
+                        <td>
+                          <form id={`ed-agence-${a.id}`} action={updateAgence} autoComplete="off" />
+                          <input form={`ed-agence-${a.id}`} type="hidden" name="id" value={a.id} />
+                          <input form={`ed-agence-${a.id}`} name="nom" defaultValue={a.nom} autoFocus required style={{ width: "100%" }} />
                         </td>
+                        <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                          <button form={`ed-agence-${a.id}`} type="submit" title="Valider" style={valBtn}><CheckIcon /></button>
+                          <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler" style={{ textDecoration: "none", marginLeft: 4 }}>✕</Link>
+                        </td>
+                        <td style={{ textAlign: "center" }}><ActifCheckbox id={a.id} actif={a.actif} action={toggleAgence} /></td>
                       </tr>
                     ) : (
                       <tr key={a.id} style={{ opacity: a.actif ? 1 : 0.55 }}>
@@ -258,17 +271,19 @@ export default async function MotifsPage({
                 <tbody>
                   {types.map((t) =>
                     sp.edit === `type:${t.code}` ? (
-                      <tr key={t.code}>
-                        <td colSpan={5}>
-                          <form action={updateTypeContrat} autoComplete="off" className="inline-form">
-                            <input type="hidden" name="code" value={t.code} />
-                            <div className="field"><span>Code</span><strong>{t.code}</strong></div>
-                            <div className="field"><span>Libellé</span><input name="libelle" defaultValue={t.libelle} autoFocus required /></div>
-                            <div className="field"><span>Ordre</span><input name="ordre" type="number" defaultValue={t.ordre} style={{ width: 80 }} /></div>
-                            <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><SaveIcon /></button>
-                            <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler">✕</Link>
-                          </form>
+                      <tr key={t.code} style={{ background: "#fefce8" }}>
+                        <td>
+                          <form id={`ed-type-${t.code}`} action={updateTypeContrat} autoComplete="off" />
+                          <input form={`ed-type-${t.code}`} type="hidden" name="code" value={t.code} />
+                          <strong>{t.code}</strong>
                         </td>
+                        <td><input form={`ed-type-${t.code}`} name="libelle" defaultValue={t.libelle} autoFocus required style={{ width: "100%" }} /></td>
+                        <td><input form={`ed-type-${t.code}`} name="ordre" type="number" defaultValue={t.ordre} style={{ width: 70 }} /></td>
+                        <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                          <button form={`ed-type-${t.code}`} type="submit" title="Valider" style={valBtn}><CheckIcon /></button>
+                          <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler" style={{ textDecoration: "none", marginLeft: 4 }}>✕</Link>
+                        </td>
+                        <td style={{ textAlign: "center" }}><ActifCheckbox id={t.code} actif={t.actif} action={toggleTypeContrat} keyName="code" /></td>
                       </tr>
                     ) : (
                       <tr key={t.code} style={{ opacity: t.actif ? 1 : 0.55 }}>

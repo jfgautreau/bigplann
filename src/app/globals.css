@@ -179,6 +179,35 @@ select {
 ::-moz-placeholder { color: #a3a9b4; opacity: 1; }
 :-ms-input-placeholder { color: #a3a9b4; }
 
+/* Liste de sélection simple (noms, motifs…) : lignes cliquables sobres, sans
+   chrome de bouton. Le sélecteur de classe l'emporte sur le style global `button`. */
+.picklist {
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+.picklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 0;
+  cursor: pointer;
+}
+.picklist-item:last-child { border-bottom: none; }
+.picklist-item:hover { background: #eff2f7; filter: none; }
+
 button {
   margin-top: 18px;
   width: 100%;
