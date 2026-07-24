@@ -160,7 +160,13 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
 - **Absences longues** (`absence`) : matérialisées en `placement` (un par jour), liés par
   `placement.absence_id` (cascade).
 - **Temps partiel** : `personne.tp_config` (jsonb, options cumulables `demi`/`off`/`horaires`).
-  Le planning calcule `tpBlocked` / `tpRedirect` **côté serveur** selon le quart.
+  Le planning calcule `tpBlocked` **côté serveur**. ⚠️ Règle métier (24/07/2026) :
+  « TP » ne s'affiche **que pour une journée entière non travaillée** (les deux
+  demi-journées dans `off`). Un mi-temps sur un seul créneau (ex. « après-midi
+  uniquement ») **n'écrit ni ne bloque rien** — la case reste vide et plaçable,
+  c'est le planning qui pose la personne sur son créneau. L'ancienne flèche
+  « → Mat/Apr » (`tpRedirect`) a été **supprimée** : elle marquait chaque jour dès
+  qu'on regardait un quart ≠ celui de la personne.
 - **Horaires affichés** (TV), par priorité : exception ponctuelle > temps partiel > standard.
 
 ## Ossature des écrans « grille » (globals.css)

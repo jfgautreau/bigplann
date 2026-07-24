@@ -336,38 +336,33 @@ export default async function PlanningPage({
       exceptions[`${r.personne_id}:${r.jour}`] = { debut: r.debut ?? "", fin: r.fin ?? "", motif: r.motif ?? "" };
   }
 
-  // Temps partiel (best-effort, colonnes 0025). Calcul serveur :
-  //  - tpBlocked : demi-journees non travaillees -> case "TP" pour le quart courant.
-  //  - tpRedirect : demi-journee FIXE (matin/aprem) -> "-> Mat/Apr" sur les autres quarts.
+  // Temps partiel (best-effort, colonnes 0025). Calcul serveur.
+  //
+  // ⚠️ Règle métier (24/07/2026) : « TP » ne s'affiche QUE pour une JOURNÉE
+  // ENTIÈRE non travaillée (les deux demi-journées `off`). Un mi-temps sur un
+  // seul créneau — ex. « après-midi uniquement » — ne bloque et n'écrit RIEN :
+  // la case reste vide et plaçable, c'est à celui qui fait le planning de poser
+  // la personne sur son créneau. Plus de flèche « → Mat/Apr » : elle noyait
+  // l'écran de marqueurs dès qu'on regardait un quart qui n'était pas le sien.
   const tpBlocked: Record<string, boolean> = {};
-  const tpRedirect: Record<string, string> = {};
   if (allIds.length) {
     const { data: tpData, error: tpErr } = await supabase
       .from("personne")
       .select("id, temps_partiel, tp_config")
       .in("id", allIds)
-      .returns<{ id: string; temps_partiel: boolean; tp_config: { demi?: { mode: string }; off?: Record<string, string[]> } | null }[]>();
+      .returns<{ id: string; temps_partiel: boolean; tp_config: { off?: Record<string, string[]> } | null }[]>();
     if (!tpErr) {
       const isoDow = (iso: string) => {
         const d = new Date(iso + "T00:00").getDay();
         return d === 0 ? 7 : d;
       };
-      const blocked = (off: string[]) => {
-        if (!off || !off.length) return false;
-        const full = off.includes("matin") && off.includes("aprem");
-        if (quart === "matin") return off.includes("matin");
-        if (quart === "apres_midi") return off.includes("aprem");
-        return full; // journee / nuit : seulement si journee entiere non travaillee
-      };
+      const journeeOff = (off?: string[]) => !!off && off.includes("matin") && off.includes("aprem");
       for (const r of tpData ?? []) {
         if (!r.temps_partiel || !displayedSet.has(r.id)) continue;
         const cfg = r.tp_config ?? {};
-        const herQuart = cfg.demi?.mode === "matin" ? "matin" : cfg.demi?.mode === "aprem" ? "apres_midi" : null;
-        const herLabel = herQuart === "matin" ? "Mat" : "Apr";
         for (const iso of visIsos) {
           const dow = String(isoDow(iso));
-          if (cfg.off && blocked(cfg.off[dow] ?? [])) tpBlocked[`${r.id}:${iso}`] = true;
-          if (herQuart && quart !== herQuart) tpRedirect[`${r.id}:${iso}`] = herLabel;
+          if (journeeOff(cfg.off?.[dow])) tpBlocked[`${r.id}:${iso}`] = true;
         }
       }
     }
@@ -503,7 +498,6 @@ export default async function PlanningPage({
           otherByCell={otherByCell}
           otherPosteByCell={otherPosteByCell}
           tpBlocked={tpBlocked}
-          tpRedirect={tpRedirect}
           quartLabel={quartLabel}
           posteLabelAll={posteLabelAll}
           exceptions={exceptions}

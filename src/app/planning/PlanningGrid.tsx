@@ -53,7 +53,6 @@ export default function PlanningGrid({
   otherByCell = {},
   otherPosteByCell = {},
   tpBlocked = {},
-  tpRedirect = {},
   quartLabel = {},
   posteLabelAll = {},
   exceptions = {},
@@ -79,7 +78,6 @@ export default function PlanningGrid({
   otherByCell?: Record<string, string>;
   otherPosteByCell?: Record<string, string>; // nom complet du poste occupe sur cet autre quart
   tpBlocked?: Record<string, boolean>;
-  tpRedirect?: Record<string, string>;
   quartLabel?: Record<string, string>;
   posteLabelAll?: Record<string, string>;
   exceptions?: Record<string, { debut: string; fin: string; motif: string }>;
@@ -729,8 +727,7 @@ export default function PlanningGrid({
                 // Bouton de recopie aussi sur une case vide : permet de propager le
                 // « non-affecte » sur la semaine. Masque seulement si placee sur un autre quart.
                 const tpb = !!tpBlocked[key(pers.id, d.iso)];
-                const tpr = tpRedirect[key(pers.id, d.iso)];
-                const showFill = pers.editable && !otherByCell[key(pers.id, d.iso)] && !tpb && !tpr;
+                const showFill = pers.editable && !otherByCell[key(pers.id, d.iso)] && !tpb;
                 const other = v === "" ? otherByCell[key(pers.id, d.iso)] : undefined;
                 // Surlignage : cette case correspond-elle au type d'anomalie selectionne ce jour-la ?
                 const hiActive = highlight?.iso === d.iso;
@@ -745,7 +742,7 @@ export default function PlanningGrid({
                       // Priorite des fonds, alignee sur le Placement :
                       // temps partiel > motif d'absence > rouge (competence ou
                       // habilitation) > jaune (sureffectif) > aujourd'hui.
-                      background: tpb || tpr
+                      background: tpb
                         ? "#e0e7ff"
                         : motifColor[v]
                         ? motifColor[v]
@@ -766,10 +763,8 @@ export default function PlanningGrid({
                       over ? `Sur-effectif (${perDay[i].counts[v]}/${effectif[v] ?? 0})` : "",
                     ].filter(Boolean).join(" · ") || undefined}
                   >
-                    {tpr ? (
-                      <div className="cell-other" style={{ color: "#3730a3" }} title={`Temps partiel — travaille ${tpr === "Mat" ? "le matin" : "l'après-midi"}`}>&rarr; {tpr}</div>
-                    ) : tpb ? (
-                      <div className="cell-other" style={{ color: "#3730a3" }} title="Temps partiel — créneau non travaillé">TP</div>
+                    {tpb ? (
+                      <div className="cell-other" style={{ color: "#3730a3" }} title="Temps partiel — journée entière non travaillée">TP</div>
                     ) : other ? (
                       <div
                         className="cell-other"
