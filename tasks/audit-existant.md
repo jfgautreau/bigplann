@@ -1,5 +1,12 @@
 # Audit de l'existant — Polaris mono-site
 
+> **✅ TOUT LIVRÉ (24/07/2026).** Les cinq lots proposés au § H ont été exécutés
+> dans l'ordre A/B/C/D/E : commits `5a7041b` (index & lectures), `15c016f` +
+> `d0a09a0` (sécurité & audit), `6f70db4` (atomicité & erreurs visibles),
+> `083c4fc` (nettoyage & quarts), tests étoffés à mesure (32 → 181). Le document
+> reste ici comme **trace historique** et rappel des pièges du domaine. Voir
+> aussi `tasks/todo.md` pour les chantiers encore ouverts.
+
 > Relevé le 22/07/2026 sur `main` (b6d49f4 + doc multi-sites), à partir du code
 > réel : 34 migrations, 62 fichiers accédant à Postgres, 26 routes API,
 > 100 appels d'écriture.

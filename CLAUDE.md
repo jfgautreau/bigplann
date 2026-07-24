@@ -26,11 +26,7 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `supabase/migrations/` et **demande à l'utilisateur de l'exécuter** dans le SQL Editor.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
-   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0038`.**
-   ⏳ **`0039_depart_prevu.sql` est écrite mais PAS encore exécutée** — sans effet visible :
-   les colonnes `personne.date_depart_prevu` et `motif_depart` existent DÉJÀ en base (elles
-   n'étaient créées par aucune migration). La 0039 est idempotente : elle ne fait qu'ajouter
-   l'index et les commentaires, et inscrire ces colonnes dans l'historique des migrations.
+   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0039`.**
 5. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
 6. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
@@ -214,6 +210,12 @@ imprimables (A4 paysage, KPI, barres) que la pleine largeur dégraderait.
 - **Modales** : overlay `position:fixed` + `.card` (`TempsPartielModal`, `LegendeModal`,
   `HabLegendeModal`, modale MàJ des habilitations).
 - **Ne pas rogner les libellés** : préférer une colonne plus large à un `text-overflow`.
+- **Intérim = jaune** (`INTERIM_BG` de `src/lib/interim.ts`) sur Planning, Placement,
+  Matrice, Habilitations et TV. Le vert est réservé à « aujourd'hui » sur la TV — les
+  deux se distinguent d'un coup d'œil. Un seul endroit pour changer la teinte.
+- **Choix d'une plage de dates** : `<DateRangePicker>` (deux mois côte à côte, sélection
+  en deux clics, style Booking). La logique est dans `src/lib/calendrier.ts`, testée.
+  Utilisé dans la modale Absences ; à reprendre partout où l'on demande *du…au*.
 - **Composants partagés — les utiliser plutôt que d'en refaire un :**
   - `SlideSwitch` — bascule **entre deux vues** (Plan/Absences, Actuel/Cible, Grille/Liste).
     ⚠️ Ne pas confondre avec `ToggleSwitch`, qui dit actif/inactif en vert et rouge.

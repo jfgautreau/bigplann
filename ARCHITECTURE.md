@@ -44,8 +44,10 @@ placement journalier, habilitations, affichage couloir, bilans).
   désactivations), `jour_quart`, `ouverture_quart`, `horaire_poste` (poste × quart × jour,
   = horaire *standard* affiché à la TV et proposé par défaut dans la pendule du planning).
 - **Personnel** : `personne` (équipe, atelier, statut ACTIF/PARTI, type_contrat, sexe,
-  `numero_badge`, `date_livret_accueil`, temps partiel `tp_config` jsonb ; champs RGPD
-  `anonymise`/`anonymise_at`), `contrat_periode`.
+  `numero_badge`, `date_livret_accueil`, temps partiel `tp_config` jsonb ;
+  **`date_depart_prevu` / `motif_depart`** — départ prévu, informatif, ne bascule
+  pas `statut` automatiquement ; champs RGPD `anonymise`/`anonymise_at`),
+  `contrat_periode`.
 - **Matrice** : `matrice` (niveau actuel/cible par personne×poste, valeur spéciale
   « restriction »), `competence_niveau_libelle` (échelle paramétrable).
 - **Habilitations** : `competence` (`a_recycler`, `duree_validite_mois`, `categorie`,
@@ -88,9 +90,18 @@ Le journal (`/journal`) affiche qui / valeur avant / valeur après / date-heure,
 les champs techniques et en résolvant les clés étrangères en libellés.
 
 ## Migrations
-Fichiers SQL ordonnés dans `supabase/migrations/` (**0001 → 0031**), **exécutés
+Fichiers SQL ordonnés dans `supabase/migrations/` (**0001 → 0039**), **exécutés
 manuellement** par l'utilisateur dans le SQL Editor Supabase (`SUPABASE_DB_URL` est vide ;
 `npm run db:migrate` ne fonctionne que s'il est défini).
+
+Depuis la **0037**, trois séquences délicates passent par des **fonctions SQL** appelées
+en RPC : `set_rotation_reference`, `creer_absence`, `maj_absence`. Elles s'exécutent dans
+la transaction de l'appelant — un `delete` puis un `insert` deviennent indivisibles —
+sans changer le modèle d'autorisation (`SECURITY INVOKER`). Auparavant, un échec de la
+seconde requête laissait la donnée corrompue en silence.
+
+La **0038** a supprimé trois tables mortes (`equipe_quart_semaine`, `ligne_ouverture`,
+`jour_equipe`) que plus aucune lecture n'utilisait ; la **0039** ajoute le départ prévu.
 
 ## Sitemap (principales routes)
 - `/` accueil (logo + titre « planning »), `/planning`, `/placement` (saisie par

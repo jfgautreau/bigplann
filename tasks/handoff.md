@@ -4,14 +4,19 @@
 > tiennent dans **`CLAUDE.md`** (chargé automatiquement). Ce fichier est la couche de
 > détail : à consulter quand on touche précisément un des sujets ci-dessous.
 >
-> État au 2026-07-23 · migrations appliquées jusqu'à **0033**.
+> État au 2026-07-24 · migrations appliquées jusqu'à **0039**.
 >
-> Dernier chantier : **application stricte de la matrice des droits** (plus aucun rôle en
-> dur), **numéros de rotation** et **habilitations exigées par poste** sur `/placement`,
-> **mot de passe par lien** sur `/admin/users`, en-tête commun aux trois écrans de gestion.
-> Avant : écran `/placement` et **rotation par référence datée** (`rotation_reference`). Avant : ossature de page partagée
-> (`.pagecol` / `.headband` / `.gridband`), grille « personnes × colonnes » mutualisée entre
-> Matrice et Habilitations, pagination des lectures Supabase (`fetchAll`).
+> **Dernier chantier : audit de l'existant en 5 lots** (`tasks/audit-existant.md`), tous
+> livrés. Escalade de privilèges fermée, écritures rendues atomiques et vérifiées, quarts
+> sortis du code, 3 tables mortes supprimées, filet de tests (**181** contre 32 au début).
+> Puis fonctionnalités : bilan Planning replié, filtre Placement par quart, TV en fenêtre
+> J-1→J+4, colonne Personnel « Fin contrat » remplacée par un **suivi des absences**
+> (calendrier de plage type Booking, départ prévu), **intérim en jaune** partout.
+>
+> Ce qui précédait : matrice des droits stricte, numéros de rotation et habilitations
+> exigées par poste, mot de passe par lien, rotation par référence datée, ossature
+> `.pagecol` / `.headband` / `.gridband`, grille « personnes × colonnes » mutualisée,
+> pagination `fetchAll()`.
 
 ## Migrations récentes (rappel)
 `0020` personne.atelier_id · `0021` Lot C (quart `journee`, `equipe.quart_fixe`,
@@ -25,7 +30,18 @@ date_livret_accueil + contrat_periode.motif · `0025` temps partiel
 quand `auth.uid()` est null (écritures service role) ·
 `0032` `poste.numero_rotation`, table `poste_competence_requise` (habilitations exigées
 par un poste), `placement.forcage_*` (traçabilité d'un placement forcé) ·
-`0033` `placement.numero_rotation` (place occupée sur le poste).
+`0033` `placement.numero_rotation` (place occupée sur le poste) ·
+`0034` `agence_interim` (liste fermée) ·
+`0035` **index sur les FK de cascade** (`placement.absence_id`, `motif_absence_id`,
+`equipe_id`, `absence.motif_absence_id`, `ouverture_quart.ligne_id`) ·
+`0036` audit `app_user` / `role_permission` + trigger tolérant aux tables à cle
+composite + `handle_new_user` crée le profil **inactif** ·
+`0037` **fonctions atomiques** `set_rotation_reference`, `creer_absence`, `maj_absence`
+(RPC, `SECURITY INVOKER`) — le `delete`+`insert` applicatif ne perd plus la donnée ·
+`0038` **suppression de 3 tables mortes** (`equipe_quart_semaine`, `ligne_ouverture`,
+`jour_equipe`) + normalisation des 7 placements historiques sans `quart_code` ·
+`0039` `personne.date_depart_prevu` / `motif_depart` (départ prévu, informatif —
+ne bascule pas le statut).
 
 ## Écran Placement (`/placement`) — V1
 Saisie « un jour / un quart » par glisser-déposer. ⚠️ **Placement est désormais un module

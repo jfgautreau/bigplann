@@ -158,3 +158,40 @@ largeur reste blanche). Essayer plusieurs largeurs de feuille et garder le meill
 au lieu de 1060 px à 53 %. Cf. `ajusterFeuille()` dans `PlacementBoard`.
 **Mesurer avant d'imprimer** suppose que l'élément soit rendu : le garder hors écran
 (`position: fixed; left: -20000px`) plutôt que `display: none`, qui donne `scrollHeight = 0`.
+
+## L17 — Anti-escalade ≠ anti-rétrogradation
+
+En interdisant qu'on accorde plus qu'on n'a, on ferme la promotion. Mais on laisse
+passer la **dégradation** : un délégué peut *retirer* un droit à l'admin, ce qui n'est
+pas une escalade (il ne gagne rien) mais fait autant de dégâts, ramenant tout le monde
+à son niveau. Bug remonté sur la matrice des droits : `/api/droits` vérifiait bien
+« n'accorde pas plus que soi » et ratait cette voie. Vérifiée par le test
+`REGRESSION : un délégué ne peut pas DÉGRADER l'admin` (`permissions.test.ts`).
+**Règle** : quand un contrôle porte sur *ce qu'on donne*, il faut son symétrique sur
+*ce qu'on retire à quelqu'un qui vous domine*. Formulation générique dans
+`droitsCouvertsPar()` : « on ne touche pas à un rôle qui détient des droits qu'on n'a
+pas soi-même ».
+
+## L18 — Séquence delete + insert applicative : à passer en fonction SQL
+
+Deux allers-retours HTTP entre un `delete` et son `insert` (rotation de semaine,
+rematérialisation d'une absence) ne sont **pas atomiques** : un échec de la seconde
+requête laisse la donnée détruite, souvent en silence. Une fonction PL/pgSQL appelée
+en RPC s'exécute dans la transaction de l'appelant — tout ou rien. Choisir
+`SECURITY INVOKER` (le défaut) préserve la RLS et le modèle d'autorisation. Cf.
+migration `0037` : `set_rotation_reference`, `creer_absence`, `maj_absence`.
+**Règle** : dès qu'un écran fait « on efface tout, puis on ré-écrit », suspect. Une
+fonction SQL est presque toujours la bonne réponse.
+
+## L19 — PostgREST rejette toute la requête si une colonne est absente
+
+Sélectionner `col_qui_nexiste_pas` échoue l'appel **entier**, pas seulement le champ.
+Une page qui ajoute une colonne nouvelle avant la migration s'affiche donc **vide**,
+pas simplement privée de la colonne. Découvert lors de l'ajout de `date_depart_prevu` :
+un repli temporaire a été écrit puis retiré quand j'ai constaté que la colonne existait
+déjà. **Règle** : quand une migration est en attente, soit on l'exécute avant le
+déploiement, soit la lecture prévoit un repli — jamais « on verra ». Bien vérifier
+aussi qu'aucune colonne ne dérive en dehors des migrations (`grep -rw <col>
+supabase/migrations/`) : lors de cette vérification, aucune n'a été trouvée sur
+`personne`/`poste`/`placement`/`equipe`/`contrat_periode` — l'écart repéré avec
+`date_depart_prevu` était donc un cas isolé, mais il valait la peine d'être contrôlé.
