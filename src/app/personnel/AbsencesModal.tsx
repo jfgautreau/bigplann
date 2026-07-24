@@ -90,16 +90,60 @@ export default function AbsencesModal({
     setEdit({ mode: "new", motif_absence_id: "", debut: "", fin: "", commentaire: "" });
   }
   function commencerEdition(p: PeriodeAbsence) {
-    if (!p.absence_id) return;
     setErreur(null);
-    setEdit({
-      mode: "existing",
-      absence_id: p.absence_id,
-      motif_absence_id: p.motif_absence_id ?? "",
-      debut: p.debut,
-      fin: p.fin,
-      commentaire: "",
-    });
+    if (p.absence_id) {
+      // Periode DECLAREE : edition en place, on modifie l'absence existante.
+      setEdit({
+        mode: "existing",
+        absence_id: p.absence_id,
+        motif_absence_id: p.motif_absence_id ?? "",
+        debut: p.debut,
+        fin: p.fin,
+        commentaire: "",
+      });
+    } else {
+      // Periode reconstituee depuis des jours saisis au planning (pas d'absence
+      // enregistree en tant que telle). On la re-declare comme une nouvelle
+      // periode : les jours existants sont ecrases par le RPC (creer_absence
+      // upserte les placements) et se retrouvent lies a une vraie absence.
+      setEdit({
+        mode: "new",
+        motif_absence_id: p.motif_absence_id ?? "",
+        debut: p.debut,
+        fin: p.fin,
+        commentaire: "",
+      });
+    }
+  }
+
+  async function supprimerPeriode(p: PeriodeAbsence) {
+    if (!canEdit) return;
+    const libelleP = `${p.debut.split("-").reverse().join("/")}${p.debut !== p.fin ? ` → ${p.fin.split("-").reverse().join("/")}` : ""}`;
+    if (!window.confirm(`Supprimer cette période d'absence (${libelleP}) et libérer les jours du planning ?`)) return;
+    setEnCours(true);
+    setErreur(null);
+    try {
+      const body = p.absence_id
+        ? { op: "delete", id: p.absence_id }
+        : {
+            op: "delete-jours",
+            personne_id: personne.id,
+            date_debut: p.debut,
+            date_fin: p.fin,
+            motif_absence_id: p.motif_absence_id,
+          };
+      const res = await fetch("/api/absence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Suppression refusée.");
+      await charger();
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : "Suppression refusée.");
+    }
+    setEnCours(false);
   }
 
   async function verifierEtEnregistrer() {
@@ -362,17 +406,28 @@ export default function AbsencesModal({
                   </td>
                   <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>{libellePeriode(p)}</td>
                   <td style={{ ...cellStyle, textAlign: "right" }}>{p.jours}</td>
-                  <td style={{ ...cellStyle, textAlign: "right" }}>
-                    {canEdit && p.absence_id && (
-                      <button
-                        type="button"
-                        className="btn-sm btn-ghost"
-                        onClick={() => commencerEdition(p)}
-                        style={{ width: "auto", padding: "2px 8px", fontSize: 14 }}
-                        title="Modifier cette période"
-                      >
-                        ✏️
-                      </button>
+                  <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
+                    {canEdit && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-sm btn-ghost"
+                          onClick={() => commencerEdition(p)}
+                          style={{ width: "auto", padding: "2px 6px", fontSize: 14 }}
+                          title={p.absence_id ? "Modifier cette période" : "Modifier (re-déclare la période)"}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-sm btn-ghost"
+                          onClick={() => supprimerPeriode(p)}
+                          style={{ width: "auto", padding: "2px 6px", fontSize: 14, color: "var(--danger)" }}
+                          title="Supprimer cette période"
+                        >
+                          🗑
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>

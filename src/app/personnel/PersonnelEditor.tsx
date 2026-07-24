@@ -172,6 +172,7 @@ export default function PersonnelEditor({
 }) {
   const router = useRouter();
   const [rows, setRows] = useState<Row[]>(initial);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [gq, setGq] = useState("");
   const [dup, setDup] = useState<Row[] | null>(null);
   const [contratFilter, setContratFilter] = useState("");
@@ -218,22 +219,24 @@ export default function PersonnelEditor({
 
   async function post(op: string, payload: Record<string, unknown>) {
     setSave("saving");
+    setSaveMsg(null);
     try {
       const res = await fetch("/api/personnel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ op, ...payload }),
       });
-      if (!res.ok) throw new Error();
-      const j = await res.json().catch(() => ({}));
+      const j = await res.json().catch(() => ({} as Record<string, unknown>));
+      if (!res.ok) throw new Error((j as { error?: string }).error ?? `HTTP ${res.status}`);
       setSave("saved");
       return j as { ok?: boolean; row?: Row };
-    } catch {
+    } catch (e) {
       setSave("error");
+      setSaveMsg(e instanceof Error ? e.message : "Échec.");
       return null;
     } finally {
       if (savedTimer.current) clearTimeout(savedTimer.current);
-      savedTimer.current = setTimeout(() => setSave("idle"), 1500);
+      savedTimer.current = setTimeout(() => { setSave("idle"); setSaveMsg(null); }, 4000);
     }
   }
   function schedule(key: string, fn: () => void, delay: number) {
@@ -336,7 +339,7 @@ export default function PersonnelEditor({
   });
 
   const saveLabel =
-    save === "saving" ? "Enregistrement…" : save === "saved" ? "Enregistré ✓" : save === "error" ? "Échec d'enregistrement" : "";
+    save === "saving" ? "Enregistrement…" : save === "saved" ? "Enregistré ✓" : save === "error" ? (saveMsg ?? "Échec d'enregistrement") : "";
   const saveColor = save === "error" ? "var(--danger)" : save === "saved" ? "var(--ok)" : "var(--muted)";
   const inp: React.CSSProperties = { width: "100%", fontSize: 13, padding: "3px 4px" };
   const C = (k: ColKey): React.CSSProperties => (CENTER.has(k) ? { textAlign: "center", textAlignLast: "center" } : {});

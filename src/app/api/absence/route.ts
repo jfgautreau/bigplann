@@ -94,6 +94,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    // Suppression d'une periode NON declaree : la personne a des jours d'absence
+    // saisis directement au planning, on efface les placements correspondants
+    // dans l'intervalle (motif optionnel, pour ne pas emporter une autre absence
+    // qui commencerait le meme jour).
+    if (op === "delete-jours") {
+      const personne_id = s(body.personne_id);
+      const date_debut = s(body.date_debut);
+      const date_fin = s(body.date_fin);
+      const motif_absence_id = orNull(s(body.motif_absence_id));
+      if (!personne_id || !date_debut || !date_fin) {
+        return NextResponse.json({ error: "Personne et dates requises." }, { status: 400 });
+      }
+      let q = supabase
+        .from("placement")
+        .delete()
+        .eq("personne_id", personne_id)
+        .gte("jour", date_debut)
+        .lte("jour", date_fin)
+        .not("motif_absence_id", "is", null);
+      if (motif_absence_id) q = q.eq("motif_absence_id", motif_absence_id);
+      const { error } = await q;
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
     if (op === "conflits") {
       // Vérifie s'il existe déjà des affectations sur poste pour cette personne
       // dans l'intervalle proposé. On IGNORE les jours déjà pris par des
