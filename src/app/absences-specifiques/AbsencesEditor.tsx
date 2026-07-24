@@ -77,8 +77,24 @@ export default function AbsencesEditor({
   const [fAu, setFAu] = useState("");
 
   const popRef = useRef<HTMLDivElement>(null);
+  // Popover ancré au bouton en `position: fixed` : dans une carte `overflow:auto`,
+  // un popover `absolute` est ROGNÉ et déclenche un ascenseur (cf. InfoBulle,
+  // tasks/lessons.md L9). On mesure le bouton au clic, on place le menu juste
+  // dessous, et on borne la gauche pour ne pas déborder de l'écran.
+  const [popAnchor, setPopAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
   const persById = useMemo(() => new Map(personnes.map((p) => [p.id, p])), [personnes]);
   const motifById = useMemo(() => new Map(motifs.map((m) => [m.id, m])), [motifs]);
+
+  const openPop = (type: "personne" | "motif" | "cal", e: React.MouseEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setPopAnchor({ top: r.bottom + 4, left: r.left, width: r.width });
+    setOuvertPop((cur) => (cur === type ? null : type));
+  };
+  const popStyle = (w: number): React.CSSProperties => {
+    const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
+    const left = popAnchor ? Math.max(8, Math.min(popAnchor.left, vw - w - 8)) : 0;
+    return { position: "fixed", top: popAnchor?.top ?? 0, left, width: w, zIndex: 300 };
+  };
 
   useEffect(() => {
     if (!ouvertPop) return;
@@ -86,8 +102,16 @@ export default function AbsencesEditor({
       if (!popRef.current) return;
       if (!popRef.current.contains(e.target as Node)) setOuvertPop(null);
     }
+    // Un popover fixed ne suit pas le défilement : on le referme au scroll/resize.
+    const onScrollResize = () => setOuvertPop(null);
     setTimeout(() => document.addEventListener("mousedown", onDoc), 0);
-    return () => document.removeEventListener("mousedown", onDoc);
+    window.addEventListener("scroll", onScrollResize, true);
+    window.addEventListener("resize", onScrollResize);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("scroll", onScrollResize, true);
+      window.removeEventListener("resize", onScrollResize);
+    };
   }, [ouvertPop]);
 
   function commencerNouveau() {
@@ -229,39 +253,26 @@ export default function AbsencesEditor({
     const periodeTxt = edit.debut && edit.fin
       ? libellePeriode({ motif_absence_id: null, debut: edit.debut, fin: edit.fin, jours: 0, declaree: false, absence_id: null })
       : "—";
-    // Popovers ancrés SOUS leur bouton (position absolute dans la cellule
-    // `position: relative`), pas en pleine largeur : ils tombent donc en face du
-    // clic. Un seul est ouvert à la fois -> `popRef` sur celui qui est rendu.
-    const popWrap: React.CSSProperties = { position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 60 };
-    const relCell: React.CSSProperties = { ...cellStyle, position: "relative" };
+    // Popovers en `position: fixed` ancrés au bouton (cf. openPop / popStyle).
+    const trig: React.CSSProperties = { width: "100%", margin: 0, padding: "4px 8px", fontSize: 13, border: "1px solid var(--border)", borderRadius: 7, textAlign: "left", cursor: "pointer" };
     return (
       <tr style={{ background: "#fefce8" }}>
-        <td style={relCell}>
+        <td style={cellStyle}>
           {edit.mode === "existing" ? (
             <span title="Personne non modifiable après création — supprimer et recréer si besoin.">
               <strong>{pers ? `${pers.nom} ${pers.prenom}` : "?"}</strong>
             </span>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => setOuvertPop(ouvertPop === "personne" ? null : "personne")}
-            onMouseDown={(e) => e.stopPropagation()}
-                style={{ width: "100%", margin: 0, padding: "4px 8px", fontSize: 13, background: "#fff", color: "#1f2937", border: "1px solid var(--border)", borderRadius: 7, textAlign: "left", cursor: "pointer" }}
-                title="Choisir la personne"
-              >
+              <button type="button" onClick={(e) => openPop("personne", e)} onMouseDown={(e) => e.stopPropagation()}
+                style={{ ...trig, background: "#fff", color: "#1f2937" }} title="Choisir la personne">
                 {pers ? `${pers.nom} ${pers.prenom}` : <span style={{ color: "#94a3b8" }}>Choisir une personne…</span>} ▾
               </button>
               {ouvertPop === "personne" && (
-                <div ref={popRef} style={{ ...popWrap, width: 260 }}>
-                  <div style={{ border: "1px solid var(--border)", borderRadius: 8, background: "#fff", boxShadow: "0 6px 18px rgba(15,23,42,.14)", padding: 6 }}>
-                    <input
-                      autoFocus
-                      value={rechPers}
-                      onChange={(e) => setRechPers(e.target.value)}
-                      placeholder="🔍 rechercher un nom"
-                      style={{ width: "100%", fontSize: 13, padding: "5px 8px", marginBottom: 6 }}
-                    />
+                <div ref={popRef} style={popStyle(280)}>
+                  <div style={{ border: "1px solid var(--border)", borderRadius: 8, background: "#fff", boxShadow: "0 8px 24px rgba(15,23,42,.18)", padding: 6 }}>
+                    <input autoFocus value={rechPers} onChange={(e) => setRechPers(e.target.value)}
+                      placeholder="🔍 rechercher un nom" style={{ width: "100%", fontSize: 13, padding: "5px 8px", marginBottom: 6 }} />
                     <div className="picklist" style={{ border: "none" }}>
                       {persOptions.map((p) => (
                         <button key={p.id} type="button" className="picklist-item"
@@ -277,19 +288,14 @@ export default function AbsencesEditor({
             </>
           )}
         </td>
-        <td style={relCell}>
-          <button
-            type="button"
-            onClick={() => setOuvertPop(ouvertPop === "motif" ? null : "motif")}
-            onMouseDown={(e) => e.stopPropagation()}
-            style={{ width: "100%", margin: 0, padding: "4px 8px", fontSize: 13, background: m?.couleur ?? "#f1f5f9", color: "#1f2937", fontWeight: 600, border: "1px solid var(--border)", borderRadius: 7, textAlign: "left", cursor: "pointer" }}
-            title="Choisir le motif"
-          >
+        <td style={cellStyle}>
+          <button type="button" onClick={(e) => openPop("motif", e)} onMouseDown={(e) => e.stopPropagation()}
+            style={{ ...trig, background: m?.couleur ?? "#f1f5f9", color: "#1f2937", fontWeight: 600 }} title="Choisir le motif">
             {m ? <><strong>{m.code_court}</strong> · {m.libelle}</> : <span style={{ color: "#94a3b8" }}>Motif…</span>} ▾
           </button>
           {ouvertPop === "motif" && (
-            <div ref={popRef} style={{ ...popWrap, width: 260 }}>
-              <div className="picklist" style={{ boxShadow: "0 6px 18px rgba(15,23,42,.14)" }}>
+            <div ref={popRef} style={popStyle(280)}>
+              <div className="picklist" style={{ boxShadow: "0 8px 24px rgba(15,23,42,.18)" }}>
                 {motifs.map((mo) => (
                   <button key={mo.id} type="button" className="picklist-item"
                     onClick={() => { setEdit((s) => s ? { ...s, motif_absence_id: mo.id } : s); setOuvertPop(null); }}>
@@ -302,18 +308,13 @@ export default function AbsencesEditor({
             </div>
           )}
         </td>
-        <td style={relCell}>
-          <button
-            type="button"
-            onClick={() => setOuvertPop(ouvertPop === "cal" ? null : "cal")}
-            onMouseDown={(e) => e.stopPropagation()}
-            style={{ width: "100%", margin: 0, padding: "4px 8px", fontSize: 13, background: "#fff", color: "#1f2937", border: "1px solid var(--border)", borderRadius: 7, whiteSpace: "nowrap", textAlign: "left", cursor: "pointer" }}
-            title="Choisir la période"
-          >
+        <td style={cellStyle}>
+          <button type="button" onClick={(e) => openPop("cal", e)} onMouseDown={(e) => e.stopPropagation()}
+            style={{ ...trig, background: "#fff", color: "#1f2937", whiteSpace: "nowrap" }} title="Choisir la période">
             {edit.debut && edit.fin ? periodeTxt : <span style={{ color: "#94a3b8" }}>Dates…</span>} 📅
           </button>
           {ouvertPop === "cal" && (
-            <div ref={popRef} style={{ ...popWrap, boxShadow: "0 6px 18px rgba(15,23,42,.14)", borderRadius: 10 }}>
+            <div ref={popRef} style={{ ...popStyle(544), boxShadow: "0 8px 24px rgba(15,23,42,.18)", borderRadius: 10 }}>
               <DateRangePicker
                 mois={2}
                 value={{ debut: edit.debut || null, fin: edit.fin || null }}

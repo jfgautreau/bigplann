@@ -57,6 +57,20 @@ export default function AbsencesModal({
   const motifById = new Map(motifs.map((m) => [m.id, m]));
   const aujourdhui = new Date().toISOString().slice(0, 10);
   const popRef = useRef<HTMLDivElement>(null);
+  // Popover ancré au bouton en `position: fixed` : la carte de la modale est en
+  // `overflow: auto`, un popover `absolute` y est rogné et crée un ascenseur
+  // (même piège que l'InfoBulle). On mesure le bouton au clic.
+  const [popAnchor, setPopAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
+  const openPop = (type: "motif" | "cal", e: React.MouseEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setPopAnchor({ top: r.bottom + 4, left: r.left, width: r.width });
+    setOuvertPop((cur) => (cur === type ? null : type));
+  };
+  const popStyle = (w: number): React.CSSProperties => {
+    const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
+    const left = popAnchor ? Math.max(8, Math.min(popAnchor.left, vw - w - 8)) : 0;
+    return { position: "fixed", top: popAnchor?.top ?? 0, left, width: w, zIndex: 300 };
+  };
 
   async function charger() {
     setErreur(null);
@@ -82,8 +96,15 @@ export default function AbsencesModal({
       if (!popRef.current) return;
       if (!popRef.current.contains(e.target as Node)) setOuvertPop(null);
     }
+    const onScrollResize = () => setOuvertPop(null);
     setTimeout(() => document.addEventListener("mousedown", onDoc), 0);
-    return () => document.removeEventListener("mousedown", onDoc);
+    window.addEventListener("scroll", onScrollResize, true);
+    window.addEventListener("resize", onScrollResize);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("scroll", onScrollResize, true);
+      window.removeEventListener("resize", onScrollResize);
+    };
   }, [ouvertPop]);
 
   function commencerNouveau() {
@@ -290,7 +311,7 @@ export default function AbsencesModal({
           {edit && edit.mode === "new" && (
             <RowsEdit
               edit={edit} m={m} periodeTxt={periodeTxt}
-              ouvertPop={ouvertPop} setOuvertPop={setOuvertPop} setEdit={setEdit}
+              ouvertPop={ouvertPop} openPop={openPop} popStyle={popStyle} setOuvertPop={setOuvertPop} setEdit={setEdit}
               motifs={motifs} popRef={popRef} enCours={enCours}
               onEnregistrer={verifierEtEnregistrer}
               onAnnuler={() => { setEdit(null); setOuvertPop(null); setErreur(null); }}
@@ -313,6 +334,8 @@ export default function AbsencesModal({
                     m={m}
                     periodeTxt={periodeTxt}
                     ouvertPop={ouvertPop}
+                    openPop={openPop}
+                    popStyle={popStyle}
                     setOuvertPop={setOuvertPop}
                     setEdit={setEdit}
                     motifs={motifs}
@@ -405,13 +428,15 @@ export default function AbsencesModal({
 // (« new », sans corbeille) qu'à l'édition d'une période existante (avec
 // corbeille via `onSupprimer`). Popovers ancrés SOUS leur bouton.
 function RowsEdit({
-  edit, m, periodeTxt, ouvertPop, setOuvertPop, setEdit, motifs, popRef, enCours,
+  edit, m, periodeTxt, ouvertPop, openPop, popStyle, setOuvertPop, setEdit, motifs, popRef, enCours,
   onEnregistrer, onSupprimer, onAnnuler,
 }: {
   edit: Edition;
   m: Motif | null | undefined;
   periodeTxt: string;
   ouvertPop: null | "motif" | "cal";
+  openPop: (type: "motif" | "cal", e: React.MouseEvent) => void;
+  popStyle: (w: number) => React.CSSProperties;
   setOuvertPop: (v: null | "motif" | "cal") => void;
   setEdit: React.Dispatch<React.SetStateAction<Edition | null>>;
   motifs: Motif[];
@@ -421,20 +446,17 @@ function RowsEdit({
   onSupprimer?: () => void;
   onAnnuler: () => void;
 }) {
-  const popWrap: React.CSSProperties = { position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 60 };
-  const relCell: React.CSSProperties = { ...cell, position: "relative" };
   const trigger: React.CSSProperties = { width: "100%", margin: 0, padding: "4px 8px", fontSize: 13, border: "1px solid var(--border)", borderRadius: 7, textAlign: "left", cursor: "pointer" };
   return (
     <tr style={{ background: "#fefce8" }}>
-      <td style={relCell}>
-        <button type="button" onClick={() => setOuvertPop(ouvertPop === "motif" ? null : "motif")}
-            onMouseDown={(e) => e.stopPropagation()}
+      <td style={cell}>
+        <button type="button" onClick={(e) => openPop("motif", e)} onMouseDown={(e) => e.stopPropagation()}
           style={{ ...trigger, background: m?.couleur ?? "#f1f5f9", color: "#1f2937", fontWeight: 600 }} title="Choisir le motif">
           {m ? <><strong>{m.code_court}</strong> · {m.libelle}</> : <span style={{ color: "#94a3b8" }}>Motif…</span>} ▾
         </button>
         {ouvertPop === "motif" && (
-          <div ref={popRef} style={{ ...popWrap, width: 260 }}>
-            <div className="picklist" style={{ boxShadow: "0 6px 18px rgba(15,23,42,.14)" }}>
+          <div ref={popRef} style={popStyle(280)}>
+            <div className="picklist" style={{ boxShadow: "0 8px 24px rgba(15,23,42,.18)" }}>
               {motifs.map((mo) => (
                 <button key={mo.id} type="button" className="picklist-item"
                   onClick={() => { setEdit((s) => s ? { ...s, motif_absence_id: mo.id } : s); setOuvertPop(null); }}>
@@ -447,14 +469,13 @@ function RowsEdit({
           </div>
         )}
       </td>
-      <td style={relCell}>
-        <button type="button" onClick={() => setOuvertPop(ouvertPop === "cal" ? null : "cal")}
-            onMouseDown={(e) => e.stopPropagation()}
+      <td style={cell}>
+        <button type="button" onClick={(e) => openPop("cal", e)} onMouseDown={(e) => e.stopPropagation()}
           style={{ ...trigger, background: "#fff", color: "#1f2937", whiteSpace: "nowrap" }} title="Choisir la période">
           {edit.debut && edit.fin ? periodeTxt : <span style={{ color: "#94a3b8" }}>Dates…</span>} 📅
         </button>
         {ouvertPop === "cal" && (
-          <div ref={popRef} style={{ ...popWrap, boxShadow: "0 6px 18px rgba(15,23,42,.14)", borderRadius: 10 }}>
+          <div ref={popRef} style={{ ...popStyle(544), boxShadow: "0 8px 24px rgba(15,23,42,.18)", borderRadius: 10 }}>
             <DateRangePicker
               mois={2}
               value={{ debut: edit.debut || null, fin: edit.fin || null }}
