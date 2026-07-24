@@ -108,8 +108,12 @@ export default async function PlanningPage({
   const quarts = quartsD ?? [];
   const quartCodes = quarts.map((q) => q.code);
 
-  // Rotation calculee (reference datee) pour la semaine affichee : { equipe -> quart }.
-  const rotWeek = rotationForWeek(await getRotationRefsC(), centerIso);
+  // Rotation calculee (reference datee) : { equipe -> quart }. `rotWeek` pour la
+  // semaine centrale (auto-selection du quart) ; `rotByWeek` pour CHACUNE des 3
+  // semaines affichees (sert au marquage TP « une semaine sur deux »).
+  const rotRefs = await getRotationRefsC();
+  const rotWeek = rotationForWeek(rotRefs, centerIso);
+  const rotByWeek = weekMondays.map((wm) => rotationForWeek(rotRefs, isoDate(wm)));
 
   // Quart selectionne : ?quart, sinon quart fixe de l'equipe, sinon rotation de la
   // semaine, sinon "matin".
@@ -338,12 +342,16 @@ export default async function PlanningPage({
 
   // Temps partiel (best-effort, colonnes 0025). Calcul serveur.
   //
-  // ⚠️ Règle métier (24/07/2026) : « TP » ne s'affiche QUE pour une JOURNÉE
-  // ENTIÈRE non travaillée (les deux demi-journées `off`). Un mi-temps sur un
-  // seul créneau — ex. « après-midi uniquement » — ne bloque et n'écrit RIEN :
-  // la case reste vide et plaçable, c'est à celui qui fait le planning de poser
-  // la personne sur son créneau. Plus de flèche « → Mat/Apr » : elle noyait
-  // l'écran de marqueurs dès qu'on regardait un quart qui n'était pas le sien.
+  // ⚠️ Règle métier (24/07/2026, précisée). « TP » s'écrit dans le planning :
+  //   1. sur une JOURNÉE entière non travaillée (les deux demi-journées `off`) ;
+  //   2. quand l'ÉQUIPE de la personne est, cette semaine, sur le créneau
+  //      qu'elle NE travaille PAS. Ex. Sylvie (mi-temps après-midi, off le
+  //      matin) en équipe B : la semaine où B tourne au MATIN, elle ne peut pas
+  //      travailler → « TP » toute la semaine ; la semaine où B est l'après-midi,
+  //      rien (elle travaille). D'où un « TP » automatique une semaine sur deux,
+  //      porté par la rotation datée de l'équipe — pas par le temps partiel seul.
+  // Le créneau d'un quart : matin→"matin", apres_midi→"aprem" (journée/nuit :
+  // pas de demi-journée, la personne est présente → pas de TP de ce chef).
   const tpBlocked: Record<string, boolean> = {};
   if (allIds.length) {
     const { data: tpData, error: tpErr } = await supabase
@@ -356,13 +364,26 @@ export default async function PlanningPage({
         const d = new Date(iso + "T00:00").getDay();
         return d === 0 ? 7 : d;
       };
-      const journeeOff = (off?: string[]) => !!off && off.includes("matin") && off.includes("aprem");
+      const equipeDe = new Map(allActive.map((p) => [p.id, p.equipe_id]));
+      const quartFixe = new Map((equipesD ?? []).map((e) => [e.id, e.quart_fixe]));
+      const creneauDe = (q?: string | null) => (q === "matin" ? "matin" : q === "apres_midi" ? "aprem" : null);
       for (const r of tpData ?? []) {
         if (!r.temps_partiel || !displayedSet.has(r.id)) continue;
-        const cfg = r.tp_config ?? {};
-        for (const iso of visIsos) {
-          const dow = String(isoDow(iso));
-          if (journeeOff(cfg.off?.[dow])) tpBlocked[`${r.id}:${iso}`] = true;
+        const off = r.tp_config?.off ?? {};
+        const eq = equipeDe.get(r.id) ?? null;
+        for (const d of visible) {
+          const dayOff = off[String(isoDow(d.iso))] ?? [];
+          if (!dayOff.length) continue;
+          // Journée entière non travaillée.
+          const journee = dayOff.includes("matin") && dayOff.includes("aprem");
+          // Équipe sur le créneau NON travaillé cette semaine.
+          let equipeCreneau = false;
+          if (eq) {
+            const teamQuart = quartFixe.get(eq) ?? rotByWeek[d.wi]?.[eq] ?? null;
+            const cr = creneauDe(teamQuart);
+            equipeCreneau = !!cr && dayOff.includes(cr);
+          }
+          if (journee || equipeCreneau) tpBlocked[`${r.id}:${d.iso}`] = true;
         }
       }
     }

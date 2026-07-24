@@ -102,8 +102,12 @@ export default function AbsencesEditor({
       if (!popRef.current) return;
       if (!popRef.current.contains(e.target as Node)) setOuvertPop(null);
     }
-    // Un popover fixed ne suit pas le défilement : on le referme au scroll/resize.
-    const onScrollResize = () => setOuvertPop(null);
+    // On ferme au scroll EXTÉRIEUR (le popover fixed ne suivrait pas), mais PAS
+    // quand on fait défiler la liste elle-même (sinon impossible de dérouler).
+    const onScrollResize = (e?: Event) => {
+      if (e && e.type === "scroll" && popRef.current && e.target instanceof Node && popRef.current.contains(e.target)) return;
+      setOuvertPop(null);
+    };
     setTimeout(() => document.addEventListener("mousedown", onDoc), 0);
     window.addEventListener("scroll", onScrollResize, true);
     window.addEventListener("resize", onScrollResize);
