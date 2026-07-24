@@ -18,6 +18,7 @@ import {
 } from "./actions";
 import TeamColorPicker from "./TeamColorPicker";
 import ActifCheckbox from "@/components/ActifCheckbox";
+import SaveIcon from "@/components/SaveIcon";
 import BandeauErreur from "@/components/BandeauErreur";
 
 type Chef = { id: string; app_user_id: string };
@@ -137,8 +138,8 @@ export default async function EquipesPage({
                         ))}
                       </select>
                     </div>
-                    <button type="submit" className="btn-sm btn-ghost" title="Enregistrer" style={{ padding: "4px 10px", fontSize: 15 }}>
-                      💾
+                    <button type="submit" className="btn-sm btn-ghost" title="Enregistrer" style={{ padding: "4px 10px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                      <SaveIcon />
                     </button>
                   </form>
                   {/* Case « Actif » à droite, uniforme avec Param RH / Référentiel. */}
@@ -216,7 +217,7 @@ export default async function EquipesPage({
                     </div>
                   </div>
                 ))}
-                <button type="submit" style={{ width: "auto", padding: "9px 20px" }} title="Enregistrer les horaires">💾 Enregistrer les horaires</button>
+                <button type="submit" style={{ width: "auto", padding: "9px 20px", display: "inline-flex", alignItems: "center", gap: 8 }} title="Enregistrer les horaires"><SaveIcon /> Enregistrer les horaires</button>
               </form>
             </div>
 
@@ -257,8 +258,8 @@ export default async function EquipesPage({
                       </div>
                     ))}
                   </div>
-                  <button type="submit" style={{ width: "auto", padding: "9px 20px", marginTop: 8 }} title="Enregistrer la référence">
-                    💾 Enregistrer la référence
+                  <button type="submit" style={{ width: "auto", padding: "9px 20px", marginTop: 8, display: "inline-flex", alignItems: "center", gap: 8 }} title="Enregistrer la référence">
+                    <SaveIcon /> Enregistrer la référence
                   </button>
                 </form>
               )}

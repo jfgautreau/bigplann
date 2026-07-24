@@ -4,6 +4,7 @@ import LectureSeule from "@/components/LectureSeule";
 import { getServerClient } from "@/lib/supabase-server";
 import { saveEchelle } from "./actions";
 import BandeauErreur from "@/components/BandeauErreur";
+import SaveIcon from "@/components/SaveIcon";
 
 type Niveau = { niveau: number; libelle: string };
 
@@ -44,7 +45,7 @@ export default async function CompetencesPage({
                 <input id={`niveau_${n}`} name={`niveau_${n}`} defaultValue={libelle(n)} required />
               </div>
             ))}
-            <button type="submit" title="Enregistrer l'échelle">💾 Enregistrer l&apos;échelle</button>
+            <button type="submit" title="Enregistrer l'échelle" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><SaveIcon /> Enregistrer l&apos;échelle</button>
           </form>
         </div>
         </LectureSeule>

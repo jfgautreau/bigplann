@@ -5,6 +5,7 @@ import { libellePeriode, etatDepart, type PeriodeAbsence } from "@/lib/absences-
 import DateRangePicker from "@/components/DateRangePicker";
 import ModaleDeplacable from "@/components/ModaleDeplacable";
 import InfoBulle from "@/components/InfoBulle";
+import SaveIcon from "@/components/SaveIcon";
 
 type Motif = { id: string; code_court: string; libelle: string; couleur: string };
 type Periode = PeriodeAbsence & { commentaire: string };
@@ -324,7 +325,7 @@ export default function AbsencesModal({
                 </td>
                 <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }}>
                   <button type="button" className="btn-sm" disabled={enCours} onClick={verifierEtEnregistrer} style={{ width: "auto", padding: "2px 8px", fontSize: 15 }} title="Enregistrer">
-                    {enCours ? "…" : "💾"}
+                    {enCours ? "…" : <SaveIcon />}
                   </button>
                   <button type="button" className="btn-sm btn-ghost" onClick={() => { setEdit(null); setOuvertPop(null); setErreur(null); }} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }} title="Annuler">
                     ✕
@@ -352,7 +353,7 @@ export default function AbsencesModal({
                       ) : (
                         <div style={{ maxWidth: 320 }}>
                           <DateRangePicker
-                            mois={1}
+                            mois={2}
                             value={{ debut: edit.debut || null, fin: edit.fin || null }}
                             onChange={(p) => {
                               setEdit((s) => s ? { ...s, debut: p.debut ?? "", fin: p.fin ?? "" } : s);
@@ -529,7 +530,7 @@ function RowsEdit({
         </td>
         <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }}>
           <button type="button" className="btn-sm" disabled={enCours} onClick={onEnregistrer} style={{ width: "auto", padding: "2px 8px", fontSize: 15 }} title="Enregistrer">
-            {enCours ? "…" : "💾"}
+            {enCours ? "…" : <SaveIcon />}
           </button>
           <button type="button" className="btn-sm btn-ghost" disabled={enCours} onClick={onSupprimer} style={{ width: "auto", padding: "2px 8px", fontSize: 14, color: "var(--danger)" }} title="Supprimer">🗑</button>
           <button type="button" className="btn-sm btn-ghost" onClick={onAnnuler} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }} title="Annuler">✕</button>

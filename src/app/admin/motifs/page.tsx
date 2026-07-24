@@ -12,6 +12,7 @@ import {
 import AjoutModal from "./AjoutModal";
 import BandeauErreur from "@/components/BandeauErreur";
 import FenetreAffichageInline from "./FenetreAffichageInline";
+import SaveIcon from "@/components/SaveIcon";
 
 type Motif = { id: string; libelle: string; code_court: string; couleur: string; actif: boolean };
 type Agence = { id: string; nom: string; actif: boolean };
@@ -113,7 +114,7 @@ export default async function MotifsPage({
                           <span>Code</span>
                           <input name="code_court" defaultValue={m.code_court} maxLength={6} style={{ width: 80 }} required />
                         </div>
-                        <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", fontSize: 15 }}>💾</button>
+                        <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><SaveIcon /></button>
                         <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler">✕</Link>
                       </form>
                     </td>
@@ -184,7 +185,7 @@ export default async function MotifsPage({
                               <span>Nom</span>
                               <input name="nom" defaultValue={a.nom} autoFocus required />
                             </div>
-                            <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", fontSize: 15 }}>💾</button>
+                            <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><SaveIcon /></button>
                             <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler">✕</Link>
                           </form>
                         </td>
@@ -264,7 +265,7 @@ export default async function MotifsPage({
                             <div className="field"><span>Code</span><strong>{t.code}</strong></div>
                             <div className="field"><span>Libellé</span><input name="libelle" defaultValue={t.libelle} autoFocus required /></div>
                             <div className="field"><span>Ordre</span><input name="ordre" type="number" defaultValue={t.ordre} style={{ width: 80 }} /></div>
-                            <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", fontSize: 15 }}>💾</button>
+                            <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><SaveIcon /></button>
                             <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler">✕</Link>
                           </form>
                         </td>
@@ -278,20 +279,9 @@ export default async function MotifsPage({
                           <Link href={`/admin/motifs?edit=type:${t.code}`} className="navlink" scroll={false} prefetch={false} title="Modifier" style={{ textDecoration: "none", fontSize: 15 }}>✏️</Link>
                         </td>
                         <td style={{ textAlign: "center" }}>
-                          {/* Les types portent une PK texte `code` (pas un uuid) :
-                              ActifCheckbox pose le champ `id` — l'action serveur
-                              utilise `code` : on inline le formulaire ici. */}
-                          <form action={toggleTypeContrat} style={{ display: "inline", margin: 0 }}>
-                            <input type="hidden" name="code" value={t.code} />
-                            <input type="hidden" name="actif" value={(!t.actif).toString()} />
-                            <input
-                              type="checkbox"
-                              defaultChecked={t.actif}
-                              onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                              style={{ width: "auto", cursor: "pointer" }}
-                              title={t.actif ? "Désactiver" : "Réactiver"}
-                            />
-                          </form>
+                          {/* PK texte `code` (pas un uuid) : on passe keyName="code" à ActifCheckbox
+                              pour que le champ du formulaire porte le bon nom. */}
+                          <ActifCheckbox id={t.code} actif={t.actif} action={toggleTypeContrat} keyName="code" />
                         </td>
                       </tr>
                     )

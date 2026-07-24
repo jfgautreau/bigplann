@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import DateRangePicker from "@/components/DateRangePicker";
 import { libellePeriode } from "@/lib/absences-periodes";
+import SaveIcon from "@/components/SaveIcon";
 
 type Personne = { id: string; nom: string; prenom: string; atelier_id: string | null };
 type Atelier = { id: string; nom: string };
@@ -318,7 +319,7 @@ export default function AbsencesEditor({
           </td>
           <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
             <button type="button" className="btn-sm" disabled={enCours} onClick={verifierEtEnregistrer} style={{ width: "auto", padding: "2px 8px", fontSize: 15 }} title="Enregistrer">
-              {enCours ? "…" : "💾"}
+              {enCours ? "…" : <SaveIcon />}
             </button>
             <button type="button" className="btn-sm btn-ghost" onClick={annulerEdition} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }} title="Annuler">
               ✕
@@ -360,7 +361,7 @@ export default function AbsencesEditor({
                 ) : (
                   <div style={{ maxWidth: 320 }}>
                     <DateRangePicker
-                      mois={1}
+                      mois={2}
                       value={{ debut: edit.debut || null, fin: edit.fin || null }}
                       onChange={(p) => {
                         setEdit((s) => s ? { ...s, debut: p.debut ?? "", fin: p.fin ?? "" } : s);

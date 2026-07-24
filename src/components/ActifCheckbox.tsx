@@ -14,19 +14,23 @@ export default function ActifCheckbox({
   actif,
   action,
   title,
+  keyName = "id",
 }: {
   id: string;
   actif: boolean;
   action: (fd: FormData) => Promise<void> | void;
   title?: string;
+  // Nom du champ de clé — défaut `id`. Pour `type_contrat` dont la PK est `code`,
+  // passer `keyName="code"`.
+  keyName?: string;
 }) {
   return (
     <form action={action} style={{ display: "inline", margin: 0 }}>
-      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name={keyName} value={id} />
       <input type="hidden" name="actif" value={String(!actif)} />
       <input
         type="checkbox"
-        checked={actif}
+        defaultChecked={actif}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
         style={{ width: "auto", cursor: "pointer" }}
         title={title ?? (actif ? "Désactiver" : "Réactiver")}
