@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ROLES, ROLE_LABELS } from "@/lib/roles";
+
+type RoleOption = { code: string; libelle: string };
 
 // Role d'un compte, enregistre des le choix (plus de bouton « Enregistrer »),
 // avec le retour « Enregistré ✓ » du reste de l'application.
-export default function UserRoleSelect({ userId, role: initial }: { userId: string; role: string }) {
+// `roles` = liste dynamique (integres + personnalises), fournie par la page.
+export default function UserRoleSelect({ userId, role: initial, roles }: { userId: string; role: string; roles: RoleOption[] }) {
   const router = useRouter();
   const [role, setRole] = useState(initial);
   const [etat, setEtat] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -44,11 +46,14 @@ export default function UserRoleSelect({ userId, role: initial }: { userId: stri
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
       <select value={role} onChange={(e) => change(e.target.value)} style={{ width: "auto", minWidth: 150 }}>
-        {ROLES.map((r) => (
-          <option key={r} value={r}>
-            {ROLE_LABELS[r]}
+        {roles.map((r) => (
+          <option key={r.code} value={r.code}>
+            {r.libelle}
           </option>
         ))}
+        {/* Rôle historique absent de la liste (ex. supprimé) : on le garde en
+            option pour ne pas l'écraser silencieusement à l'ouverture. */}
+        {role && !roles.some((r) => r.code === role) && <option value={role}>{role}</option>}
       </select>
       <span
         style={{

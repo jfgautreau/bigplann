@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { userAdminGuard } from "@/lib/permissions";
 import { isRole } from "@/lib/roles";
+import { getCustomRoles } from "@/lib/roles-server";
 
 // POST /api/users/role { user_id, role }
 // Change le role d'un compte, enregistre des le choix dans la liste (plus de
@@ -17,7 +18,9 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as { user_id?: string; role?: string } | null;
   const user_id = String(body?.user_id ?? "");
   const role = String(body?.role ?? "");
-  if (!user_id || !isRole(role)) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
+  // Rôle valide = intégré OU personnalisé (role_custom, migration 0042).
+  const roleValide = isRole(role) || (await getCustomRoles()).some((r) => r.code === role);
+  if (!user_id || !roleValide) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
 
   const garde = await userAdminGuard({ cibleUserId: user_id, roleVise: role });
   if (!garde.ok) return NextResponse.json({ error: garde.error }, { status: garde.status });

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { userAdminGuard } from "@/lib/permissions";
 import { isRole } from "@/lib/roles";
+import { getCustomRoles } from "@/lib/roles-server";
 import { genererLienMotDePasse, motDePasseAleatoire } from "@/lib/password-link";
 
 // POST /api/users/create { email, name, role }
@@ -25,7 +26,8 @@ export async function POST(req: NextRequest) {
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
     return NextResponse.json({ error: "Email invalide" }, { status: 400 });
   }
-  if (!isRole(role)) {
+  const roleValide = isRole(role) || (await getCustomRoles()).some((r) => r.code === role);
+  if (!roleValide) {
     return NextResponse.json({ error: "Role invalide" }, { status: 400 });
   }
 

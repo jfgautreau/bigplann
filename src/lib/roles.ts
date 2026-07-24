@@ -29,3 +29,16 @@ export function isRole(value: string): value is Role {
 export function roleLabel(value: string): string {
   return isRole(value) ? ROLE_LABELS[value] : value;
 }
+
+// Code technique d'un role personnalise, derive de son libelle : minuscules,
+// sans accents, mots relies par « _ ». Sert de cle primaire dans role_custom et
+// de valeur stockee dans app_user.role. « Superviseur Nuit » -> « superviseur_nuit ».
+export function slugifyRole(libelle: string): string {
+  return libelle
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // accents
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+}

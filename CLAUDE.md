@@ -26,7 +26,8 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `supabase/migrations/` et **demande à l'utilisateur de l'exécuter** dans le SQL Editor.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
-   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0039`.**
+   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0041`.**
+   (0042 — rôles personnalisés — écrite, **en attente d'exécution** par l'utilisateur.)
 5. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
 6. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
@@ -94,7 +95,14 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
   passent en consultation seule via `<LectureSeule>` — un `<fieldset disabled>` neutralise
   tous les champs d'un coup. Le menu apparaît dès la lecture. Seul **Placement** fait
   exception : écran de saisie, sa page exige `write`, l'entrée de menu aussi.
-- Rôles : `admin`, `chef_equipe`, `ordo`, `rh`, `codir`, `planning`.
+- Rôles **intégrés** : `admin`, `chef_equipe`, `ordo`, `rh`, `codir`, `planning`
+  (`src/lib/roles.ts`). **Rôles personnalisés** (migration 0042) : table `role_custom`,
+  créés depuis l'écran Utilisateurs (`/api/roles`), lus par `getAllRoles()`
+  (`src/lib/roles-server.ts`). Un rôle personnalisé naît **sans aucun droit**
+  (`defaultsFor()` renvoie `none` pour tout code inconnu), donc jamais une escalade ;
+  les garde-fous se calculant sur la matrice, ils s'appliquent à lui automatiquement.
+  Le CHECK sur `app_user.role` a été retiré (0042) ; la validation d'un code de rôle
+  se fait côté application (intégrés + `role_custom`), plus par `isRole()` seul.
 - Routes publiques (`src/proxy.ts`) : `/login`, `/forgot`, `/reset`, `/auth/*`, `/affichage/*`.
 - **Mot de passe** : l'admin n'en choisit jamais. `/admin/users` génère un **lien**
   `{base}/reset?token_hash=…` à transmettre (aucun e-mail envoyé, le SMTP n'est pas
@@ -321,7 +329,7 @@ prochain gros chantier, pas une optimisation cosmétique.
 - Param. RH (ex-« Motifs d'absence », clé de droit toujours `motifs`, route toujours
   `/admin/motifs`) : `src/app/admin/motifs/{page,actions}.ts(x)` — motifs d'absence **et**
   agences d'intérim, ces dernières servant le menu déroulant Agence de `PeriodesEditor`.
-- Migrations : `supabase/migrations/0001..0039`.
+- Migrations : `supabase/migrations/0001..0042`.
 - **Écritures : lire l'erreur, toujours.** `messageErreur()` (`src/lib/erreurs.ts`) traduit
   les codes Postgres ; les server actions repassent le message par l'URL
   (`urlAvecErreur` → `?err=`) et la page l'affiche via `<BandeauErreur>`. Un test

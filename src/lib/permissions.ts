@@ -178,9 +178,13 @@ export const getPermissions = cache(async function getPermissions(role: string):
 });
 
 // Tous les droits effectifs (pour l'editeur de la matrice).
-export async function getAllPermissions(): Promise<Record<string, Perms>> {
+// `rolesSupplementaires` : codes des roles personnalises (role_custom) a inclure
+// en plus des roles integres. Ils partent de defaultsFor(code)=NONE, puis les
+// lignes role_permission les surchargent comme les autres.
+export async function getAllPermissions(rolesSupplementaires: string[] = []): Promise<Record<string, Perms>> {
   const all: Record<string, Perms> = {};
   for (const r of ROLES) all[r] = defaultsFor(r);
+  for (const r of rolesSupplementaires) if (!all[r]) all[r] = defaultsFor(r);
   try {
     const supabase = await getServerClient();
     const { data } = await supabase

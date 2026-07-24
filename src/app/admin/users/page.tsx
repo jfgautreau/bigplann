@@ -1,9 +1,10 @@
 import { getServerClient } from "@/lib/supabase-server";
-import { roleLabel, ROLES, ROLE_LABELS } from "@/lib/roles";
 import AppHeader from "@/components/AppHeader";
 import { requireModule, canWrite, MODULES, getAllPermissions, roleModifiablePar } from "@/lib/permissions";
+import { getAllRoles } from "@/lib/roles-server";
 import LectureSeule from "@/components/LectureSeule";
 import NouvelUtilisateur from "./NouvelUtilisateur";
+import NouveauRole from "./NouveauRole";
 import UserRoleSelect from "./UserRoleSelect";
 import UserRowActions from "./UserRowActions";
 import DroitsMatrix from "./DroitsMatrix";
@@ -28,10 +29,17 @@ export default async function AdminUsersPage() {
 
   const list = users ?? [];
 
+  // Rôles assignables = intégrés + personnalisés (role_custom, migration 0042).
+  const roles = await getAllRoles();
+  const roleCodes = roles.map((r) => r.code);
+  const roleLabelMap = Object.fromEntries(roles.map((r) => [r.code, r.libelle]));
+  const roleLbl = (code: string) => roleLabelMap[code] ?? code;
+
   // La matrice s'edite avec le droit « utilisateurs: write » — pas reservee au
   // seul role admin, qui l'obtient de toute facon par la matrice.
   const peutEditerDroits = canWrite(perms, "utilisateurs");
-  const allPerms = peutEditerDroits ? await getAllPermissions() : null;
+  const customCodes = roleCodes.filter((c) => !(["codir", "chef_equipe", "ordo", "rh", "admin", "planning"] as string[]).includes(c));
+  const allPerms = peutEditerDroits ? await getAllPermissions(customCodes) : null;
 
   // Quels roles cet appelant peut-il reellement editer ? La regle est cote
   // serveur (roleModifiablePar) ; l'ecran ne fait que la refleter, pour ne pas
@@ -39,8 +47,8 @@ export default async function AdminUsersPage() {
   // soit c'est le role de l'appelant (anti-verrou), soit il le domine
   // (anti-retrogradation).
   const rolesModifiables = peutEditerDroits
-    ? (await Promise.all(ROLES.map(async (r) => ((await roleModifiablePar(r, profile.role)) ? r : null)))).filter(
-        (r): r is (typeof ROLES)[number] => r !== null
+    ? (await Promise.all(roleCodes.map(async (r) => ((await roleModifiablePar(r, profile.role)) ? r : null)))).filter(
+        (r): r is string => r !== null
       )
     : [];
 
@@ -54,7 +62,10 @@ export default async function AdminUsersPage() {
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
             <h2 style={{ margin: 0 }}>Comptes ({list.length})</h2>
-            <NouvelUtilisateur />
+            <span style={{ display: "inline-flex", gap: 8 }}>
+              {peutEditerDroits && <NouveauRole />}
+              <NouvelUtilisateur roles={roles} />
+            </span>
           </div>
           <p className="muted" style={{ marginTop: 0, marginBottom: 14 }}>
             Le rôle est <strong>enregistré dès que vous le changez</strong>. Le mot de passe n&apos;est
@@ -81,10 +92,10 @@ export default async function AdminUsersPage() {
                       <td>
                         {isSelf ? (
                           <span>
-                            {roleLabel(u.role)} <span className="muted">(vous)</span>
+                            {roleLbl(u.role)} <span className="muted">(vous)</span>
                           </span>
                         ) : (
-                          <UserRoleSelect userId={u.user_id} role={u.role} />
+                          <UserRoleSelect userId={u.user_id} role={u.role} roles={roles} />
                         )}
                       </td>
                       <td>
@@ -116,9 +127,9 @@ export default async function AdminUsersPage() {
             </p>
             <div style={{ overflowX: "auto" }}>
               <DroitsMatrix
-                roles={ROLES.map((r) => ({ key: r, label: ROLE_LABELS[r] }))}
+                roles={roles.map((r) => ({ key: r.code, label: r.libelle }))}
                 modules={MODULES.map((m) => ({ key: m.key, label: m.label }))}
-                initial={Object.fromEntries(ROLES.map((r) => [r, allPerms[r]]))}
+                initial={Object.fromEntries(roleCodes.map((r) => [r, allPerms[r]]))}
                 rolesModifiables={rolesModifiables}
                 roleAppelant={profile.role}
                 permsAppelant={perms}

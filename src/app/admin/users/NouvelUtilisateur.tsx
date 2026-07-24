@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ROLE_LABELS, ROLES } from "@/lib/roles";
 import LienMotDePasse from "./LienMotDePasse";
+
+type RoleOption = { code: string; libelle: string };
 
 // Bouton « + » + modale de creation d'un compte. Plus de mot de passe saisi par
 // l'admin : on cree le compte et on affiche un lien que l'utilisateur suivra pour
-// choisir le sien.
-export default function NouvelUtilisateur() {
+// choisir le sien. `roles` = liste dynamique (integres + personnalises).
+export default function NouvelUtilisateur({ roles }: { roles: RoleOption[] }) {
   const router = useRouter();
   const [ouvert, setOuvert] = useState(false);
   const [name, setName] = useState("");
@@ -123,9 +124,9 @@ export default function NouvelUtilisateur() {
 
                   <label htmlFor="nu-role">Rôle</label>
                   <select id="nu-role" value={role} onChange={(e) => setRole(e.target.value)} required>
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {ROLE_LABELS[r]}
+                    {roles.map((r) => (
+                      <option key={r.code} value={r.code}>
+                        {r.libelle}
                       </option>
                     ))}
                   </select>
