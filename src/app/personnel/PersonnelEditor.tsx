@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import ToggleSwitch from "@/components/ToggleSwitch";
 import PageTitle from "@/components/PageTitle";
 import ConfirmForm from "@/components/ConfirmForm";
@@ -42,7 +43,12 @@ type Equipe = { id: string; nom: string; couleur?: string | null; quart_fixe?: s
 type Atelier = { id: string; nom: string };
 type Motif = { id: string; code_court: string; libelle: string; couleur: string };
 
-const CONTRATS = ["CDI", "CDD", "INTERIM"];
+type TypeContrat = { code: string; libelle: string };
+const CONTRATS_FALLBACK: TypeContrat[] = [
+  { code: "CDI", libelle: "CDI" },
+  { code: "CDD", libelle: "CDD" },
+  { code: "INTERIM", libelle: "Intérim" },
+];
 const sortRows = (a: Row, b: Row) => (a.nom + a.prenom).localeCompare(b.nom + b.prenom);
 // Normalisation pour comparer des noms : sans accents/casse/ponctuation.
 const normName = (s: string) =>
@@ -150,6 +156,7 @@ export default function PersonnelEditor({
   quarts = [],
   rotationRefs = [],
   motifs = [],
+  types = CONTRATS_FALLBACK,
   erreur,
 }: {
   initial: Row[];
@@ -159,9 +166,11 @@ export default function PersonnelEditor({
   quarts?: { code: string; libelle: string }[];
   rotationRefs?: { semaine: string; equipe_id: string; quart_code: string }[];
   motifs?: Motif[];
+  types?: TypeContrat[];
   // Message des server actions RGPD, repasse par l URL (cf. BandeauErreur).
   erreur?: string;
 }) {
+  const router = useRouter();
   const [rows, setRows] = useState<Row[]>(initial);
   const [gq, setGq] = useState("");
   const [dup, setDup] = useState<Row[] | null>(null);
@@ -283,6 +292,10 @@ export default function PersonnelEditor({
       setNom(""); setPrenom(""); setSexe(""); setMatricule(""); setBadge("");
       setEq(""); setAt(""); setContrat("INTERIM"); setLivret(""); setPointure("");
       setShowCreate(false);
+      // Purge du cache RSC : sans ca, une navigation puis un retour sur
+      // /personnel repartait des donnees serveur mises en cache et le nouveau
+      // profil n'apparaissait qu'apres un F5 explicite.
+      router.refresh();
     }
   }
 
@@ -392,9 +405,9 @@ export default function PersonnelEditor({
               <span className="muted" style={{ fontWeight: 600, fontSize: 13 }}>Contrat</span>
               <div className="segments">
                 <button type="button" className={contratFilter === "" ? "seg active" : "seg"} onClick={() => setContratFilter("")}>Tous</button>
-                {CONTRATS.map((c) => (
-                  <button key={c} type="button" className={contratFilter === c ? "seg active" : "seg"} onClick={() => setContratFilter(c)}>
-                    {c === "INTERIM" ? "Intérim" : c}
+                {types.map((c) => (
+                  <button key={c.code} type="button" className={contratFilter === c.code ? "seg active" : "seg"} onClick={() => setContratFilter(c.code)}>
+                    {c.libelle}
                   </button>
                 ))}
               </div>
@@ -429,7 +442,7 @@ export default function PersonnelEditor({
                 <tr key={r.id} style={{ opacity: r.statut === "ACTIF" ? 1 : 0.55 }}>
                   {canEdit ? (
                     <>
-                      <td><select value={r.type_contrat} onChange={(e) => field(r.id, "type_contrat", e.target.value, true)} style={{ ...inp, ...C("type_contrat"), ...interimStyle(r.type_contrat) }}>{CONTRATS.map((c) => (<option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>))}</select></td>
+                      <td><select value={r.type_contrat} onChange={(e) => field(r.id, "type_contrat", e.target.value, true)} style={{ ...inp, ...C("type_contrat"), ...interimStyle(r.type_contrat) }}>{types.map((c) => (<option key={c.code} value={c.code}>{c.libelle}</option>))}{r.type_contrat && !types.some((c) => c.code === r.type_contrat) && (<option value={r.type_contrat}>{r.type_contrat}</option>)}</select></td>
                       <td><input value={r.matricule ?? ""} onChange={(e) => field(r.id, "matricule", e.target.value)} style={{ ...inp, ...C("matricule") }} /></td>
                       <td><input value={r.numero_badge ?? ""} onChange={(e) => field(r.id, "numero_badge", e.target.value)} style={{ ...inp, ...C("numero_badge") }} /></td>
                       <td><input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={inp} /></td>
@@ -631,7 +644,7 @@ export default function PersonnelEditor({
               <div className="field">
                 <span>Contrat</span>
                 <select value={contrat} onChange={(e) => setContrat(e.target.value)} style={interimStyle(contrat)}>
-                  {CONTRATS.map((c) => (<option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>))}
+                  {types.map((c) => (<option key={c.code} value={c.code}>{c.libelle}</option>))}
                 </select>
               </div>
               <div className="field">

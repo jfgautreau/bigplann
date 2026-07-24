@@ -37,6 +37,7 @@ export default function OrdoGrid({
   const [jq, setJq] = useState<Record<string, boolean>>(jourQuartState);
   const [ov, setOv] = useState<Record<string, boolean>>(ouvertureState);
   const [saving, setSaving] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
   // Semaine en cours d'initialisation -> modale de choix du profil.
   const [initIsos, setInitIsos] = useState<string[] | null>(null);
 
@@ -70,13 +71,14 @@ export default function OrdoGrid({
   async function applyProfil(isos: string[], profilId?: string) {
     setInitIsos(null);
     setSaving(true);
+    setErreur(null);
     try {
       const res = await fetch("/api/ordonnancement/reset-week", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isos, profil_id: profilId }),
       });
-      const j = (await res.json().catch(() => ({}))) as { jq?: Record<string, boolean>; fermetures?: string[] };
+      const j = (await res.json().catch(() => ({}))) as { jq?: Record<string, boolean>; fermetures?: string[]; error?: string };
       if (res.ok) {
         const set = new Set(isos);
         setJq((s) => ({ ...s, ...(j.jq ?? {}) }));
@@ -86,6 +88,8 @@ export default function OrdoGrid({
           for (const key of j.fermetures ?? []) n[key] = false;
           return n;
         });
+      } else {
+        setErreur(j.error ?? "Échec.");
       }
     } finally {
       setSaving(false);
@@ -96,29 +100,39 @@ export default function OrdoGrid({
   const ligneOuverte = (code: string, lg: string, iso: string) =>
     quartActif(code, iso) ? (ov[`${code}:${lg}:${iso}`] ?? true) : false;
 
-  async function post(body: object) {
+  async function post(body: object, rollback: () => void) {
     setSaving(true);
+    setErreur(null);
     try {
-      await fetch("/api/ordonnancement/quart", {
+      const res = await fetch("/api/ordonnancement/quart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        rollback();
+        setErreur(j.error ?? "Échec.");
+      }
     } finally {
       setSaving(false);
     }
   }
   function toggleQuart(code: string, iso: string) {
     if (!canEdit) return;
-    const next = !quartActif(code, iso);
-    setJq((s) => ({ ...s, [`${code}:${iso}`]: next }));
-    post({ type: "quart", quart_code: code, jour: iso, value: next });
+    const prev = quartActif(code, iso);
+    const next = !prev;
+    const cle = `${code}:${iso}`;
+    setJq((s) => ({ ...s, [cle]: next }));
+    post({ type: "quart", quart_code: code, jour: iso, value: next }, () => setJq((s) => ({ ...s, [cle]: prev })));
   }
   function toggleLigne(code: string, lg: string, iso: string) {
     if (!canEdit || !quartActif(code, iso)) return;
-    const next = !ligneOuverte(code, lg, iso);
-    setOv((s) => ({ ...s, [`${code}:${lg}:${iso}`]: next }));
-    post({ type: "ligne", quart_code: code, ligne_id: lg, jour: iso, value: next });
+    const prev = ligneOuverte(code, lg, iso);
+    const next = !prev;
+    const cle = `${code}:${lg}:${iso}`;
+    setOv((s) => ({ ...s, [cle]: next }));
+    post({ type: "ligne", quart_code: code, ligne_id: lg, jour: iso, value: next }, () => setOv((s) => ({ ...s, [cle]: prev })));
   }
 
   const sep = (d: Jour) => (d.firstOfWeek ? { borderLeft: "2px solid #cbd5e1" } : {});
@@ -188,6 +202,12 @@ export default function OrdoGrid({
 
   return (
     <div className="gridband scroll">
+      {erreur && (
+        <div role="alert" style={{ margin: "0 0 10px", padding: "8px 12px", borderRadius: 8, background: "#fef2f2", color: "#991b1b", border: "1px solid #fecaca", fontSize: 13, fontWeight: 600 }}>
+          {erreur}
+          <button type="button" onClick={() => setErreur(null)} style={{ float: "right", background: "transparent", border: "none", color: "#991b1b", cursor: "pointer", fontSize: 14, width: "auto", margin: 0, padding: 0 }}>✕</button>
+        </div>
+      )}
       <div className="card section" style={{ overflowX: "auto" }}>
         <h2 style={{ marginTop: 0 }}>
           Quarts actifs par jour {saving && <span className="muted" style={{ fontSize: 12 }}>· enregistrement…</span>}

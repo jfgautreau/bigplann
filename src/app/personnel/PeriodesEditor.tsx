@@ -13,7 +13,12 @@ type Periode = {
   commentaire: string | null;
 };
 
-const CONTRATS = ["CDI", "CDD", "INTERIM"];
+type TypeContrat = { code: string; libelle: string };
+const CONTRATS_FALLBACK: TypeContrat[] = [
+  { code: "CDI", libelle: "CDI" },
+  { code: "CDD", libelle: "CDD" },
+  { code: "INTERIM", libelle: "Intérim" },
+];
 
 // Reflet recalcule par l'API sur `personne` apres chaque changement de periode.
 // Il alimente les colonnes Contrat / Fin de contrat et l'alerte des 18 mois de la
@@ -39,6 +44,7 @@ export default function PeriodesEditor({
   // Agences parametrees dans Param. RH. Vide = migration 0034 non appliquee :
   // on retombe alors sur la saisie libre (cf. le rendu de la colonne Agence).
   const [agences, setAgences] = useState<string[]>([]);
+  const [types, setTypes] = useState<TypeContrat[]>(CONTRATS_FALLBACK);
   const [loading, setLoading] = useState(true);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -82,13 +88,15 @@ export default function PeriodesEditor({
         body: JSON.stringify(payload),
       }).then((r) => r.json().catch(() => ({})));
     (async () => {
-      const [periodes, ag] = await Promise.all([
+      const [periodes, ag, tp] = await Promise.all([
         call({ op: "periode-list", personne_id: personneId }) as Promise<{ rows?: Periode[] }>,
         call({ op: "agences" }) as Promise<{ agences?: string[] }>,
+        call({ op: "types-contrat" }) as Promise<{ types?: TypeContrat[] }>,
       ]);
       if (!cancelled) {
         setRows(periodes.rows ?? []);
         setAgences(ag.agences ?? []);
+        if (tp.types?.length) setTypes(tp.types);
         setLoading(false);
       }
     })();
@@ -166,9 +174,14 @@ export default function PeriodesEditor({
               <tr key={r.id}>
                 <td>
                   <select value={r.type_contrat} onChange={(e) => edit(r.id, "type_contrat", e.target.value, true)} style={inp}>
-                    {CONTRATS.map((c) => (
-                      <option key={c} value={c}>{c === "INTERIM" ? "Intérim" : c}</option>
+                    {types.map((c) => (
+                      <option key={c.code} value={c.code}>{c.libelle}</option>
                     ))}
+                    {/* Code historique absent de la liste : on le garde en option
+                        pour ne pas l'effacer a l'ouverture. */}
+                    {r.type_contrat && !types.some((c) => c.code === r.type_contrat) && (
+                      <option value={r.type_contrat}>{r.type_contrat} (hors liste)</option>
+                    )}
                   </select>
                 </td>
                 <td>

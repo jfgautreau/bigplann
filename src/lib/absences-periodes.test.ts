@@ -98,15 +98,15 @@ describe("grouperAbsences — jours consecutifs", () => {
 
 describe("libellePeriode", () => {
   it("affiche un seul jour sans fleche", () => {
-    expect(libellePeriode({ motif_absence_id: "cp", debut: "2026-07-11", fin: "2026-07-11", jours: 1, declaree: false })).toBe("11/07/2026");
+    expect(libellePeriode({ motif_absence_id: "cp", debut: "2026-07-11", fin: "2026-07-11", jours: 1, declaree: false, absence_id: null })).toBe("11/07/2026");
   });
 
   it("ne repete pas l'annee quand elle est la meme", () => {
-    expect(libellePeriode({ motif_absence_id: "cp", debut: "2026-09-04", fin: "2026-09-12", jours: 7, declaree: false })).toBe("04/09 → 12/09/2026");
+    expect(libellePeriode({ motif_absence_id: "cp", debut: "2026-09-04", fin: "2026-09-12", jours: 7, declaree: false, absence_id: null })).toBe("04/09 → 12/09/2026");
   });
 
   it("affiche les deux annees a cheval sur le nouvel an", () => {
-    expect(libellePeriode({ motif_absence_id: "cp", debut: "2026-12-30", fin: "2027-01-02", jours: 4, declaree: false })).toBe("30/12/2026 → 02/01/2027");
+    expect(libellePeriode({ motif_absence_id: "cp", debut: "2026-12-30", fin: "2027-01-02", jours: 4, declaree: false, absence_id: null })).toBe("30/12/2026 → 02/01/2027");
   });
 });
 

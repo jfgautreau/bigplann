@@ -94,6 +94,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    if (op === "conflits") {
+      // Vérifie s'il existe déjà des affectations sur poste pour cette personne
+      // dans l'intervalle proposé. On IGNORE les jours déjà pris par des
+      // absences (motif_absence_id != null) et on peut ignorer une absence
+      // précise (édition d'une période existante).
+      const personne_id = s(body.personne_id);
+      const date_debut = s(body.date_debut);
+      const date_fin = s(body.date_fin);
+      const excludeAbsenceId = orNull(s(body.exclure_absence_id));
+      if (!personne_id || !date_debut || !date_fin) {
+        return NextResponse.json({ error: "Personne et dates requises." }, { status: 400 });
+      }
+      let q = supabase
+        .from("placement")
+        .select("jour, poste_id, absence_id")
+        .eq("personne_id", personne_id)
+        .gte("jour", date_debut)
+        .lte("jour", date_fin)
+        .not("poste_id", "is", null)
+        .is("motif_absence_id", null);
+      if (excludeAbsenceId) q = q.neq("absence_id", excludeAbsenceId);
+      const { data, error } = await q;
+      if (error) throw error;
+      const jours = (data ?? []).map((r) => r.jour as string);
+      return NextResponse.json({ ok: true, jours });
+    }
+
     if (op === "delete") {
       const id = s(body.id);
       if (!id) return NextResponse.json({ error: "id manquant" }, { status: 400 });

@@ -5,6 +5,7 @@ import { getQuartsC } from "@/lib/refdata";
 import { quartOuDefaut } from "@/lib/quarts";
 import { INTERIM_BG } from "@/lib/interim";
 import { isoDate, joursAutour, parseJour } from "@/lib/week";
+import { getFenetreAffichage } from "@/lib/parametres";
 import AutoRefresh from "@/components/AutoRefresh";
 import AffichageBarre from "./AffichageBarre";
 
@@ -37,10 +38,12 @@ export default async function AffichageAtelier({
 }) {
   const { atelier: param } = await params;
   const sp = await searchParams;
-  // Fenetre glissante J-1 -> J+4 (6 jours), et non plus la semaine calendaire :
-  // un ecran de couloir sert a savoir ce qui vient, pas a relire le lundi passe.
+  // Fenetre glissante autour d'aujourd'hui, dont les bornes sont reglees dans
+  // Param. RH (jours_avant / jours_apres). Un ecran de couloir sert a savoir ce
+  // qui vient, pas a relire le lundi passe.
   // `?date` deplace le pivot (sans recalage sur le lundi).
-  const days = joursAutour(parseJour(sp.date), 1, 4);
+  const { jours_avant, jours_apres } = await getFenetreAffichage();
+  const days = joursAutour(parseJour(sp.date), jours_avant, jours_apres);
   const isos = days.map((d) => d.iso);
   const todayIso = isoDate(new Date());
 

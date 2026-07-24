@@ -56,7 +56,7 @@ export default async function PersonnelPage({
   // `quart_fixe` + rotation + quarts : servent l'apercu de quinzaine de la modale
   // temps partiel (l'alternance « une semaine sur deux » vient de la rotation de
   // l'equipe, pas du temps partiel lui-meme).
-  const [{ data: equipesData }, { data: ateliersData }, { data: rowsData }, { data: cpData }, { data: quartsData }, rotationRefs, { data: motifsData }] =
+  const [{ data: equipesData }, { data: ateliersData }, { data: rowsData }, { data: cpData }, { data: quartsData }, rotationRefs, { data: motifsData }, typesR] =
     await Promise.all([
       supabase.from("equipe").select("id, nom, couleur, quart_fixe").order("nom").returns<Equipe[]>(),
       supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
@@ -66,7 +66,13 @@ export default async function PersonnelPage({
       getRotationRefsC(),
       // Motifs d absence : alimentent la declaration depuis la modale Absences.
       supabase.from("motif_absence").select("id, code_court, libelle, couleur").eq("actif", true).order("libelle").returns<Motif[]>(),
+      // Types de contrat parametrables (migration 0040). Best-effort : si la
+      // table n'existe pas encore, on retombe sur les 3 codes historiques.
+      supabase.from("type_contrat").select("code, libelle").eq("actif", true).order("ordre").returns<{ code: string; libelle: string }[]>(),
     ]);
+  const types = typesR.data && typesR.data.length > 0
+    ? typesR.data
+    : [{ code: "CDI", libelle: "CDI" }, { code: "CDD", libelle: "CDD" }, { code: "INTERIM", libelle: "Intérim" }];
 
   // Debut du contrat le plus ancien par personne (pour l'alerte > 18 mois).
   const minDebut = new Map<string, string>();
@@ -94,6 +100,7 @@ export default async function PersonnelPage({
           quarts={quartsData ?? []}
           rotationRefs={rotationRefs}
           motifs={motifsData ?? []}
+          types={types}
         />
       </div>
     </>

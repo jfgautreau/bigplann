@@ -21,6 +21,24 @@ export async function POST(req: NextRequest) {
   const profil_id = body?.profil_id || undefined;
   if (isos.length === 0) return NextResponse.json({ error: "Aucun jour" }, { status: 400 });
 
+  // Blocage : (re)initialiser une semaine qui a deja des affectations reelles
+  // (poste_id renseigne) ecraserait les fermetures/ouvertures decidees en
+  // Placement, potentiellement laissant des personnes sur des lignes qui vont
+  // se refermer. Les jours d'absence ne comptent pas.
+  const { data: conf, error: eConf } = await supabase
+    .from("placement")
+    .select("jour")
+    .in("jour", isos)
+    .not("poste_id", "is", null)
+    .is("motif_absence_id", null)
+    .limit(1);
+  if (eConf) return NextResponse.json({ error: eConf.message }, { status: 403 });
+  if ((conf ?? []).length > 0) {
+    return NextResponse.json(
+      { error: "Des affectations existent déjà sur cette semaine. Videz-les dans Placement avant de la réinitialiser." },
+      { status: 409 }
+    );
+  }
 
   const { data: quartsD } = await supabase
     .from("quart")

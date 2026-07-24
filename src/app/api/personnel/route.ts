@@ -11,7 +11,24 @@ import { normaliseNom, normalisePrenom } from "@/lib/noms";
 //       | periode-list | periode-create | periode-update | periode-delete
 const COLS = "id, matricule, nom, prenom, equipe_id, type_contrat, date_fin, pointure, statut";
 const PERIODE_COLS = "id, personne_id, type_contrat, agence_interim, date_debut, date_fin, commentaire, motif";
-const CONTRATS = ["CDI", "CDD", "INTERIM"];
+// Codes de contrat historiques (fallback si la table `type_contrat` de la
+// migration 0040 n'existe pas encore) : on garde le comportement d'origine.
+const CONTRATS_FALLBACK = ["CDI", "CDD", "INTERIM"];
+
+// Liste des codes de type de contrat autorises : union du fallback historique
+// et des types actifs saisis en Param. RH. Ne rejette jamais un code deja
+// present dans la table (meme desactive), pour ne pas casser une mise a jour.
+async function codesContratAutorises(supabase: SupabaseClient): Promise<string[]> {
+  try {
+    const { data, error } = await supabase.from("type_contrat").select("code").returns<{ code: string }[]>();
+    if (error) return CONTRATS_FALLBACK;
+    const set = new Set<string>(CONTRATS_FALLBACK);
+    for (const r of data ?? []) set.add(r.code);
+    return Array.from(set);
+  } catch {
+    return CONTRATS_FALLBACK;
+  }
+}
 
 type Body = Record<string, unknown>;
 const s = (v: unknown) => String(v ?? "").trim();
@@ -81,6 +98,7 @@ export async function POST(req: NextRequest) {
   if (!body || !op) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
 
   const supabase = getAdminClient();
+  const CONTRATS = await codesContratAutorises(supabase);
 
   try {
     if (op === "create") {
@@ -201,6 +219,31 @@ export async function POST(req: NextRequest) {
     // Parametrees dans Param. RH (/admin/motifs). Si la table n'existe pas encore
     // (migration 0034 non appliquee), on renvoie une liste vide : l'ecran retombe
     // alors sur la saisie libre au lieu de casser.
+    // Types de contrat actifs (migration 0040), pour alimenter le menu deroulant
+    // Personnel / Periodes de contrat. Retombe sur les 3 codes historiques si la
+    // table n'existe pas encore.
+    if (op === "types-contrat") {
+      try {
+        const { data, error } = await supabase
+          .from("type_contrat")
+          .select("code, libelle")
+          .eq("actif", true)
+          .order("ordre")
+          .returns<{ code: string; libelle: string }[]>();
+        if (error) throw error;
+        return NextResponse.json({ ok: true, types: data ?? [] });
+      } catch {
+        return NextResponse.json({
+          ok: true,
+          types: [
+            { code: "CDI", libelle: "CDI" },
+            { code: "CDD", libelle: "CDD" },
+            { code: "INTERIM", libelle: "Intérim" },
+          ],
+        });
+      }
+    }
+
     if (op === "agences") {
       const { data, error } = await supabase
         .from("agence_interim")

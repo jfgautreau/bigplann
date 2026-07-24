@@ -172,6 +172,13 @@ select {
   background: #fff;
 }
 
+/* Placeholder plus clair, uniforme sur tout le site (exemples de saisie
+   « Retraite, démission... », « Ex. Adecco », etc.). */
+::placeholder { color: #a3a9b4; opacity: 1; }
+::-webkit-input-placeholder { color: #a3a9b4; }
+::-moz-placeholder { color: #a3a9b4; opacity: 1; }
+:-ms-input-placeholder { color: #a3a9b4; }
+
 button {
   margin-top: 18px;
   width: 100%;

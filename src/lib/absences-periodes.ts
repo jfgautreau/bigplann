@@ -26,6 +26,9 @@ export type PeriodeAbsence = {
   jours: number;
   /** Vrai si au moins un jour provient d'une période déclarée. */
   declaree: boolean;
+  /** Id de la période déclarée si tous ses jours en proviennent (édition possible).
+   *  Null pour un regroupement de jours saisis au planning ou hétérogène. */
+  absence_id: string | null;
 };
 
 const AU_JOUR = 86_400_000;
@@ -71,6 +74,8 @@ export function grouperAbsences(jours: JourAbsence[], ecartTolere = 3): PeriodeA
         cur.fin = j.jour;
       }
       cur.declaree = cur.declaree || !!j.absence_id;
+      // Absence_id partagé : reste éditable ; sinon on invalide (hétérogène).
+      if (cur.absence_id !== (j.absence_id ?? null)) cur.absence_id = null;
     } else {
       cur = {
         motif_absence_id: j.motif_absence_id,
@@ -78,6 +83,7 @@ export function grouperAbsences(jours: JourAbsence[], ecartTolere = 3): PeriodeA
         fin: j.jour,
         jours: 1,
         declaree: !!j.absence_id,
+        absence_id: j.absence_id ?? null,
       };
       out.push(cur);
     }
