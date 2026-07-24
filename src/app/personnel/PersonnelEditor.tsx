@@ -12,7 +12,7 @@ import { anonymiserPersonne, supprimerPersonne } from "./actions";
 import BandeauErreur from "@/components/BandeauErreur";
 import { normaliseNom, normalisePrenom } from "@/lib/noms";
 import AbsencesModal from "./AbsencesModal";
-import { AbsenceIcon } from "@/components/icons";
+import { AbsenceIcon, SearchIcon, InfoIcon, GearIcon } from "@/components/icons";
 import { etatDepart } from "@/lib/absences-periodes";
 
 type HMap = Record<string, { debut: string; fin: string }>;
@@ -463,10 +463,10 @@ export default function PersonnelEditor({
                       </td>
                       <td><ToggleSwitch on={r.statut === "ACTIF"} onChange={(v) => toggleStatut(r.id, v)} onLabel="Actif" offLabel="Parti" title="Actif / Parti" /></td>
                       <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                        <input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleSel(r.id)} disabled={!sel.has(r.id) && sel.size >= 2} title="Sélectionner pour fusionner (2 max)" style={{ width: "auto", marginRight: 3, verticalAlign: "middle" }} />
-                        <button type="button" className="btn-sm btn-ghost" title="Périodes de contrat" onClick={() => setContratsFor(r)} style={{ width: "auto", padding: "2px 5px", fontSize: 13 }}>🔍</button>
-                        <button type="button" className="btn-sm btn-ghost" title="Informations (commentaire)" onClick={() => setInfoFor(r)} style={{ width: "auto", padding: "2px 5px", fontSize: 15 }}>ⓘ</button>
-                        <button type="button" className="btn-sm btn-ghost" title="RGPD (export / anonymiser / supprimer)" onClick={() => setRgpdFor(r)} style={{ width: "auto", padding: "2px 5px", fontSize: 14 }}>⚙️</button>
+                        <input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleSel(r.id)} disabled={!sel.has(r.id) && sel.size >= 2} title="Sélectionner pour fusionner (2 max)" style={{ width: "auto", marginRight: 6, verticalAlign: "middle" }} />
+                        <button type="button" className="iconbtn" title="Périodes de contrat" onClick={() => setContratsFor(r)}><SearchIcon /></button>
+                        <button type="button" className="iconbtn" title="Informations (commentaire)" onClick={() => setInfoFor(r)}><InfoIcon /></button>
+                        <button type="button" className="iconbtn" title="RGPD (export / anonymiser / supprimer)" onClick={() => setRgpdFor(r)}><GearIcon /></button>
                       </td>
                     </>
                   ) : (
