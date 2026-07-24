@@ -17,6 +17,7 @@ import {
   deleteRotationReference,
 } from "./actions";
 import TeamColorPicker from "./TeamColorPicker";
+import ActifCheckbox from "@/components/ActifCheckbox";
 import BandeauErreur from "@/components/BandeauErreur";
 
 type Chef = { id: string; app_user_id: string };
@@ -136,20 +137,15 @@ export default async function EquipesPage({
                         ))}
                       </select>
                     </div>
-                    <button type="submit" className="btn-sm btn-ghost">
-                      Enregistrer
+                    <button type="submit" className="btn-sm btn-ghost" title="Enregistrer" style={{ padding: "4px 10px", fontSize: 15 }}>
+                      💾
                     </button>
                   </form>
-                  <span className={e.actif ? "tag" : "tag tag-off"}>
-                    {e.actif ? "Active" : "Désactivée"}
+                  {/* Case « Actif » à droite, uniforme avec Param RH / Référentiel. */}
+                  <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Actif</label>
+                    <ActifCheckbox id={e.id} actif={e.actif} action={toggleEquipe} title={e.actif ? "Désactiver l'équipe" : "Réactiver l'équipe"} />
                   </span>
-                  <form action={toggleEquipe}>
-                    <input type="hidden" name="id" value={e.id} />
-                    <input type="hidden" name="actif" value={(!e.actif).toString()} />
-                    <button type="submit" className="btn-sm btn-ghost">
-                      {e.actif ? "Désactiver" : "Réactiver"}
-                    </button>
-                  </form>
                 </div>
 
                 <h2 style={{ fontSize: 14, marginTop: 8 }}>Chefs d&apos;équipe</h2>
@@ -220,7 +216,7 @@ export default async function EquipesPage({
                     </div>
                   </div>
                 ))}
-                <button type="submit" style={{ width: "auto", padding: "9px 20px" }}>Enregistrer les horaires</button>
+                <button type="submit" style={{ width: "auto", padding: "9px 20px" }} title="Enregistrer les horaires">💾 Enregistrer les horaires</button>
               </form>
             </div>
 
@@ -261,8 +257,8 @@ export default async function EquipesPage({
                       </div>
                     ))}
                   </div>
-                  <button type="submit" style={{ width: "auto", padding: "9px 20px", marginTop: 8 }}>
-                    Enregistrer la référence
+                  <button type="submit" style={{ width: "auto", padding: "9px 20px", marginTop: 8 }} title="Enregistrer la référence">
+                    💾 Enregistrer la référence
                   </button>
                 </form>
               )}

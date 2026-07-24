@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import DateRangePicker from "@/components/DateRangePicker";
 import { libellePeriode } from "@/lib/absences-periodes";
 
@@ -317,8 +317,8 @@ export default function AbsencesEditor({
             />
           </td>
           <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
-            <button type="button" className="btn-sm" disabled={enCours} onClick={verifierEtEnregistrer} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }}>
-              {enCours ? "…" : "Enregistrer"}
+            <button type="button" className="btn-sm" disabled={enCours} onClick={verifierEtEnregistrer} style={{ width: "auto", padding: "2px 8px", fontSize: 15 }} title="Enregistrer">
+              {enCours ? "…" : "💾"}
             </button>
             <button type="button" className="btn-sm btn-ghost" onClick={annulerEdition} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }} title="Annuler">
               ✕
@@ -448,10 +448,10 @@ export default function AbsencesEditor({
             </tr>
           </thead>
           <tbody>
-            {edit && edit.mode === "new" && <LigneEdition />}
+            {edit && edit.mode === "new" && LigneEdition()}
             {filtered.map((a) => {
               const enEdition = edit?.mode === "existing" && edit.absence_id === a.id;
-              if (enEdition) return <LigneEdition key={`edit-${a.id}`} />;
+              if (enEdition) return <React.Fragment key={`edit-${a.id}`}>{LigneEdition()}</React.Fragment>;
               return (
                 <tr key={a.id}>
                   <td style={cellStyle}>{a.label}</td>

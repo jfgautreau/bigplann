@@ -1,30 +1,31 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getServerClient } from "@/lib/supabase-server";
-import { getCurrentProfile } from "@/lib/current-user";
 import AppHeader from "@/components/AppHeader";
 import { requireModule, canWrite } from "@/lib/permissions";
 import LectureSeule from "@/components/LectureSeule";
+import ActifCheckbox from "@/components/ActifCheckbox";
 import {
   createMotif, updateMotif, toggleMotif,
   createAgence, updateAgence, toggleAgence,
   createTypeContrat, updateTypeContrat, toggleTypeContrat,
-  updateFenetreAffichage,
 } from "./actions";
 import AjoutModal from "./AjoutModal";
 import BandeauErreur from "@/components/BandeauErreur";
+import FenetreAffichageInline from "./FenetreAffichageInline";
 
-type Motif = {
-  id: string;
-  libelle: string;
-  code_court: string;
-  couleur: string;
-  actif: boolean;
-};
-
+type Motif = { id: string; libelle: string; code_court: string; couleur: string; actif: boolean };
 type Agence = { id: string; nom: string; actif: boolean };
 type TypeContrat = { code: string; libelle: string; actif: boolean; ordre: number };
 type FenetreAffichage = { jours_avant: number; jours_apres: number };
+
+// Règles d'écran de paramétrage (cf. CLAUDE.md — « Ossature des écrans de paramétrage »)
+// appliquées ici comme référence :
+//   - Icône ✏️ (crayon) à la place du bouton « Modifier ».
+//   - Icône 💾 (disquette) à la place du bouton « Enregistrer ».
+//   - Colonne « Actif » à droite, case à cocher (ActifCheckbox) — remplace le
+//     couple ancien « badge Statut + bouton Désactiver/Réactiver ».
+//   - Bloc de réglages simples (couple de nombres) : enregistrement automatique
+//     à la modification, sans bouton (cf. FenetreAffichageInline).
 
 export default async function MotifsPage({
   searchParams,
@@ -36,15 +37,8 @@ export default async function MotifsPage({
   const sp = await searchParams;
   const supabase = await getServerClient();
   const [{ data }, agencesR, typesR, fenR] = await Promise.all([
-    supabase
-      .from("motif_absence")
-      .select("id, libelle, code_court, couleur, actif")
-      .order("libelle")
-      .returns<Motif[]>(),
-    // Best-effort : la table arrive en 0034, l'ecran ne doit pas tomber si la
-    // migration n'a pas encore ete passee.
+    supabase.from("motif_absence").select("id, libelle, code_court, couleur, actif").order("libelle").returns<Motif[]>(),
     supabase.from("agence_interim").select("id, nom, actif").order("nom").returns<Agence[]>(),
-    // Migration 0040.
     supabase.from("type_contrat").select("code, libelle, actif, ordre").order("ordre").returns<TypeContrat[]>(),
     supabase.from("parametre_affichage").select("jours_avant, jours_apres").eq("id", 1).maybeSingle<FenetreAffichage>(),
   ]);
@@ -63,6 +57,8 @@ export default async function MotifsPage({
         <h1>Paramètres RH</h1>
         <BandeauErreur message={sp.err} />
         <LectureSeule actif={!canWrite(perms, "motifs")}>
+
+        {/* ---------------- Motifs d'absence ---------------- */}
         <h2 style={{ marginBottom: 4 }}>Motifs d&apos;absence</h2>
         <p className="muted" style={{ marginBottom: 16 }}>
           Ces motifs apparaissent dans les listes du planning. Le comptage en
@@ -94,8 +90,8 @@ export default async function MotifsPage({
                 <th>Couleur</th>
                 <th>Libellé</th>
                 <th>Code</th>
-                <th>Statut</th>
-                <th></th>
+                <th style={{ width: 90 }}></th>
+                <th style={{ width: 60, textAlign: "center" }}>Actif</th>
               </tr>
             </thead>
             <tbody>
@@ -117,40 +113,26 @@ export default async function MotifsPage({
                           <span>Code</span>
                           <input name="code_court" defaultValue={m.code_court} maxLength={6} style={{ width: 80 }} required />
                         </div>
-                        <button type="submit" className="btn-sm">Enregistrer</button>
-                        <Link href="/admin/motifs" className="navlink" scroll={false}>Annuler</Link>
+                        <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", fontSize: 15 }}>💾</button>
+                        <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler">✕</Link>
                       </form>
                     </td>
                   </tr>
                 ) : (
-                  <tr key={m.id}>
-                    <td>
-                      <span style={{ display: "inline-block", width: 20, height: 14, borderRadius: 3, background: m.couleur, border: "1px solid #cbd5e1" }} />
-                    </td>
+                  <tr key={m.id} style={{ opacity: m.actif ? 1 : 0.55 }}>
+                    <td><span style={{ display: "inline-block", width: 20, height: 14, borderRadius: 3, background: m.couleur, border: "1px solid #cbd5e1" }} /></td>
                     <td>{m.libelle}</td>
                     <td><strong>{m.code_court}</strong></td>
-                    <td>
-                      <span className={m.actif ? "tag" : "tag tag-off"}>{m.actif ? "Actif" : "Désactivé"}</span>
+                    <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                      <Link href={`/admin/motifs?edit=motif:${m.id}`} className="navlink" scroll={false} prefetch={false} title="Modifier" style={{ textDecoration: "none", fontSize: 15 }}>✏️</Link>
                     </td>
-                    <td style={{ whiteSpace: "nowrap" }}>
-                      <Link href={`/admin/motifs?edit=motif:${m.id}`} className="navlink" scroll={false} prefetch={false}>Modifier</Link>
-                      {"  "}
-                      <form action={toggleMotif} style={{ display: "inline", margin: 0 }}>
-                        <input type="hidden" name="id" value={m.id} />
-                        <input type="hidden" name="actif" value={(!m.actif).toString()} />
-                        <button type="submit" className="btn-sm btn-ghost">
-                          {m.actif ? "Désactiver" : "Réactiver"}
-                        </button>
-                      </form>
+                    <td style={{ textAlign: "center" }}>
+                      <ActifCheckbox id={m.id} actif={m.actif} action={toggleMotif} />
                     </td>
                   </tr>
                 )
               )}
-              {motifs.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="muted">Aucun motif.</td>
-                </tr>
-              )}
+              {motifs.length === 0 && (<tr><td colSpan={5} className="muted">Aucun motif.</td></tr>)}
             </tbody>
           </table>
         </div>
@@ -159,9 +141,8 @@ export default async function MotifsPage({
         <h2 style={{ marginTop: 32, marginBottom: 4 }}>Agences d&apos;intérim</h2>
         <p className="muted" style={{ marginBottom: 16 }}>
           Cette liste alimente le menu déroulant <strong>Agence</strong> à la saisie d&apos;un
-          contrat d&apos;intérim, dans Personnel. Une agence avec laquelle on ne travaille plus
-          se <strong>désactive</strong> : elle disparaît du menu, mais les contrats passés qui
-          la mentionnent restent intacts.
+          contrat d&apos;intérim, dans Personnel. Désactiver retire l&apos;agence du menu ; les
+          contrats passés qui la mentionnent restent intacts.
         </p>
 
         {agencesIndispo ? (
@@ -188,8 +169,8 @@ export default async function MotifsPage({
                 <thead>
                   <tr>
                     <th>Agence</th>
-                    <th>Statut</th>
-                    <th></th>
+                    <th style={{ width: 90 }}></th>
+                    <th style={{ width: 60, textAlign: "center" }}>Actif</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -203,40 +184,27 @@ export default async function MotifsPage({
                               <span>Nom</span>
                               <input name="nom" defaultValue={a.nom} autoFocus required />
                             </div>
-                            <button type="submit" className="btn-sm">Enregistrer</button>
-                            <Link href="/admin/motifs" className="navlink" scroll={false}>Annuler</Link>
+                            <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", fontSize: 15 }}>💾</button>
+                            <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler">✕</Link>
                           </form>
                         </td>
                       </tr>
                     ) : (
-                      <tr key={a.id}>
+                      <tr key={a.id} style={{ opacity: a.actif ? 1 : 0.55 }}>
                         <td>{a.nom}</td>
-                        <td>
-                          <span className={a.actif ? "tag" : "tag tag-off"}>{a.actif ? "Active" : "Désactivée"}</span>
+                        <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                          <Link href={`/admin/motifs?edit=agence:${a.id}`} className="navlink" scroll={false} prefetch={false} title="Modifier" style={{ textDecoration: "none", fontSize: 15 }}>✏️</Link>
                         </td>
-                        <td style={{ whiteSpace: "nowrap" }}>
-                          <Link href={`/admin/motifs?edit=agence:${a.id}`} className="navlink" scroll={false} prefetch={false}>Modifier</Link>
-                          {"  "}
-                          <form action={toggleAgence} style={{ display: "inline", margin: 0 }}>
-                            <input type="hidden" name="id" value={a.id} />
-                            <input type="hidden" name="actif" value={(!a.actif).toString()} />
-                            <button type="submit" className="btn-sm btn-ghost">
-                              {a.actif ? "Désactiver" : "Réactiver"}
-                            </button>
-                          </form>
+                        <td style={{ textAlign: "center" }}>
+                          <ActifCheckbox id={a.id} actif={a.actif} action={toggleAgence} />
                         </td>
                       </tr>
                     )
                   )}
-                  {agences.length === 0 && (
-                    <tr>
-                      <td colSpan={3} className="muted">Aucune agence.</td>
-                    </tr>
-                  )}
+                  {agences.length === 0 && (<tr><td colSpan={3} className="muted">Aucune agence.</td></tr>)}
                 </tbody>
               </table>
             </div>
-
           </>
         )}
 
@@ -245,8 +213,7 @@ export default async function MotifsPage({
         <p className="muted" style={{ marginBottom: 16 }}>
           Alimente le menu déroulant <strong>Contrat</strong> dans Personnel et dans les périodes
           de contrat. Le <strong>code</strong> est ce qui est stocké sur chaque personne
-          (« CDI », « CDD », « INTERIM »…). Retirer un type n&apos;efface pas l&apos;historique :
-          désactiver le fait disparaître du menu.
+          (« CDI », « CDD », « INTERIM »…). Retirer un type n&apos;efface pas l&apos;historique.
         </p>
 
         {typesIndispo ? (
@@ -279,7 +246,13 @@ export default async function MotifsPage({
             <div className="card" style={{ marginBottom: 24 }}>
               <table>
                 <thead>
-                  <tr><th>Code</th><th>Libellé</th><th>Ordre</th><th>Statut</th><th></th></tr>
+                  <tr>
+                    <th>Code</th>
+                    <th>Libellé</th>
+                    <th>Ordre</th>
+                    <th style={{ width: 90 }}></th>
+                    <th style={{ width: 60, textAlign: "center" }}>Actif</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {types.map((t) =>
@@ -291,24 +264,33 @@ export default async function MotifsPage({
                             <div className="field"><span>Code</span><strong>{t.code}</strong></div>
                             <div className="field"><span>Libellé</span><input name="libelle" defaultValue={t.libelle} autoFocus required /></div>
                             <div className="field"><span>Ordre</span><input name="ordre" type="number" defaultValue={t.ordre} style={{ width: 80 }} /></div>
-                            <button type="submit" className="btn-sm">Enregistrer</button>
-                            <Link href="/admin/motifs" className="navlink" scroll={false}>Annuler</Link>
+                            <button type="submit" className="btn-sm" title="Enregistrer" style={{ padding: "4px 10px", fontSize: 15 }}>💾</button>
+                            <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler">✕</Link>
                           </form>
                         </td>
                       </tr>
                     ) : (
-                      <tr key={t.code}>
+                      <tr key={t.code} style={{ opacity: t.actif ? 1 : 0.55 }}>
                         <td><strong>{t.code}</strong></td>
                         <td>{t.libelle}</td>
                         <td>{t.ordre}</td>
-                        <td><span className={t.actif ? "tag" : "tag tag-off"}>{t.actif ? "Actif" : "Désactivé"}</span></td>
-                        <td style={{ whiteSpace: "nowrap" }}>
-                          <Link href={`/admin/motifs?edit=type:${t.code}`} className="navlink" scroll={false} prefetch={false}>Modifier</Link>
-                          {"  "}
+                        <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                          <Link href={`/admin/motifs?edit=type:${t.code}`} className="navlink" scroll={false} prefetch={false} title="Modifier" style={{ textDecoration: "none", fontSize: 15 }}>✏️</Link>
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          {/* Les types portent une PK texte `code` (pas un uuid) :
+                              ActifCheckbox pose le champ `id` — l'action serveur
+                              utilise `code` : on inline le formulaire ici. */}
                           <form action={toggleTypeContrat} style={{ display: "inline", margin: 0 }}>
                             <input type="hidden" name="code" value={t.code} />
                             <input type="hidden" name="actif" value={(!t.actif).toString()} />
-                            <button type="submit" className="btn-sm btn-ghost">{t.actif ? "Désactiver" : "Réactiver"}</button>
+                            <input
+                              type="checkbox"
+                              defaultChecked={t.actif}
+                              onChange={(e) => e.currentTarget.form?.requestSubmit()}
+                              style={{ width: "auto", cursor: "pointer" }}
+                              title={t.actif ? "Désactiver" : "Réactiver"}
+                            />
                           </form>
                         </td>
                       </tr>
@@ -326,6 +308,7 @@ export default async function MotifsPage({
         <p className="muted" style={{ marginBottom: 16 }}>
           Nombre de jours affichés autour d&apos;aujourd&apos;hui sur l&apos;écran TV et les vues
           glissantes du planning. Défaut : <strong>J−1</strong> et <strong>J+4</strong>.
+          Enregistrement automatique.
         </p>
 
         {fenetreIndispo ? (
@@ -337,17 +320,7 @@ export default async function MotifsPage({
           </div>
         ) : (
           <div className="card" style={{ marginBottom: 24 }}>
-            <form action={updateFenetreAffichage} autoComplete="off" className="inline-form">
-              <div className="field">
-                <span>Jours avant J (0-14)</span>
-                <input name="jours_avant" type="number" min={0} max={14} defaultValue={fenetre.jours_avant} style={{ width: 90 }} required />
-              </div>
-              <div className="field">
-                <span>Jours après J (0-30)</span>
-                <input name="jours_apres" type="number" min={0} max={30} defaultValue={fenetre.jours_apres} style={{ width: 90 }} required />
-              </div>
-              <button type="submit" className="btn-sm">Enregistrer</button>
-            </form>
+            <FenetreAffichageInline initial={fenetre} />
           </div>
         )}
         </LectureSeule>

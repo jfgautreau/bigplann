@@ -191,9 +191,38 @@ imprimables (A4 paysage, KPI, barres) que la pleine largeur dégraderait.
   sur un axe `overflow: hidden`, Chrome retranche la gouttière de la zone défilable et le
   `scrollLeft` asservi s'arrête 15 px trop tôt. Cf. `tasks/lessons.md` L9.
 
+## Ossature des écrans de paramétrage (référence : `/admin/motifs`)
+Convention adoptée sur tous les écrans de paramétrage listant des lignes
+(motifs d'absence, agences d'intérim, types de contrat, équipes, compétences,
+habilitations, référentiel…). Applique-la ici plutôt que d'inventer :
+- **Icône ✏️ (crayon)** à la place du bouton « Modifier ». `<Link title="Modifier">✏️</Link>`.
+- **Icône 💾 (disquette)** à la place du bouton « Enregistrer ». Sur les actions
+  isolées (« Enregistrer les horaires », « Enregistrer la référence »), garder le
+  libellé et préfixer par 💾 pour ne pas perdre le sens (`💾 Enregistrer les horaires`).
+- **Colonne « Actif » à droite**, case à cocher via `<ActifCheckbox id actif action />`
+  (`src/components/ActifCheckbox.tsx`) — remplace le couple ancien
+  « badge Statut + bouton Désactiver/Réactiver ». Ligne opacifiée à 0.55 quand
+  inactive. Le composant est client, il rend un `<form action>` qui soumet à
+  chaque coche. ⚠️ Il pose le champ `id` : sur une table dont la clé est nommée
+  autrement (`type_contrat.code`), inliner le `<form>` avec le bon nom.
+- **Réglages simples enregistrés en direct** (couple de nombres, singleton) :
+  auto-save débouncé de 500 ms, pas de bouton. Cf.
+  `src/app/admin/motifs/FenetreAffichageInline.tsx` et l'endpoint dédié
+  `/api/param-affichage` — un server action `redirect()`erait à chaque touche.
+- **Édition inline d'une ligne** : le `<tr>` en édition passe en pleine largeur
+  (`colSpan`), contient un `<form action>` avec les champs inline. Bouton 💾
+  puis lien `✕` (Annuler) pointant sur la page sans `?edit=`.
+
 ## Autres patterns UI (réutilise-les, n'invente pas)
 - **Édition inline auto-enregistrée** : `useState` + `fetch` debouncé → route API,
   avec indicateur « Enregistré ✓ ». Cf. `PersonnelEditor`, `ReferentielEditor`, `MatrixGrid`.
+- ⚠️ **Ne pas définir un composant à l'intérieur d'un autre**, surtout s'il porte
+  des `<input>` : chaque re-render du parent recrée une nouvelle référence de
+  fonction, React voit un « type de composant différent » et démonte/remonte
+  l'arbre — l'input perd son focus à chaque touche. Bug vécu deux fois sur les
+  modales Absences (le champ Commentaire devenait inutilisable). Solutions :
+  extraire au TOP-LEVEL du module (voir `RowsEdit` dans `AbsencesModal.tsx`),
+  **ou** inliner le JSX (`{LigneEdition()}` au lieu de `<LigneEdition />`).
 - ⚠️ **Un `<select>` contrôlé dans un composant client ne se sérialise pas de façon
   fiable** dans un `<form action={serverAction}>` parent. Pour une grille éditable,
   poster explicitement en JSON vers une route API (cf. `/api/ordonnancement/semaine-type`).
@@ -208,7 +237,14 @@ imprimables (A4 paysage, KPI, barres) que la pleine largeur dégraderait.
 - **Filtres** : `.filterrow` (label + segments), navigation en `useTransition`.
   Planning : ordre **Quart / Atelier / Équipe**.
 - **Modales** : overlay `position:fixed` + `.card` (`TempsPartielModal`, `LegendeModal`,
-  `HabLegendeModal`, modale MàJ des habilitations).
+  `HabLegendeModal`, modale MàJ des habilitations). Pour une modale **déplaçable**
+  (consulter le fond sans la fermer), utiliser `ModaleDeplacable` : la carte se
+  saisit par un élément portant la classe `.mdd-drag` (typiquement le bandeau
+  titre) et se repose ailleurs. Cf. `AbsencesModal`.
+- **Info-bulle textuelle** : `<InfoBulle largeur={280}>…</InfoBulle>` pose une
+  icône `i` qui déploie un tooltip en **`position: fixed`** ancré en haut à droite
+  de l'icône. Le fixed est indispensable pour sortir d'un conteneur
+  `overflow: auto` (modale) — un tooltip absolu y provoquait un ascenseur.
 - **Ne pas rogner les libellés** : préférer une colonne plus large à un `text-overflow`.
 - **Intérim = jaune** (`INTERIM_BG` de `src/lib/interim.ts`) sur Planning, Placement,
   Matrice, Habilitations et TV. Le vert est réservé à « aujourd'hui » sur la TV — les

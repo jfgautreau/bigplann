@@ -44,7 +44,7 @@ export default async function CompetencesPage({
                 <input id={`niveau_${n}`} name={`niveau_${n}`} defaultValue={libelle(n)} required />
               </div>
             ))}
-            <button type="submit">Enregistrer l&apos;échelle</button>
+            <button type="submit" title="Enregistrer l'échelle">💾 Enregistrer l&apos;échelle</button>
           </form>
         </div>
         </LectureSeule>

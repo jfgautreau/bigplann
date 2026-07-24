@@ -7,6 +7,7 @@ import ModaleDeplacable from "@/components/ModaleDeplacable";
 import InfoBulle from "@/components/InfoBulle";
 
 type Motif = { id: string; code_court: string; libelle: string; couleur: string };
+type Periode = PeriodeAbsence & { commentaire: string };
 
 // Etat d'edition d'une ligne : brouillon (nouvelle) ou modification (existante).
 type Edition = {
@@ -20,6 +21,11 @@ type Edition = {
 
 // Modale « Absences » de l'ecran Personnel : liste des absences (regroupees par
 // periodes reconstruites depuis les jours), edition inline, et depart prevu.
+//
+// ⚠️ Le JSX de la ligne d'edition est INLINE (pas dans une fonction imbriquee) :
+// chaque re-render du parent recreerait une nouvelle reference de composant, et
+// React demonterait / remonterait l'input a chaque touche — perte de focus, on
+// ne pouvait plus taper dans le champ Commentaire.
 export default function AbsencesModal({
   personne,
   motifs,
@@ -35,20 +41,11 @@ export default function AbsencesModal({
   onClose: () => void;
   onDepartChange: (d: { date: string | null; motif: string | null }) => void;
 }) {
-  // La liste porte, en plus de PeriodeAbsence, le commentaire renvoye par
-  // l'API (uniquement pour les periodes declarees). Cf.
-  // /api/personnel/[id]/absences.
-  type Periode = PeriodeAbsence & { commentaire: string };
   const [periodes, setPeriodes] = useState<Periode[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
-
-  // Une seule ligne en edition à la fois — soit un nouveau brouillon,
-  // soit la modification d'une periode existante (crayon).
   const [edit, setEdit] = useState<Edition | null>(null);
-  // Popovers : motif ou calendrier ouvert. La cle sert au click-outside.
   const [ouvertPop, setOuvertPop] = useState<null | "motif" | "cal">(null);
-  // Conflit detecte : jours ou existe deja un placement sur poste.
   const [conflit, setConflit] = useState<{ jours: string[]; poursuivre: () => void } | null>(null);
 
   // Depart prevu (enregistre a la volee).
@@ -78,7 +75,6 @@ export default function AbsencesModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personne.id]);
 
-  // Click hors popover pour le refermer.
   useEffect(() => {
     if (!ouvertPop) return;
     function onDoc(e: MouseEvent) {
@@ -96,7 +92,6 @@ export default function AbsencesModal({
   function commencerEdition(p: Periode) {
     setErreur(null);
     if (p.absence_id) {
-      // Periode DECLAREE : edition en place, on modifie l'absence existante.
       setEdit({
         mode: "existing",
         absence_id: p.absence_id,
@@ -106,10 +101,8 @@ export default function AbsencesModal({
         commentaire: p.commentaire,
       });
     } else {
-      // Periode reconstituee depuis des jours saisis au planning (pas d'absence
-      // enregistree en tant que telle). On la re-declare comme une nouvelle
-      // periode : les jours existants sont ecrases par le RPC (creer_absence
-      // upserte les placements) et se retrouvent lies a une vraie absence.
+      // Periode reconstruite depuis des jours saisis au planning : re-declaree
+      // via creer_absence, qui upserte les placements existants.
       setEdit({
         mode: "new",
         motif_absence_id: p.motif_absence_id ?? "",
@@ -122,8 +115,8 @@ export default function AbsencesModal({
 
   async function supprimerPeriode(p: Periode) {
     if (!canEdit) return;
-    const libelleP = `${p.debut.split("-").reverse().join("/")}${p.debut !== p.fin ? ` → ${p.fin.split("-").reverse().join("/")}` : ""}`;
-    if (!window.confirm(`Supprimer cette période d'absence (${libelleP}) et libérer les jours du planning ?`)) return;
+    const lib = `${p.debut.split("-").reverse().join("/")}${p.debut !== p.fin ? ` → ${p.fin.split("-").reverse().join("/")}` : ""}`;
+    if (!window.confirm(`Supprimer cette période d'absence (${lib}) et libérer les jours du planning ?`)) return;
     setEnCours(true);
     setErreur(null);
     try {
@@ -157,7 +150,6 @@ export default function AbsencesModal({
       return;
     }
     setErreur(null);
-    // Preflight : y-a-t-il deja des affectations sur ces jours ?
     try {
       const res = await fetch("/api/absence", {
         method: "POST",
@@ -190,22 +182,8 @@ export default function AbsencesModal({
     setErreur(null);
     try {
       const body = edit.mode === "existing"
-        ? {
-            op: "update",
-            id: edit.absence_id,
-            motif_absence_id: edit.motif_absence_id,
-            date_debut: edit.debut,
-            date_fin: edit.fin,
-            commentaire: edit.commentaire,
-          }
-        : {
-            op: "save",
-            personne_id: personne.id,
-            motif_absence_id: edit.motif_absence_id,
-            date_debut: edit.debut,
-            date_fin: edit.fin,
-            commentaire: edit.commentaire,
-          };
+        ? { op: "update", id: edit.absence_id, motif_absence_id: edit.motif_absence_id, date_debut: edit.debut, date_fin: edit.fin, commentaire: edit.commentaire }
+        : { op: "save", personne_id: personne.id, motif_absence_id: edit.motif_absence_id, date_debut: edit.debut, date_fin: edit.fin, commentaire: edit.commentaire };
       const res = await fetch("/api/absence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -222,7 +200,7 @@ export default function AbsencesModal({
     setEnCours(false);
   }
 
-  async function supprimer() {
+  async function supprimerDepuisEdition() {
     if (!edit?.absence_id) return;
     if (!window.confirm("Supprimer cette période d'absence et libérer les jours du planning ?")) return;
     setEnCours(true);
@@ -249,11 +227,7 @@ export default function AbsencesModal({
       const res = await fetch("/api/personnel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          op: "update",
-          id: personne.id,
-          patch: { date_depart_prevu: date, motif_depart: motif },
-        }),
+        body: JSON.stringify({ op: "update", id: personne.id, patch: { date_depart_prevu: date, motif_depart: motif } }),
       });
       if (!res.ok) throw new Error();
       setDepartEtat("saved");
@@ -266,106 +240,13 @@ export default function AbsencesModal({
 
   const etat = etatDepart(dDate || null, aujourdhui);
 
-  // --- Rendu d'une ligne en mode edition (partagee brouillon / modification). ---
-  function LigneEdition() {
-    if (!edit) return null;
-    const m = edit.motif_absence_id ? motifById.get(edit.motif_absence_id) : null;
-    const periodeTxt = edit.debut && edit.fin
-      ? libellePeriode({ motif_absence_id: null, debut: edit.debut, fin: edit.fin, jours: 0, declaree: false, absence_id: null })
-      : "—";
-    return (
-      <>
-        <tr style={{ background: "#fefce8" }}>
-          <td style={cellStyle}>
-            <button
-              type="button"
-              onClick={() => setOuvertPop(ouvertPop === "motif" ? null : "motif")}
-              className="btn-sm btn-ghost"
-              style={{ width: "auto", padding: "2px 8px", fontSize: 13, background: m?.couleur ?? "#f1f5f9", color: "#1f2937", fontWeight: 600, border: "1px solid var(--border)" }}
-              title="Choisir le motif"
-            >
-              {m ? <><strong>{m.code_court}</strong> · {m.libelle}</> : <span style={{ color: "#94a3b8" }}>Choisir un motif…</span>} ▾
-            </button>
-          </td>
-          <td style={cellStyle}>
-            <button
-              type="button"
-              onClick={() => setOuvertPop(ouvertPop === "cal" ? null : "cal")}
-              className="btn-sm btn-ghost"
-              style={{ width: "auto", padding: "2px 8px", fontSize: 13, background: "#fff", border: "1px solid var(--border)", whiteSpace: "nowrap" }}
-              title="Choisir la période"
-            >
-              {edit.debut && edit.fin ? periodeTxt : <span style={{ color: "#94a3b8" }}>Choisir les dates…</span>} 📅
-            </button>
-          </td>
-          <td style={{ ...cellStyle, textAlign: "right" }}>
-            {edit.debut && edit.fin ? Math.max(1, Math.round((Date.parse(edit.fin) - Date.parse(edit.debut)) / 86_400_000) + 1) : "—"}
-          </td>
-          <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
-            <button type="button" className="btn-sm" disabled={enCours} onClick={verifierEtEnregistrer} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }}>
-              {enCours ? "…" : "Enregistrer"}
-            </button>
-            {edit.mode === "existing" && (
-              <button type="button" className="btn-sm btn-ghost" disabled={enCours} onClick={supprimer} style={{ width: "auto", padding: "2px 8px", fontSize: 12, color: "var(--danger)" }} title="Supprimer">
-                🗑
-              </button>
-            )}
-            <button type="button" className="btn-sm btn-ghost" onClick={() => { setEdit(null); setOuvertPop(null); setErreur(null); }} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }}>
-              ✕
-            </button>
-          </td>
-        </tr>
-        {/* Ligne 2 : commentaire libre (pas d'information medicale). */}
-        <tr style={{ background: "#fefce8" }}>
-          <td colSpan={4} style={{ padding: "4px 6px", borderBottom: "1px solid #f1f5f9" }}>
-            <input
-              value={edit.commentaire}
-              onChange={(e) => setEdit((s) => s ? { ...s, commentaire: e.target.value } : s)}
-              placeholder="Commentaire (facultatif) — pas d'information médicale"
-              style={{ width: "100%", fontSize: 13, padding: "3px 6px" }}
-            />
-          </td>
-        </tr>
-        {ouvertPop && (
-          <tr>
-            <td colSpan={4} style={{ padding: 0, border: "none" }}>
-              <div ref={popRef} style={{ position: "relative", padding: "6px 4px 10px" }}>
-                {ouvertPop === "motif" ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 6, border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }}>
-                    {motifs.map((mo) => (
-                      <button
-                        key={mo.id}
-                        type="button"
-                        onClick={() => { setEdit((s) => s ? { ...s, motif_absence_id: mo.id } : s); setOuvertPop(null); }}
-                        className="btn-sm btn-ghost"
-                        style={{ width: "auto", padding: "3px 10px", fontSize: 13, background: mo.couleur, color: "#1f2937", fontWeight: 600, border: "1px solid #cbd5e1" }}
-                      >
-                        <strong>{mo.code_court}</strong> · {mo.libelle}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ maxWidth: 320 }}>
-                    <DateRangePicker
-                      mois={1}
-                      value={{ debut: edit.debut || null, fin: edit.fin || null }}
-                      onChange={(p) => {
-                        setEdit((s) => s ? { ...s, debut: p.debut ?? "", fin: p.fin ?? "" } : s);
-                        if (p.debut && p.fin) setOuvertPop(null);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </td>
-          </tr>
-        )}
-      </>
-    );
-  }
+  const m = edit?.motif_absence_id ? motifById.get(edit.motif_absence_id) : null;
+  const periodeTxt = edit && edit.debut && edit.fin
+    ? libellePeriode({ motif_absence_id: null, debut: edit.debut, fin: edit.fin, jours: 0, declaree: false, absence_id: null })
+    : "—";
 
   return (
-    <ModaleDeplacable onClose={onClose} largeur={680}>
+    <ModaleDeplacable onClose={onClose} largeur={980}>
       <div className="mdd-drag" style={{ cursor: "move" }}>
         <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
           <h2 style={{ margin: 0 }}>Absences — {personne.label}</h2>
@@ -387,61 +268,152 @@ export default function AbsencesModal({
         </div>
       )}
 
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed" }}>
+        <colgroup>
+          <col style={{ width: "22%" }} />
+          <col style={{ width: "20%" }} />
+          <col style={{ width: 60 }} />
+          <col />
+          <col style={{ width: 110 }} />
+        </colgroup>
         <thead>
           <tr>
-            <th style={{ textAlign: "left", padding: "4px 6px", borderBottom: "1px solid var(--border)" }}>Motif</th>
-            <th style={{ textAlign: "left", padding: "4px 6px", borderBottom: "1px solid var(--border)" }}>Période</th>
-            <th style={{ textAlign: "right", padding: "4px 6px", borderBottom: "1px solid var(--border)" }}>Jours</th>
-            <th style={{ textAlign: "right", padding: "4px 6px", borderBottom: "1px solid var(--border)", width: 130 }}></th>
+            <th style={hd}>Motif</th>
+            <th style={hd}>Période</th>
+            <th style={{ ...hd, textAlign: "right" }}>Jours</th>
+            <th style={hd}>Commentaire</th>
+            <th style={hd}></th>
           </tr>
         </thead>
         <tbody>
-          {edit && edit.mode === "new" && <LigneEdition />}
+          {edit && edit.mode === "new" && (
+            <>
+              <tr style={{ background: "#fefce8" }}>
+                <td style={cell}>
+                  <button
+                    type="button"
+                    onClick={() => setOuvertPop(ouvertPop === "motif" ? null : "motif")}
+                    className="btn-sm btn-ghost"
+                    style={{ width: "100%", padding: "2px 8px", fontSize: 13, background: m?.couleur ?? "#f1f5f9", color: "#1f2937", fontWeight: 600, border: "1px solid var(--border)", textAlign: "left" }}
+                    title="Choisir le motif"
+                  >
+                    {m ? <><strong>{m.code_court}</strong> · {m.libelle}</> : <span style={{ color: "#94a3b8" }}>Motif…</span>} ▾
+                  </button>
+                </td>
+                <td style={cell}>
+                  <button
+                    type="button"
+                    onClick={() => setOuvertPop(ouvertPop === "cal" ? null : "cal")}
+                    className="btn-sm btn-ghost"
+                    style={{ width: "100%", padding: "2px 8px", fontSize: 13, background: "#fff", border: "1px solid var(--border)", whiteSpace: "nowrap", textAlign: "left" }}
+                    title="Choisir la période"
+                  >
+                    {edit.debut && edit.fin ? periodeTxt : <span style={{ color: "#94a3b8" }}>Dates…</span>} 📅
+                  </button>
+                </td>
+                <td style={{ ...cell, textAlign: "right" }}>
+                  {edit.debut && edit.fin ? Math.max(1, Math.round((Date.parse(edit.fin) - Date.parse(edit.debut)) / 86_400_000) + 1) : "—"}
+                </td>
+                <td style={cell}>
+                  <input
+                    value={edit.commentaire}
+                    onChange={(e) => setEdit((s) => s ? { ...s, commentaire: e.target.value } : s)}
+                    placeholder="Commentaire — pas d'info médicale"
+                    style={{ width: "100%", fontSize: 13, padding: "3px 6px" }}
+                  />
+                </td>
+                <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }}>
+                  <button type="button" className="btn-sm" disabled={enCours} onClick={verifierEtEnregistrer} style={{ width: "auto", padding: "2px 8px", fontSize: 15 }} title="Enregistrer">
+                    {enCours ? "…" : "💾"}
+                  </button>
+                  <button type="button" className="btn-sm btn-ghost" onClick={() => { setEdit(null); setOuvertPop(null); setErreur(null); }} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }} title="Annuler">
+                    ✕
+                  </button>
+                </td>
+              </tr>
+              {ouvertPop && (
+                <tr>
+                  <td colSpan={5} style={{ padding: 0, border: "none" }}>
+                    <div ref={popRef} style={{ position: "relative", padding: "6px 4px 10px" }}>
+                      {ouvertPop === "motif" ? (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 6, border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }}>
+                          {motifs.map((mo) => (
+                            <button
+                              key={mo.id}
+                              type="button"
+                              onClick={() => { setEdit((s) => s ? { ...s, motif_absence_id: mo.id } : s); setOuvertPop(null); }}
+                              className="btn-sm btn-ghost"
+                              style={{ width: "auto", padding: "3px 10px", fontSize: 13, background: mo.couleur, color: "#1f2937", fontWeight: 600, border: "1px solid #cbd5e1" }}
+                            >
+                              <strong>{mo.code_court}</strong> · {mo.libelle}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ maxWidth: 320 }}>
+                          <DateRangePicker
+                            mois={1}
+                            value={{ debut: edit.debut || null, fin: edit.fin || null }}
+                            onChange={(p) => {
+                              setEdit((s) => s ? { ...s, debut: p.debut ?? "", fin: p.fin ?? "" } : s);
+                              if (p.debut && p.fin) setOuvertPop(null);
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </>
+          )}
           {periodes === null ? (
-            <tr><td colSpan={4} className="muted" style={{ padding: 10 }}>Chargement…</td></tr>
+            <tr><td colSpan={5} className="muted" style={{ padding: 10 }}>Chargement…</td></tr>
           ) : periodes.length === 0 && !edit ? (
-            <tr><td colSpan={4} className="muted" style={{ padding: 10 }}>Aucune absence enregistrée pour cette personne.</td></tr>
+            <tr><td colSpan={5} className="muted" style={{ padding: 10 }}>Aucune absence enregistrée pour cette personne.</td></tr>
           ) : (
             periodes.map((p, i) => {
               const enEdition = edit?.mode === "existing" && edit.absence_id === p.absence_id;
-              if (enEdition) return <LigneEdition key={`edit-${p.absence_id}`} />;
-              const m = p.motif_absence_id ? motifById.get(p.motif_absence_id) : null;
+              if (enEdition) {
+                // Ligne d'edition inline pour une periode existante (memes cellules
+                // que le brouillon, plus la corbeille).
+                return (
+                  <RowsEdit
+                    key={`edit-${p.absence_id}`}
+                    edit={edit}
+                    m={m}
+                    periodeTxt={periodeTxt}
+                    ouvertPop={ouvertPop}
+                    setOuvertPop={setOuvertPop}
+                    setEdit={setEdit}
+                    motifs={motifs}
+                    popRef={popRef}
+                    enCours={enCours}
+                    onEnregistrer={verifierEtEnregistrer}
+                    onSupprimer={supprimerDepuisEdition}
+                    onAnnuler={() => { setEdit(null); setOuvertPop(null); setErreur(null); }}
+                  />
+                );
+              }
+              const mo = p.motif_absence_id ? motifById.get(p.motif_absence_id) : null;
               return (
                 <tr key={`${p.debut}-${p.motif_absence_id}-${i}`}>
-                  <td style={cellStyle}>
-                    <span
-                      className="sexe-pill"
-                      style={{ background: m?.couleur ?? "#e5e7eb", color: "#1f2937", fontWeight: 600 }}
-                      title={p.declaree ? "Période déclarée" : "Saisie au planning, jour par jour"}
-                    >
-                      {m?.code_court ?? "?"}
+                  <td style={cell}>
+                    <span className="sexe-pill" style={{ background: mo?.couleur ?? "#e5e7eb", color: "#1f2937", fontWeight: 600 }} title={p.declaree ? "Période déclarée" : "Saisie au planning, jour par jour"}>
+                      {mo?.code_court ?? "?"}
                     </span>{" "}
-                    {m?.libelle ?? "Motif supprimé"}
+                    {mo?.libelle ?? "Motif supprimé"}
                   </td>
-                  <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>{libellePeriode(p)}</td>
-                  <td style={{ ...cellStyle, textAlign: "right" }}>{p.jours}</td>
-                  <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
+                  <td style={{ ...cell, whiteSpace: "nowrap" }}>{libellePeriode(p)}</td>
+                  <td style={{ ...cell, textAlign: "right" }}>{p.jours}</td>
+                  <td style={cell} className={p.commentaire ? undefined : "muted"} title={p.commentaire || undefined}>
+                    {p.commentaire || (p.declaree ? "—" : "")}
+                  </td>
+                  <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }}>
                     {canEdit && (
                       <>
-                        <button
-                          type="button"
-                          className="btn-sm btn-ghost"
-                          onClick={() => commencerEdition(p)}
-                          style={{ width: "auto", padding: "2px 6px", fontSize: 14 }}
-                          title={p.absence_id ? "Modifier cette période" : "Modifier (re-déclare la période)"}
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-sm btn-ghost"
-                          onClick={() => supprimerPeriode(p)}
-                          style={{ width: "auto", padding: "2px 6px", fontSize: 14, color: "var(--danger)" }}
-                          title="Supprimer cette période"
-                        >
-                          🗑
-                        </button>
+                        <button type="button" className="btn-sm btn-ghost" onClick={() => commencerEdition(p)} style={{ width: "auto", padding: "2px 6px", fontSize: 14 }} title={p.absence_id ? "Modifier" : "Modifier (re-déclare la période)"}>✏️</button>
+                        <button type="button" className="btn-sm btn-ghost" onClick={() => supprimerPeriode(p)} style={{ width: "auto", padding: "2px 6px", fontSize: 14, color: "var(--danger)" }} title="Supprimer">🗑</button>
                       </>
                     )}
                   </td>
@@ -452,7 +424,7 @@ export default function AbsencesModal({
         </tbody>
       </table>
 
-      {/* ---- Départ prévu (une seule ligne pour rester cohérent avec les motifs). ---- */}
+      {/* ---- Départ prévu ---- */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "14px 0 4px", flexWrap: "wrap" }}>
         <strong style={{ fontSize: 14, display: "inline-flex", alignItems: "center" }}>
           Départ prévu
@@ -463,38 +435,16 @@ export default function AbsencesModal({
           </InfoBulle>
         </strong>
         {etat === "depasse" && <span className="rbadge danger">date dépassée</span>}
-        <input
-          type="date"
-          value={dDate}
-          disabled={!canEdit}
-          onChange={(e) => { setDDate(e.target.value); enregistrerDepart(e.target.value, dMotif); }}
-          style={{ width: "auto", padding: "3px 6px", fontSize: 13 }}
-        />
-        <input
-          value={dMotif}
-          disabled={!canEdit}
-          placeholder="Retraite, démission, fin de mission…"
-          onChange={(e) => setDMotif(e.target.value)}
-          onBlur={() => enregistrerDepart(dDate, dMotif)}
-          style={{ flex: 1, minWidth: 180, padding: "3px 6px", fontSize: 13 }}
-        />
+        <input type="date" value={dDate} disabled={!canEdit} onChange={(e) => { setDDate(e.target.value); enregistrerDepart(e.target.value, dMotif); }} style={{ width: "auto", padding: "3px 6px", fontSize: 13 }} />
+        <input value={dMotif} disabled={!canEdit} placeholder="Retraite, démission, fin de mission…" onChange={(e) => setDMotif(e.target.value)} onBlur={() => enregistrerDepart(dDate, dMotif)} style={{ flex: 1, minWidth: 180, padding: "3px 6px", fontSize: 13 }} />
         {dDate && canEdit && (
-          <button
-            type="button"
-            className="btn-sm btn-ghost"
-            onClick={() => { setDDate(""); setDMotif(""); enregistrerDepart("", ""); }}
-            style={{ width: "auto", padding: "2px 8px", fontSize: 12 }}
-            title="Retirer le départ prévu"
-          >
-            Retirer
-          </button>
+          <button type="button" className="btn-sm btn-ghost" onClick={() => { setDDate(""); setDMotif(""); enregistrerDepart("", ""); }} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }} title="Retirer le départ prévu">Retirer</button>
         )}
         <span style={{ fontSize: 12, fontWeight: 600, color: departEtat === "error" ? "var(--danger)" : "var(--ok)" }}>
           {departEtat === "saving" ? "…" : departEtat === "saved" ? "Enregistré ✓" : departEtat === "error" ? "Échec" : ""}
         </span>
       </div>
 
-      {/* ---- Modale conflit : des affectations existent deja sur ces jours. ---- */}
       {conflit && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setConflit(null)}>
           <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440, width: "100%" }}>
@@ -505,18 +455,14 @@ export default function AbsencesModal({
               de la période :
             </p>
             <div style={{ maxHeight: 140, overflow: "auto", fontSize: 12, padding: 8, background: "#f8fafc", borderRadius: 6, marginBottom: 12 }}>
-              {conflit.jours.map((j) => (
-                <div key={j}>{j.split("-").reverse().join("/")}</div>
-              ))}
+              {conflit.jours.map((j) => (<div key={j}>{j.split("-").reverse().join("/")}</div>))}
             </div>
             <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
               Écraser remplace les affectations par l&apos;absence. Annuler ne change rien.
             </p>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button type="button" className="btn-sm btn-ghost" onClick={() => setConflit(null)} style={{ width: "auto" }}>Annuler</button>
-              <button type="button" className="btn-sm" onClick={conflit.poursuivre} style={{ width: "auto", background: "#dc2626", border: "1px solid #dc2626" }}>
-                Écraser
-              </button>
+              <button type="button" className="btn-sm" onClick={conflit.poursuivre} style={{ width: "auto", background: "#dc2626", border: "1px solid #dc2626" }}>Écraser</button>
             </div>
           </div>
         </div>
@@ -525,4 +471,107 @@ export default function AbsencesModal({
   );
 }
 
-const cellStyle: React.CSSProperties = { padding: "4px 6px", borderBottom: "1px solid #f1f5f9" };
+// Composant TOP-LEVEL (pas une fonction imbriquee) : evite le demontage/remontage
+// des <input> a chaque touche (perte de focus). Meme JSX que le bloc « new » du
+// parent, mais separe pour reutilisation sur l'edition d'une periode existante.
+function RowsEdit({
+  edit, m, periodeTxt, ouvertPop, setOuvertPop, setEdit, motifs, popRef, enCours,
+  onEnregistrer, onSupprimer, onAnnuler,
+}: {
+  edit: Edition;
+  m: Motif | null | undefined;
+  periodeTxt: string;
+  ouvertPop: null | "motif" | "cal";
+  setOuvertPop: (v: null | "motif" | "cal") => void;
+  setEdit: React.Dispatch<React.SetStateAction<Edition | null>>;
+  motifs: Motif[];
+  popRef: React.RefObject<HTMLDivElement | null>;
+  enCours: boolean;
+  onEnregistrer: () => void;
+  onSupprimer: () => void;
+  onAnnuler: () => void;
+}) {
+  return (
+    <>
+      <tr style={{ background: "#fefce8" }}>
+        <td style={cell}>
+          <button
+            type="button"
+            onClick={() => setOuvertPop(ouvertPop === "motif" ? null : "motif")}
+            className="btn-sm btn-ghost"
+            style={{ width: "100%", padding: "2px 8px", fontSize: 13, background: m?.couleur ?? "#f1f5f9", color: "#1f2937", fontWeight: 600, border: "1px solid var(--border)", textAlign: "left" }}
+            title="Choisir le motif"
+          >
+            {m ? <><strong>{m.code_court}</strong> · {m.libelle}</> : <span style={{ color: "#94a3b8" }}>Motif…</span>} ▾
+          </button>
+        </td>
+        <td style={cell}>
+          <button
+            type="button"
+            onClick={() => setOuvertPop(ouvertPop === "cal" ? null : "cal")}
+            className="btn-sm btn-ghost"
+            style={{ width: "100%", padding: "2px 8px", fontSize: 13, background: "#fff", border: "1px solid var(--border)", whiteSpace: "nowrap", textAlign: "left" }}
+            title="Choisir la période"
+          >
+            {edit.debut && edit.fin ? periodeTxt : <span style={{ color: "#94a3b8" }}>Dates…</span>} 📅
+          </button>
+        </td>
+        <td style={{ ...cell, textAlign: "right" }}>
+          {edit.debut && edit.fin ? Math.max(1, Math.round((Date.parse(edit.fin) - Date.parse(edit.debut)) / 86_400_000) + 1) : "—"}
+        </td>
+        <td style={cell}>
+          <input
+            value={edit.commentaire}
+            onChange={(e) => setEdit((s) => s ? { ...s, commentaire: e.target.value } : s)}
+            placeholder="Commentaire — pas d'info médicale"
+            style={{ width: "100%", fontSize: 13, padding: "3px 6px" }}
+          />
+        </td>
+        <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }}>
+          <button type="button" className="btn-sm" disabled={enCours} onClick={onEnregistrer} style={{ width: "auto", padding: "2px 8px", fontSize: 15 }} title="Enregistrer">
+            {enCours ? "…" : "💾"}
+          </button>
+          <button type="button" className="btn-sm btn-ghost" disabled={enCours} onClick={onSupprimer} style={{ width: "auto", padding: "2px 8px", fontSize: 14, color: "var(--danger)" }} title="Supprimer">🗑</button>
+          <button type="button" className="btn-sm btn-ghost" onClick={onAnnuler} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }} title="Annuler">✕</button>
+        </td>
+      </tr>
+      {ouvertPop && (
+        <tr>
+          <td colSpan={5} style={{ padding: 0, border: "none" }}>
+            <div ref={popRef} style={{ position: "relative", padding: "6px 4px 10px" }}>
+              {ouvertPop === "motif" ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 6, border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }}>
+                  {motifs.map((mo) => (
+                    <button
+                      key={mo.id}
+                      type="button"
+                      onClick={() => { setEdit((s) => s ? { ...s, motif_absence_id: mo.id } : s); setOuvertPop(null); }}
+                      className="btn-sm btn-ghost"
+                      style={{ width: "auto", padding: "3px 10px", fontSize: 13, background: mo.couleur, color: "#1f2937", fontWeight: 600, border: "1px solid #cbd5e1" }}
+                    >
+                      <strong>{mo.code_court}</strong> · {mo.libelle}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ maxWidth: 320 }}>
+                  <DateRangePicker
+                    mois={1}
+                    value={{ debut: edit.debut || null, fin: edit.fin || null }}
+                    onChange={(p) => {
+                      setEdit((s) => s ? { ...s, debut: p.debut ?? "", fin: p.fin ?? "" } : s);
+                      if (p.debut && p.fin) setOuvertPop(null);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+const cell: React.CSSProperties = { padding: "4px 6px", borderBottom: "1px solid #f1f5f9" };
+const hd: React.CSSProperties = { textAlign: "left", padding: "4px 6px", borderBottom: "1px solid var(--border)" };
