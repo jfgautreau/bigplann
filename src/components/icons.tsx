@@ -3,15 +3,17 @@
 
 type P = { size?: number; color?: string };
 
-// Disquette « Enregistrer ». Variante par défaut retenue le 24/07/2026 :
-// bouton à fond transparent, bord gris, disquette en bleu (cf. SaveIcon usage).
-export function SaveIcon({ size = 15, color = "currentColor" }: P) {
+// Disquette « Enregistrer » — variante « pleine, deux tons » (choix du 24/07/2026).
+// Corps en `currentColor` ; le curseur et l'étiquette sont évidés avec la couleur
+// du FOND du bouton (`hole`, blanc par défaut car les boutons Enregistrer ont un
+// fond blanc). Les deux traits de l'étiquette reprennent `currentColor`.
+export function SaveIcon({ size = 15, hole = "#fff" }: { size?: number; hole?: string }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke={color}
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: "-2px" }}>
-      <path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
-      <path d="M8 3v5h8V3" />
-      <path d="M8 14h8v6H8z" />
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" style={{ verticalAlign: "-2px" }}>
+      <path fill="currentColor" d="M4 4.6C4 3.7 4.7 3 5.6 3H16l4 4v11.4c0 .9-.7 1.6-1.6 1.6H5.6C4.7 20 4 19.3 4 18.4V4.6Z" />
+      <path fill={hole} d="M9 4.6h5.5v2.9c0 .3-.2.5-.5.5H9.5c-.3 0-.5-.2-.5-.5V4.6Z" />
+      <rect fill={hole} x="7" y="13" width="10" height="6" rx=".8" />
+      <path stroke="currentColor" fill="none" strokeWidth="1.3" strokeLinecap="round" d="M9 15.4h6M9 17.1h4" />
     </svg>
   );
 }
