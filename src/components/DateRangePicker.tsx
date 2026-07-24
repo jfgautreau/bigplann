@@ -55,10 +55,13 @@ export default function DateRangePicker({
   };
 
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, background: "#fff" }}>
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>
+    <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, background: "#fff", overflowX: "auto" }}>
+      {/* nowrap dès qu'on affiche 2 mois : `flexWrap: wrap` les empilait au
+          moindre pixel manquant. En cas de fenêtre trop étroite, l'overflow-x
+          du conteneur prend le relais plutôt que de casser la ligne. */}
+      <div style={{ display: "flex", gap: 20, flexWrap: nbMois > 1 ? "nowrap" : "wrap", justifyContent: "center" }}>
         {moisAffiches.map(({ a, m }, idx) => (
-          <div key={`${a}-${m}`} style={{ minWidth: 250 }}>
+          <div key={`${a}-${m}`} style={{ width: 244, flex: "0 0 auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               {idx === 0 ? (
                 <button type="button" onClick={reculer} aria-label="Mois précédent" style={navBtn}>‹</button>

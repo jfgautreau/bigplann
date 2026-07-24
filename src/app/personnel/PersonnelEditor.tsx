@@ -12,6 +12,7 @@ import { anonymiserPersonne, supprimerPersonne } from "./actions";
 import BandeauErreur from "@/components/BandeauErreur";
 import { normaliseNom, normalisePrenom } from "@/lib/noms";
 import AbsencesModal from "./AbsencesModal";
+import { AbsenceIcon } from "@/components/icons";
 import { etatDepart } from "@/lib/absences-periodes";
 
 type HMap = Record<string, { debut: string; fin: string }>;
@@ -124,12 +125,8 @@ function BoutonAbsences({ row, onOpen }: { row: Row; onOpen: () => void }) {
         position: "relative",
       }}
     >
-      {/* Calendrier barré : l'absence, par opposition aux jours travaillés. */}
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true">
-        <rect x="3" y="4.5" width="18" height="16" rx="2" />
-        <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
-        <path d="M9 14.5l6 4M15 14.5l-6 4" />
-      </svg>
+      {/* Calendrier + pastille × : l'absence (icône partagée, variante B). */}
+      <AbsenceIcon />
       {etat !== "aucun" && (
         <span
           aria-hidden="true"

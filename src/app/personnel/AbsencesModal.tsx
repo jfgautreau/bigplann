@@ -5,13 +5,7 @@ import { libellePeriode, etatDepart, type PeriodeAbsence } from "@/lib/absences-
 import DateRangePicker from "@/components/DateRangePicker";
 import ModaleDeplacable from "@/components/ModaleDeplacable";
 import InfoBulle from "@/components/InfoBulle";
-import { SaveIcon, TrashIcon } from "@/components/icons";
-
-// Boutons d'action inline : fond transparent, bord gris, icône colorée (même
-// esprit que le crayon). Le style global `button` impose du texte blanc, d'où
-// le `color` explicite.
-const saveBtn: React.CSSProperties = { width: "auto", margin: 0, padding: "3px 9px", background: "#fff", color: "#2563eb", border: "1px solid var(--border)", borderRadius: 7, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" };
-const trashBtn: React.CSSProperties = { width: "auto", margin: 0, padding: "3px 8px", background: "#fff", color: "#dc2626", border: "1px solid var(--border)", borderRadius: 7, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" };
+import { SaveIcon, TrashIcon, EditIcon } from "@/components/icons";
 
 type Motif = { id: string; code_court: string; libelle: string; couleur: string };
 type Periode = PeriodeAbsence & { commentaire: string };
@@ -294,85 +288,13 @@ export default function AbsencesModal({
         </thead>
         <tbody>
           {edit && edit.mode === "new" && (
-            <>
-              <tr style={{ background: "#fefce8" }}>
-                <td style={cell}>
-                  <button
-                    type="button"
-                    onClick={() => setOuvertPop(ouvertPop === "motif" ? null : "motif")}
-                    className="btn-sm btn-ghost"
-                    style={{ width: "100%", padding: "2px 8px", fontSize: 13, background: m?.couleur ?? "#f1f5f9", color: "#1f2937", fontWeight: 600, border: "1px solid var(--border)", textAlign: "left" }}
-                    title="Choisir le motif"
-                  >
-                    {m ? <><strong>{m.code_court}</strong> · {m.libelle}</> : <span style={{ color: "#94a3b8" }}>Motif…</span>} ▾
-                  </button>
-                </td>
-                <td style={cell}>
-                  <button
-                    type="button"
-                    onClick={() => setOuvertPop(ouvertPop === "cal" ? null : "cal")}
-                    className="btn-sm btn-ghost"
-                    style={{ width: "100%", padding: "2px 8px", fontSize: 13, background: "#fff", border: "1px solid var(--border)", whiteSpace: "nowrap", textAlign: "left" }}
-                    title="Choisir la période"
-                  >
-                    {edit.debut && edit.fin ? periodeTxt : <span style={{ color: "#94a3b8" }}>Dates…</span>} 📅
-                  </button>
-                </td>
-                <td style={{ ...cell, textAlign: "right" }}>
-                  {edit.debut && edit.fin ? Math.max(1, Math.round((Date.parse(edit.fin) - Date.parse(edit.debut)) / 86_400_000) + 1) : "—"}
-                </td>
-                <td style={cell}>
-                  <input
-                    value={edit.commentaire}
-                    onChange={(e) => setEdit((s) => s ? { ...s, commentaire: e.target.value } : s)}
-                    placeholder="Commentaire — pas d'info médicale"
-                    style={{ width: "100%", fontSize: 13, padding: "3px 6px" }}
-                  />
-                </td>
-                <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }}>
-                  <button type="button" disabled={enCours} onClick={verifierEtEnregistrer} style={saveBtn} title="Enregistrer">
-                    {enCours ? "…" : <SaveIcon />}
-                  </button>
-                  <button type="button" className="btn-sm btn-ghost" onClick={() => { setEdit(null); setOuvertPop(null); setErreur(null); }} style={{ width: "auto", padding: "2px 8px", fontSize: 12, marginLeft: 4 }} title="Annuler">
-                    ✕
-                  </button>
-                </td>
-              </tr>
-              {ouvertPop && (
-                <tr>
-                  <td colSpan={5} style={{ padding: 0, border: "none" }}>
-                    <div ref={popRef} style={{ position: "relative", padding: "6px 4px 10px" }}>
-                      {ouvertPop === "motif" ? (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 6, border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }}>
-                          {motifs.map((mo) => (
-                            <button
-                              key={mo.id}
-                              type="button"
-                              onClick={() => { setEdit((s) => s ? { ...s, motif_absence_id: mo.id } : s); setOuvertPop(null); }}
-                              className="btn-sm btn-ghost"
-                              style={{ width: "auto", padding: "3px 10px", fontSize: 13, background: mo.couleur, color: "#1f2937", fontWeight: 600, border: "1px solid #cbd5e1" }}
-                            >
-                              <strong>{mo.code_court}</strong> · {mo.libelle}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div style={{ maxWidth: 600 }}>
-                          <DateRangePicker
-                            mois={2}
-                            value={{ debut: edit.debut || null, fin: edit.fin || null }}
-                            onChange={(p) => {
-                              setEdit((s) => s ? { ...s, debut: p.debut ?? "", fin: p.fin ?? "" } : s);
-                              if (p.debut && p.fin) setOuvertPop(null);
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </>
+            <RowsEdit
+              edit={edit} m={m} periodeTxt={periodeTxt}
+              ouvertPop={ouvertPop} setOuvertPop={setOuvertPop} setEdit={setEdit}
+              motifs={motifs} popRef={popRef} enCours={enCours}
+              onEnregistrer={verifierEtEnregistrer}
+              onAnnuler={() => { setEdit(null); setOuvertPop(null); setErreur(null); }}
+            />
           )}
           {periodes === null ? (
             <tr><td colSpan={5} className="muted" style={{ padding: 10 }}>Chargement…</td></tr>
@@ -419,8 +341,8 @@ export default function AbsencesModal({
                   <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }}>
                     {canEdit && (
                       <>
-                        <button type="button" className="btn-sm btn-ghost" onClick={() => commencerEdition(p)} style={{ width: "auto", padding: "2px 6px", fontSize: 14 }} title={p.absence_id ? "Modifier" : "Modifier (re-déclare la période)"}>✏️</button>
-                        <button type="button" onClick={() => supprimerPeriode(p)} style={{ ...trashBtn, marginLeft: 4 }} title="Supprimer"><TrashIcon /></button>
+                        <button type="button" className="iconbtn edit" onClick={() => commencerEdition(p)} title={p.absence_id ? "Modifier" : "Modifier (re-déclare la période)"}><EditIcon /></button>
+                        <button type="button" className="iconbtn del" onClick={() => supprimerPeriode(p)} title="Supprimer"><TrashIcon /></button>
                       </>
                     )}
                   </td>
@@ -478,9 +400,10 @@ export default function AbsencesModal({
   );
 }
 
-// Composant TOP-LEVEL (pas une fonction imbriquee) : evite le demontage/remontage
-// des <input> a chaque touche (perte de focus). Meme JSX que le bloc « new » du
-// parent, mais separe pour reutilisation sur l'edition d'une periode existante.
+// Ligne d'édition — composant TOP-LEVEL (pas imbriqué) : sinon React démonte
+// l'<input> à chaque render et le focus saute. Sert AUSSI bien au brouillon
+// (« new », sans corbeille) qu'à l'édition d'une période existante (avec
+// corbeille via `onSupprimer`). Popovers ancrés SOUS leur bouton.
 function RowsEdit({
   edit, m, periodeTxt, ouvertPop, setOuvertPop, setEdit, motifs, popRef, enCours,
   onEnregistrer, onSupprimer, onAnnuler,
@@ -495,88 +418,75 @@ function RowsEdit({
   popRef: React.RefObject<HTMLDivElement | null>;
   enCours: boolean;
   onEnregistrer: () => void;
-  onSupprimer: () => void;
+  onSupprimer?: () => void;
   onAnnuler: () => void;
 }) {
+  const popWrap: React.CSSProperties = { position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 60 };
+  const relCell: React.CSSProperties = { ...cell, position: "relative" };
+  const trigger: React.CSSProperties = { width: "100%", margin: 0, padding: "4px 8px", fontSize: 13, border: "1px solid var(--border)", borderRadius: 7, textAlign: "left", cursor: "pointer" };
   return (
-    <>
-      <tr style={{ background: "#fefce8" }}>
-        <td style={cell}>
-          <button
-            type="button"
-            onClick={() => setOuvertPop(ouvertPop === "motif" ? null : "motif")}
-            className="btn-sm btn-ghost"
-            style={{ width: "100%", padding: "2px 8px", fontSize: 13, background: m?.couleur ?? "#f1f5f9", color: "#1f2937", fontWeight: 600, border: "1px solid var(--border)", textAlign: "left" }}
-            title="Choisir le motif"
-          >
-            {m ? <><strong>{m.code_court}</strong> · {m.libelle}</> : <span style={{ color: "#94a3b8" }}>Motif…</span>} ▾
-          </button>
-        </td>
-        <td style={cell}>
-          <button
-            type="button"
-            onClick={() => setOuvertPop(ouvertPop === "cal" ? null : "cal")}
-            className="btn-sm btn-ghost"
-            style={{ width: "100%", padding: "2px 8px", fontSize: 13, background: "#fff", border: "1px solid var(--border)", whiteSpace: "nowrap", textAlign: "left" }}
-            title="Choisir la période"
-          >
-            {edit.debut && edit.fin ? periodeTxt : <span style={{ color: "#94a3b8" }}>Dates…</span>} 📅
-          </button>
-        </td>
-        <td style={{ ...cell, textAlign: "right" }}>
-          {edit.debut && edit.fin ? Math.max(1, Math.round((Date.parse(edit.fin) - Date.parse(edit.debut)) / 86_400_000) + 1) : "—"}
-        </td>
-        <td style={cell}>
-          <input
-            value={edit.commentaire}
-            onChange={(e) => setEdit((s) => s ? { ...s, commentaire: e.target.value } : s)}
-            placeholder="Commentaire — pas d'info médicale"
-            style={{ width: "100%", fontSize: 13, padding: "3px 6px" }}
-          />
-        </td>
-        <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }}>
-          <button type="button" disabled={enCours} onClick={onEnregistrer} style={saveBtn} title="Enregistrer">
-            {enCours ? "…" : <SaveIcon />}
-          </button>
-          <button type="button" disabled={enCours} onClick={onSupprimer} style={{ ...trashBtn, marginLeft: 4 }} title="Supprimer"><TrashIcon /></button>
-          <button type="button" className="btn-sm btn-ghost" onClick={onAnnuler} style={{ width: "auto", padding: "2px 8px", fontSize: 12, marginLeft: 4 }} title="Annuler">✕</button>
-        </td>
-      </tr>
-      {ouvertPop && (
-        <tr>
-          <td colSpan={5} style={{ padding: 0, border: "none" }}>
-            <div ref={popRef} style={{ position: "relative", padding: "6px 4px 10px" }}>
-              {ouvertPop === "motif" ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 6, border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }}>
-                  {motifs.map((mo) => (
-                    <button
-                      key={mo.id}
-                      type="button"
-                      onClick={() => { setEdit((s) => s ? { ...s, motif_absence_id: mo.id } : s); setOuvertPop(null); }}
-                      className="btn-sm btn-ghost"
-                      style={{ width: "auto", padding: "3px 10px", fontSize: 13, background: mo.couleur, color: "#1f2937", fontWeight: 600, border: "1px solid #cbd5e1" }}
-                    >
-                      <strong>{mo.code_court}</strong> · {mo.libelle}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ maxWidth: 320 }}>
-                  <DateRangePicker
-                    mois={1}
-                    value={{ debut: edit.debut || null, fin: edit.fin || null }}
-                    onChange={(p) => {
-                      setEdit((s) => s ? { ...s, debut: p.debut ?? "", fin: p.fin ?? "" } : s);
-                      if (p.debut && p.fin) setOuvertPop(null);
-                    }}
-                  />
-                </div>
-              )}
+    <tr style={{ background: "#fefce8" }}>
+      <td style={relCell}>
+        <button type="button" onClick={() => setOuvertPop(ouvertPop === "motif" ? null : "motif")}
+            onMouseDown={(e) => e.stopPropagation()}
+          style={{ ...trigger, background: m?.couleur ?? "#f1f5f9", color: "#1f2937", fontWeight: 600 }} title="Choisir le motif">
+          {m ? <><strong>{m.code_court}</strong> · {m.libelle}</> : <span style={{ color: "#94a3b8" }}>Motif…</span>} ▾
+        </button>
+        {ouvertPop === "motif" && (
+          <div ref={popRef} style={{ ...popWrap, width: 260 }}>
+            <div className="picklist" style={{ boxShadow: "0 6px 18px rgba(15,23,42,.14)" }}>
+              {motifs.map((mo) => (
+                <button key={mo.id} type="button" className="picklist-item"
+                  onClick={() => { setEdit((s) => s ? { ...s, motif_absence_id: mo.id } : s); setOuvertPop(null); }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, background: mo.couleur || "#cbd5e1", border: "1px solid #cbd5e1", flex: "0 0 auto" }} />
+                  <strong style={{ minWidth: 44 }}>{mo.code_court}</strong>
+                  <span>{mo.libelle}</span>
+                </button>
+              ))}
             </div>
-          </td>
-        </tr>
-      )}
-    </>
+          </div>
+        )}
+      </td>
+      <td style={relCell}>
+        <button type="button" onClick={() => setOuvertPop(ouvertPop === "cal" ? null : "cal")}
+            onMouseDown={(e) => e.stopPropagation()}
+          style={{ ...trigger, background: "#fff", color: "#1f2937", whiteSpace: "nowrap" }} title="Choisir la période">
+          {edit.debut && edit.fin ? periodeTxt : <span style={{ color: "#94a3b8" }}>Dates…</span>} 📅
+        </button>
+        {ouvertPop === "cal" && (
+          <div ref={popRef} style={{ ...popWrap, boxShadow: "0 6px 18px rgba(15,23,42,.14)", borderRadius: 10 }}>
+            <DateRangePicker
+              mois={2}
+              value={{ debut: edit.debut || null, fin: edit.fin || null }}
+              onChange={(p) => {
+                setEdit((s) => s ? { ...s, debut: p.debut ?? "", fin: p.fin ?? "" } : s);
+                if (p.debut && p.fin) setOuvertPop(null);
+              }}
+            />
+          </div>
+        )}
+      </td>
+      <td style={{ ...cell, textAlign: "right" }}>
+        {edit.debut && edit.fin ? Math.max(1, Math.round((Date.parse(edit.fin) - Date.parse(edit.debut)) / 86_400_000) + 1) : "—"}
+      </td>
+      <td style={cell}>
+        <input
+          value={edit.commentaire}
+          onChange={(e) => setEdit((s) => s ? { ...s, commentaire: e.target.value } : s)}
+          placeholder="Commentaire — pas d'info médicale"
+          style={{ width: "100%", fontSize: 13, padding: "3px 6px" }}
+        />
+      </td>
+      <td style={{ ...cell, textAlign: "right", whiteSpace: "nowrap" }}>
+        <button type="button" className="iconbtn save" disabled={enCours} onClick={onEnregistrer} title="Enregistrer">
+          {enCours ? "…" : <SaveIcon />}
+        </button>
+        {onSupprimer && (
+          <button type="button" className="iconbtn del" disabled={enCours} onClick={onSupprimer} title="Supprimer"><TrashIcon /></button>
+        )}
+        <button type="button" className="iconbtn ghost" onClick={onAnnuler} title="Annuler">✕</button>
+      </td>
+    </tr>
   );
 }
 

@@ -208,6 +208,38 @@ select {
 .picklist-item:last-child { border-bottom: none; }
 .picklist-item:hover { background: #eff2f7; filter: none; }
 
+/* Bouton d'action ICÔNE standardisé : même boîte partout (modales Absences,
+   Param RH, Personnel…). Fond blanc, bord gris, icône colorée par une classe
+   de variante. Le sélecteur de classe l'emporte sur le style global `button`
+   (et marche aussi sur les <a> stylés en bouton, comme le crayon). */
+.iconbtn {
+  box-sizing: border-box;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+.iconbtn + .iconbtn { margin-left: 5px; }
+.iconbtn:hover { background: #f1f5f9; filter: none; }
+.iconbtn:disabled { opacity: .5; cursor: default; }
+.iconbtn.edit  { color: #d97706; }  /* crayon  */
+.iconbtn.save  { color: #2563eb; }  /* disquette */
+.iconbtn.ok    { color: #16a34a; }  /* validation (coche) */
+.iconbtn.del   { color: #dc2626; }  /* corbeille */
+.iconbtn.ghost { color: #64748b; }  /* annuler (✕) */
+
 button {
   margin-top: 18px;
   width: 100%;

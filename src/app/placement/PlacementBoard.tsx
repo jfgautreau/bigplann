@@ -7,6 +7,7 @@ import { habValable, habManqueTxt } from "@/lib/habilitations";
 import { parseNumeros } from "@/lib/numeros-rotation";
 import { styleInterim, estInterim } from "@/lib/interim";
 import SlideSwitch from "@/components/SlideSwitch";
+import { PrintIcon } from "@/components/icons";
 import s from "./placement.module.css";
 
 type Atelier = { id: string; nom: string };
@@ -585,8 +586,9 @@ export default function PlacementBoard({
             className={s.navbtn}
             onClick={imprimer}
             title="Imprimer le plan de cet atelier (1 page A4 paysage)"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
-            🖨 PDF
+            <PrintIcon size={15} /> PDF
           </button>
           <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
             <input type="checkbox" checked={hidePlaced} onChange={(e) => setHidePlaced(e.target.checked)} style={{ width: "auto" }} />

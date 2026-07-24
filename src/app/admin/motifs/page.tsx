@@ -12,24 +12,7 @@ import {
 import AjoutModal from "./AjoutModal";
 import BandeauErreur from "@/components/BandeauErreur";
 import FenetreAffichageInline from "./FenetreAffichageInline";
-import { CheckIcon } from "@/components/icons";
-
-// Bouton d'action inline (valider) : fond transparent, bord gris, icône colorée
-// — même esprit que le crayon ✏️. Le style global `button` force du texte blanc,
-// d'où le `color` explicite (vert pour la validation).
-const valBtn: React.CSSProperties = {
-  width: "auto",
-  margin: 0,
-  padding: "3px 9px",
-  background: "#fff",
-  color: "#16a34a",
-  border: "1px solid var(--border)",
-  borderRadius: 7,
-  cursor: "pointer",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
+import { CheckIcon, EditIcon } from "@/components/icons";
 
 type Motif = { id: string; libelle: string; code_court: string; couleur: string; actif: boolean };
 type Agence = { id: string; nom: string; actif: boolean };
@@ -128,8 +111,8 @@ export default async function MotifsPage({
                     <td><input form={`ed-motif-${m.id}`} name="libelle" defaultValue={m.libelle} autoFocus required style={{ width: "100%" }} /></td>
                     <td><input form={`ed-motif-${m.id}`} name="code_court" defaultValue={m.code_court} maxLength={6} required style={{ width: 90 }} /></td>
                     <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                      <button form={`ed-motif-${m.id}`} type="submit" title="Valider" style={valBtn}><CheckIcon /></button>
-                      <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler" style={{ textDecoration: "none", marginLeft: 4 }}>✕</Link>
+                      <button form={`ed-motif-${m.id}`} type="submit" title="Valider" className="iconbtn ok"><CheckIcon /></button>
+                      <Link href="/admin/motifs" className="iconbtn ghost" scroll={false} title="Annuler">✕</Link>
                     </td>
                     <td style={{ textAlign: "center" }}><ActifCheckbox id={m.id} actif={m.actif} action={toggleMotif} /></td>
                   </tr>
@@ -139,7 +122,7 @@ export default async function MotifsPage({
                     <td>{m.libelle}</td>
                     <td><strong>{m.code_court}</strong></td>
                     <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                      <Link href={`/admin/motifs?edit=motif:${m.id}`} className="navlink" scroll={false} prefetch={false} title="Modifier" style={{ textDecoration: "none", fontSize: 15 }}>✏️</Link>
+                      <Link href={`/admin/motifs?edit=motif:${m.id}`} className="iconbtn edit" scroll={false} prefetch={false} title="Modifier"><EditIcon /></Link>
                     </td>
                     <td style={{ textAlign: "center" }}>
                       <ActifCheckbox id={m.id} actif={m.actif} action={toggleMotif} />
@@ -198,8 +181,8 @@ export default async function MotifsPage({
                           <input form={`ed-agence-${a.id}`} name="nom" defaultValue={a.nom} autoFocus required style={{ width: "100%" }} />
                         </td>
                         <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                          <button form={`ed-agence-${a.id}`} type="submit" title="Valider" style={valBtn}><CheckIcon /></button>
-                          <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler" style={{ textDecoration: "none", marginLeft: 4 }}>✕</Link>
+                          <button form={`ed-agence-${a.id}`} type="submit" title="Valider" className="iconbtn ok"><CheckIcon /></button>
+                          <Link href="/admin/motifs" className="iconbtn ghost" scroll={false} title="Annuler">✕</Link>
                         </td>
                         <td style={{ textAlign: "center" }}><ActifCheckbox id={a.id} actif={a.actif} action={toggleAgence} /></td>
                       </tr>
@@ -207,7 +190,7 @@ export default async function MotifsPage({
                       <tr key={a.id} style={{ opacity: a.actif ? 1 : 0.55 }}>
                         <td>{a.nom}</td>
                         <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                          <Link href={`/admin/motifs?edit=agence:${a.id}`} className="navlink" scroll={false} prefetch={false} title="Modifier" style={{ textDecoration: "none", fontSize: 15 }}>✏️</Link>
+                          <Link href={`/admin/motifs?edit=agence:${a.id}`} className="iconbtn edit" scroll={false} prefetch={false} title="Modifier"><EditIcon /></Link>
                         </td>
                         <td style={{ textAlign: "center" }}>
                           <ActifCheckbox id={a.id} actif={a.actif} action={toggleAgence} />
@@ -280,8 +263,8 @@ export default async function MotifsPage({
                         <td><input form={`ed-type-${t.code}`} name="libelle" defaultValue={t.libelle} autoFocus required style={{ width: "100%" }} /></td>
                         <td><input form={`ed-type-${t.code}`} name="ordre" type="number" defaultValue={t.ordre} style={{ width: 70 }} /></td>
                         <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                          <button form={`ed-type-${t.code}`} type="submit" title="Valider" style={valBtn}><CheckIcon /></button>
-                          <Link href="/admin/motifs" className="navlink" scroll={false} title="Annuler" style={{ textDecoration: "none", marginLeft: 4 }}>✕</Link>
+                          <button form={`ed-type-${t.code}`} type="submit" title="Valider" className="iconbtn ok"><CheckIcon /></button>
+                          <Link href="/admin/motifs" className="iconbtn ghost" scroll={false} title="Annuler">✕</Link>
                         </td>
                         <td style={{ textAlign: "center" }}><ActifCheckbox id={t.code} actif={t.actif} action={toggleTypeContrat} keyName="code" /></td>
                       </tr>
@@ -291,7 +274,7 @@ export default async function MotifsPage({
                         <td>{t.libelle}</td>
                         <td>{t.ordre}</td>
                         <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                          <Link href={`/admin/motifs?edit=type:${t.code}`} className="navlink" scroll={false} prefetch={false} title="Modifier" style={{ textDecoration: "none", fontSize: 15 }}>✏️</Link>
+                          <Link href={`/admin/motifs?edit=type:${t.code}`} className="iconbtn edit" scroll={false} prefetch={false} title="Modifier"><EditIcon /></Link>
                         </td>
                         <td style={{ textAlign: "center" }}>
                           {/* PK texte `code` (pas un uuid) : on passe keyName="code" à ActifCheckbox

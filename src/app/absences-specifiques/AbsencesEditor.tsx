@@ -4,10 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import DateRangePicker from "@/components/DateRangePicker";
 import { libellePeriode } from "@/lib/absences-periodes";
-import { SaveIcon, TrashIcon } from "@/components/icons";
-
-const saveBtn: React.CSSProperties = { width: "auto", margin: 0, padding: "3px 9px", background: "#fff", color: "#2563eb", border: "1px solid var(--border)", borderRadius: 7, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" };
-const trashBtn: React.CSSProperties = { width: "auto", margin: 0, padding: "3px 8px", background: "#fff", color: "#dc2626", border: "1px solid var(--border)", borderRadius: 7, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" };
+import { SaveIcon, TrashIcon, EditIcon } from "@/components/icons";
 
 type Personne = { id: string; nom: string; prenom: string; atelier_id: string | null };
 type Atelier = { id: string; nom: string };
@@ -232,74 +229,32 @@ export default function AbsencesEditor({
     const periodeTxt = edit.debut && edit.fin
       ? libellePeriode({ motif_absence_id: null, debut: edit.debut, fin: edit.fin, jours: 0, declaree: false, absence_id: null })
       : "—";
+    // Popovers ancrés SOUS leur bouton (position absolute dans la cellule
+    // `position: relative`), pas en pleine largeur : ils tombent donc en face du
+    // clic. Un seul est ouvert à la fois -> `popRef` sur celui qui est rendu.
+    const popWrap: React.CSSProperties = { position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 60 };
+    const relCell: React.CSSProperties = { ...cellStyle, position: "relative" };
     return (
-      <>
-        <tr style={{ background: "#fefce8" }}>
-          <td style={cellStyle}>
-            {edit.mode === "existing" ? (
-              <span title="Personne non modifiable après création — supprimer et recréer si besoin.">
-                <strong>{pers ? `${pers.nom} ${pers.prenom}` : "?"}</strong>
-              </span>
-            ) : (
+      <tr style={{ background: "#fefce8" }}>
+        <td style={relCell}>
+          {edit.mode === "existing" ? (
+            <span title="Personne non modifiable après création — supprimer et recréer si besoin.">
+              <strong>{pers ? `${pers.nom} ${pers.prenom}` : "?"}</strong>
+            </span>
+          ) : (
+            <>
               <button
                 type="button"
                 onClick={() => setOuvertPop(ouvertPop === "personne" ? null : "personne")}
-                className="btn-sm btn-ghost"
-                style={{ width: "auto", padding: "2px 8px", fontSize: 13, background: "#fff", border: "1px solid var(--border)" }}
+            onMouseDown={(e) => e.stopPropagation()}
+                style={{ width: "100%", margin: 0, padding: "4px 8px", fontSize: 13, background: "#fff", color: "#1f2937", border: "1px solid var(--border)", borderRadius: 7, textAlign: "left", cursor: "pointer" }}
                 title="Choisir la personne"
               >
                 {pers ? `${pers.nom} ${pers.prenom}` : <span style={{ color: "#94a3b8" }}>Choisir une personne…</span>} ▾
               </button>
-            )}
-          </td>
-          <td style={cellStyle}>
-            <button
-              type="button"
-              onClick={() => setOuvertPop(ouvertPop === "motif" ? null : "motif")}
-              className="btn-sm btn-ghost"
-              style={{ width: "auto", padding: "2px 8px", fontSize: 13, background: m?.couleur ?? "#f1f5f9", color: "#1f2937", fontWeight: 600, border: "1px solid var(--border)" }}
-              title="Choisir le motif"
-            >
-              {m ? <><strong>{m.code_court}</strong> · {m.libelle}</> : <span style={{ color: "#94a3b8" }}>Motif…</span>} ▾
-            </button>
-          </td>
-          <td style={cellStyle}>
-            <button
-              type="button"
-              onClick={() => setOuvertPop(ouvertPop === "cal" ? null : "cal")}
-              className="btn-sm btn-ghost"
-              style={{ width: "auto", padding: "2px 8px", fontSize: 13, background: "#fff", border: "1px solid var(--border)", whiteSpace: "nowrap" }}
-              title="Choisir la période"
-            >
-              {edit.debut && edit.fin ? periodeTxt : <span style={{ color: "#94a3b8" }}>Dates…</span>} 📅
-            </button>
-          </td>
-          <td style={{ ...cellStyle, textAlign: "right" }}>
-            {edit.debut && edit.fin ? nbJours(edit.debut, edit.fin) : "—"}
-          </td>
-          <td style={cellStyle}>
-            <input
-              value={edit.commentaire}
-              onChange={(e) => setEdit((s) => s ? { ...s, commentaire: e.target.value } : s)}
-              placeholder="Commentaire — pas d'info médicale"
-              style={{ width: "100%", fontSize: 13, padding: "2px 6px" }}
-            />
-          </td>
-          <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
-            <button type="button" disabled={enCours} onClick={verifierEtEnregistrer} style={saveBtn} title="Enregistrer">
-              {enCours ? "…" : <SaveIcon />}
-            </button>
-            <button type="button" className="btn-sm btn-ghost" onClick={annulerEdition} style={{ width: "auto", padding: "2px 8px", fontSize: 12, marginLeft: 4 }} title="Annuler">
-              ✕
-            </button>
-          </td>
-        </tr>
-        {ouvertPop && (
-          <tr>
-            <td colSpan={6} style={{ padding: 0, border: "none" }}>
-              <div ref={popRef} style={{ position: "relative", padding: "6px 4px 10px" }}>
-                {ouvertPop === "personne" ? (
-                  <div style={{ maxWidth: 320 }}>
+              {ouvertPop === "personne" && (
+                <div ref={popRef} style={{ ...popWrap, width: 260 }}>
+                  <div style={{ border: "1px solid var(--border)", borderRadius: 8, background: "#fff", boxShadow: "0 6px 18px rgba(15,23,42,.14)", padding: 6 }}>
                     <input
                       autoFocus
                       value={rechPers}
@@ -307,52 +262,87 @@ export default function AbsencesEditor({
                       placeholder="🔍 rechercher un nom"
                       style={{ width: "100%", fontSize: 13, padding: "5px 8px", marginBottom: 6 }}
                     />
-                    <div className="picklist">
+                    <div className="picklist" style={{ border: "none" }}>
                       {persOptions.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className="picklist-item"
-                          onClick={() => { setEdit((s) => s ? { ...s, personne_id: p.id } : s); setOuvertPop(null); setRechPers(""); }}
-                        >
+                        <button key={p.id} type="button" className="picklist-item"
+                          onClick={() => { setEdit((s) => s ? { ...s, personne_id: p.id } : s); setOuvertPop(null); setRechPers(""); }}>
                           {p.nom} {p.prenom}
                         </button>
                       ))}
                       {persOptions.length === 0 && <p className="muted" style={{ padding: 8, fontSize: 12, margin: 0 }}>Aucun nom.</p>}
                     </div>
                   </div>
-                ) : ouvertPop === "motif" ? (
-                  <div className="picklist" style={{ maxWidth: 320 }}>
-                    {motifs.map((mo) => (
-                      <button
-                        key={mo.id}
-                        type="button"
-                        className="picklist-item"
-                        onClick={() => { setEdit((s) => s ? { ...s, motif_absence_id: mo.id } : s); setOuvertPop(null); }}
-                      >
-                        <span style={{ width: 12, height: 12, borderRadius: 3, background: mo.couleur || "#cbd5e1", border: "1px solid #cbd5e1", flex: "0 0 auto" }} />
-                        <strong style={{ minWidth: 44 }}>{mo.code_court}</strong>
-                        <span>{mo.libelle}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ maxWidth: 640 }}>
-                    <DateRangePicker
-                      mois={2}
-                      value={{ debut: edit.debut || null, fin: edit.fin || null }}
-                      onChange={(p) => {
-                        setEdit((s) => s ? { ...s, debut: p.debut ?? "", fin: p.fin ?? "" } : s);
-                        if (p.debut && p.fin) setOuvertPop(null);
-                      }}
-                    />
-                  </div>
-                )}
+                </div>
+              )}
+            </>
+          )}
+        </td>
+        <td style={relCell}>
+          <button
+            type="button"
+            onClick={() => setOuvertPop(ouvertPop === "motif" ? null : "motif")}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{ width: "100%", margin: 0, padding: "4px 8px", fontSize: 13, background: m?.couleur ?? "#f1f5f9", color: "#1f2937", fontWeight: 600, border: "1px solid var(--border)", borderRadius: 7, textAlign: "left", cursor: "pointer" }}
+            title="Choisir le motif"
+          >
+            {m ? <><strong>{m.code_court}</strong> · {m.libelle}</> : <span style={{ color: "#94a3b8" }}>Motif…</span>} ▾
+          </button>
+          {ouvertPop === "motif" && (
+            <div ref={popRef} style={{ ...popWrap, width: 260 }}>
+              <div className="picklist" style={{ boxShadow: "0 6px 18px rgba(15,23,42,.14)" }}>
+                {motifs.map((mo) => (
+                  <button key={mo.id} type="button" className="picklist-item"
+                    onClick={() => { setEdit((s) => s ? { ...s, motif_absence_id: mo.id } : s); setOuvertPop(null); }}>
+                    <span style={{ width: 12, height: 12, borderRadius: 3, background: mo.couleur || "#cbd5e1", border: "1px solid #cbd5e1", flex: "0 0 auto" }} />
+                    <strong style={{ minWidth: 44 }}>{mo.code_court}</strong>
+                    <span>{mo.libelle}</span>
+                  </button>
+                ))}
               </div>
-            </td>
-          </tr>
-        )}
-      </>
+            </div>
+          )}
+        </td>
+        <td style={relCell}>
+          <button
+            type="button"
+            onClick={() => setOuvertPop(ouvertPop === "cal" ? null : "cal")}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{ width: "100%", margin: 0, padding: "4px 8px", fontSize: 13, background: "#fff", color: "#1f2937", border: "1px solid var(--border)", borderRadius: 7, whiteSpace: "nowrap", textAlign: "left", cursor: "pointer" }}
+            title="Choisir la période"
+          >
+            {edit.debut && edit.fin ? periodeTxt : <span style={{ color: "#94a3b8" }}>Dates…</span>} 📅
+          </button>
+          {ouvertPop === "cal" && (
+            <div ref={popRef} style={{ ...popWrap, boxShadow: "0 6px 18px rgba(15,23,42,.14)", borderRadius: 10 }}>
+              <DateRangePicker
+                mois={2}
+                value={{ debut: edit.debut || null, fin: edit.fin || null }}
+                onChange={(p) => {
+                  setEdit((s) => s ? { ...s, debut: p.debut ?? "", fin: p.fin ?? "" } : s);
+                  if (p.debut && p.fin) setOuvertPop(null);
+                }}
+              />
+            </div>
+          )}
+        </td>
+        <td style={{ ...cellStyle, textAlign: "right" }}>
+          {edit.debut && edit.fin ? nbJours(edit.debut, edit.fin) : "—"}
+        </td>
+        <td style={cellStyle}>
+          <input
+            value={edit.commentaire}
+            onChange={(e) => setEdit((s) => s ? { ...s, commentaire: e.target.value } : s)}
+            placeholder="Commentaire — pas d'info médicale"
+            style={{ width: "100%", fontSize: 13, padding: "2px 6px" }}
+          />
+        </td>
+        <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
+          <button type="button" className="iconbtn save" disabled={enCours} onClick={verifierEtEnregistrer} title="Enregistrer">
+            {enCours ? "…" : <SaveIcon />}
+          </button>
+          <button type="button" className="iconbtn ghost" onClick={annulerEdition} title="Annuler">✕</button>
+        </td>
+      </tr>
     );
   }
 
@@ -436,8 +426,8 @@ export default function AbsencesEditor({
                     {a.commentaire || (a.declaree ? "—" : "")}
                   </td>
                   <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
-                    <button type="button" className="btn-sm btn-ghost" onClick={() => commencerEdition(a)} style={{ width: "auto", padding: "2px 6px", fontSize: 14 }} title={a.absence_id ? "Modifier" : "Modifier (re-déclare la période)"}>✏️</button>
-                    <button type="button" onClick={() => supprimer(a)} style={{ ...trashBtn, marginLeft: 4 }} title="Supprimer"><TrashIcon /></button>
+                    <button type="button" className="iconbtn edit" onClick={() => commencerEdition(a)} title={a.absence_id ? "Modifier" : "Modifier (re-déclare la période)"}><EditIcon /></button>
+                    <button type="button" className="iconbtn del" onClick={() => supprimer(a)} title="Supprimer"><TrashIcon /></button>
                   </td>
                 </tr>
               );

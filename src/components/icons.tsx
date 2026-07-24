@@ -18,12 +18,49 @@ export function SaveIcon({ size = 15, hole = "#fff" }: { size?: number; hole?: s
   );
 }
 
+// Crayon « Modifier ».
+export function EditIcon({ size = 15, color = "currentColor" }: P) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke={color}
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: "-2px" }}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  );
+}
+
 // Validation (coche) — remplace le crayon en mode édition inline d'un paramètre.
 export function CheckIcon({ size = 16, color = "currentColor" }: P) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke={color}
       strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: "-3px" }}>
       <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+// Impression / PDF — variante A « imprimante contour » (choix du 24/07/2026).
+export function PrintIcon({ size = 16, color = "currentColor" }: P) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke={color}
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: "-3px" }}>
+      <path d="M6 9V3h12v6" />
+      <rect x="3" y="9" width="18" height="8" rx="2" />
+      <path d="M6 17v4h12v-4" />
+      <path d="M7.5 12.5h.01" />
+    </svg>
+  );
+}
+
+// Absence (menu Personnel) — variante B « calendrier + pastille × » (choix du 24/07/2026).
+export function AbsenceIcon({ size = 16, color = "currentColor" }: P) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke={color}
+      strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20.5 11V6a2 2 0 0 0-2-2h-13a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6.2" />
+      <path d="M3.5 9.5h17M8 2.5v4M16 2.5v4" />
+      <circle cx="17.5" cy="17.5" r="4" />
+      <path d="M16.1 16.1l2.8 2.8M18.9 16.1l-2.8 2.8" />
     </svg>
   );
 }
