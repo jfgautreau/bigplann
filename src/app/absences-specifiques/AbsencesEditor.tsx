@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import DateRangePicker from "@/components/DateRangePicker";
 import { libellePeriode } from "@/lib/absences-periodes";
 import SaveIcon from "@/components/SaveIcon";
@@ -8,14 +9,22 @@ import SaveIcon from "@/components/SaveIcon";
 type Personne = { id: string; nom: string; prenom: string; atelier_id: string | null };
 type Atelier = { id: string; nom: string };
 type Motif = { id: string; code_court: string; libelle: string; couleur: string };
-type Abs = {
-  id: string;
+
+// Période affichée : reconstruite server-side depuis les jours (cf. page.tsx).
+// `absence_id` non nul = période déclarée (éditable en place) ; null = jours
+// saisis au planning (le crayon la re-déclare, la corbeille les libère).
+export type PeriodeVue = {
+  key: string;
   personne_id: string;
-  motif_absence_id: string;
-  date_debut: string;
-  date_fin: string;
-  commentaire: string;
   label: string;
+  atelier_id: string | null;
+  motif_absence_id: string;
+  debut: string;
+  fin: string;
+  jours: number;
+  absence_id: string | null;
+  commentaire: string;
+  declaree: boolean;
 };
 
 // Etat d'edition d'une ligne — brouillon (« + Declarer ») ou modification (crayon).
@@ -33,11 +42,15 @@ const fmtDate = (d: string) => (d ? d.split("-").reverse().join("/") : "—");
 const nbJours = (a: string, b: string) => (a && b ? Math.max(1, Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000) + 1) : 0);
 const norm = (v: string) => v.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-// Editeur unifie « Absences » du menu Planning : meme UX que la modale Personnel
+// Éditeur unifié « Absences » du menu Planning : même UX que la modale Personnel
 // (ligne inline avec palette motif + mini calendrier + commentaire, crayon +
-// corbeille sur chaque ligne, verification de conflit avant enregistrement),
-// enrichi de la selection de la personne (le contexte n'est pas fige) et de
-// filtres nom / atelier / periode.
+// corbeille sur chaque ligne, vérification de conflit avant enregistrement),
+// enrichi de la sélection de la personne et de filtres nom / atelier / période.
+//
+// La liste vient reconstruite du serveur (`initial`) et on ne fait pas de mise à
+// jour optimiste : après chaque écriture on `router.refresh()`, le serveur
+// re-regroupe les jours et repasse la liste à jour. Le rendu lit donc `initial`
+// directement (pas de copie en état local qui se désynchroniserait).
 export default function AbsencesEditor({
   personnes,
   motifs,
@@ -47,18 +60,17 @@ export default function AbsencesEditor({
   personnes: Personne[];
   motifs: Motif[];
   ateliers: Atelier[];
-  initial: Abs[];
+  initial: PeriodeVue[];
 }) {
-  const [list, setList] = useState<Abs[]>(initial);
+  const router = useRouter();
   const [edit, setEdit] = useState<Edition | null>(null);
-  // Popovers d'edition. `personne` en plus car il faut la selectionner ici.
   const [ouvertPop, setOuvertPop] = useState<null | "motif" | "cal" | "personne">(null);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
   const [conflit, setConflit] = useState<{ jours: string[]; poursuivre: () => void } | null>(null);
+  const [rechPers, setRechPers] = useState("");
 
-  // Filtres (nom + atelier + periode d'intersection).
+  // Filtres (nom + atelier + période d'intersection).
   const [fNom, setFNom] = useState("");
   const [fAtelier, setFAtelier] = useState("");
   const [fDu, setFDu] = useState("");
@@ -68,7 +80,6 @@ export default function AbsencesEditor({
   const persById = useMemo(() => new Map(personnes.map((p) => [p.id, p])), [personnes]);
   const motifById = useMemo(() => new Map(motifs.map((m) => [m.id, m])), [motifs]);
 
-  // Click hors popover pour le refermer.
   useEffect(() => {
     if (!ouvertPop) return;
     function onDoc(e: MouseEvent) {
@@ -81,21 +92,17 @@ export default function AbsencesEditor({
 
   function commencerNouveau() {
     setErreur(null);
-    setOk(null);
     setEdit({ mode: "new", personne_id: "", motif_absence_id: "", debut: "", fin: "", commentaire: "" });
   }
-  function commencerEdition(a: Abs) {
+  function commencerEdition(p: PeriodeVue) {
     setErreur(null);
-    setOk(null);
-    setEdit({
-      mode: "existing",
-      absence_id: a.id,
-      personne_id: a.personne_id,
-      motif_absence_id: a.motif_absence_id,
-      debut: a.date_debut,
-      fin: a.date_fin,
-      commentaire: a.commentaire,
-    });
+    if (p.absence_id) {
+      setEdit({ mode: "existing", absence_id: p.absence_id, personne_id: p.personne_id, motif_absence_id: p.motif_absence_id, debut: p.debut, fin: p.fin, commentaire: p.commentaire });
+    } else {
+      // Période reconstruite depuis des jours saisis au planning : re-déclarée
+      // (op save → creer_absence upserte les placements existants).
+      setEdit({ mode: "new", personne_id: p.personne_id, motif_absence_id: p.motif_absence_id, debut: p.debut, fin: p.fin, commentaire: "" });
+    }
   }
   function annulerEdition() {
     setEdit(null);
@@ -142,22 +149,8 @@ export default function AbsencesEditor({
     setErreur(null);
     try {
       const body = edit.mode === "existing"
-        ? {
-            op: "update",
-            id: edit.absence_id,
-            motif_absence_id: edit.motif_absence_id,
-            date_debut: edit.debut,
-            date_fin: edit.fin,
-            commentaire: edit.commentaire,
-          }
-        : {
-            op: "save",
-            personne_id: edit.personne_id,
-            motif_absence_id: edit.motif_absence_id,
-            date_debut: edit.debut,
-            date_fin: edit.fin,
-            commentaire: edit.commentaire,
-          };
+        ? { op: "update", id: edit.absence_id, motif_absence_id: edit.motif_absence_id, date_debut: edit.debut, date_fin: edit.fin, commentaire: edit.commentaire }
+        : { op: "save", personne_id: edit.personne_id, motif_absence_id: edit.motif_absence_id, date_debut: edit.debut, date_fin: edit.fin, commentaire: edit.commentaire };
       const res = await fetch("/api/absence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -165,77 +158,56 @@ export default function AbsencesEditor({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Enregistrement refusé.");
-      const label = persById.get(edit.personne_id);
-      const labelStr = label ? `${label.nom} ${label.prenom}` : "?";
-      if (edit.mode === "existing" && edit.absence_id) {
-        setList((l) =>
-          l.map((x) =>
-            x.id === edit.absence_id
-              ? { ...x, motif_absence_id: edit.motif_absence_id, date_debut: edit.debut, date_fin: edit.fin, commentaire: edit.commentaire }
-              : x
-          )
-        );
-      } else if (json.row?.id) {
-        setList((l) => [
-          {
-            id: json.row.id,
-            personne_id: edit.personne_id,
-            motif_absence_id: edit.motif_absence_id,
-            date_debut: edit.debut,
-            date_fin: edit.fin,
-            commentaire: edit.commentaire,
-            label: labelStr,
-          },
-          ...l,
-        ]);
-      }
       setEdit(null);
       setOuvertPop(null);
-      setOk("Enregistré ✓");
-      setTimeout(() => setOk(null), 2000);
+      router.refresh();
     } catch (e) {
       setErreur(e instanceof Error ? e.message : "Enregistrement refusé.");
     }
     setEnCours(false);
   }
 
-  async function supprimer(a: Abs) {
-    if (!window.confirm(`Supprimer l'absence de ${a.label} (${fmtDate(a.date_debut)}${a.date_debut !== a.date_fin ? ` → ${fmtDate(a.date_fin)}` : ""}) ?\nLes jours seront libérés dans le planning.`)) return;
+  async function supprimer(p: PeriodeVue) {
+    if (!window.confirm(`Supprimer l'absence de ${p.label} (${fmtDate(p.debut)}${p.debut !== p.fin ? ` → ${fmtDate(p.fin)}` : ""}) ?\nLes jours seront libérés dans le planning.`)) return;
     setErreur(null);
     try {
+      const body = p.absence_id
+        ? { op: "delete", id: p.absence_id }
+        : { op: "delete-jours", personne_id: p.personne_id, date_debut: p.debut, date_fin: p.fin, motif_absence_id: p.motif_absence_id };
       const res = await fetch("/api/absence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "delete", id: a.id }),
+        body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((json as { error?: string }).error ?? "Suppression refusée.");
-      setList((l) => l.filter((x) => x.id !== a.id));
+      router.refresh();
     } catch (e) {
       setErreur(e instanceof Error ? e.message : "Suppression refusée.");
     }
   }
 
-  // Filtrage : nom (contient), atelier (personne rattachee — pas d'atelier :
-  // toujours visible), periode d'intersection.
-  //   fDu et/ou fAu vides = borne ouverte, comme un filtre habituel.
-  //   fDu seul  -> absences se terminant apres fDu
-  //   fAu seul  -> absences commencant avant fAu
-  //   fDu+fAu   -> absences dont la plage recouvre [fDu, fAu]
+  // Filtrage — nom (contient), atelier (via personne.atelier_id), période
+  // d'intersection (fDu et/ou fAu ; une absence apparaît dès qu'elle recouvre la
+  // fenêtre, même partiellement).
   const filtered = useMemo(() => {
     const q = norm(fNom.trim());
-    return list.filter((a) => {
+    return initial.filter((a) => {
       if (q && !norm(a.label).includes(q)) return false;
-      if (fAtelier) {
-        const p = persById.get(a.personne_id);
-        if (!p) return false;
-        if (p.atelier_id !== fAtelier) return false;
-      }
-      if (fDu && a.date_fin < fDu) return false;
-      if (fAu && a.date_debut > fAu) return false;
+      if (fAtelier && a.atelier_id !== fAtelier) return false;
+      if (fDu && a.fin < fDu) return false;
+      if (fAu && a.debut > fAu) return false;
       return true;
     });
-  }, [list, fNom, fAtelier, fDu, fAu, persById]);
+  }, [initial, fNom, fAtelier, fDu, fAu]);
+
+  const cellStyle: React.CSSProperties = { padding: "4px 6px", borderBottom: "1px solid #f1f5f9" };
+
+  const persOptions = useMemo(() => {
+    const q = norm(rechPers.trim());
+    const tri = [...personnes].sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`));
+    return q ? tri.filter((p) => norm(`${p.nom} ${p.prenom}`).includes(q)) : tri;
+  }, [personnes, rechPers]);
 
   const MotifChip = ({ id }: { id: string }) => {
     const m = motifById.get(id);
@@ -247,14 +219,9 @@ export default function AbsencesEditor({
     );
   };
 
-  const cellStyle: React.CSSProperties = { padding: "4px 6px", borderBottom: "1px solid #f1f5f9" };
-
-  // Options du menu Personne (dropdown de la ligne d'edition).
-  const persOptions = useMemo(
-    () => [...personnes].sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`)),
-    [personnes]
-  );
-
+  // ⚠️ Rendu inline (`{LigneEdition()}`) et non `<LigneEdition />` : un composant
+  // défini dans le parent est recréé à chaque render, React démonte/remonte
+  // l'input et le focus saute à chaque touche (cf. CLAUDE.md).
   function LigneEdition() {
     if (!edit) return null;
     const pers = edit.personne_id ? persById.get(edit.personne_id) : null;
@@ -267,8 +234,6 @@ export default function AbsencesEditor({
         <tr style={{ background: "#fefce8" }}>
           <td style={cellStyle}>
             {edit.mode === "existing" ? (
-              // Changer la personne d'une absence deja saisie casserait le lien
-              // (le RPC ne prend pas de personne_id en update). On la fige.
               <span title="Personne non modifiable après création — supprimer et recréer si besoin.">
                 <strong>{pers ? `${pers.nom} ${pers.prenom}` : "?"}</strong>
               </span>
@@ -318,7 +283,7 @@ export default function AbsencesEditor({
             />
           </td>
           <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
-            <button type="button" className="btn-sm" disabled={enCours} onClick={verifierEtEnregistrer} style={{ width: "auto", padding: "2px 8px", fontSize: 15 }} title="Enregistrer">
+            <button type="button" className="btn-sm" disabled={enCours} onClick={verifierEtEnregistrer} style={{ width: "auto", padding: "2px 8px", display: "inline-flex", alignItems: "center", justifyContent: "center" }} title="Enregistrer">
               {enCours ? "…" : <SaveIcon />}
             </button>
             <button type="button" className="btn-sm btn-ghost" onClick={annulerEdition} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }} title="Annuler">
@@ -331,18 +296,28 @@ export default function AbsencesEditor({
             <td colSpan={6} style={{ padding: 0, border: "none" }}>
               <div ref={popRef} style={{ position: "relative", padding: "6px 4px 10px" }}>
                 {ouvertPop === "personne" ? (
-                  <div style={{ maxHeight: 260, overflow: "auto", border: "1px solid var(--border)", borderRadius: 8, background: "#fff", padding: 4 }}>
-                    {persOptions.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => { setEdit((s) => s ? { ...s, personne_id: p.id } : s); setOuvertPop(null); }}
-                        className="btn-sm btn-ghost"
-                        style={{ display: "block", width: "100%", textAlign: "left", padding: "3px 8px", fontSize: 13 }}
-                      >
-                        {p.nom} {p.prenom}
-                      </button>
-                    ))}
+                  <div style={{ maxWidth: 320, border: "1px solid var(--border)", borderRadius: 8, background: "#fff", padding: 6 }}>
+                    <input
+                      autoFocus
+                      value={rechPers}
+                      onChange={(e) => setRechPers(e.target.value)}
+                      placeholder="🔍 rechercher"
+                      style={{ width: "100%", fontSize: 13, padding: "4px 6px", marginBottom: 6 }}
+                    />
+                    <div style={{ maxHeight: 220, overflow: "auto" }}>
+                      {persOptions.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => { setEdit((s) => s ? { ...s, personne_id: p.id } : s); setOuvertPop(null); setRechPers(""); }}
+                          className="btn-sm btn-ghost"
+                          style={{ display: "block", width: "100%", textAlign: "left", padding: "3px 8px", fontSize: 13 }}
+                        >
+                          {p.nom} {p.prenom}
+                        </button>
+                      ))}
+                      {persOptions.length === 0 && <p className="muted" style={{ padding: 8, fontSize: 12 }}>Aucun nom.</p>}
+                    </div>
                   </div>
                 ) : ouvertPop === "motif" ? (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 6, border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }}>
@@ -359,7 +334,7 @@ export default function AbsencesEditor({
                     ))}
                   </div>
                 ) : (
-                  <div style={{ maxWidth: 320 }}>
+                  <div style={{ maxWidth: 640 }}>
                     <DateRangePicker
                       mois={2}
                       value={{ debut: edit.debut || null, fin: edit.fin || null }}
@@ -403,29 +378,22 @@ export default function AbsencesEditor({
             <input type="date" value={fAu} onChange={(e) => setFAu(e.target.value)} />
           </div>
           {(fNom || fAtelier || fDu || fAu) && (
-            <button
-              type="button"
-              className="btn-sm btn-ghost"
-              style={{ width: "auto", padding: "6px 12px", marginBottom: 2 }}
-              onClick={() => { setFNom(""); setFAtelier(""); setFDu(""); setFAu(""); }}
-            >
+            <button type="button" className="btn-sm btn-ghost" style={{ width: "auto", padding: "6px 12px", marginBottom: 2 }} onClick={() => { setFNom(""); setFAtelier(""); setFDu(""); setFAu(""); }}>
               Effacer
             </button>
           )}
           <span className="muted" style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600 }}>
-            {filtered.length === list.length ? `${list.length} absence${list.length > 1 ? "s" : ""}` : `${filtered.length} / ${list.length}`}
+            {filtered.length === initial.length ? `${initial.length} absence${initial.length > 1 ? "s" : ""}` : `${filtered.length} / ${initial.length}`}
           </span>
         </div>
       </div>
 
-      {/* --- Actions + bandeau --- */}
       {erreur && (
         <div role="alert" style={{ margin: "0 0 10px", padding: "8px 12px", borderRadius: 8, background: "#fef2f2", color: "#991b1b", border: "1px solid #fecaca", fontSize: 13, fontWeight: 600 }}>
           {erreur}
           <button type="button" onClick={() => setErreur(null)} style={{ float: "right", background: "transparent", border: "none", color: "#991b1b", cursor: "pointer", width: "auto", margin: 0, padding: 0, fontSize: 14 }}>✕</button>
         </div>
       )}
-      {ok && <div style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 600, color: "var(--ok)" }}>{ok}</div>}
 
       {!edit && (
         <div style={{ marginBottom: 8 }}>
@@ -445,25 +413,27 @@ export default function AbsencesEditor({
               <th style={{ textAlign: "left", padding: "6px" }}>Période</th>
               <th style={{ textAlign: "right", padding: "6px", width: 60 }}>Jours</th>
               <th style={{ textAlign: "left", padding: "6px" }}>Commentaire</th>
-              <th style={{ padding: "6px", width: 120 }}></th>
+              <th style={{ padding: "6px", width: 110 }}></th>
             </tr>
           </thead>
           <tbody>
             {edit && edit.mode === "new" && LigneEdition()}
             {filtered.map((a) => {
-              const enEdition = edit?.mode === "existing" && edit.absence_id === a.id;
-              if (enEdition) return <React.Fragment key={`edit-${a.id}`}>{LigneEdition()}</React.Fragment>;
+              const enEdition = edit?.mode === "existing" && edit.absence_id === a.absence_id && a.absence_id != null;
+              if (enEdition) return <React.Fragment key={`edit-${a.key}`}>{LigneEdition()}</React.Fragment>;
               return (
-                <tr key={a.id}>
+                <tr key={a.key}>
                   <td style={cellStyle}>{a.label}</td>
                   <td style={cellStyle}><MotifChip id={a.motif_absence_id} /></td>
-                  <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>
-                    {a.date_debut === a.date_fin ? fmtDate(a.date_debut) : `${fmtDate(a.date_debut)} → ${fmtDate(a.date_fin)}`}
+                  <td style={{ ...cellStyle, whiteSpace: "nowrap" }} title={a.declaree ? "Période déclarée" : "Saisie au planning, jour par jour"}>
+                    {a.debut === a.fin ? fmtDate(a.debut) : `${fmtDate(a.debut)} → ${fmtDate(a.fin)}`}
                   </td>
-                  <td style={{ ...cellStyle, textAlign: "right" }}>{nbJours(a.date_debut, a.date_fin)}</td>
-                  <td style={cellStyle} className={a.commentaire ? undefined : "muted"}>{a.commentaire || "—"}</td>
+                  <td style={{ ...cellStyle, textAlign: "right" }}>{a.jours}</td>
+                  <td style={cellStyle} className={a.commentaire ? undefined : "muted"} title={a.commentaire || undefined}>
+                    {a.commentaire || (a.declaree ? "—" : "")}
+                  </td>
                   <td style={{ ...cellStyle, textAlign: "right", whiteSpace: "nowrap" }}>
-                    <button type="button" className="btn-sm btn-ghost" onClick={() => commencerEdition(a)} style={{ width: "auto", padding: "2px 6px", fontSize: 14 }} title="Modifier">✏️</button>
+                    <button type="button" className="btn-sm btn-ghost" onClick={() => commencerEdition(a)} style={{ width: "auto", padding: "2px 6px", fontSize: 14 }} title={a.absence_id ? "Modifier" : "Modifier (re-déclare la période)"}>✏️</button>
                     <button type="button" className="btn-sm btn-ghost" onClick={() => supprimer(a)} style={{ width: "auto", padding: "2px 6px", fontSize: 14, color: "var(--danger)" }} title="Supprimer">🗑</button>
                   </td>
                 </tr>
@@ -472,7 +442,7 @@ export default function AbsencesEditor({
             {filtered.length === 0 && !edit && (
               <tr>
                 <td colSpan={6} className="muted" style={{ padding: 10 }}>
-                  {list.length === 0 ? "Aucune absence enregistrée." : "Aucun résultat pour ces filtres."}
+                  {initial.length === 0 ? "Aucune absence enregistrée." : "Aucun résultat pour ces filtres."}
                 </td>
               </tr>
             )}
