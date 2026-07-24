@@ -41,5 +41,24 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       .returns<JourAbsence[]>()
   );
 
-  return NextResponse.json({ ok: true, periodes: grouperAbsences(jours) });
+  // Commentaires des absences declarees, par absence_id : le regroupement en
+  // periodes vit dans grouperAbsences (source = les JOURS), la table
+  // `absence` porte seule le commentaire.
+  const idsDeclares = Array.from(new Set(jours.map((j) => j.absence_id).filter((x): x is string => !!x)));
+  const commentaires: Record<string, string> = {};
+  if (idsDeclares.length) {
+    const { data: absData } = await supabase
+      .from("absence")
+      .select("id, commentaire")
+      .in("id", idsDeclares)
+      .returns<{ id: string; commentaire: string | null }[]>();
+    for (const a of absData ?? []) commentaires[a.id] = a.commentaire ?? "";
+  }
+
+  const periodes = grouperAbsences(jours).map((p) => ({
+    ...p,
+    commentaire: p.absence_id ? commentaires[p.absence_id] ?? "" : "",
+  }));
+
+  return NextResponse.json({ ok: true, periodes });
 }

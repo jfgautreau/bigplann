@@ -349,7 +349,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ error: "Op inconnue" }, { status: 400 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Erreur";
-    return NextResponse.json({ error: msg }, { status: 403 });
+    // Les erreurs Supabase ne sont PAS des instances de Error : ce sont des
+    // objets plats { code, message, details, hint }. `e instanceof Error`
+    // renvoyait false et laissait tomber le message reel derriere « Erreur ».
+    const err = e as { message?: string; details?: string | null; hint?: string | null; code?: string };
+    const msg = err?.message ?? (e instanceof Error ? e.message : "Erreur");
+    const complet = [msg, err?.details, err?.hint].filter(Boolean).join(" — ");
+    return NextResponse.json({ error: complet || "Erreur" }, { status: 403 });
   }
 }

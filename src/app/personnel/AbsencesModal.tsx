@@ -35,7 +35,11 @@ export default function AbsencesModal({
   onClose: () => void;
   onDepartChange: (d: { date: string | null; motif: string | null }) => void;
 }) {
-  const [periodes, setPeriodes] = useState<PeriodeAbsence[] | null>(null);
+  // La liste porte, en plus de PeriodeAbsence, le commentaire renvoye par
+  // l'API (uniquement pour les periodes declarees). Cf.
+  // /api/personnel/[id]/absences.
+  type Periode = PeriodeAbsence & { commentaire: string };
+  const [periodes, setPeriodes] = useState<Periode[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -89,7 +93,7 @@ export default function AbsencesModal({
     setErreur(null);
     setEdit({ mode: "new", motif_absence_id: "", debut: "", fin: "", commentaire: "" });
   }
-  function commencerEdition(p: PeriodeAbsence) {
+  function commencerEdition(p: Periode) {
     setErreur(null);
     if (p.absence_id) {
       // Periode DECLAREE : edition en place, on modifie l'absence existante.
@@ -99,7 +103,7 @@ export default function AbsencesModal({
         motif_absence_id: p.motif_absence_id ?? "",
         debut: p.debut,
         fin: p.fin,
-        commentaire: "",
+        commentaire: p.commentaire,
       });
     } else {
       // Periode reconstituee depuis des jours saisis au planning (pas d'absence
@@ -116,7 +120,7 @@ export default function AbsencesModal({
     }
   }
 
-  async function supprimerPeriode(p: PeriodeAbsence) {
+  async function supprimerPeriode(p: Periode) {
     if (!canEdit) return;
     const libelleP = `${p.debut.split("-").reverse().join("/")}${p.debut !== p.fin ? ` → ${p.fin.split("-").reverse().join("/")}` : ""}`;
     if (!window.confirm(`Supprimer cette période d'absence (${libelleP}) et libérer les jours du planning ?`)) return;
@@ -309,6 +313,17 @@ export default function AbsencesModal({
             <button type="button" className="btn-sm btn-ghost" onClick={() => { setEdit(null); setOuvertPop(null); setErreur(null); }} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }}>
               ✕
             </button>
+          </td>
+        </tr>
+        {/* Ligne 2 : commentaire libre (pas d'information medicale). */}
+        <tr style={{ background: "#fefce8" }}>
+          <td colSpan={4} style={{ padding: "4px 6px", borderBottom: "1px solid #f1f5f9" }}>
+            <input
+              value={edit.commentaire}
+              onChange={(e) => setEdit((s) => s ? { ...s, commentaire: e.target.value } : s)}
+              placeholder="Commentaire (facultatif) — pas d'information médicale"
+              style={{ width: "100%", fontSize: 13, padding: "3px 6px" }}
+            />
           </td>
         </tr>
         {ouvertPop && (
