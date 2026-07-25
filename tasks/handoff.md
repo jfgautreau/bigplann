@@ -4,14 +4,36 @@
 > tiennent dans **`CLAUDE.md`** (chargé automatiquement). Ce fichier est la couche de
 > détail : à consulter quand on touche précisément un des sujets ci-dessous.
 >
-> État au 2026-07-24 · migrations appliquées jusqu'à **0039**.
+> État au 2026-07-25 · migrations appliquées jusqu'à **0042** · **189** tests Vitest.
 >
-> **Dernier chantier : audit de l'existant en 5 lots** (`tasks/audit-existant.md`), tous
-> livrés. Escalade de privilèges fermée, écritures rendues atomiques et vérifiées, quarts
-> sortis du code, 3 tables mortes supprimées, filet de tests (**181** contre 32 au début).
-> Puis fonctionnalités : bilan Planning replié, filtre Placement par quart, TV en fenêtre
-> J-1→J+4, colonne Personnel « Fin contrat » remplacée par un **suivi des absences**
-> (calendrier de plage type Booking, départ prévu), **intérim en jaune** partout.
+> **Session récente (juillet–août 2026)** — grosse passe UX autour des absences, du
+> temps partiel et des écrans de paramétrage :
+> - Modale Absences (Personnel) refondue en édition inline avec palette motif,
+>   calendrier 2 mois, commentaire, `ModaleDeplacable`, `InfoBulle` fixed ;
+> - Écran « Absences spécifiques » (Planning) unifié sur les JOURS
+>   (`grouperAbsences` sur tout l'effectif), filtres nom / atelier / période
+>   d'intersection ;
+> - **Param. RH étendu** : Motifs + Agences + **Types de contrat** + **Fenêtre
+>   d'affichage** (auto-save via `/api/param-affichage`) — convention `.iconbtn` +
+>   `ActifCheckbox` + icônes SVG (`SaveIcon`, `EditIcon`, `CheckIcon`, `TrashIcon`,
+>   `PrintIcon`, `AbsenceIcon`, `SearchIcon`, `InfoIcon`, `GearIcon`) ;
+> - **Rôles personnalisés** (migration 0042) : bouton « Nouveau rôle » dans
+>   Utilisateurs, table `role_custom`, `getAllRoles()`, `/api/roles` ;
+> - **Ordonnancement** : refus de fermer un quart / une ligne / réinitialiser une
+>   semaine si des affectations sur poste existent (absences ignorées) ;
+> - **Temps partiel** revu : « TP » = journée entière off **ou** semaine où
+>   l'équipe est sur le créneau non travaillé (rotation datée → TP automatique
+>   une semaine sur deux) ;
+> - **Hauteur de ligne harmonisée** à 32 px sur les 6 grilles (`--grid-row-h`) ;
+> - **Guide utilisateur** (`public/guide.html`) : mentions de rôles retirées, 15
+>   sections toutes étoffées avec maquettes CSS fidèles.
+>
+> Avant : **audit de l'existant en 5 lots** (audit livré, doc archivée). Escalade
+> de privilèges fermée, écritures atomiques et vérifiées, quarts sortis du code,
+> 3 tables mortes supprimées. Puis fonctionnalités : bilan Planning replié,
+> filtre Placement par quart, TV en fenêtre J-1→J+4, colonne Personnel « Fin
+> contrat » remplacée par un suivi des absences (calendrier de plage type
+> Booking, départ prévu), intérim en jaune partout.
 >
 > Ce qui précédait : matrice des droits stricte, numéros de rotation et habilitations
 > exigées par poste, mot de passe par lien, rotation par référence datée, ossature
@@ -41,7 +63,13 @@ composite + `handle_new_user` crée le profil **inactif** ·
 `0038` **suppression de 3 tables mortes** (`equipe_quart_semaine`, `ligne_ouverture`,
 `jour_equipe`) + normalisation des 7 placements historiques sans `quart_code` ·
 `0039` `personne.date_depart_prevu` / `motif_depart` (départ prévu, informatif —
-ne bascule pas le statut).
+ne bascule pas le statut) ·
+`0040` **types de contrat paramétrables** (`type_contrat`) + fenêtre d'affichage
+du planning (`parametre_affichage`, singleton `id=1`) ·
+`0041` retrait du CHECK `type_contrat in ('CDI','CDD','INTERIM')` sur `personne`
+et `contrat_periode` — la validation passe côté application (cf. `lessons.md` L23) ·
+`0042` **rôles personnalisés** (`role_custom` : `code`, `libelle`) + retrait du
+CHECK sur `app_user.role` — validation côté application (intégrés + `role_custom`).
 
 ## Écran Placement (`/placement`) — V1
 Saisie « un jour / un quart » par glisser-déposer. ⚠️ **Placement est désormais un module
@@ -80,16 +108,28 @@ l'entrée de menu suit l'écriture et non la lecture.
   gauche, absents à droite), mise à l'échelle **mesurée** — cf. `tasks/lessons.md` L16.
 
 ## Temps partiel (`personne.tp_config`, jsonb, options cumulables)
-Modale `TempsPartielModal`, API `/api/personnel` op `tp`.
+Modale `TempsPartielModal`, API `/api/personnel` op `tp`. Le stockage n'a pas
+changé, seule la lecture côté planning a été revue le 2026-07-24.
 - `demi` : `{ mode: matin|aprem|tournant, source: quart|horaires, matin?/aprem?: {dow:{debut,fin}} }`.
-  Fixe matin/aprem → le planning affiche **« → Mat / → Apr »** sur l'autre quart (`tpRedirect`).
-  Tournant → suit le quart du placement.
-- `off` : `{ dow: ["matin","aprem"] }` demi-journées non travaillées → case **« TP »**
-  bloquée (`tpBlocked`).
+  Ne produit plus de flèche « → Mat / → Apr » — cf. changement ci-dessous.
+- `off` : `{ dow: ["matin","aprem"] }` demi-journées non travaillées.
 - `horaires` : `{ dow: {debut,fin} }` horaires journée entière.
 
-`tpBlocked` / `tpRedirect` sont calculés **côté serveur** (selon le quart) puis passés à
-`PlanningGrid`. Priorité d'affichage de l'horaire (TV) :
+⚠️ **Nouveau calcul de `tpBlocked`** (`src/app/planning/page.tsx`). « TP » s'écrit
+dans le planning quand l'une des deux conditions est vraie :
+1. **Journée entière off** — les deux demi-journées `matin` et `aprem` dans `off`.
+2. **Équipe sur le créneau non travaillé cette semaine** — si l'équipe de la
+   personne tourne et se retrouve, la semaine considérée, sur le créneau qu'elle
+   ne fait pas. Ex. Sylvie mi-temps après-midi (off matin) en équipe B tournante :
+   la semaine où B est au matin, elle ne peut pas travailler → TP toute la semaine ;
+   la semaine où B est l'après-midi, rien. Résultat : un **TP automatique une
+   semaine sur deux**. Calcul via `rotByWeek[wi]` + `equipe.quart_fixe` éventuel
+   + `equipeDe.get(personne_id)`.
+
+`tpRedirect` a été **supprimé** (page.tsx + PlanningGrid) : la flèche « → Mat/Apr »
+noyait l'écran de marqueurs dès qu'on regardait un quart ≠ celui de la personne.
+
+Priorité d'affichage de l'horaire (TV) :
 **exception ponctuelle > temps partiel (demi puis journée) > standard**.
 
 ## Planning
@@ -204,7 +244,7 @@ Redéployer sans changement de code : `git commit --allow-empty`.
   validité gardent une `date_expiration` nulle : l'affichage la recalcule, mais un
   backfill SQL reste à faire si on veut assainir la base.
 
-### Reste à faire (au 2026-07-16)
+### Reste à faire (au 2026-07-25)
 - **Placement V2** : vrai plan géographique (image d'atelier importée + position x/y des
   postes, écran de calibrage) → migration à prévoir. La V1 schématique est en place.
 - Placement : finitions proposées **non retenues pour l'instant** — slots visuels ○○○ pour
@@ -216,6 +256,8 @@ Redéployer sans changement de code : `git commit --allow-empty`.
   choix « universel » écarté au profit du « ciblé » (cf. L12).
 - ⚠️ **Aucun écran n'a pu être vérifié visuellement par l'agent** (pages protégées par
   login) : tout est validé par `npm run build` + tests. Les retours visuels viennent de
-  l'utilisateur (c'est ainsi qu'on a trouvé L11).
+  l'utilisateur (c'est ainsi qu'on a trouvé L11, L20, L21, L23, L24).
 - Chantier de fond toujours ouvert : **virtualisation** des grandes grilles
   (matrice ~22 000 cellules) — cf. CLAUDE.md § Performance.
+- Backfill SQL des `personne_competence.date_expiration` nulles alors que la formation a
+  une durée de validité (aujourd'hui compensé à l'affichage seulement).

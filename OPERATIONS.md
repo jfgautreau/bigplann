@@ -27,9 +27,13 @@
   ⚠️ Générez-le depuis l'**application en ligne** : depuis un `npm run dev`, le lien
   pointerait sur `localhost` et ne marcherait que sur votre machine (l'encart vous prévient).
 - Le **rôle** s'enregistre dès que vous le changez dans la liste (plus de bouton Valider).
-- Rôles : `admin`, `chef_equipe`, `ordo`, `rh`, `codir`, `planning`. Les droits fins se
-  règlent dans la **matrice rôle × module**, en bas du même écran ; elle fait foi partout
-  (aucun rôle n'est câblé en dur dans le code).
+- Rôles **intégrés** : `admin`, `chef_equipe`, `ordo`, `rh`, `codir`, `planning`.
+  Rôles **personnalisés** : bouton **« ＋ Nouveau rôle »** dans `/admin/users` — un
+  rôle personnalisé naît sans aucun droit (à régler dans la matrice), puis devient
+  assignable comme les autres. Table `role_custom` (migration `0042`).
+- Les droits fins se règlent dans la **matrice rôle × module**, en bas du même écran ;
+  elle fait foi partout (aucun rôle n'est câblé en dur dans le code, garde-fous
+  anti-escalade calculés sur la matrice).
 - Désigner les chefs d'équipe dans `/admin/equipes` (pilote le périmètre d'édition
   de la matrice / du planning / des habilitations).
 - L'utilisateur peut changer son propre mot de passe depuis son menu (`/compte`), ou
@@ -51,7 +55,10 @@
 
 ## Affichage couloir
 - `/affichage` (admin) liste les ateliers ; `/affichage/atelier/{id}` = écran TV
-  (J et J+1, refresh 60 s, bouton Imprimer/PDF).
+  (**fenêtre glissante** autour d'aujourd'hui, refresh **5 min**, bouton Imprimer/PDF).
+- **Fenêtre paramétrable** dans `/admin/motifs` (section « Fenêtre d'affichage du
+  planning ») : nombre de jours avant J et après J, auto-sauvegardés (défaut J-1 / J+4).
+  Migration `0040` — table `parametre_affichage` (singleton `id=1`).
 - Restreindre l'accès réseau en production (cf. INSTALL.md §7).
 
 ## Dépannage

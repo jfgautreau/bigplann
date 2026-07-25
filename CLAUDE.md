@@ -26,8 +26,7 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `supabase/migrations/` et **demande à l'utilisateur de l'exécuter** dans le SQL Editor.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
-   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0041`.**
-   (0042 — rôles personnalisés — écrite, **en attente d'exécution** par l'utilisateur.)
+   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0042`.**
 5. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
 6. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
@@ -160,13 +159,20 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
 - **Absences longues** (`absence`) : matérialisées en `placement` (un par jour), liés par
   `placement.absence_id` (cascade).
 - **Temps partiel** : `personne.tp_config` (jsonb, options cumulables `demi`/`off`/`horaires`).
-  Le planning calcule `tpBlocked` **côté serveur**. ⚠️ Règle métier (24/07/2026) :
-  « TP » ne s'affiche **que pour une journée entière non travaillée** (les deux
-  demi-journées dans `off`). Un mi-temps sur un seul créneau (ex. « après-midi
-  uniquement ») **n'écrit ni ne bloque rien** — la case reste vide et plaçable,
-  c'est le planning qui pose la personne sur son créneau. L'ancienne flèche
-  « → Mat/Apr » (`tpRedirect`) a été **supprimée** : elle marquait chaque jour dès
-  qu'on regardait un quart ≠ celui de la personne.
+  Le planning calcule `tpBlocked` **côté serveur**. ⚠️ Règles métier (2026-07-24) —
+  « TP » s'écrit dans le planning quand **l'une** des deux conditions est vraie :
+  1. **Journée entière off** (les deux demi-journées `matin` et `aprem` dans `off`) ;
+  2. **Équipe sur le créneau non travaillé cette semaine** : si l'équipe de la
+     personne tourne, et qu'elle est cette semaine sur le créneau que la personne
+     ne fait pas, TP toute la semaine. Ex. Sylvie mi-temps après-midi (off matin)
+     en équipe B tournante : la semaine où B est au matin, TP tous les jours ;
+     la semaine où B est l'après-midi, rien — d'où un **TP automatique une
+     semaine sur deux**, piloté par la rotation datée. Calcul via
+     `rotByWeek[wi]` + `equipe.quart_fixe` éventuel.
+  Un mi-temps sur un seul créneau **hors semaine « équipe au mauvais créneau »**
+  n'écrit ni ne bloque rien — la case reste vide et plaçable. L'ancienne flèche
+  « → Mat/Apr » (`tpRedirect`) a été **supprimée** : elle noyait l'écran de
+  marqueurs sur les quarts ≠ celui de la personne.
 - **Horaires affichés** (TV), par priorité : exception ponctuelle > temps partiel > standard.
 
 ## Ossature des écrans « grille » (globals.css)
@@ -209,23 +215,51 @@ imprimables (A4 paysage, KPI, barres) que la pleine largeur dégraderait.
 Convention adoptée sur tous les écrans de paramétrage listant des lignes
 (motifs d'absence, agences d'intérim, types de contrat, équipes, compétences,
 habilitations, référentiel…). Applique-la ici plutôt que d'inventer :
-- **Icône ✏️ (crayon)** à la place du bouton « Modifier ». `<Link title="Modifier">✏️</Link>`.
-- **Icône 💾 (disquette)** à la place du bouton « Enregistrer ». Sur les actions
-  isolées (« Enregistrer les horaires », « Enregistrer la référence »), garder le
-  libellé et préfixer par 💾 pour ne pas perdre le sens (`💾 Enregistrer les horaires`).
+- **Icônes SVG partagées** (`src/components/icons.tsx`) : `<EditIcon />` (crayon)
+  pour Modifier, `<SaveIcon />` (disquette) pour Enregistrer, `<CheckIcon />`
+  (coche verte) pour Valider une édition inline, `<TrashIcon />` pour Supprimer,
+  `<PrintIcon />` pour l'impression, `<AbsenceIcon />` pour Absences (Personnel),
+  `<SearchIcon />` / `<InfoIcon />` / `<GearIcon />` pour la colonne d'actions.
+  L'emoji rendait avec ses couleurs propres, illisible sur un fond coloré — le
+  SVG en `currentColor` suit la couleur du bouton (blanc sur bleu, gris sur
+  clair). Un `<SaveIcon default>` reste ré-exporté depuis `@/components/SaveIcon`
+  pour les imports historiques.
+- **Boutons d'action normalisés** : classe partagée `.iconbtn` (globals.css) —
+  boîte 30×28, fond blanc, bord gris, radius 7. Variantes de couleur : `.edit`
+  (orange), `.save` (bleu), `.ok` (vert), `.del` (rouge), `.ghost` (annuler `✕`).
+  Toutes les modales Absences et Param RH l'utilisent : mêmes tailles, mêmes
+  alignements partout. Sur les grands boutons au libellé explicite, garder le
+  texte et préfixer par l'icône (`<SaveIcon /> Enregistrer les horaires`).
 - **Colonne « Actif » à droite**, case à cocher via `<ActifCheckbox id actif action />`
   (`src/components/ActifCheckbox.tsx`) — remplace le couple ancien
   « badge Statut + bouton Désactiver/Réactiver ». Ligne opacifiée à 0.55 quand
   inactive. Le composant est client, il rend un `<form action>` qui soumet à
-  chaque coche. ⚠️ Il pose le champ `id` : sur une table dont la clé est nommée
-  autrement (`type_contrat.code`), inliner le `<form>` avec le bon nom.
+  chaque coche. Pour une table dont la PK n'est pas `id`, passer `keyName="code"`
+  (ex. `type_contrat.code`).
 - **Réglages simples enregistrés en direct** (couple de nombres, singleton) :
   auto-save débouncé de 500 ms, pas de bouton. Cf.
   `src/app/admin/motifs/FenetreAffichageInline.tsx` et l'endpoint dédié
   `/api/param-affichage` — un server action `redirect()`erait à chaque touche.
-- **Édition inline d'une ligne** : le `<tr>` en édition passe en pleine largeur
-  (`colSpan`), contient un `<form action>` avec les champs inline. Bouton 💾
-  puis lien `✕` (Annuler) pointant sur la page sans `?edit=`.
+- **Édition inline d'une ligne (colonne par colonne)** : le `<tr>` en édition
+  déverrouille ses cellules **dans leurs colonnes** (le `<form>` vide est relié
+  aux inputs par l'attribut `form=`, HTML valide et compatible server action).
+  Bouton `<CheckIcon />` puis lien `✕` (Annuler) pointant sur la page sans `?edit=`.
+  Plus de rangée pleine largeur qui casse l'alignement.
+
+## Harmonisation des hauteurs de ligne (grilles)
+Toutes les grilles principales (Matrice, Habilitations, Référentiel, Personnel,
+Ordonnancement, Planning) partagent une **hauteur totale de rangée** unique via
+la variable `--grid-row-h: 32px` (`globals.css :root`) — cohérence visuelle au
+passage d'un écran à l'autre. La pastille de la Matrice reste à 28 px + 2 px de
+marge. Sélecteurs qui s'y branchent : `persongrid --row-h`, `.pers-table tbody td`,
+`.pcell`, et la classe utilitaire `.rowh` pour les tables `.matrix` du
+Référentiel/Ordonnancement (`.matrix` étant partagé aussi par Bilans/Droits, on
+ne peut pas le cibler globalement).
+
+**Référentiel** — deux classes scope pour aligner la **hauteur du contenu** des
+contrôles (`input`/`select`/bouton) à 28 px, sinon la ligne paraît bancale à
+hauteur de rangée constante : `.refpostes` sur la table des postes,
+`.refhead` sur les toolbars atelier/ligne.
 
 ## Autres patterns UI (réutilise-les, n'invente pas)
 - **Édition inline auto-enregistrée** : `useState` + `fetch` debouncé → route API,
@@ -259,6 +293,17 @@ habilitations, référentiel…). Applique-la ici plutôt que d'inventer :
   icône `i` qui déploie un tooltip en **`position: fixed`** ancré en haut à droite
   de l'icône. Le fixed est indispensable pour sortir d'un conteneur
   `overflow: auto` (modale) — un tooltip absolu y provoquait un ascenseur.
+- **Popovers de liste** (menu Motif, choix Personne, calendrier de plage) :
+  MÊME piège. Un popover en `position: absolute` dans la cellule est rogné par
+  l'`overflow: auto` de la carte modale et déclenche un ascenseur : on ne voit
+  que 2 lignes du menu. Solution : `position: fixed`, coordonnées calculées au
+  clic depuis le rect du bouton (`getBoundingClientRect`), gauche bornée à
+  `[8, vw - width - 8]`. Fermeture au scroll EXTÉRIEUR (fixed ne suit pas), mais
+  **pas** quand on scrolle dans la liste elle-même (`popRef.current.contains(target)`
+  → on ignore) — sinon impossible de dérouler une liste longue. Cf. `openPop` /
+  `popStyle` dans `AbsencesModal.tsx` et `absences-specifiques/AbsencesEditor.tsx`.
+- **Bouton d'action carré icône seule** (colonne d'actions Personnel) : classe
+  `.iconbtn` (cf. « Ossature paramétrage »), 30×28 uniforme.
 - **Ne pas rogner les libellés** : préférer une colonne plus large à un `text-overflow`.
 - **Intérim = jaune** (`INTERIM_BG` de `src/lib/interim.ts`) sur Planning, Placement,
   Matrice, Habilitations et TV. Le vert est réservé à « aujourd'hui » sur la TV — les
@@ -296,12 +341,13 @@ et l'hydratation devient très lourde. Les habilitations sont dans le même ordr
 prochain gros chantier, pas une optimisation cosmétique.
 
 ## Carte des fichiers
-- Socle : `src/lib/{permissions,roles,current-user,week,refdata,habilitations,supabase-server,fetch-all,numeros-rotation,password-link,rotation,password}.ts`, `src/proxy.ts`.
+- Socle : `src/lib/{permissions,roles,roles-server,current-user,week,refdata,parametres,habilitations,supabase-server,fetch-all,numeros-rotation,password-link,rotation,password,erreurs,absence,absences-periodes,calendrier,quarts,semaine-type,interim,noms}.ts`, `src/proxy.ts`.
 - Nav : `src/components/{AppHeader,SettingsMenu,UserMenu,NavIcons}.tsx`.
   Logo → `/` (page d'accueil : logo centré + titre « planning »).
   `UserMenu` porte aussi le lien vers le **guide utilisateur** (`public/guide.html`,
   document autonome ouvert dans un onglet, mais servi derrière l'authentification).
-- Composants partagés : `src/components/{SlideSwitch,AtelierEquipeFiltres,LectureSeule,PageTitle,PrintButton,ToggleSwitch,AutoRefresh,persongrid.module.css,usePersonGrid.ts}`.
+- Composants partagés : `src/components/{SlideSwitch,ToggleSwitch,AtelierEquipeFiltres,LectureSeule,PageTitle,PrintButton,AutoRefresh,BandeauErreur,ConfirmForm,DateRangePicker,ActifCheckbox,ModaleDeplacable,InfoBulle,icons,SaveIcon,persongrid.module.css,usePersonGrid.ts}`.
+  Icônes toutes centralisées dans `icons.tsx` (`SaveIcon`, `EditIcon`, `CheckIcon`, `TrashIcon`, `PrintIcon`, `AbsenceIcon`, `SearchIcon`, `InfoIcon`, `GearIcon`). `SaveIcon.tsx` reste comme shim d'import historique.
 - Planning : `src/app/planning/{page,PlanningGrid,PlanningFilters,AtelierFilter,QuartSelector}.tsx`.
 - Placement (saisie glisser-déposer, droit **`placement`**) : `src/app/placement/{page,PlacementBoard,placement.module.css}`.
   Plan par ligne → postes → **cases numérotées** ; bascule **Plan / Absences** (`?vue=absences`,
@@ -327,14 +373,28 @@ prochain gros chantier, pas une optimisation cosmétique.
   + `src/app/admin/habilitations-param/*` + `src/app/api/habilitations/route.ts`.
   Saisie **au clic sur une pastille** (modale pré-remplie) ; l'en-tête est rendu par
   `HabilitationsList`, pas par la page.
-- Utilisateurs : `src/app/admin/users/{page,NouvelUtilisateur,UserRoleSelect,UserRowActions,LienMotDePasse,DroitsMatrix}.tsx`
-  + `src/app/api/users/{create,role,active,reset-password}/route.ts` + `/api/droits`.
+- Utilisateurs : `src/app/admin/users/{page,NouvelUtilisateur,NouveauRole,UserRoleSelect,UserRowActions,LienMotDePasse,DroitsMatrix}.tsx`
+  + `src/app/api/users/{create,role,active,reset-password}/route.ts` + `/api/droits`
+  + `/api/roles` (création de rôles personnalisés, garde `utilisateurs: write`).
+  Les rôles assignables viennent de `getAllRoles()` (`src/lib/roles-server.ts`) :
+  intégrés + `role_custom`. Un rôle personnalisé naît sans droit.
 - Bilans : `src/app/bilans/*` (Cockpit + 4 catégories, impression PDF via `@media print`).
 - Affichage TV : `src/app/affichage/atelier/[atelier]/page.tsx` (public, refresh 5 min,
   **vue par nom uniquement**).
-- Param. RH (ex-« Motifs d'absence », clé de droit toujours `motifs`, route toujours
-  `/admin/motifs`) : `src/app/admin/motifs/{page,actions}.ts(x)` — motifs d'absence **et**
-  agences d'intérim, ces dernières servant le menu déroulant Agence de `PeriodesEditor`.
+- Param. RH (clé de droit toujours `motifs`, route toujours `/admin/motifs`) :
+  `src/app/admin/motifs/{page,actions,FenetreAffichageInline}.tsx(ts)`. L'écran regroupe
+  désormais **quatre sections** : Motifs d'absence, Agences d'intérim (menu Agence de
+  `PeriodesEditor`), Types de contrat (menu Contrat de `PersonnelEditor` et
+  `PeriodesEditor`, alimenté par la table `type_contrat`), Fenêtre d'affichage du
+  planning (jours avant/après pour l'écran TV, auto-save via `/api/param-affichage` —
+  cf. `src/lib/parametres.ts`, `getFenetreAffichage()`).
+- Absences (écran Planning) : `src/app/absences-specifiques/{page,AbsencesEditor}.tsx`
+  — reconstruit les périodes de TOUT l'effectif à partir des jours d'absence
+  (`grouperAbsences`), pas de la seule table `absence` (401 jours sur 421 saisis au
+  planning sans période déclarée). Même UX que la modale Personnel : édition inline
+  (motif via palette, période au calendrier 2 mois, commentaire), crayon + corbeille,
+  vérification de conflit avant écrasement. Popovers en `position: fixed` (piège
+  `overflow: auto` de la carte modale, cf. patterns UI).
 - Migrations : `supabase/migrations/0001..0042`.
 - **Écritures : lire l'erreur, toujours.** `messageErreur()` (`src/lib/erreurs.ts`) traduit
   les codes Postgres ; les server actions repassent le message par l'URL
@@ -345,8 +405,9 @@ prochain gros chantier, pas une optimisation cosmétique.
   d'autorisation est inchangé). En deux requêtes applicatives, un échec de la seconde
   perdait la donnée en silence — la rotation n'est pas reconstituable. Le même test
   interdit le retour au `delete` + `insert` applicatif sur ces tables.
-- Tests (Vitest) : règles pures + `permissions.test.ts` (droits par défaut, périmètre du
-  chef d'équipe, anti-escalade) et `routes-gardees.test.ts` (inventaire : **toute route
-  API porte une garde** — le proxy exclut `api/`, une route nouvelle serait publique —
-  et aucun rôle en dur). `vitest.config.ts` résout l'alias `@/`, sans quoi le socle
+- Tests (Vitest, **189** au 2026-07-25) : règles pures + `permissions.test.ts`
+  (droits par défaut, périmètre du chef d'équipe, anti-escalade), `roles.test.ts`
+  (slugifyRole), `routes-gardees.test.ts` (inventaire : **toute route API porte
+  une garde** — le proxy exclut `api/`, une route nouvelle serait publique — et
+  aucun rôle en dur). `vitest.config.ts` résout l'alias `@/`, sans quoi le socle
   n'est pas testable.

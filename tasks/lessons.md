@@ -195,3 +195,65 @@ aussi qu'aucune colonne ne dérive en dehors des migrations (`grep -rw <col>
 supabase/migrations/`) : lors de cette vérification, aucune n'a été trouvée sur
 `personne`/`poste`/`placement`/`equipe`/`contrat_periode` — l'écart repéré avec
 `date_depart_prevu` était donc un cas isolé, mais il valait la peine d'être contrôlé.
+
+## L20 — Composant React défini dans un composant : perte de focus à chaque touche
+
+Le champ Commentaire de la modale Absences devenait inutilisable : chaque touche
+faisait perdre le focus. Cause : `LigneEdition` était défini **à l'intérieur** du
+composant parent (`function LigneEdition() { ... }` puis `<LigneEdition />`). À
+chaque re-render du parent, React voit une nouvelle référence de fonction, donc
+un « type de composant différent » → il démonte tout l'arbre et le remonte, et
+l'`<input>` perd son focus. Bug vécu **deux fois** (modale Personnel puis éditeur
+Planning).
+**Règle** : ne jamais définir un composant qui porte des `<input>` à l'intérieur
+d'un autre. Deux solutions : extraire au TOP-LEVEL du module (voir `RowsEdit` dans
+`AbsencesModal.tsx`), **ou** inliner le JSX directement (`{LigneEdition()}` au
+lieu de `<LigneEdition />`) — ce dernier reste un simple appel de fonction pour
+React, pas un élément.
+
+## L21 — Popover en `position: absolute` rogné par `overflow: auto`
+
+Les listes déroulantes des modales Absences (motif, personne, calendrier) étaient
+tronquées à 2 lignes visibles et déclenchaient un ascenseur : elles étaient en
+`position: absolute` dans la cellule, or la carte de la modale est en `overflow:
+auto` — le débordement est rogné, exactement comme l'InfoBulle avait connu (L9
+variante). Fermeture au moindre scroll par-dessus, y compris quand on essayait
+de dérouler la liste.
+**Règle** : dans une carte scrollable, un popover doit être en **`position: fixed`**,
+coordonnées calculées au clic depuis le rect du bouton (`getBoundingClientRect`),
+gauche bornée à `[8, vw - width - 8]`. Fermeture au scroll EXTÉRIEUR uniquement :
+si `popRef.current.contains(e.target)`, on ignore — sinon impossible de faire
+défiler une liste longue. Cf. `openPop` / `popStyle` dans `AbsencesModal.tsx`.
+
+## L22 — Erreurs Supabase : `e instanceof Error` renvoie false
+
+L'API `/api/personnel` répondait « Erreur » sec sur toute écriture ratée, sans
+détail. Le catch faisait `e instanceof Error ? e.message : "Erreur"`. Or les
+erreurs Supabase/PostgREST ne sont **pas** des instances de `Error` : ce sont
+des objets plats `{ code, message, details, hint }`. Le test échoue toujours,
+et le vrai message Postgres (« violates check constraint... ») disparaît.
+**Règle** : `const err = e as { message?, details?, hint?, code? }` puis
+`err?.message ?? (e instanceof Error ? e.message : "Erreur")` ; joindre
+`details` et `hint` pour un message complet. Répliqué dans `messageErreur()`.
+
+## L23 — CHECK enum figé : ajouter une valeur en table ne suffit pas
+
+Ajouter « STAGIAIRE » dans la table `type_contrat` (Param. RH) faisait échouer
+l'affectation avec « Erreur » silencieux. Cause : les migrations d'origine
+(0002 personne, 0017 contrat_periode) posaient un `CHECK (type_contrat in
+('CDI','CDD','INTERIM'))` qui refuse toute autre valeur. La table de référence
+gouverne le menu déroulant, mais la colonne portait toujours l'ancien verrou.
+**Règle** : dès qu'on transforme un enum en table de référence, **retirer le
+CHECK** (migration 0041). La validation passe côté application (liste des
+codes actifs). Un test d'inventaire éviterait la récidive : `grep -rn "check.*in (" supabase/migrations/`.
+
+## L24 — `onChange` inline sur `<input>` dans un Server Component
+
+La page `/admin/motifs` (server component) plantait au chargement : mon
+`<input type="checkbox" onChange={...}>` inline pour toggler l'actif d'un type
+de contrat était rejeté silencieusement par Next 16. Les handlers d'événement
+ne peuvent vivre que dans un composant `"use client"`.
+**Règle** : toute interaction sur un input passe par un composant client dédié
+(cf. `ActifCheckbox`, generalisé pour accepter une PK sous un autre nom via
+`keyName`). Le server component ne fait que la mise en page ; il passe le
+server action en prop au client — Next.js sait le sérialiser.

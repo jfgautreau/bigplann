@@ -102,6 +102,12 @@ seconde requête laissait la donnée corrompue en silence.
 
 La **0038** a supprimé trois tables mortes (`equipe_quart_semaine`, `ligne_ouverture`,
 `jour_equipe`) que plus aucune lecture n'utilisait ; la **0039** ajoute le départ prévu.
+La **0040** paramètre les types de contrat (`type_contrat`) et la fenêtre d'affichage
+du planning (`parametre_affichage`, singleton `id=1`) ; la **0041** retire le CHECK
+enum sur `personne.type_contrat` et `contrat_periode.type_contrat` (validation côté
+application, cf. `lessons.md` L23) ; la **0042** ouvre les **rôles personnalisés**
+(`role_custom`) et retire le CHECK sur `app_user.role` (validation côté application :
+intégrés + `role_custom`).
 
 ## Sitemap (principales routes)
 - `/` accueil (logo + titre « planning »), `/planning`, `/placement` (saisie par
@@ -113,4 +119,5 @@ La **0038** a supprimé trois tables mortes (`equipe_quart_semaine`, `ligne_ouve
   quarts**), `/admin/competences`, `/admin/habilitations-param`, `/admin/motifs`,
   `/admin/horaires`, `/admin/users` (comptes **+ matrice des droits**, admin), `/admin/rgpd`,
   `/journal`.
-- Public : `/affichage`, `/affichage/atelier/[atelier]` (écran TV, refresh 60 s).
+- Public : `/affichage`, `/affichage/atelier/[atelier]` (écran TV, refresh 5 min,
+  fenêtre glissante paramétrable dans Param. RH — cf. `getFenetreAffichage()`).

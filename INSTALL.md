@@ -21,8 +21,8 @@ npm install
    ```
 
 ## 3. Appliquer les migrations
-Dans le **SQL Editor** de Supabase, exécute **dans l'ordre** les fichiers de
-`supabase/migrations/` (0001 → 0009).
+Dans le **SQL Editor** de Supabase, exécute **dans l'ordre** tous les fichiers de
+`supabase/migrations/` (0001 → 0042 au 2026-07-25 ; adapter à la dernière du dépôt).
 
 > Alternative : renseigne `SUPABASE_DB_URL` (chaîne Postgres, *Database > Connection
 > string*) dans `.env.local` puis `npm run db:migrate`.
