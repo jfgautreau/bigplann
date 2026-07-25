@@ -166,8 +166,10 @@
 
   main { min-width: 0; }
   section { scroll-margin-top: 22px; margin-bottom: 62px; }
-  section > * { max-width: 68ch; }
-  section > figure, section > .table-scroll, section > .grid-2 { max-width: none; }
+  /* Une seule largeur de contenu : le texte, les barres de titre (border-top des
+     h2) et les maquettes partagent la largeur de la colonne, pour que leurs bords
+     gauche ET droit s'alignent. Le texte est justifie pour un bord droit net. */
+  section > * { max-width: none; }
 
   h2 {
     font-family: var(--font-display);
@@ -197,7 +199,10 @@
     font-weight: 600;
     margin: 24px 0 8px;
   }
-  p { margin: 0 0 14px; }
+  p { margin: 0 0 14px; text-align: justify; text-justify: inter-word; hyphens: auto; -webkit-hyphens: auto; }
+  /* La justification n'a de sens que sur un vrai paragraphe : on la retire des
+     legendes, chapeaux et petits textes ou les gros ecarts seraient disgracieux. */
+  .lede, figcaption, .annot li, .legend li, .m *, .note .label { text-align: left; hyphens: manual; }
   a { color: var(--accent); }
   ul, ol { margin: 0 0 16px; padding-left: 22px; }
   li { margin-bottom: 7px; }

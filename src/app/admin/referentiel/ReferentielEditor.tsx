@@ -286,7 +286,7 @@ export default function ReferentielEditor({
                   decalait tout, tableau par tableau. `table-layout: fixed` + un
                   colgroup identique partout les remettent d'aplomb, et la cellule
                   des habilitations se replie sur plusieurs rangees. */}
-              <table className="rowh" style={{ width: "100%", tableLayout: "fixed" }}>
+              <table className="rowh refpostes" style={{ width: "100%", tableLayout: "fixed" }}>
                 <colgroup>
                   <col style={{ width: 190 }} />{/* Poste */}
                   <col style={{ width: 92 }} />{/* Code */}
