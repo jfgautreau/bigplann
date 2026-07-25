@@ -298,7 +298,19 @@ table {
 
 :root {
   --appbar: 40px; /* hauteur approx. de la barre d'app sticky, pour figer les en-tetes */
+  /* Hauteur TOTALE d'une rangee de grille (bord a bord, padding compris),
+     partagee par Matrice, Habilitations, Referentiel, Personnel, Ordonnancement
+     et Planning — pour une harmonie visuelle d'un ecran a l'autre. La pastille
+     de la Matrice fait 28 px : 32 = 28 + 2 px de marge en haut et en bas. */
+  --grid-row-h: 32px;
 }
+
+/* Hauteur de rangee harmonisee (cf. --grid-row-h). Cible : le corps des grilles
+   Personnel / Planning et les tables `.rowh` (Referentiel, Ordonnancement).
+   Matrice & Habilitations passent par persongrid (--row-h). */
+.pers-table tbody td { height: var(--grid-row-h); }
+.pcell { height: var(--grid-row-h); }
+.rowh td { height: var(--grid-row-h); }
 
 th,
 td {

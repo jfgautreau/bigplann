@@ -212,7 +212,7 @@ export default function OrdoGrid({
         <h2 style={{ marginTop: 0 }}>
           Quarts actifs par jour {saving && <span className="muted" style={{ fontSize: 12 }}>· enregistrement…</span>}
         </h2>
-        <table className="matrix" style={tableStyle}>
+        <table className="matrix rowh" style={tableStyle}>
           <Header label="Quart" showReset />
           <tbody>
             {quarts.map((q) => (
@@ -244,7 +244,7 @@ export default function OrdoGrid({
         return (
           <div key={q.code} className="card section" style={{ overflowX: "auto" }}>
             <h2 style={{ marginTop: 0 }}>{q.libelle}</h2>
-            <table className="matrix" style={tableStyle}>
+            <table className="matrix rowh" style={tableStyle}>
               <Header label="Ligne" />
               <tbody>
                 {qLignes.map((l) => (

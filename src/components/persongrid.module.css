@@ -23,8 +23,9 @@
   --col-min: 36px;
   /* Hauteur d'une ligne : la pastille (28 px) plus 2 px d'air au-dessus et
      en dessous. `--cell` epouse la pastille, si bien que le `padding` de 2 px
-     de la cellule est le seul espace vertical. */
-  --row-h: 32px;
+     de la cellule est le seul espace vertical. Reprend la variable globale
+     `--grid-row-h` (32 px) pour rester aligne avec les autres grilles. */
+  --row-h: var(--grid-row-h, 32px);
   --cell: 28px;
   /* Decalages verticaux des rangees d'en-tete collantes. */
   --sub-top: 22px;
