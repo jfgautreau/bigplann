@@ -589,8 +589,7 @@
         <li><a href="#tv">12. Affichage TV</a></li>
         <li><a href="#journal">13. Journal</a></li>
         <li><a href="#reglages">14. Réglages</a></li>
-        <li><a href="#droits">15. Qui peut quoi</a></li>
-        <li><a href="#depannage">16. Dépannage</a></li>
+        <li><a href="#depannage">15. Dépannage</a></li>
       </ol>
     </nav>
 
@@ -599,7 +598,6 @@
       <!-- ================= 1. DEMARRER ================= -->
       <section id="demarrer">
         <h2>1. Démarrer</h2>
-        <p class="who"><span class="role">tout le monde</span></p>
 
         <p>
           Polaris s'ouvre dans un navigateur, sans rien installer. Connectez-vous avec votre
@@ -637,13 +635,13 @@
           <ul class="annot">
             <li><b class="num">1</b><span>Le <strong>logo</strong> ramène toujours à l'accueil.</span></li>
             <li><b class="num">2</b><span>Les <strong>modules</strong>, chacun avec sa pastille de couleur — la même couleur se retrouve sur le titre de l'écran. Vous ne voyez que ceux auxquels vous avez droit : deux personnes n'ont pas forcément le même menu.</span></li>
-            <li><b class="num">3</b><span>L'<strong>engrenage</strong> regroupe les écrans de réglage (réservés aux administrateurs).</span></li>
+            <li><b class="num">3</b><span>L'<strong>engrenage</strong> regroupe les écrans de réglage (visibles seulement si votre compte a les droits correspondants).</span></li>
             <li><b class="num">4</b><span>La <strong>cloche</strong> mène aux habilitations qui arrivent à échéance.</span></li>
             <li><b class="num">5</b><span>Votre <strong>compte</strong> : changer de mot de passe, se déconnecter.</span></li>
           </ul>
           <figcaption>
             La barre de navigation, présente en haut de tous les écrans. Ici avec tous les modules ;
-            un chef d'équipe, par exemple, ne verra ni Référentiel ni Ordonnancement.
+            selon les droits de votre compte, certains n'apparaîtront pas (par exemple le Référentiel ou l'Ordonnancement).
           </figcaption>
         </figure>
 
@@ -660,7 +658,6 @@
       <!-- ================= 2. VOCABULAIRE ================= -->
       <section id="vocabulaire">
         <h2>2. Le vocabulaire</h2>
-        <p class="who"><span class="role">à lire une fois</span></p>
 
         <p>
           Cinq mots reviennent partout dans l'application. Les distinguer évite la plupart des
@@ -736,7 +733,6 @@
       <!-- ================= 3. JOURNEE TYPE ================= -->
       <section id="journee">
         <h2>3. Une journée type</h2>
-        <p class="who"><span class="role">chef d'équipe</span><span class="role">ordonnancement</span></p>
 
         <p>Dans l'ordre, une journée de travail avec Polaris ressemble à ceci.</p>
 
@@ -761,7 +757,6 @@
       <!-- ================= 4. PLACEMENT ================= -->
       <section id="placement">
         <h2>4. Placement</h2>
-        <p class="who"><span class="role">écriture : chef d'équipe, ordonnancement, admin</span></p>
 
         <p>
           C'est l'écran de saisie quotidien. À gauche le plan de l'atelier, à droite la liste des
@@ -944,8 +939,9 @@
         <div class="note warn">
           <span class="label">Limite de périmètre</span>
           <p>
-            Un chef d'équipe ne peut modifier que <strong>les personnes de son équipe</strong>. Les autres
-            noms apparaissent grisés : ils restent visibles, mais non modifiables. Un message le
+            Selon les droits de votre compte, vous pouvez être limité à <strong>votre propre
+            périmètre</strong> (les personnes de votre équipe). Les autres noms apparaissent alors grisés :
+            ils restent visibles — utile pour repérer un renfort — mais non modifiables. Un message le
             rappelle si vous essayez.
           </p>
         </div>
@@ -954,20 +950,104 @@
       <!-- ================= 5. PLANNING ================= -->
       <section id="planning">
         <h2>5. Planning</h2>
-        <p class="who"><span class="role">lecture : presque tous</span><span class="role">écriture : chef d'équipe, admin</span></p>
 
         <p>
-          Le Planning montre la <strong>semaine entière</strong>, sous forme de tableau : une ligne par
-          personne, une colonne par jour. Là où le Placement sert à préparer une journée dans le
-          détail, le Planning sert à voir et corriger la semaine d'un coup d'œil.
+          Le Planning montre <strong>trois semaines d'un coup</strong>, sous forme de tableau : une ligne
+          par personne, une colonne par jour. Là où le Placement sert à préparer une journée dans le
+          détail, le Planning sert à <strong>voir et corriger la semaine d'un coup d'œil</strong> — repérer
+          un trou, une personne oubliée, un enchaînement à équilibrer. Les deux écrans écrivent au même
+          endroit : une affectation posée dans l'un se retrouve aussitôt dans l'autre.
         </p>
-        <p>Vous y retrouvez les mêmes filtres — quart, atelier, équipe — et la même information de fond.</p>
+
+        <figure>
+          <div class="m-scroll">
+            <div class="m">
+              <div class="m-bar" style="background:var(--paper-2);color:var(--ink);border-bottom:1px solid var(--rule)">
+                <b class="cal">1</b>
+                <span class="m-lab">Quart</span>
+                <span class="m-seg"><span class="on">Matin</span><span>Après-midi</span><span>Nuit</span></span>
+                <span class="m-lab">Atelier</span>
+                <span class="m-seg"><span class="on">Condi</span><span>Fabrication</span></span>
+                <span class="m-lab">Équipe</span>
+                <span class="m-seg"><span>A</span><span class="on">B</span></span>
+                <b class="cal" style="margin-left:auto">4</b>
+                <span class="m-btn" style="border-color:var(--rose);color:var(--rose)">+ Bilan</span>
+              </div>
+              <div class="m-body" style="padding:0">
+                <table class="m-grid">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left;background:var(--paper-2);color:var(--ink-3)">Personne</th>
+                      <th>Lun 20</th><th>Mar 21</th><th>Mer 22</th><th>Jeu 23</th><th>Ven 24</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td class="nm">DUBOIS Anna</td><td>Cond.</td><td>Cond.</td><td>Cond.</td><td class="c" style="background:var(--warn-bg);color:var(--warn)">CP</td><td class="c" style="background:var(--warn-bg);color:var(--warn)">CP</td></tr>
+                    <tr><td class="nm">MARTIN Luc</td><td>Range.</td><td>Range.</td><td>Range.</td><td>Range.</td><td>Range.</td></tr>
+                    <tr><td class="nm">PETIT Karim</td><td class="c" style="background:var(--bad-bg);color:var(--bad)">—</td><td>Therm.</td><td>Therm.</td><td>Therm.</td><td>Therm.</td></tr>
+                    <tr><td class="nm">ROUX Sofia</td><td class="c" style="background:var(--accent-bg);color:var(--accent-2)">TP</td><td class="c" style="background:var(--accent-bg);color:var(--accent-2)">TP</td><td class="c" style="background:var(--accent-bg);color:var(--accent-2)">TP</td><td class="c" style="background:var(--accent-bg);color:var(--accent-2)">TP</td><td class="c" style="background:var(--accent-bg);color:var(--accent-2)">TP</td></tr>
+                    <tr><td class="nm">BOY Melvin</td><td>Palet.</td><td>Palet.</td><td class="c" style="background:var(--bad-bg);color:var(--bad)">MAL</td><td class="c" style="background:var(--bad-bg);color:var(--bad)">MAL</td><td>Palet.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <ul class="annot">
+            <li><b class="num">1</b><span><strong>Les filtres</strong> — quart, atelier, équipe. Choisir un quart re-sélectionne l'équipe qui tourne ce quart-là cette semaine ; vous pouvez ensuite forcer une autre équipe.</span></li>
+            <li><b class="num">2</b><span><strong>Une case vide</strong> se remplit d'un clic : elle propose les postes ouverts ce jour-là. Réécrire ou effacer se fait de la même façon.</span></li>
+            <li><b class="num">3</b><span><strong>Les couleurs</strong> reprennent celles des motifs d'absence (CP, MAL…), le rouge d'un placement forcé, l'indigo du temps partiel.</span></li>
+            <li><b class="num">4</b><span><strong>+ Bilan</strong> déplie, en tête de grille, des lignes de synthèse (effectif requis, présents, écart) par jour. Replié par défaut : il se consulte au besoin.</span></li>
+          </ul>
+          <figcaption>Le Planning, ici l'équipe B au quart du matin sur l'atelier Condi. Chaque cellule est une journée d'une personne.</figcaption>
+        </figure>
+
+        <h3>Lire et corriger une case</h3>
+        <p>
+          Chaque cellule affiche, en abrégé, ce que fait la personne ce jour-là : le code d'un poste
+          (« Cond. » pour Conducteur), un motif d'absence coloré, ou rien si elle n'est pas encore
+          placée. <strong>Cliquez une case</strong> pour choisir un poste parmi ceux ouverts ce jour, ou pour
+          la vider. La saisie s'enregistre seule, sans bouton.
+        </p>
+        <p>
+          Un petit bouton de <strong>recopie</strong> apparaît sur une case : il propage la même valeur sur le
+          reste de la semaine, pratique pour un poste tenu tous les jours. Vous pouvez aussi copier
+          toute une semaine depuis la semaine précédente.
+        </p>
+
+        <h3>Le temps partiel, automatique</h3>
+        <p>
+          Une personne à temps partiel n'a rien à saisir au jour le jour : le Planning marque
+          <strong>« TP »</strong> tout seul les journées où elle ne travaille pas. Le cas le plus courant est
+          celui d'un mi-temps sur un seul créneau, dans une équipe qui tourne : la semaine où l'équipe
+          est sur le créneau que la personne ne fait pas, elle est absente toute la semaine — d'où un
+          <strong>« TP » qui revient une semaine sur deux</strong>, calculé à partir de la rotation de l'équipe.
+          Les journées réellement plaçables, elles, restent vides : c'est à vous d'y poser la personne.
+        </p>
+
+        <h3>Les absences</h3>
+        <p>
+          Une absence saisie ici — en cliquant la case et en choisissant un motif — se pose sur le
+          jour comme dans le Placement. Pour une absence <strong>longue</strong> (arrêt, congés sur une plage),
+          passez plutôt par « Absences spécifiques » (voir la section <a href="#absences">Absences &amp; horaires</a>) :
+          le motif se reporte alors automatiquement sur chaque jour de la période.
+        </p>
 
         <div class="note">
           <span class="label">Repères visuels</span>
           <p>
-            Une pastille <strong>🕐</strong> signale un horaire particulier ce jour-là. Les jours sans ligne
-            ouverte sont masqués. La ligne « Alertes » met en évidence les cases à surveiller.
+            Une pastille <strong>🕐</strong> signale un horaire particulier ce jour-là. Les jours dont aucune
+            ligne n'est ouverte (décidé dans l'Ordonnancement) sont <strong>masqués</strong> : une semaine non
+            initialisée apparaît donc vide, avec un message qui l'explique. La ligne de <strong>synthèse</strong>
+            du bilan met en évidence les jours où il manque du monde.
+          </p>
+        </div>
+
+        <div class="note tip">
+          <span class="label">Planning ou Placement ?</span>
+          <p>
+            Utilisez le <strong>Placement</strong> pour construire une journée poste par poste, avec le plan et
+            le glisser-déposer ; le <strong>Planning</strong> pour prendre du recul sur la semaine et corriger
+            vite. C'est la même donnée, vue de deux hauteurs différentes.
           </p>
         </div>
       </section>
@@ -975,7 +1055,6 @@
       <!-- ================= 6. MATRICE ================= -->
       <section id="matrice">
         <h2>6. Matrice de polyvalence</h2>
-        <p class="who"><span class="role">écriture : chef d'équipe, admin</span><span class="role">lecture : les autres</span></p>
 
         <p>
           La matrice croise <strong>les personnes et les postes</strong> : pour chaque case, le niveau de
@@ -1039,7 +1118,6 @@
       <!-- ================= 7. HABILITATIONS ================= -->
       <section id="habilitations">
         <h2>7. Habilitations</h2>
-        <p class="who"><span class="role">écriture : chef d'équipe, admin</span><span class="role">lecture : RH, direction</span></p>
 
         <p>
           Même principe que la matrice, mais pour les formations qui <strong>périment</strong> : une ligne par
@@ -1098,26 +1176,93 @@
       <!-- ================= 8. PERSONNEL ================= -->
       <section id="personnel">
         <h2>8. Personnel</h2>
-        <p class="who"><span class="role">écriture : admin, RH</span><span class="role">lecture : les autres</span></p>
 
         <p>
-          La fiche de chaque personne : nom, équipe, atelier, contrat, statut. La saisie est directe,
-          chaque champ s'enregistre seul.
+          C'est l'annuaire de l'usine : <strong>une ligne par personne</strong>, avec son contrat, son
+          matricule, son badge, son équipe, son atelier, sa pointure, son statut. Toute la saisie est
+          <strong>directe dans le tableau</strong> — vous tapez dans la case, ça s'enregistre seul, un discret
+          « Enregistré ✓ » le confirme. La recherche en haut porte sur toutes les colonnes à la fois.
+        </p>
+
+        <figure>
+          <div class="m-scroll">
+            <div class="m">
+              <div class="m-bar" style="background:var(--paper-2);color:var(--ink);border-bottom:1px solid var(--rule)">
+                <span class="m-search" style="min-width:220px">🔍 Rechercher : nom, matricule, badge, équipe…</span>
+                <b class="cal" style="margin-left:auto">1</b>
+                <span class="m-btn">＋ Ajouter</span>
+                <span class="m-lab">Statut</span>
+                <span class="m-seg"><span class="on">Tous</span><span>Actif</span><span>Parti</span></span>
+              </div>
+              <div class="m-body" style="padding:0">
+                <table class="m-grid">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left;background:var(--paper-2);color:var(--ink-3)">Nom</th>
+                      <th>Contrat</th><th>Équipe</th><th>Atelier</th><th>Absences</th><th>TP</th><th>Statut</th><th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td class="nm">DUBOIS Anna</td><td class="c">CDI</td><td class="c">B</td><td class="c">Condi</td><td class="c"><b class="cal">2</b></td><td class="c">—</td><td class="c" style="color:var(--ok)">Actif</td><td class="c"><b class="cal">3</b>🔍 ⓘ ⚙︎</td></tr>
+                    <tr><td class="nm">MARTIN Luc</td><td class="c" style="background:var(--warn-bg)">Intérim</td><td class="c">A</td><td class="c">Condi</td><td class="c">📅</td><td class="c">—</td><td class="c" style="color:var(--ok)">Actif</td><td class="c">🔍 ⓘ ⚙︎</td></tr>
+                    <tr><td class="nm">ROUX Sofia</td><td class="c">CDI</td><td class="c">B</td><td class="c">Fab.</td><td class="c">📅</td><td class="c" style="color:var(--accent-2)">TP</td><td class="c" style="color:var(--ok)">Actif</td><td class="c">🔍 ⓘ ⚙︎</td></tr>
+                    <tr style="opacity:.55"><td class="nm">PETIT Karim</td><td class="c">CDD</td><td class="c">A</td><td class="c">Condi</td><td class="c">📅</td><td class="c">—</td><td class="c" style="color:var(--ink-3)">Parti</td><td class="c">🔍 ⓘ ⚙︎</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <ul class="annot">
+            <li><b class="num">1</b><span><strong>Ajouter</strong> ouvre une fiche vierge. Si le nom existe déjà, Polaris prévient : on réactive plutôt qu'on recrée (voir plus bas).</span></li>
+            <li><b class="num">2</b><span><strong>Colonne Absences</strong> — le calendrier barré ouvre l'historique des absences de la personne et permet d'en déclarer une, ou de noter un départ prévu.</span></li>
+            <li><b class="num">3</b><span><strong>Les trois outils</strong> de fin de ligne : la loupe (périodes de contrat), le « i » (commentaire), l'engrenage (export / anonymisation / suppression au titre du RGPD).</span></li>
+          </ul>
+          <figcaption>L'écran Personnel. L'intérim ressort en jaune ; une personne « Partie » apparaît grisée.</figcaption>
+        </figure>
+
+        <h3>Contrats et intérim</h3>
+        <p>
+          La <strong>loupe</strong> en bout de ligne ouvre l'historique des périodes de contrat de la personne :
+          type (CDI, CDD, Intérim…), dates, agence pour l'intérim, motif. C'est la <strong>période la plus
+          récente</strong> qui alimente la colonne Contrat et l'alerte « &gt; 18 mois » de la liste. Les types de
+          contrat et les agences proposés sont ceux paramétrés dans <a href="#reglages">Paramètres RH</a>.
+        </p>
+
+        <h3>Absences et départ prévu</h3>
+        <p>
+          Le <strong>calendrier barré</strong> de la colonne Absences ouvre une fenêtre qui rassemble tout :
+          l'historique des absences regroupé en périodes lisibles, un bouton pour <strong>déclarer une
+          absence</strong> (motif, plage de dates au calendrier, commentaire), et un champ <strong>Départ
+          prévu</strong>. Cette date de départ sert d'alerte visuelle ; elle ne désactive pas le compte toute
+          seule — c'est un geste volontaire, pour ne jamais faire disparaître quelqu'un du planning par
+          surprise.
         </p>
 
         <h3>Temps partiel</h3>
         <p>
-          Le temps partiel se configure par personne et se combine : demi-journées, jours non
-          travaillés, horaires particuliers. Le Planning en tient compte automatiquement selon le
-          quart, sans que vous ayez à y penser.
+          Le temps partiel se règle par personne, à partir de <strong>cas types</strong> (mi-temps matin,
+          mi-temps après-midi, jour non travaillé, horaires réduits) que l'on ajuste ensuite si besoin.
+          Un aperçu de la quinzaine montre tout de suite l'effet, y compris l'alternance « une semaine
+          sur deux » qui vient de la <strong>rotation de l'équipe</strong>, pas du temps partiel lui-même. Le
+          Planning applique tout cela automatiquement (voir <a href="#planning">Planning</a>).
         </p>
 
         <div class="note warn">
           <span class="label">Départ et retour</span>
           <p>
-            Quand une personne revient, <strong>réactivez son ancienne fiche</strong> plutôt que d'en créer une
-            seconde. Cela évite les doublons et conserve son historique, sa polyvalence et ses
-            habilitations.
+            Quand une personne revient, <strong>réactivez son ancienne fiche</strong> (bouton Actif / Parti)
+            plutôt que d'en créer une seconde. Cela évite les doublons et conserve son historique, sa
+            polyvalence et ses habilitations. Si deux fiches coexistent déjà, l'outil de
+            <strong>fusion</strong> (cocher deux lignes) les réunit sur la fiche à garder.
+          </p>
+        </div>
+
+        <div class="note">
+          <span class="label">RGPD</span>
+          <p>
+            L'engrenage de fin de ligne permet d'<strong>exporter</strong> les données d'une personne, de les
+            <strong>anonymiser</strong> (on garde l'historique de production en retirant l'identité) ou de les
+            <strong>supprimer</strong> définitivement. À réserver aux demandes légitimes.
           </p>
         </div>
       </section>
@@ -1125,7 +1270,6 @@
       <!-- ================= 9. ORDONNANCEMENT ================= -->
       <section id="ordonnancement">
         <h2>9. Ordonnancement</h2>
-        <p class="who"><span class="role">écriture : ordonnancement, admin</span></p>
 
         <p>
           Cet écran décide <strong>quelles lignes tournent, quel jour et sur quel quart</strong>. C'est en amont
@@ -1146,7 +1290,6 @@
       <!-- ================= 10. ABSENCES ================= -->
       <section id="absences">
         <h2>10. Absences longues &amp; horaires</h2>
-        <p class="who"><span class="role">écriture : chef d'équipe, admin</span></p>
 
         <h3>Absences longues</h3>
         <p>
@@ -1172,7 +1315,6 @@
       <!-- ================= 11. BILANS ================= -->
       <section id="bilans">
         <h2>11. Bilans</h2>
-        <p class="who"><span class="role">lecture : direction, RH, encadrement</span></p>
 
         <p>
           Six écrans de synthèse, conçus pour être <strong>imprimés en A4 paysage</strong> ou projetés en
@@ -1215,7 +1357,6 @@
       <!-- ================= 12. TV ================= -->
       <section id="tv">
         <h2>12. Affichage TV</h2>
-        <p class="who"><span class="role">écran public, sans connexion</span></p>
 
         <p>
           Chaque atelier a une page d'affichage prévue pour un écran en atelier : gros caractères,
@@ -1240,7 +1381,6 @@
       <!-- ================= 13. JOURNAL ================= -->
       <section id="journal">
         <h2>13. Journal</h2>
-        <p class="who"><span class="role">lecture : admin, direction</span></p>
         <p>
           Le journal enregistre <strong>qui a modifié quoi, et quand</strong> : placements, fiches, niveaux,
           habilitations. Chaque entrée indique le champ touché, l'ancienne et la nouvelle valeur.
@@ -1254,7 +1394,6 @@
       <!-- ================= 14. REGLAGES ================= -->
       <section id="reglages">
         <h2>14. Réglages</h2>
-        <p class="who"><span class="role">administrateurs</span></p>
 
         <p>
           Regroupés sous l'engrenage ⚙️. Ces écrans décrivent l'usine et se modifient rarement, mais
@@ -1288,57 +1427,16 @@
         </ul>
       </section>
 
-      <!-- ================= 15. DROITS ================= -->
-      <section id="droits">
-        <h2>15. Qui peut quoi</h2>
-        <p class="who"><span class="role">pour comprendre les différences de menu</span></p>
-
-        <p>
-          Chaque compte a un rôle, qui détermine les modules visibles. Voici les droits habituels —
-          un administrateur peut les ajuster compte par compte dans <strong>Utilisateurs</strong>.
-        </p>
-
-        <div class="table-scroll">
-          <table class="data">
-            <thead>
-              <tr>
-                <th>Module</th><th class="c">Chef d'équipe</th><th class="c">Ordonnancement</th>
-                <th class="c">RH</th><th class="c">Direction</th><th class="c">Admin</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Personnel</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
-              <tr><td>Matrice</td><td class="c yes">écriture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
-              <tr><td>Habilitations</td><td class="c yes">écriture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
-              <tr><td>Planning &amp; Placement</td><td class="c part">son équipe</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
-              <tr><td>Ordonnancement</td><td class="c no">—</td><td class="c yes">écriture</td><td class="c no">—</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
-              <tr><td>Bilans</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
-              <tr><td>Journal</td><td class="c no">—</td><td class="c no">—</td><td class="c no">—</td><td class="c no">lecture</td><td class="c yes">écriture</td></tr>
-              <tr><td>Réglages ⚙️</td><td class="c no">—</td><td class="c part">équipes</td><td class="c no">—</td><td class="c no">—</td><td class="c yes">écriture</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="note warn">
-          <span class="label">Le cas du chef d'équipe</span>
-          <p>
-            Le chef d'équipe a le droit d'écrire sur le Planning et le Placement, mais uniquement pour
-            <strong>les personnes de son équipe</strong>. Il voit tout le monde — utile pour repérer un renfort —
-            sans pouvoir modifier les autres.
-          </p>
-        </div>
-      </section>
-
-      <!-- ================= 16. DEPANNAGE ================= -->
+      <!-- ================= 15. DEPANNAGE ================= -->
       <section id="depannage">
-        <h2>16. Dépannage</h2>
+        <h2>15. Dépannage</h2>
 
         <dl class="faq">
           <dt>Je ne vois pas le même menu qu'un collègue.</dt>
-          <dd>C'est normal : le menu dépend de votre rôle. Voir <a href="#droits">Qui peut quoi</a>. Si un module vous manque pour travailler, demandez à un administrateur.</dd>
+          <dd>C'est normal : les menus visibles dépendent des droits accordés à votre compte. Si un module vous manque pour travailler, demandez-le à la personne qui gère les comptes.</dd>
 
           <dt>Un nom est grisé, je ne peux pas le déplacer.</dt>
-          <dd>Cette personne n'est pas dans votre équipe. Seul son chef d'équipe, ou un administrateur, peut la placer.</dd>
+          <dd>Cette personne est hors de votre périmètre de modification. Vous la voyez — utile pour repérer un renfort — mais seule une personne habilitée sur son équipe peut la placer.</dd>
 
           <dt>Je ne trouve pas quelqu'un dans la liste du Placement.</dt>
           <dd>Tapez son nom dans la recherche : elle ignore les filtres d'équipe et d'atelier et cherche dans tout l'effectif. Vérifiez aussi que la personne est bien en statut « Actif » dans Personnel.</dd>
