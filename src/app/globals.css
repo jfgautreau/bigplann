@@ -316,13 +316,16 @@ table {
    le bouton « Habil. requises ») doit avoir LA MÊME hauteur, sinon la ligne
    paraît bancale même à hauteur de rangée constante. On aligne tout à 28 px. */
 .refpostes input:not([type="checkbox"]),
-.refpostes select {
+.refpostes select,
+.refhead input:not([type="checkbox"]),
+.refhead select {
   height: 28px;
   padding: 2px 8px;
   font-size: 13px;
   box-sizing: border-box;
 }
-.refpostes button { min-height: 28px; box-sizing: border-box; }
+.refpostes button,
+.refhead button { min-height: 28px; box-sizing: border-box; }
 
 th,
 td {

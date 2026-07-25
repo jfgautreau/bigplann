@@ -1277,19 +1277,83 @@
         <h2>9. Ordonnancement</h2>
 
         <p>
-          Cet écran décide <strong>quelles lignes tournent, quel jour et sur quel quart</strong>. C'est en amont
-          du placement : une ligne fermée n'apparaît pas dans le plan.
+          Cet écran décide, semaine par semaine, <strong>quels quarts sont actifs et quelles lignes
+          tournent, quel jour</strong>. C'est l'étage <strong>au-dessus</strong> du Placement : une ligne fermée
+          ici n'apparaît pas dans le plan, et un quart non ouvert ne propose aucun poste. Tant qu'une
+          semaine n'a pas été « initialisée », elle est vide côté Placement, avec un message qui
+          l'explique.
         </p>
+
+        <figure>
+          <div class="m-scroll">
+            <div class="m">
+              <div class="m-body">
+                <div class="m-lab" style="margin-bottom:2px">Quarts actifs par jour</div>
+                <table class="m-grid">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left;background:var(--paper-2);color:var(--ink-3)">Quart</th>
+                      <th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th>
+                      <th style="width:110px">
+                        <span class="m-btn" style="font-size:11px"><b class="cal">1</b>&nbsp;⚙️ Initialiser</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td class="nm">Matin</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td><td></td></tr>
+                    <tr><td class="nm">Après-midi</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="background:var(--bad-bg);color:var(--bad)">✕</td><td></td></tr>
+                    <tr><td class="nm">Nuit</td><td class="c" style="background:var(--bad-bg);color:var(--bad)">✕</td><td class="c" style="background:var(--bad-bg);color:var(--bad)">✕</td><td class="c" style="background:var(--bad-bg);color:var(--bad)">✕</td><td class="c" style="background:var(--bad-bg);color:var(--bad)">✕</td><td class="c" style="background:var(--bad-bg);color:var(--bad)">✕</td><td></td></tr>
+                  </tbody>
+                </table>
+                <div class="m-lab" style="margin:8px 0 2px"><b class="cal">2</b>&nbsp;Lignes ouvertes — quart du matin</div>
+                <table class="m-grid">
+                  <thead>
+                    <tr><th style="text-align:left;background:var(--paper-2);color:var(--ink-3)">Ligne</th><th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td class="nm">Ligne 1</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td></tr>
+                    <tr><td class="nm">Ligne 2</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="background:var(--bad-bg);color:var(--bad)">✕</td><td class="c" style="color:var(--ok)">✓</td><td class="c" style="color:var(--ok)">✓</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <ul class="annot">
+            <li><b class="num">1</b><span><strong>⚙️ Initialiser</strong> applique la <em>semaine type</em> (le gabarit habituel) à toute la semaine. Rien n'est rempli d'office : une semaine neuve est fermée partout tant qu'on ne l'a pas initialisée.</span></li>
+            <li><b class="num">2</b><span><strong>Ligne fermée</strong> (croix rouge) : elle disparaît du plan ce jour-là. Ici la Ligne 2 est fermée le mercredi matin.</span></li>
+          </ul>
+          <figcaption>L'Ordonnancement : d'abord les quarts actifs, puis, quart par quart, les lignes ouvertes chaque jour.</figcaption>
+        </figure>
 
         <h3>La semaine type</h3>
         <p>
-          La semaine type est le gabarit habituel de l'usine. Rien n'est rempli d'office : sur chaque
-          semaine, le bouton <strong>⚙️ Initialiser</strong> applique ce gabarit, que vous ajustez ensuite.
+          La semaine type est le gabarit habituel de l'usine (quels quarts, quelles lignes, quels
+          jours), défini à part. Sur chaque semaine du calendrier, le bouton <strong>⚙️ Initialiser</strong>
+          applique ce gabarit d'un coup ; vous ajustez ensuite à la main les exceptions de la semaine.
+          Plusieurs <strong>profils</strong> de semaine type peuvent coexister (semaine normale, semaine
+          réduite…) : à l'initialisation, vous choisissez lequel appliquer.
         </p>
         <p>
-          Modifier la semaine type plus tard n'affecte pas les semaines déjà initialisées — il faut les
-          réinitialiser pour les écraser.
+          Modifier la semaine type plus tard <strong>n'affecte pas</strong> les semaines déjà initialisées :
+          le gabarit ne sert qu'au moment du clic. Pour répercuter un changement, réinitialisez la
+          semaine concernée — ce qui l'écrase.
         </p>
+
+        <h3>Deux logiques inverses, à connaître</h3>
+        <ul>
+          <li>Un <strong>quart</strong> non coché est <strong>fermé</strong> : rien n'est ouvert tant que la semaine n'a pas été initialisée.</li>
+          <li>Une <strong>ligne</strong>, une fois le quart actif, est <strong>ouverte par défaut</strong> : on ne coche que pour la <em>fermer</em>.</li>
+        </ul>
+
+        <div class="note warn">
+          <span class="label">Sécurité — on ne ferme pas sur du travail déjà saisi</span>
+          <p>
+            Fermer une ligne, désactiver un quart ou réinitialiser une semaine est <strong>bloqué</strong> s'il
+            existe déjà des affectations sur poste ces jours-là. Videz-les d'abord dans le Placement. Les
+            motifs d'absence ne comptent pas, et les autres lignes non plus : fermer la Ligne 1 reste
+            possible même si la Ligne 2 est servie.
+          </p>
+        </div>
       </section>
 
       <!-- ================= 10. ABSENCES ================= -->
@@ -1303,6 +1367,52 @@
           automatiquement sur chaque jour concerné, et se retrouve dans le Planning comme dans le
           Placement. Supprimer l'absence retire le motif de tous ces jours d'un coup.
         </p>
+        <p>
+          On déclare une absence à deux endroits, avec exactement la même fenêtre : depuis la colonne
+          <strong>Absences</strong> d'une personne dans le module Personnel (voir <a href="#personnel">Personnel</a>),
+          ou depuis l'écran <strong>Absences spécifiques</strong> accessible du Planning, qui montre les
+          absences de <strong>tout l'effectif</strong> et se filtre par nom, atelier et période.
+        </p>
+
+        <figure>
+          <div class="m-scroll">
+            <div class="m">
+              <div class="m-body" style="gap:6px">
+                <div class="m-lab">Déclarer une absence — ligne de saisie</div>
+                <table class="m-grid">
+                  <thead>
+                    <tr><th style="text-align:left;background:var(--paper-2);color:var(--ink-3)">Personne</th><th>Motif</th><th>Période</th><th>Jours</th><th>Commentaire</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr style="background:var(--warn-bg)">
+                      <td><span class="m-btn"><b class="cal">1</b>&nbsp;DUBOIS Anna ▾</span></td>
+                      <td><span class="m-btn"><span class="m-dot" style="background:#f59e0b"></span>CP ▾</span></td>
+                      <td><span class="m-btn"><b class="cal">2</b>&nbsp;04/09 → 12/09 📅</span></td>
+                      <td class="c">7</td>
+                      <td>congés été</td>
+                    </tr>
+                    <tr><td class="nm">MARTIN Luc</td><td><span class="m-dot" style="background:#dc2626"></span> MAL</td><td>18/08 → 22/08</td><td class="c">5</td><td>—</td></tr>
+                    <tr><td class="nm">ROUX Sofia</td><td><span class="m-dot" style="background:#f59e0b"></span> CP</td><td>11/07</td><td class="c">1</td><td>—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <ul class="annot">
+            <li><b class="num">1</b><span><strong>Le nom, le motif</strong> se choisissent dans une petite liste déroulante ; sur la fiche Personnel, le nom est déjà celui de la personne.</span></li>
+            <li><b class="num">2</b><span><strong>La période</strong> se prend au calendrier (deux mois côte à côte), en deux clics : début puis fin. Le nombre de jours se calcule tout seul.</span></li>
+          </ul>
+          <figcaption>La saisie d'une absence, en ligne dans le tableau. Le crayon rouvre une ligne existante, la corbeille la supprime.</figcaption>
+        </figure>
+
+        <div class="note tip">
+          <span class="label">Contrôle avant d'écraser</span>
+          <p>
+            Si la personne a déjà des affectations sur poste pendant la période choisie, Polaris le
+            signale et demande s'il faut <strong>écraser</strong> ces jours par l'absence, ou annuler. Rien
+            n'est remplacé sans confirmation.
+          </p>
+        </div>
 
         <h3>Horaires spécifiques</h3>
         <p>
@@ -1313,8 +1423,12 @@
         <ol>
           <li>L'exception ponctuelle saisie ici ;</li>
           <li>sinon, l'aménagement de temps partiel de la personne ;</li>
-          <li>sinon, l'horaire standard du poste.</li>
+          <li>sinon, l'horaire standard du poste (défini dans les Réglages).</li>
         </ol>
+        <p>
+          Le départ prévu d'une personne se note aussi ici, dans sa fenêtre d'absences : une date
+          d'alerte, qui ne désactive pas le compte toute seule (voir <a href="#personnel">Personnel</a>).
+        </p>
       </section>
 
       <!-- ================= 11. BILANS ================= -->
@@ -1323,8 +1437,36 @@
 
         <p>
           Six écrans de synthèse, conçus pour être <strong>imprimés en A4 paysage</strong> ou projetés en
-          réunion. Ils se lisent, ils ne se saisissent pas.
+          réunion. Ils se <strong>lisent</strong>, ils ne se saisissent pas : ils agrègent, en un coup d'œil,
+          ce que les autres modules contiennent (personnel, matrice, habilitations, planning).
         </p>
+
+        <figure>
+          <div class="m">
+            <div class="m-body">
+              <div class="m-row" style="gap:14px">
+                <div style="flex:1;border:1px solid var(--rule);border-radius:8px;padding:8px 12px;background:var(--paper)">
+                  <div class="m-lab">Effectif actif</div>
+                  <div style="font-size:22px;font-weight:800">231</div>
+                </div>
+                <div style="flex:1;border:1px solid var(--rule);border-radius:8px;padding:8px 12px;background:var(--paper)">
+                  <div class="m-lab">Polyvalence moy.</div>
+                  <div style="font-size:22px;font-weight:800;color:var(--ok)">2,4 / 4</div>
+                </div>
+                <div style="flex:1;border:1px solid var(--rule);border-radius:8px;padding:8px 12px;background:var(--paper)">
+                  <div class="m-lab">Habil. à recycler &lt; 90 j</div>
+                  <div style="font-size:22px;font-weight:800;color:var(--warn)">17</div>
+                </div>
+              </div>
+              <div style="margin-top:4px">
+                <div class="m-lab" style="margin-bottom:6px">Couverture par atelier</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="width:70px">Condi</span><span style="flex:1;height:12px;border-radius:6px;background:var(--paper-3)"><span style="display:block;width:82%;height:12px;border-radius:6px;background:var(--ok)"></span></span><span style="width:38px;text-align:right">82%</span></div>
+                <div style="display:flex;align-items:center;gap:8px"><span style="width:70px">Fabrication</span><span style="flex:1;height:12px;border-radius:6px;background:var(--paper-3)"><span style="display:block;width:58%;height:12px;border-radius:6px;background:var(--warn)"></span></span><span style="width:38px;text-align:right">58%</span></div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Un aperçu du Cockpit : quelques indicateurs clés et des barres de couverture. Chiffres d'exemple.</figcaption>
+        </figure>
 
         <div class="grid-2">
           <div class="card">
@@ -1353,9 +1495,20 @@
           </div>
         </div>
 
+        <h3>Les lire</h3>
         <p>
-          Pour imprimer, utilisez simplement l'impression du navigateur : la mise en page est déjà
-          prévue pour le papier.
+          Chaque bilan répond à une question simple. Le <strong>Cockpit</strong> donne la vue d'ensemble et
+          renvoie vers les quatre bilans détaillés. <strong>Personnel</strong> suit l'effectif et
+          l'absentéisme ; <strong>Polyvalence</strong> montre l'écart entre le niveau actuel et la cible, poste
+          par poste ; <strong>Couverture</strong> pointe les postes qui ne reposent que sur une ou deux
+          personnes — les points fragiles ; <strong>Anticipation</strong> liste ce qui arrive : départs
+          annoncés, habilitations à recycler, formations à prévoir.
+        </p>
+        <p>
+          Ces écrans ne modifient rien : ils reflètent l'état des autres modules à l'instant où vous les
+          ouvrez. Une donnée corrigée dans la Matrice ou les Habilitations s'y répercute aussitôt.
+          Pour imprimer, utilisez simplement l'<strong>impression du navigateur</strong> : la mise en page est
+          déjà prévue pour le papier (A4 paysage), sans réglage à faire.
         </p>
       </section>
 
@@ -1365,20 +1518,44 @@
 
         <p>
           Chaque atelier a une page d'affichage prévue pour un écran en atelier : gros caractères,
-          le placement du jour et les horaires de chacun. Elle se <strong>rafraîchit toute seule
-          toutes les 5 minutes</strong> : rien à faire une fois l'écran allumé.
+          le placement des <strong>jours à venir</strong> et les horaires de chacun. Elle se
+          <strong>rafraîchit toute seule toutes les 5 minutes</strong> : rien à faire une fois l'écran allumé.
+          La fenêtre affichée (par exemple de la veille à quatre jours devant) se règle dans les
+          Paramètres RH.
         </p>
+
+        <figure>
+          <div class="m">
+            <div class="m-bar"><span class="m-brand"><span class="m-logo">✦</span> Condi — Matin</span></div>
+            <div class="m-body" style="padding:0">
+              <table class="m-grid">
+                <thead>
+                  <tr><th style="text-align:left;background:var(--paper-2);color:var(--ink-3)">Poste</th><th style="text-align:left">Jeu 23</th><th style="text-align:left">Ven 24</th><th style="text-align:left">Lun 27</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td class="nm">Conducteur L1</td><td style="text-align:left">DUBOIS Anna <span style="color:var(--accent)">5h-13h</span></td><td style="text-align:left">DUBOIS Anna <span style="color:var(--accent)">5h-13h</span></td><td style="text-align:left">MARTIN Luc <span style="color:var(--accent)">5h-13h</span></td></tr>
+                  <tr><td class="nm">Rangement</td><td style="text-align:left;background:#dcfce7">PETIT Karim <span class="m-lab" style="letter-spacing:0">intérim</span></td><td style="text-align:left;background:#dcfce7">PETIT Karim</td><td style="text-align:left;background:#dcfce7">PETIT Karim</td></tr>
+                  <tr><td class="nm">Thermo 3</td><td style="text-align:left;color:var(--bad)">ROUX Sofia — CP</td><td style="text-align:left;color:var(--bad)">ROUX Sofia — CP</td><td style="text-align:left">ROUX Sofia <span style="color:var(--accent)">5h-13h</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <figcaption>Une page TV d'atelier. Colonne fluo = le jour en cours ; fond vert = intérimaire ; texte rouge = absence ; horaires en bleu.</figcaption>
+        </figure>
+
         <p>
           C'est la seule partie de Polaris <strong>accessible sans se connecter</strong>, pour qu'un écran
           d'atelier n'ait pas besoin d'une session ouverte. Ouvrez la page sur le poste relié à la TV,
-          passez le navigateur en plein écran, et laissez-la tourner.
+          passez le navigateur en plein écran, et laissez-la tourner. L'affichage se fait
+          <strong>par nom</strong>, en clair, pour que chacun se repère d'un coup d'œil.
         </p>
 
         <div class="note">
           <span class="label">Légende de l'écran</span>
           <p>
-            Fond vert : intérimaire. Fond fluo : la journée en cours. Texte rouge : absence.
-            Les horaires apparaissent en bleu à côté du nom.
+            Fond vert : intérimaire. Colonne fluo : la journée en cours. Texte rouge : absence.
+            Les horaires apparaissent en bleu à côté du nom. Ce sont les mêmes codes couleur que dans
+            le reste de Polaris.
           </p>
         </div>
       </section>
@@ -1387,12 +1564,35 @@
       <section id="journal">
         <h2>13. Journal</h2>
         <p>
-          Le journal enregistre <strong>qui a modifié quoi, et quand</strong> : placements, fiches, niveaux,
-          habilitations. Chaque entrée indique le champ touché, l'ancienne et la nouvelle valeur.
+          Le journal enregistre <strong>qui a modifié quoi, et quand</strong> : placements, fiches, niveaux de
+          la matrice, habilitations, droits. Chaque entrée indique la table concernée, le champ touché,
+          l'<strong>ancienne</strong> et la <strong>nouvelle</strong> valeur, l'auteur et l'horodatage.
         </p>
+
+        <figure>
+          <div class="m-scroll">
+            <div class="m">
+              <div class="m-body" style="padding:0">
+                <table class="m-grid">
+                  <thead>
+                    <tr><th style="text-align:left;background:var(--paper-2);color:var(--ink-3)">Quand</th><th style="text-align:left">Qui</th><th style="text-align:left">Quoi</th><th style="text-align:left">Avant → Après</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td style="text-align:left">23/07 08:14</td><td style="text-align:left">C. Bernard</td><td style="text-align:left">Placement · DUBOIS Anna · 23/07</td><td style="text-align:left"><span style="color:var(--ink-3)">Conducteur</span> → <strong>Rangement</strong></td></tr>
+                    <tr><td style="text-align:left">22/07 17:02</td><td style="text-align:left">C. Bernard</td><td style="text-align:left">Matrice · MARTIN Luc · Thermo 3</td><td style="text-align:left"><span style="color:var(--ink-3)">1</span> → <strong>2</strong></td></tr>
+                    <tr><td style="text-align:left">22/07 16:48</td><td style="text-align:left">A. Leroy</td><td style="text-align:left">Personnel · ROUX Sofia · statut</td><td style="text-align:left"><span style="color:var(--ink-3)">Actif</span> → <strong>Parti</strong></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <figcaption>Le journal : chaque ligne dit qui a changé quoi, et quelle était la valeur précédente. Noms d'exemple.</figcaption>
+        </figure>
+
         <p>
-          C'est l'écran à ouvrir quand une donnée a changé sans qu'on sache pourquoi — plutôt que de
-          refaire la saisie à l'aveugle.
+          C'est l'écran à ouvrir quand une donnée a changé sans qu'on sache pourquoi : plutôt que de
+          refaire la saisie à l'aveugle, on lit l'ancienne valeur et on la <strong>rétablit</strong>. Rien
+          n'est définitivement perdu — le journal garde la trace même après une suppression.
         </p>
       </section>
 
@@ -1415,7 +1615,7 @@
               <tr><td><strong>Param. Habilitation</strong></td><td>Les formations à recycler : catégorie, groupe, durée de validité, autorisation de conduite.</td></tr>
               <tr><td><strong>Param. RH</strong></td><td>Les motifs d'absence et leur couleur — ceux du bandeau du Placement — et la liste des agences d'intérim proposée à la saisie d'un contrat.</td></tr>
               <tr><td><strong>Horaires</strong></td><td>Les horaires de chaque poste, par quart et par jour.</td></tr>
-              <tr><td><strong>Utilisateurs</strong></td><td>Les comptes, leur rôle, et le détail de leurs droits.</td></tr>
+              <tr><td><strong>Utilisateurs</strong></td><td>Les comptes et le détail de leurs droits d'accès (module par module).</td></tr>
               <tr><td><strong>RGPD</strong></td><td>Les outils liés aux données personnelles.</td></tr>
             </tbody>
           </table>
@@ -1430,6 +1630,63 @@
           <li><strong>N° Rot</strong> — les numéros de position, en saisie libre. « 12, 13 » crée deux cases ; « 15-17 » en crée trois (15, 16, 17). Laissez vide si le poste n'est pas numéroté.</li>
           <li><strong>Habil. requises</strong> — les formations exigées pour tenir le poste. C'est ce qui déclenche la demande de confirmation au placement.</li>
         </ul>
+
+        <h3>La rotation des équipes</h3>
+        <p>
+          Une équipe peut avoir un <strong>quart fixe</strong> (elle reste toujours du matin, ou toujours de
+          nuit) ou <strong>tourner</strong>. Pour les équipes tournantes, on saisit, pour <em>une</em>
+          semaine — le lundi de référence — le quart de chacune ; l'alternance des semaines suivantes
+          est calculée toute seule. Pour changer la rotation plus tard, on ajoute une <strong>nouvelle
+          référence datée</strong> : le passé n'est jamais réécrit.
+        </p>
+
+        <figure>
+          <div class="m-scroll">
+            <div class="m">
+              <div class="m-body">
+                <div class="m-lab">Rotation — référence d'une semaine</div>
+                <div class="m-row" style="gap:10px">
+                  <span>Semaine du <strong>lundi 06/07/2026</strong></span>
+                  <span class="m-lab">Équipe A</span>
+                  <span class="m-seg"><span class="on">Matin</span><span>Après-midi</span></span>
+                  <span class="m-lab">Équipe B</span>
+                  <span class="m-seg"><span>Matin</span><span class="on">Après-midi</span></span>
+                  <span class="m-btn" style="border-color:var(--accent);color:var(--accent);margin-left:auto"><b class="cal">1</b>&nbsp;Enregistrer la référence</span>
+                </div>
+                <div class="m-lab" style="margin-top:6px"><b class="cal">2</b>&nbsp;Aperçu (calculé, ne se saisit pas)</div>
+                <table class="m-grid">
+                  <thead>
+                    <tr><th style="text-align:left;background:var(--paper-2);color:var(--ink-3)">Semaine</th><th>S28</th><th>S29</th><th>S30</th><th>S31</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td class="nm">Équipe A</td><td class="c" style="background:var(--accent-bg);color:var(--accent-2);font-weight:700">Matin</td><td class="c">Après-midi</td><td class="c" style="background:var(--accent-bg);color:var(--accent-2);font-weight:700">Matin</td><td class="c">Après-midi</td></tr>
+                    <tr><td class="nm">Équipe B</td><td class="c">Après-midi</td><td class="c" style="background:var(--accent-bg);color:var(--accent-2);font-weight:700">Matin</td><td class="c">Après-midi</td><td class="c" style="background:var(--accent-bg);color:var(--accent-2);font-weight:700">Matin</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <ul class="annot">
+            <li><b class="num">1</b><span><strong>Une seule semaine</strong> se saisit. L'alternance suit toute seule ; changer d'avis se fait en ajoutant une <em>nouvelle</em> référence à une autre date.</span></li>
+            <li><b class="num">2</b><span><strong>L'aperçu</strong> déroule les semaines à venir : c'est ce que le Planning utilisera pour choisir automatiquement l'équipe qui tourne un quart donné.</span></li>
+          </ul>
+          <figcaption>La rotation par référence datée. Le Planning et le TP « une semaine sur deux » s'appuient dessus.</figcaption>
+        </figure>
+
+        <h3>Deux petits réglages transversaux</h3>
+        <ul>
+          <li><strong>Fenêtre d'affichage</strong> (Param. RH) — combien de jours avant et après aujourd'hui l'écran TV affiche. Auto-enregistré à la saisie, aucun bouton.</li>
+          <li><strong>Types de contrat</strong> (Param. RH) — la liste proposée à la saisie d'une période dans Personnel. Un type ajouté ici devient tout de suite choisissable ; désactivé, il sort du menu sans effacer l'historique.</li>
+        </ul>
+
+        <div class="note">
+          <span class="label">Une seule vraie règle</span>
+          <p>
+            Les données de <strong>l'usine</strong> (Référentiel, Équipes, Compétences, Habilitations) ne se
+            modifient pas au fil de l'eau : elles décrivent une réalité stable, et une erreur ici se
+            propage partout. Prenez le temps quand vous les touchez.
+          </p>
+        </div>
       </section>
 
       <!-- ================= 15. DEPANNAGE ================= -->

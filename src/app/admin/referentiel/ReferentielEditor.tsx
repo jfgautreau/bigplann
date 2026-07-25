@@ -242,7 +242,7 @@ export default function ReferentielEditor({
       {tree.map((a) => (
         <div key={a.id} className="card section" style={{ opacity: a.actif ? 1 : 0.55 }}>
           {/* Atelier */}
-          <div className="toolbar" style={{ alignItems: "center" }}>
+          <div className="toolbar refhead" style={{ alignItems: "center" }}>
             <input
               value={a.nom}
               onChange={(e) => renameAtelier(a.id, e.target.value)}
@@ -257,7 +257,7 @@ export default function ReferentielEditor({
           {/* Lignes */}
           {a.ligne.map((l) => (
             <div key={l.id} className="section" style={{ marginLeft: 16, borderLeft: "2px solid #eee", paddingLeft: 16, opacity: l.actif ? 1 : 0.6 }}>
-              <div className="toolbar" style={{ alignItems: "center" }}>
+              <div className="toolbar refhead" style={{ alignItems: "center" }}>
                 <input
                   value={l.nom}
                   onChange={(e) => renameLigne(a.id, l.id, e.target.value)}
