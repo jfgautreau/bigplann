@@ -8,7 +8,7 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
 (pièges déjà rencontrés), `INSTALL.md` / `OPERATIONS.md`.
 
 ## Stack & emplacements
-- `C:\dev\planning-usine` · remote `github.com/jfgautreau/bigplann` · branche **main**.
+- `C:\dev\planning-usine` · remote `github.com/jfgautreau/polaris` · branche **main**.
 - **Next.js 16** (App Router, RSC + server actions) · React 19 · TypeScript · **Supabase**
   (Postgres + Auth + RLS) · déploiement **Vercel** (push `main` → build auto, région `cdg1`).
 - Scripts : `npm run dev` · `npm run build` · `npm test` (Vitest).
@@ -21,7 +21,7 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`. Pas de branche ni de PR.
 3. **Auteur git = `jf.gautreau@gmail.com`** — ne jamais forcer un email no-reply
    (bloque les déploiements Vercel Hobby).
-4. **Repo GitHub public** (`github.com/jfgautreau/bigplann`) — décidé le
+4. **Repo GitHub public** (`github.com/jfgautreau/polaris`) — décidé le
    2026-08-19, cf. mémoire [[repo-github-public]]. **INTERDIT** de commit
    des données sensibles : dumps SQL prod, `.env`, exports contenant des
    matricules/noms/emails/absences réels. Avant tout `git add -A`, vérifier
