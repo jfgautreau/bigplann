@@ -21,15 +21,23 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`. Pas de branche ni de PR.
 3. **Auteur git = `jf.gautreau@gmail.com`** — ne jamais forcer un email no-reply
    (bloque les déploiements Vercel Hobby).
-4. **Base de données : jamais de DDL par l'agent.** `SUPABASE_DB_URL` est vide et le
+4. **Repo GitHub public** (`github.com/jfgautreau/bigplann`) — décidé le
+   2026-08-19, cf. mémoire [[repo-github-public]]. **INTERDIT** de commit
+   des données sensibles : dumps SQL prod, `.env`, exports contenant des
+   matricules/noms/emails/absences réels. Avant tout `git add -A`, vérifier
+   la staging list et refuser tout fichier > 100 Ko dont le contenu n'est
+   pas légitime au repo. `.gitignore` bloque `backup*.sql`, `*.pgdump`,
+   `dump-*.sql`, `pg_dump-*.sql`, `.env*.local`. Cf.
+   [[interdit-donnees-sensibles]].
+5. **Base de données : jamais de DDL par l'agent.** `SUPABASE_DB_URL` est vide et le
    MCP Supabase pointe sur un autre compte. Écris la migration dans
    `supabase/migrations/` et **demande à l'utilisateur de l'exécuter** dans le SQL Editor.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
-   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0042`.**
-5. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
+   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0043`** (socle multi-site, cf. `tasks/multi-site.md`).
+6. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
-6. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
+7. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
    (`src/lib/fetch-all.ts`). PostgREST plafonne chaque réponse à 1000 lignes **sans
    erreur** : `data` en contient 1000, `error` vaut `null`, la page affiche des données
    incomplètes. Concernées : `matrice` (1600+), `personne_competence` (1400+),
