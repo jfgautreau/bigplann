@@ -473,7 +473,9 @@ begin
       ('personne_competence',       'personne_id',   'personne',             'cascade'),
       ('poste_competence_requise',  'poste_id',      'poste',                'cascade'),
       ('horaire_poste',             'poste_id',      'poste',                'cascade'),
-      ('horaire_poste',             'equipe_id',     'equipe',               'cascade'),
+      -- horaire_poste n'a plus de colonne equipe_id : la migration 0016
+      -- a droppé + recréé la table sur (poste_id, quart_code, jour) sans
+      -- passer par equipe. La FK composite sur equipe_id serait fantôme.
       ('horaire_exception',         'personne_id',   'personne',             'cascade'),
       ('poste_quart',               'poste_id',      'poste',                'cascade'),
       ('ligne_ouverture',           'ligne_id',      'ligne',                'cascade'),

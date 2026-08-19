@@ -24,6 +24,13 @@ yarn-error.log*
 .env
 .env*.local
 
+# dumps SQL locaux (JAMAIS commiter : contiennent les donnees prod des sites)
+backup*.sql
+backup*.dump
+*.pgdump
+dump-*.sql
+pg_dump-*.sql
+
 # prisma
 /prisma/*.db
 
