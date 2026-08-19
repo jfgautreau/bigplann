@@ -421,7 +421,12 @@ create unique index if not exists motif_absence_site_code_unique
 --    site — même si l'application est buguée.
 -- =====================================================================
 
--- Parents dont on va exiger l'unicité (id, site_id)
+-- Parents dont on va exiger l'unicité (id, site_id).
+-- Chaque ADD CONSTRAINT est encapsulé pour tolérer :
+--   * la contrainte déjà présente (SQLSTATE 42710 = duplicate_object),
+--     rendant le bloc rejouable.
+--   * une table absente (message plus clair qu'une simple 42P01 arrêtant
+--     tout le fichier).
 do $$
 declare
   t text;
@@ -431,157 +436,91 @@ declare
   ];
 begin
   foreach t in array parents loop
-    execute format(
-      'alter table public.%1$s add constraint %1$s_id_site_unique unique (id, site_id);',
-      t
-    );
+    begin
+      execute format(
+        'alter table public.%1$s add constraint %1$s_id_site_unique unique (id, site_id);',
+        t
+      );
+      raise notice '§G unique(id, site_id) OK sur %', t;
+    exception
+      when duplicate_object then
+        raise notice '§G unique(id, site_id) déjà présent sur % (skip)', t;
+      when others then
+        raise warning '§G unique(id, site_id) ECHEC sur % : % (%)', t, sqlerrm, sqlstate;
+    end;
   end loop;
 end $$;
 
--- ligne.atelier_id → atelier
-alter table public.ligne drop constraint if exists ligne_atelier_id_fkey;
-alter table public.ligne
-  add constraint ligne_atelier_id_site_fkey
-  foreign key (atelier_id, site_id) references public.atelier (id, site_id) on delete cascade;
-
--- poste.ligne_id → ligne
-alter table public.poste drop constraint if exists poste_ligne_id_fkey;
-alter table public.poste
-  add constraint poste_ligne_id_site_fkey
-  foreign key (ligne_id, site_id) references public.ligne (id, site_id) on delete cascade;
-
--- personne.equipe_id → equipe (nullable côté personne)
-alter table public.personne drop constraint if exists personne_equipe_id_fkey;
-alter table public.personne
-  add constraint personne_equipe_id_site_fkey
-  foreign key (equipe_id, site_id) references public.equipe (id, site_id) on delete set null;
-
--- equipe_chef.equipe_id → equipe
-alter table public.equipe_chef drop constraint if exists equipe_chef_equipe_id_fkey;
-alter table public.equipe_chef
-  add constraint equipe_chef_equipe_id_site_fkey
-  foreign key (equipe_id, site_id) references public.equipe (id, site_id) on delete cascade;
-
--- matrice.personne_id → personne, matrice.poste_id → poste
-alter table public.matrice drop constraint if exists matrice_personne_id_fkey;
-alter table public.matrice drop constraint if exists matrice_poste_id_fkey;
-alter table public.matrice
-  add constraint matrice_personne_id_site_fkey
-  foreign key (personne_id, site_id) references public.personne (id, site_id) on delete cascade;
-alter table public.matrice
-  add constraint matrice_poste_id_site_fkey
-  foreign key (poste_id, site_id) references public.poste (id, site_id) on delete cascade;
-
--- personne_competence.personne_id → personne
-alter table public.personne_competence drop constraint if exists personne_competence_personne_id_fkey;
-alter table public.personne_competence
-  add constraint personne_competence_personne_id_site_fkey
-  foreign key (personne_id, site_id) references public.personne (id, site_id) on delete cascade;
-
--- poste_competence_requise.poste_id → poste (competence_id reste FK simple : compétence est un catalogue groupe)
-alter table public.poste_competence_requise drop constraint if exists poste_competence_requise_poste_id_fkey;
-alter table public.poste_competence_requise
-  add constraint pcr_poste_id_site_fkey
-  foreign key (poste_id, site_id) references public.poste (id, site_id) on delete cascade;
-
--- horaire_poste.poste_id → poste, .equipe_id → equipe
-alter table public.horaire_poste drop constraint if exists horaire_poste_poste_id_fkey;
-alter table public.horaire_poste drop constraint if exists horaire_poste_equipe_id_fkey;
-alter table public.horaire_poste
-  add constraint horaire_poste_poste_id_site_fkey
-  foreign key (poste_id, site_id) references public.poste (id, site_id) on delete cascade;
-alter table public.horaire_poste
-  add constraint horaire_poste_equipe_id_site_fkey
-  foreign key (equipe_id, site_id) references public.equipe (id, site_id) on delete cascade;
-
--- horaire_exception.personne_id → personne
-alter table public.horaire_exception drop constraint if exists horaire_exception_personne_id_fkey;
-alter table public.horaire_exception
-  add constraint horaire_exception_personne_id_site_fkey
-  foreign key (personne_id, site_id) references public.personne (id, site_id) on delete cascade;
-
--- poste_quart.poste_id → poste
-alter table public.poste_quart drop constraint if exists poste_quart_poste_id_fkey;
-alter table public.poste_quart
-  add constraint poste_quart_poste_id_site_fkey
-  foreign key (poste_id, site_id) references public.poste (id, site_id) on delete cascade;
-
--- ligne_ouverture.ligne_id → ligne
-alter table public.ligne_ouverture drop constraint if exists ligne_ouverture_ligne_id_fkey;
-alter table public.ligne_ouverture
-  add constraint ligne_ouverture_ligne_id_site_fkey
-  foreign key (ligne_id, site_id) references public.ligne (id, site_id) on delete cascade;
-
--- jour_equipe.equipe_id → equipe
-alter table public.jour_equipe drop constraint if exists jour_equipe_equipe_id_fkey;
-alter table public.jour_equipe
-  add constraint jour_equipe_equipe_id_site_fkey
-  foreign key (equipe_id, site_id) references public.equipe (id, site_id) on delete cascade;
-
--- equipe_quart_semaine.equipe_id → equipe
-alter table public.equipe_quart_semaine drop constraint if exists equipe_quart_semaine_equipe_id_fkey;
-alter table public.equipe_quart_semaine
-  add constraint eqs_equipe_id_site_fkey
-  foreign key (equipe_id, site_id) references public.equipe (id, site_id) on delete cascade;
-
--- ouverture_quart.ligne_id → ligne
-alter table public.ouverture_quart drop constraint if exists ouverture_quart_ligne_id_fkey;
-alter table public.ouverture_quart
-  add constraint ouverture_quart_ligne_id_site_fkey
-  foreign key (ligne_id, site_id) references public.ligne (id, site_id) on delete cascade;
-
--- semaine_type_quart.profil_id → semaine_type_profil
-alter table public.semaine_type_quart drop constraint if exists semaine_type_quart_profil_id_fkey;
-alter table public.semaine_type_quart
-  add constraint stq_profil_id_site_fkey
-  foreign key (profil_id, site_id) references public.semaine_type_profil (id, site_id) on delete cascade;
-
--- semaine_type_ouverture.profil_id → semaine_type_profil, .ligne_id → ligne
-alter table public.semaine_type_ouverture drop constraint if exists semaine_type_ouverture_profil_id_fkey;
-alter table public.semaine_type_ouverture drop constraint if exists semaine_type_ouverture_ligne_id_fkey;
-alter table public.semaine_type_ouverture
-  add constraint sto_profil_id_site_fkey
-  foreign key (profil_id, site_id) references public.semaine_type_profil (id, site_id) on delete cascade;
-alter table public.semaine_type_ouverture
-  add constraint sto_ligne_id_site_fkey
-  foreign key (ligne_id, site_id) references public.ligne (id, site_id) on delete cascade;
-
--- rotation_reference.equipe_id → equipe
-alter table public.rotation_reference drop constraint if exists rotation_reference_equipe_id_fkey;
-alter table public.rotation_reference
-  add constraint rotation_reference_equipe_id_site_fkey
-  foreign key (equipe_id, site_id) references public.equipe (id, site_id) on delete cascade;
-
--- placement.personne_id → personne, .equipe_id → equipe, .poste_id → poste,
--- .absence_id → absence
-alter table public.placement drop constraint if exists placement_personne_id_fkey;
-alter table public.placement drop constraint if exists placement_equipe_id_fkey;
-alter table public.placement drop constraint if exists placement_poste_id_fkey;
-alter table public.placement drop constraint if exists placement_absence_id_fkey;
-alter table public.placement
-  add constraint placement_personne_id_site_fkey
-  foreign key (personne_id, site_id) references public.personne (id, site_id) on delete cascade;
-alter table public.placement
-  add constraint placement_equipe_id_site_fkey
-  foreign key (equipe_id, site_id) references public.equipe (id, site_id) on delete set null;
-alter table public.placement
-  add constraint placement_poste_id_site_fkey
-  foreign key (poste_id, site_id) references public.poste (id, site_id) on delete set null;
-alter table public.placement
-  add constraint placement_absence_id_site_fkey
-  foreign key (absence_id, site_id) references public.absence (id, site_id) on delete cascade;
-
--- absence.personne_id → personne
-alter table public.absence drop constraint if exists absence_personne_id_fkey;
-alter table public.absence
-  add constraint absence_personne_id_site_fkey
-  foreign key (personne_id, site_id) references public.personne (id, site_id) on delete cascade;
-
--- contrat_periode.personne_id → personne
-alter table public.contrat_periode drop constraint if exists contrat_periode_personne_id_fkey;
-alter table public.contrat_periode
-  add constraint contrat_periode_personne_id_site_fkey
-  foreign key (personne_id, site_id) references public.personne (id, site_id) on delete cascade;
+-- Composite FKs : chaque ligne (child, child_col, parent, on_delete)
+-- devient un ADD CONSTRAINT wrappé. Le rapport en NOTICE dit exactement
+-- ce qui a réussi ou raté, table par table — indispensable pour
+-- diagnostiquer une erreur "column X does not exist" sur cette base
+-- (17 tables, 26 FKs).
+do $$
+declare
+  fks record;
+  v_drop_name text;
+  v_new_name  text;
+begin
+  for fks in
+    select * from (values
+      ('ligne',                     'atelier_id',    'atelier',              'cascade'),
+      ('poste',                     'ligne_id',      'ligne',                'cascade'),
+      ('personne',                  'equipe_id',     'equipe',               'set null'),
+      ('equipe_chef',               'equipe_id',     'equipe',               'cascade'),
+      ('matrice',                   'personne_id',   'personne',             'cascade'),
+      ('matrice',                   'poste_id',      'poste',                'cascade'),
+      ('personne_competence',       'personne_id',   'personne',             'cascade'),
+      ('poste_competence_requise',  'poste_id',      'poste',                'cascade'),
+      ('horaire_poste',             'poste_id',      'poste',                'cascade'),
+      ('horaire_poste',             'equipe_id',     'equipe',               'cascade'),
+      ('horaire_exception',         'personne_id',   'personne',             'cascade'),
+      ('poste_quart',               'poste_id',      'poste',                'cascade'),
+      ('ligne_ouverture',           'ligne_id',      'ligne',                'cascade'),
+      ('jour_equipe',               'equipe_id',     'equipe',               'cascade'),
+      ('equipe_quart_semaine',      'equipe_id',     'equipe',               'cascade'),
+      ('ouverture_quart',           'ligne_id',      'ligne',                'cascade'),
+      ('semaine_type_quart',        'profil_id',     'semaine_type_profil',  'cascade'),
+      ('semaine_type_ouverture',    'profil_id',     'semaine_type_profil',  'cascade'),
+      ('semaine_type_ouverture',    'ligne_id',      'ligne',                'cascade'),
+      ('rotation_reference',        'equipe_id',     'equipe',               'cascade'),
+      ('placement',                 'personne_id',   'personne',             'cascade'),
+      ('placement',                 'equipe_id',     'equipe',               'set null'),
+      ('placement',                 'poste_id',      'poste',                'set null'),
+      ('placement',                 'absence_id',    'absence',              'cascade'),
+      ('absence',                   'personne_id',   'personne',             'cascade'),
+      ('contrat_periode',           'personne_id',   'personne',             'cascade')
+    ) as t(child_table, child_col, parent_table, on_delete)
+  loop
+    v_drop_name := fks.child_table || '_' || fks.child_col || '_fkey';
+    v_new_name  := fks.child_table || '_' || fks.child_col || '_site_fkey';
+    begin
+      -- 1) drop de la FK single-column (convention PG _fkey)
+      execute format('alter table public.%I drop constraint if exists %I;',
+        fks.child_table, v_drop_name);
+      -- 2) drop de la composite FK si elle existe déjà (idempotence)
+      execute format('alter table public.%I drop constraint if exists %I;',
+        fks.child_table, v_new_name);
+      -- 3) ADD composite FK
+      execute format(
+        'alter table public.%I add constraint %I foreign key (%I, site_id) references public.%I (id, site_id) on delete %s;',
+        fks.child_table, v_new_name,
+        fks.child_col, fks.parent_table, fks.on_delete
+      );
+      raise notice '§G FK OK : %.% -> %.(id, site_id)', fks.child_table, fks.child_col, fks.parent_table;
+    exception
+      when undefined_column then
+        raise warning '§G FK ECHEC (colonne absente) : %.% -> %.(id, site_id) — %',
+          fks.child_table, fks.child_col, fks.parent_table, sqlerrm;
+      when undefined_table then
+        raise warning '§G FK ECHEC (table absente) : %.% -> %.(id, site_id) — %',
+          fks.child_table, fks.child_col, fks.parent_table, sqlerrm;
+      when others then
+        raise warning '§G FK ECHEC : %.% -> %.(id, site_id) — % (%)',
+          fks.child_table, fks.child_col, fks.parent_table, sqlerrm, sqlstate;
+    end;
+  end loop;
+end $$;
 
 
 -- =====================================================================
