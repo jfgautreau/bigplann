@@ -151,6 +151,105 @@ end; $$;
 
 -- =====================================================================
 -- C. FONCTIONS HELPERS SITE-AWARE
+--    ⚠️ Déplacées EN §F' (après §E), car can_edit_personne référence
+--    personne.site_id, colonne ajoutée seulement en §D. Postgres valide
+--    le corps des fonctions à la création : définir can_edit_personne
+--    avant §D provoque `42703: column pe.site_id does not exist`.
+--    Voir §F' ci-dessous.
+-- =====================================================================
+
+
+-- =====================================================================
+-- D. AJOUT DE `site_id` SUR TOUTES LES TABLES MÉTIER LOCALES
+--    NOT NULL, DEFAULT = site historique (backfill).
+-- =====================================================================
+
+do $$
+declare
+  t text;
+  tables_locales text[] := array[
+    -- Structure
+    'atelier','ligne','poste','equipe','equipe_chef','personne',
+    -- Matrice & habilitations
+    'matrice','personne_competence','poste_competence_requise',
+    -- Horaires
+    'horaire_poste','horaire_exception','poste_quart',
+    -- Ordonnancement
+    'ligne_ouverture','jour_equipe',
+    'equipe_quart_semaine','jour_quart','ouverture_quart',
+    'semaine_type_profil','semaine_type_quart','semaine_type_ouverture',
+    'rotation_reference',
+    -- Placement / absences
+    'placement','absence',
+    -- Contrats / intérim / paramétrage local
+    'contrat_periode','agence_interim','parametre_affichage'
+  ];
+begin
+  foreach t in array tables_locales loop
+    execute format($f$
+      alter table public.%1$s
+        add column if not exists site_id uuid
+        not null default '00000000-0000-4000-8000-00000000c0de'
+        references public.site (id) on delete restrict;
+    $f$, t);
+    execute format('create index if not exists %1$s_site_idx on public.%1$s (site_id);', t);
+  end loop;
+end $$;
+
+-- On CONSERVE le DEFAULT sur les tables locales EN V1a. Rationale :
+--   * L'application actuelle appelle getAdminClient() (service_role) pour
+--     l'essentiel de ses écritures. service_role a auth.uid() = NULL, donc
+--     current_site_id() = NULL : le trigger ne peut pas résoudre le site.
+--   * Le DEFAULT lebignon garantit que TOUTE INSERT sans site_id explicite
+--     tombe au bon endroit tant qu'il n'y a qu'un site.
+--   * Dès qu'un second site sera provisionné (PR /platform), on retirera
+--     le DEFAULT dans une migration 0044/45 et on aura mis à jour chaque
+--     route API pour poser site_id explicitement.
+--
+-- Le trigger set_site_id_from_context (§I) sert de garde-fou : il refuse
+-- une insertion où site_id est explicitement mis à NULL (ce qui pourrait
+-- arriver d'un bug applicatif).
+
+
+-- =====================================================================
+-- E. TABLES PARTAGÉES (site_id NULL = groupe, sinon = local)
+--    motif_absence, type_contrat, role_custom, role_permission
+--    → nullable, pas de trigger auto-fill (les écritures viennent de
+--    /platform pour les lignes groupe, et de l'app locale pour les
+--    surcharges — dans les deux cas, site_id est fourni explicitement).
+-- =====================================================================
+
+alter table public.motif_absence
+  add column if not exists site_id uuid references public.site (id) on delete cascade;
+create index if not exists motif_absence_site_idx on public.motif_absence (site_id);
+
+alter table public.type_contrat
+  add column if not exists site_id uuid references public.site (id) on delete cascade;
+create index if not exists type_contrat_site_idx on public.type_contrat (site_id);
+
+alter table public.role_custom
+  add column if not exists site_id uuid references public.site (id) on delete cascade;
+create index if not exists role_custom_site_idx on public.role_custom (site_id);
+
+alter table public.role_permission
+  add column if not exists site_id uuid references public.site (id) on delete cascade;
+create index if not exists role_permission_site_idx on public.role_permission (site_id);
+
+-- Le journal d'audit reçoit site_id (backfill au site historique) et
+-- l'identifiant du super_admin qui impersonait au moment de l'écriture.
+alter table public.audit_log
+  add column if not exists site_id uuid references public.site (id) on delete set null,
+  add column if not exists impersonated_by uuid;
+update public.audit_log
+   set site_id = '00000000-0000-4000-8000-00000000c0de'
+ where site_id is null;
+create index if not exists audit_log_site_idx on public.audit_log (site_id, created_at desc);
+
+
+-- =====================================================================
+-- F'. FONCTIONS HELPERS SITE-AWARE (déplacées depuis §C)
+--     À ce stade toutes les tables portent leur colonne site_id, donc
+--     can_edit_personne peut la référencer sans risque.
 -- =====================================================================
 
 -- Le site de l'utilisateur courant. STABLE : appelée dans les policies RLS,
@@ -264,93 +363,6 @@ as $$
       and s.statut = 'actif'
   );
 $$;
-
-
--- =====================================================================
--- D. AJOUT DE `site_id` SUR TOUTES LES TABLES MÉTIER LOCALES
---    NOT NULL, DEFAULT = site historique (backfill).
--- =====================================================================
-
-do $$
-declare
-  t text;
-  tables_locales text[] := array[
-    -- Structure
-    'atelier','ligne','poste','equipe','equipe_chef','personne',
-    -- Matrice & habilitations
-    'matrice','personne_competence','poste_competence_requise',
-    -- Horaires
-    'horaire_poste','horaire_exception','poste_quart',
-    -- Ordonnancement
-    'ligne_ouverture','jour_equipe',
-    'equipe_quart_semaine','jour_quart','ouverture_quart',
-    'semaine_type_profil','semaine_type_quart','semaine_type_ouverture',
-    'rotation_reference',
-    -- Placement / absences
-    'placement','absence',
-    -- Contrats / intérim / paramétrage local
-    'contrat_periode','agence_interim','parametre_affichage'
-  ];
-begin
-  foreach t in array tables_locales loop
-    execute format($f$
-      alter table public.%1$s
-        add column if not exists site_id uuid
-        not null default '00000000-0000-4000-8000-00000000c0de'
-        references public.site (id) on delete restrict;
-    $f$, t);
-    execute format('create index if not exists %1$s_site_idx on public.%1$s (site_id);', t);
-  end loop;
-end $$;
-
--- On CONSERVE le DEFAULT sur les tables locales EN V1a. Rationale :
---   * L'application actuelle appelle getAdminClient() (service_role) pour
---     l'essentiel de ses écritures. service_role a auth.uid() = NULL, donc
---     current_site_id() = NULL : le trigger ne peut pas résoudre le site.
---   * Le DEFAULT lebignon garantit que TOUTE INSERT sans site_id explicite
---     tombe au bon endroit tant qu'il n'y a qu'un site.
---   * Dès qu'un second site sera provisionné (PR /platform), on retirera
---     le DEFAULT dans une migration 0044/45 et on aura mis à jour chaque
---     route API pour poser site_id explicitement.
---
--- Le trigger set_site_id_from_context (§I) sert de garde-fou : il refuse
--- une insertion où site_id est explicitement mis à NULL (ce qui pourrait
--- arriver d'un bug applicatif).
-
-
--- =====================================================================
--- E. TABLES PARTAGÉES (site_id NULL = groupe, sinon = local)
---    motif_absence, type_contrat, role_custom, role_permission
---    → nullable, pas de trigger auto-fill (les écritures viennent de
---    /platform pour les lignes groupe, et de l'app locale pour les
---    surcharges — dans les deux cas, site_id est fourni explicitement).
--- =====================================================================
-
-alter table public.motif_absence
-  add column if not exists site_id uuid references public.site (id) on delete cascade;
-create index if not exists motif_absence_site_idx on public.motif_absence (site_id);
-
-alter table public.type_contrat
-  add column if not exists site_id uuid references public.site (id) on delete cascade;
-create index if not exists type_contrat_site_idx on public.type_contrat (site_id);
-
-alter table public.role_custom
-  add column if not exists site_id uuid references public.site (id) on delete cascade;
-create index if not exists role_custom_site_idx on public.role_custom (site_id);
-
-alter table public.role_permission
-  add column if not exists site_id uuid references public.site (id) on delete cascade;
-create index if not exists role_permission_site_idx on public.role_permission (site_id);
-
--- Le journal d'audit reçoit site_id (backfill au site historique) et
--- l'identifiant du super_admin qui impersonait au moment de l'écriture.
-alter table public.audit_log
-  add column if not exists site_id uuid references public.site (id) on delete set null,
-  add column if not exists impersonated_by uuid;
-update public.audit_log
-   set site_id = '00000000-0000-4000-8000-00000000c0de'
- where site_id is null;
-create index if not exists audit_log_site_idx on public.audit_log (site_id, created_at desc);
 
 
 -- =====================================================================
