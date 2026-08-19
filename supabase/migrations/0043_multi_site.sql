@@ -41,7 +41,11 @@
 
 
 -- =====================================================================
--- A. TABLE `site` ET SITE HISTORIQUE
+-- A. TABLE `site` ET SITE HISTORIQUE (SANS RLS ENCORE)
+--    On crée la table + on insère lebignon SANS activer la RLS ni créer
+--    les policies : ces dernières référencent app_user.site_id et
+--    est_super_admin qui n'existent pas encore. On active la RLS de
+--    `site` en fin de §B, une fois app_user étoffée.
 -- =====================================================================
 
 create table if not exists public.site (
@@ -71,34 +75,6 @@ insert into public.site (id, slug, nom)
 values ('00000000-0000-4000-8000-00000000c0de', 'lebignon', 'Lebignon')
 on conflict (slug) do nothing;
 
-alter table public.site enable row level security;
-
--- Lecture : toute session authentifiée voit SON site. Le super_admin voit tout.
-drop policy if exists site_select on public.site;
-create policy site_select on public.site for select to authenticated
-  using (
-    id = (select site_id from public.app_user where user_id = auth.uid())
-    or exists (
-      select 1 from public.app_user
-      where user_id = auth.uid() and est_super_admin = true
-    )
-  );
-
--- Écriture : super_admin uniquement. La création d'un site passera par le
--- back-office /platform (service_role côté serveur), pas par un utilisateur
--- métier — le check ci-dessous garantit qu'aucune usine ne peut créer un
--- second site depuis son propre back-office.
-drop policy if exists site_modify on public.site;
-create policy site_modify on public.site for all to authenticated
-  using (exists (
-    select 1 from public.app_user
-    where user_id = auth.uid() and est_super_admin = true
-  ))
-  with check (exists (
-    select 1 from public.app_user
-    where user_id = auth.uid() and est_super_admin = true
-  ));
-
 
 -- =====================================================================
 -- B. RATTACHEMENT DES UTILISATEURS À UN SITE
@@ -120,6 +96,32 @@ alter table public.app_user
   alter column site_id set not null;
 
 create index if not exists app_user_site_idx on public.app_user (site_id);
+
+-- 3) RLS de `site` (déférée depuis §A) : app_user.site_id et
+--    est_super_admin existent maintenant, les policies peuvent les
+--    référencer.
+alter table public.site enable row level security;
+
+drop policy if exists site_select on public.site;
+create policy site_select on public.site for select to authenticated
+  using (
+    id = (select site_id from public.app_user where user_id = auth.uid())
+    or exists (
+      select 1 from public.app_user
+      where user_id = auth.uid() and est_super_admin = true
+    )
+  );
+
+drop policy if exists site_modify on public.site;
+create policy site_modify on public.site for all to authenticated
+  using (exists (
+    select 1 from public.app_user
+    where user_id = auth.uid() and est_super_admin = true
+  ))
+  with check (exists (
+    select 1 from public.app_user
+    where user_id = auth.uid() and est_super_admin = true
+  ));
 
 -- 3) L'inscription auto (handle_new_user) doit rattacher au site... mais
 --    quel site ? En V1 : pas d'inscription self-serve, tous les comptes sont
