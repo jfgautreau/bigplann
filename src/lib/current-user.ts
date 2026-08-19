@@ -1,11 +1,14 @@
 import { cache } from "react";
 import { getServerClient } from "@/lib/supabase-server";
+import { SITE_LEBIGNON_ID } from "@/lib/current-site";
 
 export type CurrentProfile = {
   authId: string;
   email: string;
   name: string;
   role: string;
+  siteId: string;
+  estSuperAdmin: boolean;
 };
 
 // Profil applicatif de l'utilisateur connecte (ou null).
@@ -13,24 +16,68 @@ export type CurrentProfile = {
 //   au serveur Auth ; il retombe automatiquement sur getUser() si le projet est
 //   encore en HS256 (aucune regression, gain effectif des l'activation des cles).
 // - `cache()` deduplique l'appel sur toute la requete (requireModule + page).
+//
+// MULTI-SITE (cf. tasks/multi-site.md) : le profil porte `siteId` et
+// `estSuperAdmin`. Les colonnes sont ajoutées à app_user par la migration
+// 0043. En V1a, siteId vaut toujours l'UUID du site historique lebignon.
+//
+// FALLBACK PRÉ-MIGRATION : tant que 0043 n'est pas appliquée, les colonnes
+// `site_id` et `est_super_admin` n'existent pas. On retente alors la
+// requête sans ces colonnes pour ne pas casser le déploiement pendant la
+// fenêtre code-poussé/migration-non-encore-jouée. Ce bloc de fallback
+// pourra être retiré une fois la 0043 en prod.
 export const getCurrentProfile = cache(async function getCurrentProfile(): Promise<CurrentProfile | null> {
   const supabase = await getServerClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub as string | undefined;
   if (!userId) return null;
 
-  const { data } = await supabase
-    .from("app_user")
-    .select("email, name, role, is_active")
-    .eq("user_id", userId)
-    .single<{ email: string; name: string; role: string; is_active: boolean }>();
+  const modernSel = "email, name, role, is_active, site_id, est_super_admin";
+  const legacySel = "email, name, role, is_active";
+
+  type Row = {
+    email: string;
+    name: string;
+    role: string;
+    is_active: boolean;
+    site_id?: string | null;
+    est_super_admin?: boolean | null;
+  };
+  let row: Row | null = null;
+
+  {
+    const { data, error } = await supabase
+      .from("app_user")
+      .select(modernSel)
+      .eq("user_id", userId)
+      .single();
+    if (error) {
+      // Colonnes site_id / est_super_admin absentes (pré-0043) : on
+      // retente avec l'ancien SELECT et on comble par les défauts V1a.
+      const legacy = await supabase
+        .from("app_user")
+        .select(legacySel)
+        .eq("user_id", userId)
+        .single<{ email: string; name: string; role: string; is_active: boolean }>();
+      row = legacy.data ?? null;
+    } else {
+      row = (data as unknown as Row) ?? null;
+    }
+  }
 
   // `is_active` etait lu par la RLS (is_admin / has_role) mais JAMAIS par
   // l'application : un compte desactive directement en base gardait toute sa
   // navigation. La desactivation via /admin/users bannit aussi le compte cote
   // Auth, ce qui masquait le trou. On ferme ici, a la source du profil : plus de
   // profil, donc redirection vers /login par requireModule.
-  if (!data || !data.is_active) return null;
-  return { authId: userId, email: data.email, name: data.name, role: data.role };
+  if (!row || !row.is_active) return null;
+  return {
+    authId: userId,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    siteId: row.site_id ?? SITE_LEBIGNON_ID,
+    estSuperAdmin: row.est_super_admin ?? false,
+  };
 });
 

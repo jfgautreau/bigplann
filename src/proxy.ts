@@ -3,9 +3,32 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Convention Next.js 16 : "proxy" (ex-"middleware").
-// Rafraichit la session Supabase et protege les routes non publiques.
+// Rafraichit la session Supabase, resout le site (multi-tenant) et protege
+// les routes non publiques.
+//
+// MULTI-SITE (V1a, cf. tasks/multi-site.md) :
+//   - Le middleware DEVRAIT resoudre le site depuis le sous-domaine du host
+//     (usine-a.polaris.app → site.slug = 'usine-a').
+//   - Tant que Polaris ne tourne qu'a Lebignon avec un domaine unique, on
+//     pose un header 'x-site-id' vers le site historique (SITE_LEBIGNON_ID)
+//     sans lecture Supabase ici : le middleware s'execute sur toutes les
+//     requetes, y compris /affichage (TV, sans auth), et une requete DB par
+//     coup ferait payer 30-50 ms a tout le monde.
+//   - En PR suivante : lookup du slug avec cache (30 s), reponse 404 si le
+//     slug n'existe pas, redirection si site.statut = 'suspendu'.
+
+const SITE_LEBIGNON_ID = "00000000-0000-4000-8000-00000000c0de";
+
 export async function proxy(req: NextRequest) {
-  const res = NextResponse.next();
+  // -------- Résolution du site (fallback single-site en V1a) --------
+  // Le header 'x-site-id' est le contrat avec le socle applicatif :
+  // getCurrentSite() (src/lib/current-site.ts) le lit en priorité et
+  // retombe sur SITE_LEBIGNON_ID si absent — on garantit donc les deux
+  // sources cohérentes.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-site-id", SITE_LEBIGNON_ID);
+
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
+import { getCurrentSite } from "@/lib/current-site";
 import { isoDate, addDays } from "@/lib/week";
 import { MODULES, getPermissions, canRead, canWrite } from "@/lib/permissions";
 import SettingsMenu from "@/components/SettingsMenu";
@@ -24,6 +25,18 @@ export default async function AppHeader({
 }) {
   const perms = await getPermissions(role);
   const profile = await getCurrentProfile();
+
+  // Nom du site (multi-tenant, cf. tasks/multi-site.md). Affiché à côté
+  // du logo pour qu'un utilisateur voit toujours DANS QUELLE USINE il
+  // travaille. Un throw ici ne doit pas casser l'en-tête (login, /affichage
+  // avant middleware sitisé...), d'où le try/catch avec un nom vide.
+  let siteNom = "";
+  try {
+    const site = await getCurrentSite();
+    siteNom = site.nom;
+  } catch {
+    siteNom = "";
+  }
 
   // Compteur d'alertes habilitations (<= 90 jours)
   let alertCount = 0;
@@ -68,6 +81,22 @@ export default async function AppHeader({
         <Link href="/" className="brand" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 9 }}>
           <Logo size={26} id="header" />
           Polaris
+          {siteNom && (
+            <span
+              title={`Site : ${siteNom}`}
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                opacity: 0.75,
+                marginLeft: 4,
+                padding: "2px 8px",
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.14)",
+              }}
+            >
+              {siteNom}
+            </span>
+          )}
         </Link>
         {mainLinks.map((l) => {
           const tile = NAV_TILE[l.key];
