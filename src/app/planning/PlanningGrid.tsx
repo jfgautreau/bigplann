@@ -110,6 +110,21 @@ export default function PlanningGrid({
       if (typeof window !== "undefined") window.localStorage.setItem("planning.showBilan", next ? "1" : "0");
       return next;
     });
+  // Panneau d'affectation : par defaut, on ne propose que les postes ou la
+  // personne est competente (niveau >= min, hors restriction). Bascule via un
+  // bouton dans l'entete du panneau, memorisee en localStorage. Repli
+  // automatique : si aucun poste ne passe le filtre, on affiche tout avec un
+  // bandeau explicite plutot que d'ouvrir un panneau vide.
+  const [showAllPostes, setShowAllPostes] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.localStorage.getItem("planning.pickShowAll") === "1") setShowAllPostes(true);
+  }, []);
+  const togglePostes = () =>
+    setShowAllPostes((s) => {
+      const next = !s;
+      if (typeof window !== "undefined") window.localStorage.setItem("planning.pickShowAll", next ? "1" : "0");
+      return next;
+    });
   // Selection d'une case (contour) pour la touche Suppr, et panneau d'affectation.
   const [selected, setSelected] = useState<string | null>(null);
   const [pick, setPick] = useState<{ pid: string; iso: string; eq: string | null; left: number; right: number; top: number; bottom: number } | null>(null);
@@ -941,8 +956,26 @@ export default function PlanningGrid({
         const cur = vals[key(pick.pid, pick.iso)] ?? "";
         const oset = new Set(openByIso[pick.iso] ?? allLigneIds);
         const og = groups.filter((g) => oset.has(g.ligneId));
+        // Comptage global (postes competents / total) pour afficher la bascule.
+        // On garde toujours le poste actuellement occupe visible, meme s'il ne
+        // passe pas le filtre : sinon on ne pourrait plus le distinguer.
+        const totalPostes = og.reduce((n, g) => n + g.postes.length, 0);
+        const totalOK = og.reduce(
+          (n, g) => n + g.postes.filter((po) => compState(pick.pid, po.id) === "ok").length,
+          0,
+        );
+        const forceAll = !showAllPostes && totalPostes > 0 && totalOK === 0;
+        const effShowAll = showAllPostes || forceAll;
+        const ogVisible: Group[] = og
+          .map((g) => ({
+            ...g,
+            postes: g.postes.filter(
+              (po) => effShowAll || cur === po.id || compState(pick.pid, po.id) === "ok",
+            ),
+          }))
+          .filter((g) => g.postes.length > 0);
         const ats: { nom: string; gs: Group[] }[] = [];
-        for (const g of og) {
+        for (const g of ogVisible) {
           const nom = g.atelierNom ?? "";
           let a = ats.find((x) => x.nom === nom);
           if (!a) { a = { nom, gs: [] }; ats.push(a); }
@@ -990,6 +1023,25 @@ export default function PlanningGrid({
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="cellpick-head">
+              {totalPostes > 0 && totalOK > 0 && (
+                <button
+                  type="button"
+                  className="cellpick-filter"
+                  onClick={togglePostes}
+                  title={
+                    effShowAll
+                      ? "Masquer les postes hors compétence"
+                      : "Afficher aussi les postes hors compétence (pour un forçage)"
+                  }
+                >
+                  {effShowAll ? `Voir compétents (${totalOK})` : `Voir tous (${totalPostes})`}
+                </button>
+              )}
+              {forceAll && (
+                <span className="cellpick-forced" title="Aucun poste compétent pour cette personne sur les lignes ouvertes ce jour">
+                  ⚠ Aucun poste compétent — tous affichés
+                </span>
+              )}
               <button type="button" className="cellpick-clear" onClick={() => choose("")}>✕ Effacer</button>
             </div>
             <div className="cellpick-body">

@@ -97,6 +97,19 @@ export default function PlacementBoard({
   // Pre-filtre atelier : celui du plan affiche (elargissable pour aller chercher un renfort).
   const [fAtelier, setFAtelier] = useState(atelierId);
   const [hidePlaced, setHidePlaced] = useState(false);
+  // Filtre visuel : quand une personne est active (glissee/selectionnee),
+  // n'afficher que les postes ou elle est competente (niveau >= min, hors
+  // restriction). On garde toujours visibles les postes deja occupes pour
+  // permettre de deposer/retirer sans changer de mode. Persistance en
+  // localStorage, comme la bascule equivalente du Planning.
+  const [hideIncomp, setHideIncomp] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.localStorage.getItem("placement.hideIncomp") === "1") setHideIncomp(true);
+  }, []);
+  const toggleHideIncomp = (v: boolean) => {
+    setHideIncomp(v);
+    if (typeof window !== "undefined") window.localStorage.setItem("placement.hideIncomp", v ? "1" : "0");
+  };
   const [copying, setCopying] = useState(false);
   // Modale de copie : jour source -> jour destination (meme quart).
   const [showCopy, setShowCopy] = useState(false);
@@ -524,6 +537,22 @@ export default function PlacementBoard({
   const saveTxt = saving === "saving" ? "Enregistrement…" : saving === "saved" ? "Enregistré ✓" : saving === "error" ? "Échec" : "";
   const saveColor = saving === "error" ? "var(--danger)" : saving === "saved" ? "var(--ok)" : "var(--muted)";
 
+  // Filtre visuel du plan quand une personne est active + case cochee. On garde
+  // toujours visibles les postes deja occupes (par n'importe qui) pour ne pas
+  // masquer les erreurs d'affectation existantes.
+  const groupsAffiches: Group[] =
+    active && hideIncomp
+      ? groups
+          .map((g) => ({
+            ...g,
+            postes: g.postes.filter(
+              (po) => compState(active, po) === "ok" || occupants(po.id).length > 0,
+            ),
+          }))
+          .filter((g) => g.postes.length > 0)
+      : groups;
+  const filtreVide = active && hideIncomp && groups.length > 0 && groupsAffiches.length === 0;
+
   return (
     <div className={s.board}>
       {/* Filtres */}
@@ -596,6 +625,30 @@ export default function PlacementBoard({
             <input type="checkbox" checked={hidePlaced} onChange={(e) => setHidePlaced(e.target.checked)} style={{ width: "auto" }} />
             Masquer les placés
           </label>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              opacity: active ? 1 : 0.55,
+            }}
+            title={
+              active
+                ? "N'afficher que les postes où la personne active est compétente"
+                : "Sélectionnez ou glissez une personne pour activer ce filtre"
+            }
+          >
+            <input
+              type="checkbox"
+              checked={hideIncomp}
+              onChange={(e) => toggleHideIncomp(e.target.checked)}
+              style={{ width: "auto" }}
+            />
+            Masquer non-compétents
+          </label>
           <span style={{ fontSize: 12, fontWeight: 700, minWidth: 90, textAlign: "right", color: saveColor }}>{msg ?? saveTxt}</span>
         </div>
       </div>
@@ -658,8 +711,17 @@ export default function PlacementBoard({
                 </p>
               )}
             </div>
+          ) : filtreVide ? (
+            <div style={{ padding: 12 }}>
+              <p style={{ margin: 0, fontWeight: 600, color: "#b45309" }}>
+                ⚠ Aucun poste compétent pour cette personne ici.
+              </p>
+              <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>
+                Décochez « Masquer non-compétents » pour forcer un placement hors compétence.
+              </p>
+            </div>
           ) : (
-            groups.map((g) => (
+            groupsAffiches.map((g) => (
               <div key={g.ligneId} className={s.ligne}>
                 <div className={s.ligneNom}>{g.ligneNom}</div>
                 <div className={s.postes}>

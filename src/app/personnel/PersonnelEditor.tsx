@@ -208,9 +208,13 @@ export default function PersonnelEditor({
     return c ? { background: c, color: "#1e293b", fontWeight: 600 } : {};
   };
 
+  // Alerte « 18 mois » : ancre desormais la date de remise du livret d'accueil.
+  // Non-CDI uniquement (comme avant) : c'est la borne legale de l'interim et un
+  // reperage utile des CDD longs. Sans livret renseigne, pas d'alerte : la donnee
+  // n'a pas encore ete saisie.
   const alerte18 = (r: Row): number | null => {
-    if (r.type_contrat === "CDI" || !r.contrat_debut) return null;
-    const m = monthsBetween(r.contrat_debut, r.date_fin ?? today);
+    if (r.type_contrat === "CDI" || !r.date_livret_accueil) return null;
+    const m = monthsBetween(r.date_livret_accueil, today);
     return m >= 18 ? m : null;
   };
 
@@ -452,7 +456,7 @@ export default function PersonnelEditor({
                       <td><select value={r.atelier_id ?? ""} onChange={(e) => field(r.id, "atelier_id", e.target.value, true)} style={{ ...inp, ...C("atelier") }}><option value="">-</option>{ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
                       <td><input type="date" value={r.date_livret_accueil ?? ""} onChange={(e) => field(r.id, "date_livret_accueil", e.target.value, true)} style={inp} /></td>
                       <td style={{ textAlign: "center" }}><BoutonAbsences row={r} onOpen={() => setAbsFor(r)} /></td>
-                      <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Contrat de ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
+                      <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Livret d'accueil remis il y a ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
                       <td><input value={r.pointure ?? ""} maxLength={5} onChange={(e) => field(r.id, "pointure", e.target.value)} style={{ ...inp, ...C("pointure") }} /></td>
                       <td style={{ textAlign: "center" }}>
                         {r.temps_partiel ? (
@@ -481,7 +485,7 @@ export default function PersonnelEditor({
                       <td style={{ textAlign: "center" }}>{atelierNom(r.atelier_id) || "-"}</td>
                       <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>{fmtDate(r.date_livret_accueil)}</td>
                       <td style={{ textAlign: "center" }}><BoutonAbsences row={r} onOpen={() => setAbsFor(r)} /></td>
-                      <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Contrat de ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
+                      <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Livret d'accueil remis il y a ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
                       <td style={{ textAlign: "center" }}>{r.pointure || "-"}</td>
                       <td style={{ textAlign: "center" }}>{r.temps_partiel ? <span className="sexe-pill" style={{ background: "#e0e7ff", color: "#3730a3" }}>TP</span> : <span className="muted">—</span>}</td>
                       <td><span className={r.statut === "ACTIF" ? "tag" : "tag tag-off"}>{r.statut === "ACTIF" ? "Actif" : "Parti"}</span></td>
