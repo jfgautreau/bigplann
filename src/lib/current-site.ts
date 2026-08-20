@@ -38,13 +38,17 @@ const FALLBACK_LEBIGNON: CurrentSite = {
 // requête. `cache()` de React déduplique l'appel entre AppHeader, les
 // pages et les server actions.
 export const getCurrentSite = cache(async function getCurrentSite(): Promise<CurrentSite> {
-  // 1) Le middleware (src/proxy.ts) résout le site depuis le host et pose
-  //    `x-site-id`. C'est le chemin nominal dès qu'un site est joignable
-  //    par sous-domaine dédié.
+  // 1) IMPERSONATION prioritaire : si un super_admin est en mode support,
+  //    le middleware pose `x-impersonate-site`. On lit ce header pour que
+  //    tout l'écran (AppHeader, pages, PDF) affiche bien le site cible.
+  //    La validation « seul un super_admin peut poser ce header » est
+  //    faite plus haut par le middleware ET par la fonction SQL
+  //    current_site_id() qui verifie est_super_admin avant d'honorer.
   let siteId: string | null = null;
   try {
     const h = await headers();
-    siteId = h.get("x-site-id");
+    siteId = h.get("x-impersonate-site")
+      ?? h.get("x-site-id");
   } catch {
     siteId = null;
   }

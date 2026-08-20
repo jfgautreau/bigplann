@@ -1,32 +1,39 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { decodeImpersonation, IMPERSONATE_COOKIE, IMPERSONATE_HEADER } from "@/lib/impersonation";
 
 // Convention Next.js 16 : "proxy" (ex-"middleware").
 // Rafraichit la session Supabase, resout le site (multi-tenant) et protege
 // les routes non publiques.
 //
 // MULTI-SITE (V1a, cf. tasks/multi-site.md) :
-//   - Le middleware DEVRAIT resoudre le site depuis le sous-domaine du host
-//     (usine-a.polaris.app → site.slug = 'usine-a').
-//   - Tant que Polaris ne tourne qu'a Lebignon avec un domaine unique, on
-//     pose un header 'x-site-id' vers le site historique (SITE_LEBIGNON_ID)
-//     sans lecture Supabase ici : le middleware s'execute sur toutes les
-//     requetes, y compris /affichage (TV, sans auth), et une requete DB par
-//     coup ferait payer 30-50 ms a tout le monde.
-//   - En PR suivante : lookup du slug avec cache (30 s), reponse 404 si le
-//     slug n'existe pas, redirection si site.statut = 'suspendu'.
+//   - Domaine unique en V1 (bigplann.vercel.app). Le middleware pose un
+//     `x-site-id` vers le site historique (SITE_LEBIGNON_ID) sans lecture
+//     Supabase — evite un aller-retour DB sur chaque requete.
+//   - /platform : back-office super_admin. Protege par verification du
+//     profil (est_super_admin=true), sinon redirection vers /login.
+//   - Impersonation : le super_admin qui a clique « Entrer » sur un site
+//     obtient un cookie `polaris-impersonate` signe. On le lit ici, on
+//     verifie sa signature et son TTL, et on pose un header
+//     `x-impersonate-site` propage vers PostgREST par getServerClient.
+//     `current_site_id()` en SQL n'honore ce header que si l'appelant est
+//     super_admin (defense en profondeur, migration 0048).
 
 const SITE_LEBIGNON_ID = "00000000-0000-4000-8000-00000000c0de";
 
 export async function proxy(req: NextRequest) {
-  // -------- Résolution du site (fallback single-site en V1a) --------
-  // Le header 'x-site-id' est le contrat avec le socle applicatif :
-  // getCurrentSite() (src/lib/current-site.ts) le lit en priorité et
-  // retombe sur SITE_LEBIGNON_ID si absent — on garantit donc les deux
-  // sources cohérentes.
+  const { pathname } = req.nextUrl;
+
+  // -------- Résolution du site + header d'impersonation --------
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-site-id", SITE_LEBIGNON_ID);
+
+  const rawImp = req.cookies.get(IMPERSONATE_COOKIE)?.value;
+  const impPayload = decodeImpersonation(rawImp);
+  if (impPayload) {
+    requestHeaders.set(IMPERSONATE_HEADER, impPayload.siteId);
+  }
 
   const res = NextResponse.next({ request: { headers: requestHeaders } });
 
@@ -48,18 +55,13 @@ export async function proxy(req: NextRequest) {
   );
 
   // Routes publiques (flux d'authentification).
-  // /auth/callback echange un code OTP : le user n'est pas encore authentifie.
-  // /forgot et /reset doivent rester accessibles pour la recuperation de mdp.
-  const { pathname } = req.nextUrl;
   const isPublic =
     pathname === "/login" ||
     pathname === "/forgot" ||
     pathname === "/reset" ||
     pathname.startsWith("/auth/") ||
-    pathname.startsWith("/affichage"); // pages couloir : acces sans login (cf. cahier 8.4)
+    pathname.startsWith("/affichage");
 
-  // getUser() valide le JWT cote serveur (recommande par Supabase),
-  // contrairement a getSession() qui lit juste le cookie sans verification.
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -69,6 +71,40 @@ export async function proxy(req: NextRequest) {
   }
   if (user && pathname === "/login") {
     return NextResponse.redirect(new URL("/", req.url));
+  }
+
+  // -------- /platform : super_admin uniquement --------
+  // On vérifie le flag `est_super_admin` directement en DB. Un cache
+  // d'une seconde côté cookie serait possible mais le middleware
+  // s'exécute rarement pour /platform (peu de trafic) : on garde simple.
+  if (pathname.startsWith("/platform") && user) {
+    const { data: prof } = await supabase
+      .from("app_user")
+      .select("est_super_admin")
+      .eq("user_id", user.id)
+      .single<{ est_super_admin: boolean }>();
+    if (!prof?.est_super_admin) {
+      // Refus discret : redirect vers l'accueil (pas de message pour ne
+      // pas révéler l'existence de /platform à un curieux).
+      // On efface aussi un éventuel cookie d'impersonation qui traînerait.
+      const redirect = NextResponse.redirect(new URL("/", req.url));
+      redirect.cookies.delete(IMPERSONATE_COOKIE);
+      return redirect;
+    }
+  }
+
+  // Sécurité : si un cookie d'impersonation existe mais que l'user
+  // courant n'est PAS super_admin (ex. dégradation de compte), on
+  // efface le cookie sur toute requête protégée.
+  if (impPayload && user && !pathname.startsWith("/api/") && !pathname.startsWith("/platform")) {
+    const { data: prof } = await supabase
+      .from("app_user")
+      .select("est_super_admin")
+      .eq("user_id", user.id)
+      .single<{ est_super_admin: boolean }>();
+    if (!prof?.est_super_admin) {
+      res.cookies.delete(IMPERSONATE_COOKIE);
+    }
   }
 
   // Affichage couloir (ecran 24/7) : on interdit tout cache en aval (navigateur

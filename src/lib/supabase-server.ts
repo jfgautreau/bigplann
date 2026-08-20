@@ -3,12 +3,24 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getImpersonatedSiteIdFromHeader, IMPERSONATE_HEADER } from "@/lib/impersonation";
 
 // Client serveur lie aux cookies de la requete (lit la session du user appelant).
 // `cache()` : un seul client instancie par requete, meme si plusieurs couches
 // (getCurrentProfile, getPermissions, page) l'appellent dans le meme rendu.
+//
+// MULTI-SITE — IMPERSONATION : quand un super_admin est en mode support, le
+// middleware (src/proxy.ts) pose un header `x-impersonate-site` sur la
+// requete. On le propage vers Supabase via global.headers pour que
+// PostgREST le voie via `current_setting('request.headers')`. La fonction
+// SQL current_site_id() (migration 0048) l'honore uniquement si l'appelant
+// est super_admin.
 export const getServerClient = cache(async function getServerClient(): Promise<SupabaseClient> {
   const cookieStore = await cookies();
+  const impersonatedSite = await getImpersonatedSiteIdFromHeader();
+  const extraHeaders: Record<string, string> = impersonatedSite
+    ? { [IMPERSONATE_HEADER]: impersonatedSite }
+    : {};
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
@@ -27,6 +39,7 @@ export const getServerClient = cache(async function getServerClient(): Promise<S
           }
         },
       },
+      global: { headers: extraHeaders },
     }
   );
 });

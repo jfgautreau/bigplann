@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getServerClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import { getCurrentSite } from "@/lib/current-site";
+import { getImpersonationPayload } from "@/lib/impersonation";
+import { sortirDuMode } from "@/app/platform/actions";
 import { isoDate, addDays } from "@/lib/week";
 import { MODULES, getPermissions, canRead, canWrite } from "@/lib/permissions";
 import SettingsMenu from "@/components/SettingsMenu";
@@ -37,6 +39,11 @@ export default async function AppHeader({
   } catch {
     siteNom = "";
   }
+
+  // Mode support (impersonation) : bandeau rouge permanent en haut de
+  // toute page tant que le cookie polaris-impersonate est actif. Bouton
+  // « Sortir » qui trace la fin dans audit_impersonation.
+  const impersonation = await getImpersonationPayload();
 
   // Compteur d'alertes habilitations (<= 90 jours)
   let alertCount = 0;
@@ -76,6 +83,48 @@ export default async function AppHeader({
   ).map((m) => ({ href: m.href, label: m.label }));
 
   return (
+    <>
+    {impersonation && (
+      <div
+        style={{
+          background: "#dc2626",
+          color: "#fff",
+          padding: "6px 16px",
+          fontSize: 13,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          position: "sticky",
+          top: 0,
+          zIndex: 200,
+        }}
+        className="noprint"
+      >
+        <span>
+          ⚠ <strong>MODE SUPPORT</strong> — vous êtes connecté comme super_admin
+          en impersonation du site <strong>{siteNom || impersonation.siteId.slice(0, 8)}</strong>.
+          Toute action est tracée dans <code style={{ fontSize: 12 }}>audit_impersonation</code>.
+        </span>
+        <form action={sortirDuMode} style={{ margin: 0 }}>
+          <button
+            type="submit"
+            style={{
+              background: "#fff",
+              color: "#dc2626",
+              padding: "3px 10px",
+              border: 0,
+              borderRadius: 4,
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            Sortir du mode support
+          </button>
+        </form>
+      </div>
+    )}
     <header className="appheader">
       <nav className="appnav">
         <Link href="/" className="brand" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 9 }}>
@@ -155,5 +204,6 @@ export default async function AppHeader({
         <UserMenu name={profile?.name ?? ""} email={profile?.email ?? ""} />
       </div>
     </header>
+    </>
   );
 }
