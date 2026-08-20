@@ -10,6 +10,7 @@ type Periode = {
   date_debut: string | null;
   date_fin: string | null;
   motif: string | null;
+  motif_fin: string | null;
   commentaire: string | null;
 };
 
@@ -162,9 +163,10 @@ export default function PeriodesEditor({
             <tr>
               <th style={{ ...th, width: 130 }}>Type</th>
               <th style={{ ...th, width: 200 }}>Agence (si intérim)</th>
-              <th style={{ ...th, width: 150 }}>Début</th>
-              <th style={{ ...th, width: 150 }}>Fin</th>
-              <th style={{ ...th, width: 180 }}>Motif</th>
+              <th style={{ ...th, width: 140 }}>Début</th>
+              <th style={{ ...th, width: 140 }}>Fin</th>
+              <th style={{ ...th, width: 170 }}>Motif début</th>
+              <th style={{ ...th, width: 200 }}>Motif fin</th>
               <th style={th}>Commentaire</th>
               <th style={{ ...th, width: 40 }}></th>
             </tr>
@@ -216,6 +218,7 @@ export default function PeriodesEditor({
                 <td><input type="date" value={r.date_debut ?? ""} onChange={(e) => edit(r.id, "date_debut", e.target.value, true)} style={inp} /></td>
                 <td><input type="date" value={r.date_fin ?? ""} onChange={(e) => edit(r.id, "date_fin", e.target.value, true)} style={inp} /></td>
                 <td><input value={r.motif ?? ""} onChange={(e) => edit(r.id, "motif", e.target.value)} placeholder="ex. remplacement, surcroît…" style={inp} /></td>
+                <td><input value={r.motif_fin ?? ""} onChange={(e) => edit(r.id, "motif_fin", e.target.value)} placeholder="ex. retraite, démission, fin de mission" style={inp} title="Motif de fin de ce contrat. Le motif_fin du dernier contrat vaut motif de départ de la personne." /></td>
                 <td><input value={r.commentaire ?? ""} onChange={(e) => edit(r.id, "commentaire", e.target.value)} style={inp} /></td>
                 <td style={{ textAlign: "center" }}>
                   <button type="button" className="btn-sm btn-ghost" onClick={() => remove(r.id)} title="Supprimer cette période" style={{ color: "var(--danger)" }}>
@@ -226,7 +229,7 @@ export default function PeriodesEditor({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="muted">Aucune période. Ajoutez-en une.</td>
+                <td colSpan={8} className="muted">Aucune période. Ajoutez-en une.</td>
               </tr>
             )}
           </tbody>

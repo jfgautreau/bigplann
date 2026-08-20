@@ -10,11 +10,13 @@ import { normaliseNom, normalisePrenom } from "@/lib/noms";
 // Ops : create | update | refresh-statuts
 //       | periode-list | periode-create | periode-update | periode-delete
 //
-// NOTE cycle de vie (migration 0049) : le champ `statut` n'est plus editable
-// directement. Un trigger DB le recalcule a chaque INSERT/UPDATE a partir de
-// (date_arrivee, date_depart_prevu). L'op `toggle-statut` a donc ete retiree.
-const COLS = "id, matricule, nom, prenom, equipe_id, type_contrat, date_arrivee, date_fin, pointure, statut";
-const PERIODE_COLS = "id, personne_id, type_contrat, agence_interim, date_debut, date_fin, commentaire, motif";
+// NOTE cycle de vie (migrations 0049 + 0050) : `statut` n'est plus editable
+// directement, il est cache maintenu par un trigger sur `contrat_periode`.
+// Les colonnes `date_arrivee`, `date_depart_prevu`, `motif_depart` ont ete
+// supprimees (0050) : ce sont maintenant MIN/MAX(contrat_periode) et
+// motif_fin du dernier contrat.
+const COLS = "id, matricule, nom, prenom, equipe_id, type_contrat, date_fin, pointure, statut";
+const PERIODE_COLS = "id, personne_id, type_contrat, agence_interim, date_debut, date_fin, commentaire, motif, motif_fin";
 // Codes de contrat historiques (fallback si la table `type_contrat` de la
 // migration 0040 n'existe pas encore) : on garde le comportement d'origine.
 const CONTRATS_FALLBACK = ["CDI", "CDD", "INTERIM"];
@@ -47,15 +49,26 @@ type PeriodeRow = {
 };
 
 // Recalcule le reflet denormalise de personne a partir de la periode la plus
-// recente (date_debut desc, nulls en dernier, puis created_at desc).
-// Best-effort : si la table contrat_periode n'existe pas encore, on ignore.
-// Renvoie le reflet applique a `personne`, pour que l'ecran puisse mettre sa
-// liste a jour sans rechargement (les colonnes Contrat / Fin de contrat et
-// l'alerte des 18 mois en dependent). `null` si rien n'a pu etre calcule.
+// recente (date_debut desc, nulls en dernier, puis created_at desc), et
+// renvoie AUSSI les dates derivees pour rafraichir l'ecran :
+//   • contrat_debut       : plus ancien date_debut (alerte 18 mois).
+//   • date_arrivee_calc   : idem — l'arrivee = 1er contrat.
+//   • date_depart_prevu_calc : MAX(date_fin) si tous les contrats sont fermes,
+//     sinon null (au moins un CDI ouvert). Miroir de la fonction SQL 0050
+//     personne_arrivee_depart. Le statut de personne est reactualise cote DB
+//     par le trigger sync_statut_from_contrats.
 async function syncPersonneFromPeriodes(
   supabase: SupabaseClient,
-  personne_id: string
-): Promise<{ type_contrat: string; agence_interim: string | null; date_debut: string | null; date_fin: string | null; contrat_debut: string | null } | null> {
+  personne_id: string,
+): Promise<{
+  type_contrat: string;
+  agence_interim: string | null;
+  date_debut: string | null;
+  date_fin: string | null;
+  contrat_debut: string | null;
+  date_arrivee: string | null;
+  date_depart_prevu: string | null;
+} | null> {
   try {
     const { data } = await supabase
       .from("contrat_periode")
@@ -79,10 +92,19 @@ async function syncPersonneFromPeriodes(
     };
     const { error: refletErr } = await supabase.from("personne").update(reflet).eq("id", personne_id);
     if (refletErr) throw refletErr;
-    // Debut du contrat le PLUS ANCIEN : sert l'alerte « > 18 mois » de la liste,
-    // il ne suit pas la periode la plus recente (cf. src/app/personnel/page.tsx).
+    // Debut du contrat le PLUS ANCIEN = date d'arrivee.
     const debuts = periods.map((p) => p.date_debut).filter((d): d is string => !!d).sort();
-    return { ...reflet, contrat_debut: debuts[0] ?? null };
+    const arrivee = debuts[0] ?? null;
+    // Depart = MAX(date_fin) UNIQUEMENT si aucun contrat ouvert.
+    const auMoinsUnOuvert = periods.some((p) => p.date_debut && p.date_fin === null);
+    const fins = periods.map((p) => p.date_fin).filter((d): d is string => !!d).sort();
+    const depart = auMoinsUnOuvert ? null : fins[fins.length - 1] ?? null;
+    return {
+      ...reflet,
+      contrat_debut: arrivee,
+      date_arrivee: arrivee,
+      date_depart_prevu: depart,
+    };
   } catch {
     // table absente (migration 0017 non encore appliquee) -> on ignore
     return null;
@@ -126,10 +148,11 @@ export async function POST(req: NextRequest) {
       // desormais de vraies erreurs, laissant une personne a moitie creee.
       // Tout part maintenant dans le MEME insert.
       const sexe = s(body.sexe);
-      // Date d'arrivee : celle explicitement saisie, sinon celle du 1er contrat,
-      // sinon la date du jour. Le trigger `statut_auto` deduit A_VENIR / ACTIF
-      // a partir de cette date : une arrivee dans le futur donne A_VENIR d'office.
-      const dateArrivee = orNull(s(body.date_arrivee)) ?? orNull(s(body.date_debut)) ?? new Date().toISOString().slice(0, 10);
+      // Date d'arrivee = date_debut du 1er contrat. On accepte encore la clef
+      // `date_arrivee` en entree pour ne pas casser le formulaire de creation :
+      // elle est simplement traduite en date_debut de la periode initiale.
+      const dateDebutContrat =
+        orNull(s(body.date_arrivee)) ?? orNull(s(body.date_debut)) ?? new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("personne")
         .insert({
@@ -140,8 +163,7 @@ export async function POST(req: NextRequest) {
           type_contrat,
           matricule,
           agence_interim: type_contrat === "INTERIM" ? orNull(s(body.agence_interim)) : null,
-          date_arrivee: dateArrivee,
-          date_debut: orNull(s(body.date_debut)),
+          date_debut: dateDebutContrat,
           date_fin: orNull(s(body.date_fin)),
           pointure: orNull(s(body.pointure)),
           commentaire: orNull(s(body.commentaire)),
@@ -155,12 +177,13 @@ export async function POST(req: NextRequest) {
       const created = data as { id: string };
 
       // La periode de contrat initiale n'est plus « best-effort » non plus : son
-      // `catch` muet laissait une personne sans historique de contrat.
+      // `catch` muet laissait une personne sans historique de contrat. Le trigger
+      // `sync_statut_from_contrats` (0050) mettra ensuite personne.statut a jour.
       const { error: periodeErr } = await supabase.from("contrat_periode").insert({
         personne_id: created.id,
         type_contrat,
         agence_interim: type_contrat === "INTERIM" ? orNull(s(body.agence_interim)) : null,
-        date_debut: orNull(s(body.date_debut)),
+        date_debut: dateDebutContrat,
         date_fin: orNull(s(body.date_fin)),
       });
       if (periodeErr) throw periodeErr;
@@ -195,17 +218,12 @@ export async function POST(req: NextRequest) {
           case "numero_badge":
           case "date_livret_accueil":
           case "commentaire":
-          // Départ prévu : date à laquelle la personne quitte l'effectif.
-          // Distinct de `date_fin`, qui est le reflet — réécrit automatiquement —
-          // de la période de contrat la plus récente (cf. migration 0039). Le
-          // trigger 0049 en deduit le statut PARTI a partir de cette date.
-          case "date_depart_prevu":
-          case "motif_depart":
-          // Date d'arrivee dans l'effectif (0049). Peut etre dans le futur : le
-          // trigger passe la personne A_VENIR et la basculera ACTIF le jour J.
-          case "date_arrivee":
             patch[k] = orNull(s(v));
             break;
+          // date_arrivee / date_depart_prevu / motif_depart ont ete supprimes
+          // (0050) : ce sont maintenant MIN/MAX(contrat_periode) et le motif_fin
+          // du dernier contrat. Toute ecriture sur ces clefs est ignoree en silence
+          // (compat descendante — un ancien client ne casse pas).
           case "type_contrat":
             if (CONTRATS.includes(s(v))) {
               patch.type_contrat = s(v);
@@ -301,6 +319,7 @@ export async function POST(req: NextRequest) {
           date_fin: orNull(s(body.date_fin)),
           commentaire: orNull(s(body.commentaire)),
           motif: orNull(s(body.motif)),
+          motif_fin: orNull(s(body.motif_fin)),
         })
         .select(PERIODE_COLS)
         .single();
@@ -327,6 +346,7 @@ export async function POST(req: NextRequest) {
           case "agence_interim":
           case "commentaire":
           case "motif":
+          case "motif_fin":
             patch[k] = orNull(s(v));
             break;
           case "date_debut":

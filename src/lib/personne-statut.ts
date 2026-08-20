@@ -61,6 +61,26 @@ export function couleurStatut(s: StatutPersonne): { bg: string; fg: string } {
 
 export type Periode = { date_debut: string | null; date_fin: string | null };
 
+/** Dates derivees d'une liste de contrats : date d'arrivee (plus ancien
+ *  date_debut) et date de depart prevu (plus recente date_fin, uniquement
+ *  si TOUS les contrats sont fermes). Miroir de la fonction SQL
+ *  personne_arrivee_depart de la migration 0050. */
+export function deriverArriveeDepart(contrats: Periode[]): PersonneDates {
+  let arrivee: string | null = null;
+  let maxFin: string | null = null;
+  let auMoinsUnOuvert = false;
+  for (const c of contrats) {
+    if (!c.date_debut) continue;
+    if (arrivee === null || c.date_debut < arrivee) arrivee = c.date_debut;
+    if (c.date_fin === null) auMoinsUnOuvert = true;
+    else if (maxFin === null || c.date_fin > maxFin) maxFin = c.date_fin;
+  }
+  return {
+    date_arrivee: arrivee,
+    date_depart_prevu: auMoinsUnOuvert ? null : maxFin,
+  };
+}
+
 /** Vrai si au moins un contrat couvre la date iso. Une periode sans date_debut
  *  est ignoree (contrat pas encore renseigne) ; sans date_fin, elle est
  *  consideree ouverte (couvre tout ce qui vient apres date_debut). */

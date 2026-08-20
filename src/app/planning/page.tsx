@@ -21,7 +21,7 @@ import { getRotationRefsC } from "@/lib/refdata";
 import { rotationForWeek } from "@/lib/rotation";
 import { addMonthsIso } from "@/lib/habilitations";
 import { quartParDefaut, quartOuDefaut, memeQuart } from "@/lib/quarts";
-import { estAuTravailLe } from "@/lib/personne-statut";
+import { estAuTravailLe, deriverArriveeDepart } from "@/lib/personne-statut";
 
 type PosteRow = {
   id: string;
@@ -42,8 +42,6 @@ type Personne = {
   prenom: string;
   equipe_id: string | null;
   type_contrat: string;
-  date_arrivee: string | null;
-  date_depart_prevu: string | null;
 };
 type Placement = {
   personne_id: string;
@@ -116,11 +114,7 @@ export default async function PlanningPage({
       .order("libelle")
       .returns<Motif[]>(),
     supabase.from("quart").select("code, libelle, ordre").order("ordre").returns<Quart[]>(),
-    // Fenetre de presence : date_arrivee / date_depart_prevu servent au filtre
-    // par dates cote client (cycle de vie 0049). Les personnes A_VENIR / PARTI
-    // ne sont deja pas ramenees par .eq("statut","ACTIF") ; ces bornes servent
-    // uniquement a masquer les cellules jour par jour dans la fenetre 3-semaines.
-    supabase.from("personne").select("id, nom, prenom, equipe_id, type_contrat, date_arrivee, date_depart_prevu").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
+    supabase.from("personne").select("id, nom, prenom, equipe_id, type_contrat").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
     canEditPlanningFull
       ? Promise.resolve({ data: [] as { equipe_id: string }[] })
       : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
@@ -424,10 +418,12 @@ export default async function PlanningPage({
     }
   }
 
-  // Cycle de vie (0049) : on masque les cellules OU la personne n'est pas
-  // effectivement au travail — soit hors fenetre arrivee/depart, soit dans un
-  // trou entre deux contrats. On reutilise le mecanisme tpBlocked (case grisee,
-  // non cliquable) plutot qu'un canal separe : meme comportement visuel.
+  // Cycle de vie (0049 + 0050) : on masque les cellules OU la personne n'est
+  // pas effectivement au travail — hors fenetre d'activite (avant l'arrivee /
+  // apres le depart) ou dans un trou entre deux contrats. On reutilise le
+  // mecanisme tpBlocked (case grisee, non cliquable) plutot qu'un canal
+  // separe : meme comportement visuel. Les dates d'arrivee/depart sont
+  // DERIVEES des contrats (0050) — plus stockees sur personne.
   if (allIds.length && visIsos.length) {
     const contratsData = await fetchAll<{ personne_id: string; date_debut: string | null; date_fin: string | null }>(() =>
       supabase
@@ -445,8 +441,9 @@ export default async function PlanningPage({
     }
     for (const p of allActive) {
       const contrats = contratsParPersonne.get(p.id) ?? [];
+      const dates = deriverArriveeDepart(contrats);
       for (const d of visible) {
-        if (!estAuTravailLe({ date_arrivee: p.date_arrivee, date_depart_prevu: p.date_depart_prevu }, contrats, d.iso)) {
+        if (!estAuTravailLe(dates, contrats, d.iso)) {
           tpBlocked[`${p.id}:${d.iso}`] = true;
         }
       }

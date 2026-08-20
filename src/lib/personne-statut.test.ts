@@ -5,6 +5,7 @@ import {
   contratCouvreLe,
   estAuTravailLe,
   libelleStatut,
+  deriverArriveeDepart,
 } from "./personne-statut";
 
 describe("statutALaDate", () => {
@@ -124,5 +125,52 @@ describe("libelleStatut", () => {
     expect(libelleStatut("A_VENIR")).toBe("À venir");
     expect(libelleStatut("ACTIF")).toBe("Actif");
     expect(libelleStatut("PARTI")).toBe("Parti");
+  });
+});
+
+describe("deriverArriveeDepart", () => {
+  it("un seul CDI ouvert -> arrivee = date_debut, depart = null", () => {
+    expect(deriverArriveeDepart([{ date_debut: "2026-01-01", date_fin: null }])).toEqual({
+      date_arrivee: "2026-01-01",
+      date_depart_prevu: null,
+    });
+  });
+
+  it("un seul CDD ferme -> arrivee et depart aux bornes", () => {
+    expect(deriverArriveeDepart([{ date_debut: "2026-01-01", date_fin: "2026-06-30" }])).toEqual({
+      date_arrivee: "2026-01-01",
+      date_depart_prevu: "2026-06-30",
+    });
+  });
+
+  it("deux CDD successifs -> arrivee au plus ancien, depart au plus recent", () => {
+    expect(
+      deriverArriveeDepart([
+        { date_debut: "2026-01-01", date_fin: "2026-06-30" },
+        { date_debut: "2026-07-15", date_fin: "2026-12-31" },
+      ]),
+    ).toEqual({ date_arrivee: "2026-01-01", date_depart_prevu: "2026-12-31" });
+  });
+
+  it("CDD suivi d'un CDI -> depart = null (contrat ouvert)", () => {
+    expect(
+      deriverArriveeDepart([
+        { date_debut: "2026-01-01", date_fin: "2026-06-30" },
+        { date_debut: "2026-07-15", date_fin: null },
+      ]),
+    ).toEqual({ date_arrivee: "2026-01-01", date_depart_prevu: null });
+  });
+
+  it("liste vide -> les deux dates a null", () => {
+    expect(deriverArriveeDepart([])).toEqual({ date_arrivee: null, date_depart_prevu: null });
+  });
+
+  it("ignore les periodes sans date_debut", () => {
+    expect(
+      deriverArriveeDepart([
+        { date_debut: null, date_fin: "2026-12-31" },
+        { date_debut: "2026-01-01", date_fin: "2026-06-30" },
+      ]),
+    ).toEqual({ date_arrivee: "2026-01-01", date_depart_prevu: "2026-06-30" });
   });
 });
