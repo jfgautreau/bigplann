@@ -192,6 +192,9 @@ export default function PersonnelEditor({
   // de tout melanger. Un clic sur « Tous », « A venir » ou « Parti » reste
   // possible, sans persister d'une visite a l'autre.
   const [statutFilter, setStatutFilter] = useState<"" | "A_VENIR" | "ACTIF" | "PARTI">("ACTIF");
+  // Filtre secondaire : ne montrer que les fiches a completer (champs manquants).
+  // Utile pour une session de menage RH. Off par defaut.
+  const [incompletFilter, setIncompletFilter] = useState(false);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const today = todayStr();
@@ -364,6 +367,7 @@ export default function PersonnelEditor({
     // toute divergence quand la bascule quotidienne n'a pas encore ete faite.
     if (statutFilter && statutALaDate(r, today) !== statutFilter) return false;
     if (contratFilter && r.type_contrat !== contratFilter) return false;
+    if (incompletFilter && champsManquants(r).length === 0) return false;
     // Recherche globale : tous les mots doivent apparaitre dans une colonne cherchable.
     if (gTerms.length) {
       const hay = searchCols.map((c) => cellText(r, c.key)).join(" ");
@@ -390,6 +394,21 @@ export default function PersonnelEditor({
   // Libelle FR d'un code de contrat (respecte le parametrage Param. RH).
   const typeLabel = (code: string): string =>
     types.find((t) => t.code === code)?.libelle ?? (code === "INTERIM" ? "Intérim" : code);
+
+  // Fiche incomplete : 4 champs obligatoires pour une personne au travail.
+  // - equipe/atelier : sans, elle est invisible du planning / placement filtres.
+  // - livret : obligation legale + alerte 18 mois.
+  // - sexe : sert aux bilans (repartition H/F).
+  // Retourne la liste ordonnee des libelles manquants (vide = fiche complete).
+  const champsManquants = (r: Row): { key: "equipe_id" | "atelier_id" | "date_livret_accueil" | "sexe"; label: string }[] => {
+    const m: { key: "equipe_id" | "atelier_id" | "date_livret_accueil" | "sexe"; label: string }[] = [];
+    if (!r.equipe_id) m.push({ key: "equipe_id", label: "équipe" });
+    if (!r.atelier_id) m.push({ key: "atelier_id", label: "atelier" });
+    if (!r.date_livret_accueil) m.push({ key: "date_livret_accueil", label: "livret d'accueil" });
+    if (!r.sexe) m.push({ key: "sexe", label: "sexe" });
+    return m;
+  };
+  const champId = (id: string, key: string) => `pers-${id}-${key}`;
   // Colonnes Contrat + Statut : chips cliquables qui ouvrent la modale Cycle
   // de vie. Plus de select / toggle direct — les valeurs sont des resultantes.
   const chipBase: React.CSSProperties = {
@@ -433,6 +452,47 @@ export default function PersonnelEditor({
       </button>
     );
   };
+  // Pastille « fiche incomplete » : petit rond orange devant le nom, cliquable
+  // pour poser le focus sur le 1er champ vide de la ligne. Rien affiche si tout
+  // est renseigne. Tooltip liste ce qui manque.
+  const pastilleIncomplet = (r: Row) => {
+    const manques = champsManquants(r);
+    if (manques.length === 0) return null;
+    const focus = () => {
+      const el = document.getElementById(champId(r.id, manques[0].key));
+      if (el && "focus" in el) (el as HTMLElement).focus();
+    };
+    return (
+      <button
+        type="button"
+        onClick={canEdit ? focus : undefined}
+        title={`Fiche incomplète : ${manques.map((m) => m.label).join(", ")}${canEdit ? " — cliquer pour compléter" : ""}`}
+        aria-label={`Fiche incomplète : ${manques.map((m) => m.label).join(", ")}`}
+        style={{
+          width: 16,
+          height: 16,
+          margin: "0 6px 0 0",
+          padding: 0,
+          borderRadius: 999,
+          background: "#f59e0b",
+          color: "#fff",
+          border: "none",
+          fontSize: 11,
+          fontWeight: 700,
+          lineHeight: 1,
+          cursor: canEdit ? "pointer" : "help",
+          verticalAlign: "middle",
+        }}
+      >
+        !
+      </button>
+    );
+  };
+  // Nombre de fiches incompletes parmi les ACTIVES (les A_VENIR peuvent
+  // legitimement etre incompletes, on ne les compte pas ici).
+  const nbIncompletActifs = rows.filter(
+    (r) => statutALaDate(r, today) === "ACTIF" && champsManquants(r).length > 0,
+  ).length;
 
   return (
     <>
@@ -458,6 +518,28 @@ export default function PersonnelEditor({
             )}
           </span>
           <span className="hb-fin">
+            {nbIncompletActifs > 0 && !incompletFilter && (
+              <button
+                type="button"
+                onClick={() => setIncompletFilter(true)}
+                title="Voir les fiches actives à compléter"
+                style={{
+                  width: "auto",
+                  margin: 0,
+                  padding: "3px 10px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#78350f",
+                  background: "#fef3c7",
+                  border: "1px solid #fcd34d",
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ⚠ {nbIncompletActifs} à compléter
+              </button>
+            )}
             <span className="muted" style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
               {filtered.length === rows.length ? `${rows.length} personnes` : `${filtered.length} / ${rows.length}`}
             </span>
@@ -484,6 +566,20 @@ export default function PersonnelEditor({
                 <button type="button" className={statutFilter === "A_VENIR" ? "seg active" : "seg"} onClick={() => setStatutFilter("A_VENIR")}>À venir</button>
                 <button type="button" className={statutFilter === "ACTIF" ? "seg active" : "seg"} onClick={() => setStatutFilter("ACTIF")}>Actif</button>
                 <button type="button" className={statutFilter === "PARTI" ? "seg active" : "seg"} onClick={() => setStatutFilter("PARTI")}>Parti</button>
+              </div>
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="muted" style={{ fontWeight: 600, fontSize: 13 }}>Fiche</span>
+              <div className="segments">
+                <button type="button" className={!incompletFilter ? "seg active" : "seg"} onClick={() => setIncompletFilter(false)}>Toutes</button>
+                <button
+                  type="button"
+                  className={incompletFilter ? "seg active" : "seg"}
+                  onClick={() => setIncompletFilter(true)}
+                  title="Fiches avec champs manquants (équipe, atelier, livret, sexe)"
+                >
+                  ⚠ Incomplètes
+                </button>
               </div>
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -530,12 +626,15 @@ export default function PersonnelEditor({
                       <td style={{ textAlign: "center" }}>{contratChip(r)}</td>
                       <td><input value={r.matricule ?? ""} onChange={(e) => field(r.id, "matricule", e.target.value)} style={{ ...inp, ...C("matricule") }} /></td>
                       <td><input value={r.numero_badge ?? ""} onChange={(e) => field(r.id, "numero_badge", e.target.value)} style={{ ...inp, ...C("numero_badge") }} /></td>
-                      <td><input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={inp} /></td>
+                      <td style={{ position: "relative" }}>
+                        {pastilleIncomplet(r)}
+                        <input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={{ ...inp, width: `calc(100% - ${champsManquants(r).length ? 22 : 0}px)` }} />
+                      </td>
                       <td><input value={r.prenom} onChange={(e) => field(r.id, "prenom", e.target.value)} style={inp} /></td>
-                      <td><select value={r.sexe ?? ""} onChange={(e) => field(r.id, "sexe", e.target.value, true)} style={{ ...inp, ...C("sexe"), background: sexeBg(r.sexe), color: sexeFg(r.sexe), fontWeight: 600 }}><option value="">-</option><option value="H">H</option><option value="F">F</option></select></td>
-                      <td><select value={r.equipe_id ?? ""} onChange={(e) => field(r.id, "equipe_id", e.target.value, true)} style={{ ...inp, ...C("equipe"), ...eqStyle(r.equipe_id) }}><option value="">-</option>{equipes.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
-                      <td><select value={r.atelier_id ?? ""} onChange={(e) => field(r.id, "atelier_id", e.target.value, true)} style={{ ...inp, ...C("atelier") }}><option value="">-</option>{ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
-                      <td><input type="date" value={r.date_livret_accueil ?? ""} onChange={(e) => field(r.id, "date_livret_accueil", e.target.value, true)} style={inp} /></td>
+                      <td><select id={champId(r.id, "sexe")} value={r.sexe ?? ""} onChange={(e) => field(r.id, "sexe", e.target.value, true)} style={{ ...inp, ...C("sexe"), background: sexeBg(r.sexe), color: sexeFg(r.sexe), fontWeight: 600 }}><option value="">-</option><option value="H">H</option><option value="F">F</option></select></td>
+                      <td><select id={champId(r.id, "equipe_id")} value={r.equipe_id ?? ""} onChange={(e) => field(r.id, "equipe_id", e.target.value, true)} style={{ ...inp, ...C("equipe"), ...eqStyle(r.equipe_id) }}><option value="">-</option>{equipes.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
+                      <td><select id={champId(r.id, "atelier_id")} value={r.atelier_id ?? ""} onChange={(e) => field(r.id, "atelier_id", e.target.value, true)} style={{ ...inp, ...C("atelier") }}><option value="">-</option>{ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
+                      <td><input id={champId(r.id, "date_livret_accueil")} type="date" value={r.date_livret_accueil ?? ""} onChange={(e) => field(r.id, "date_livret_accueil", e.target.value, true)} style={inp} /></td>
                       <td style={{ textAlign: "center" }}><BoutonAbsences row={r} onOpen={() => setAbsFor(r)} /></td>
                       <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Livret d'accueil remis il y a ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
                       <td><input value={r.pointure ?? ""} maxLength={5} onChange={(e) => field(r.id, "pointure", e.target.value)} style={{ ...inp, ...C("pointure") }} /></td>
@@ -558,7 +657,7 @@ export default function PersonnelEditor({
                       <td style={{ textAlign: "center" }}>{contratChip(r)}</td>
                       <td style={{ textAlign: "center" }}>{r.matricule || "-"}</td>
                       <td style={{ textAlign: "center" }}>{r.numero_badge || "-"}</td>
-                      <td>{r.nom}</td>
+                      <td>{pastilleIncomplet(r)}{r.nom}</td>
                       <td>{r.prenom}</td>
                       <td style={{ textAlign: "center" }}><SexePill sexe={r.sexe} /></td>
                       <td style={{ textAlign: "center" }}>{equipeNom(r.equipe_id) || "-"}</td>
