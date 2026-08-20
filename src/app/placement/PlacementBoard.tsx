@@ -939,24 +939,27 @@ export default function PlacementBoard({
             {absPrint.length === 0 && <div className={s.printVide}>Aucun absent.</div>}
           </div>
         </div>
-        {siteNom && (
-          // Multi-tenant : le nom d'usine paraît en pied de page pour qu'une
-          // feuille imprimée d'un site ne puisse pas être confondue avec celle
-          // d'un autre.
-          <div
-            style={{
-              marginTop: 8,
-              paddingTop: 4,
-              borderTop: "1px solid #d9dce1",
-              fontSize: 11,
-              color: "#6b7280",
-              textAlign: "right",
-            }}
-          >
-            {siteNom}
-          </div>
-        )}
       </div>
+      {siteNom && (
+        // Multi-tenant : le nom d'usine paraît en pied de page pour qu'une
+        // feuille imprimée d'un site ne puisse pas être confondue avec celle
+        // d'un autre. Positionné en ABSOLU dans .printSheet (le cadre A4),
+        // hors de printInner qui est mesuré par ajusterFeuille — sinon un
+        // atelier dense (Condi 50 postes) fait déborder le contenu et rogne
+        // ce pied.
+        <div
+          style={{
+            position: "absolute",
+            bottom: 4,
+            right: 10,
+            fontSize: 10,
+            color: "#6b7280",
+            pointerEvents: "none",
+          }}
+        >
+          {siteNom}
+        </div>
+      )}
       </div>
       )}
 
