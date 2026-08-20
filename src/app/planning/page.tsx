@@ -21,6 +21,7 @@ import { getRotationRefsC } from "@/lib/refdata";
 import { rotationForWeek } from "@/lib/rotation";
 import { addMonthsIso } from "@/lib/habilitations";
 import { quartParDefaut, quartOuDefaut, memeQuart } from "@/lib/quarts";
+import { estAuTravailLe } from "@/lib/personne-statut";
 
 type PosteRow = {
   id: string;
@@ -35,7 +36,15 @@ type PosteRow = {
 type LigneRow = { id: string; nom: string; ordre_affichage: number; atelier: { id: string; nom: string } | null; poste: PosteRow[] };
 type Equipe = { id: string; nom: string; couleur: string; quart_fixe: string | null };
 type Quart = { code: string; libelle: string; ordre: number };
-type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; type_contrat: string };
+type Personne = {
+  id: string;
+  nom: string;
+  prenom: string;
+  equipe_id: string | null;
+  type_contrat: string;
+  date_arrivee: string | null;
+  date_depart_prevu: string | null;
+};
 type Placement = {
   personne_id: string;
   jour: string;
@@ -107,7 +116,11 @@ export default async function PlanningPage({
       .order("libelle")
       .returns<Motif[]>(),
     supabase.from("quart").select("code, libelle, ordre").order("ordre").returns<Quart[]>(),
-    supabase.from("personne").select("id, nom, prenom, equipe_id, type_contrat").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
+    // Fenetre de presence : date_arrivee / date_depart_prevu servent au filtre
+    // par dates cote client (cycle de vie 0049). Les personnes A_VENIR / PARTI
+    // ne sont deja pas ramenees par .eq("statut","ACTIF") ; ces bornes servent
+    // uniquement a masquer les cellules jour par jour dans la fenetre 3-semaines.
+    supabase.from("personne").select("id, nom, prenom, equipe_id, type_contrat, date_arrivee, date_depart_prevu").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
     canEditPlanningFull
       ? Promise.resolve({ data: [] as { equipe_id: string }[] })
       : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
@@ -406,6 +419,35 @@ export default async function PlanningPage({
             equipeCreneau = !!cr && dayOff.includes(cr);
           }
           if (journee || equipeCreneau) tpBlocked[`${r.id}:${d.iso}`] = true;
+        }
+      }
+    }
+  }
+
+  // Cycle de vie (0049) : on masque les cellules OU la personne n'est pas
+  // effectivement au travail — soit hors fenetre arrivee/depart, soit dans un
+  // trou entre deux contrats. On reutilise le mecanisme tpBlocked (case grisee,
+  // non cliquable) plutot qu'un canal separe : meme comportement visuel.
+  if (allIds.length && visIsos.length) {
+    const contratsData = await fetchAll<{ personne_id: string; date_debut: string | null; date_fin: string | null }>(() =>
+      supabase
+        .from("contrat_periode")
+        .select("personne_id, date_debut, date_fin")
+        .in("personne_id", allIds)
+        .order("id")
+        .returns<{ personne_id: string; date_debut: string | null; date_fin: string | null }[]>()
+    );
+    const contratsParPersonne = new Map<string, { date_debut: string | null; date_fin: string | null }[]>();
+    for (const r of contratsData) {
+      const arr = contratsParPersonne.get(r.personne_id) ?? [];
+      arr.push({ date_debut: r.date_debut, date_fin: r.date_fin });
+      contratsParPersonne.set(r.personne_id, arr);
+    }
+    for (const p of allActive) {
+      const contrats = contratsParPersonne.get(p.id) ?? [];
+      for (const d of visible) {
+        if (!estAuTravailLe({ date_arrivee: p.date_arrivee, date_depart_prevu: p.date_depart_prevu }, contrats, d.iso)) {
+          tpBlocked[`${p.id}:${d.iso}`] = true;
         }
       }
     }

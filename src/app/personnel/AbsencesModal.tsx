@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { libellePeriode, etatDepart, type PeriodeAbsence } from "@/lib/absences-periodes";
+import { libellePeriode, type PeriodeAbsence } from "@/lib/absences-periodes";
 import DateRangePicker from "@/components/DateRangePicker";
 import ModaleDeplacable from "@/components/ModaleDeplacable";
-import InfoBulle from "@/components/InfoBulle";
 import { SaveIcon, TrashIcon, EditIcon } from "@/components/icons";
 
 type Motif = { id: string; code_court: string; libelle: string; couleur: string };
@@ -21,7 +20,11 @@ type Edition = {
 };
 
 // Modale « Absences » de l'ecran Personnel : liste des absences (regroupees par
-// periodes reconstruites depuis les jours), edition inline, et depart prevu.
+// periodes reconstruites depuis les jours) et edition inline.
+//
+// NOTE : le bloc « Depart prevu » a demenage dans la modale Cycle de vie
+// (0049 / P02+P03+P04). Une absence est un evenement ponctuel ; un depart est
+// terminal — les melanger ici brouillait le sens.
 //
 // ⚠️ Le JSX de la ligne d'edition est INLINE (pas dans une fonction imbriquee) :
 // chaque re-render du parent recreerait une nouvelle reference de composant, et
@@ -30,17 +33,13 @@ type Edition = {
 export default function AbsencesModal({
   personne,
   motifs,
-  depart,
   canEdit,
   onClose,
-  onDepartChange,
 }: {
   personne: { id: string; label: string };
   motifs: Motif[];
-  depart: { date: string | null; motif: string | null };
   canEdit: boolean;
   onClose: () => void;
-  onDepartChange: (d: { date: string | null; motif: string | null }) => void;
 }) {
   const [periodes, setPeriodes] = useState<Periode[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -49,13 +48,7 @@ export default function AbsencesModal({
   const [ouvertPop, setOuvertPop] = useState<null | "motif" | "cal">(null);
   const [conflit, setConflit] = useState<{ jours: string[]; poursuivre: () => void } | null>(null);
 
-  // Depart prevu (enregistre a la volee).
-  const [dDate, setDDate] = useState(depart.date ?? "");
-  const [dMotif, setDMotif] = useState(depart.motif ?? "");
-  const [departEtat, setDepartEtat] = useState<"idle" | "saving" | "saved" | "error">("idle");
-
   const motifById = new Map(motifs.map((m) => [m.id, m]));
-  const aujourdhui = new Date().toISOString().slice(0, 10);
   const popRef = useRef<HTMLDivElement>(null);
   // Popover ancré au bouton en `position: fixed` : la carte de la modale est en
   // `overflow: auto`, un popover `absolute` y est rogné et crée un ascenseur
@@ -248,24 +241,6 @@ export default function AbsencesModal({
     setEnCours(false);
   }
 
-  async function enregistrerDepart(date: string, motif: string) {
-    setDepartEtat("saving");
-    try {
-      const res = await fetch("/api/personnel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "update", id: personne.id, patch: { date_depart_prevu: date, motif_depart: motif } }),
-      });
-      if (!res.ok) throw new Error();
-      setDepartEtat("saved");
-      onDepartChange({ date: date || null, motif: motif || null });
-      setTimeout(() => setDepartEtat("idle"), 1500);
-    } catch {
-      setDepartEtat("error");
-    }
-  }
-
-  const etat = etatDepart(dDate || null, aujourdhui);
 
   const m = edit?.motif_absence_id ? motifById.get(edit.motif_absence_id) : null;
   const periodeTxt = edit && edit.debut && edit.fin
@@ -380,27 +355,6 @@ export default function AbsencesModal({
           )}
         </tbody>
       </table>
-
-      {/* ---- Départ prévu ---- */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "14px 0 4px", flexWrap: "wrap" }}>
-        <strong style={{ fontSize: 14, display: "inline-flex", alignItems: "center" }}>
-          Départ prévu
-          <InfoBulle largeur={280}>
-            Date à laquelle la personne quitte l&apos;effectif (retraite, démission, fin de mission).
-            Le statut <strong>n&apos;est pas</strong> basculé automatiquement : la date sert d&apos;alerte,
-            la désactivation reste un geste volontaire.
-          </InfoBulle>
-        </strong>
-        {etat === "depasse" && <span className="rbadge danger">date dépassée</span>}
-        <input type="date" value={dDate} disabled={!canEdit} onChange={(e) => { setDDate(e.target.value); enregistrerDepart(e.target.value, dMotif); }} style={{ width: "auto", padding: "3px 6px", fontSize: 13 }} />
-        <input value={dMotif} disabled={!canEdit} placeholder="Retraite, démission, fin de mission…" onChange={(e) => setDMotif(e.target.value)} onBlur={() => enregistrerDepart(dDate, dMotif)} style={{ flex: 1, minWidth: 180, padding: "3px 6px", fontSize: 13 }} />
-        {dDate && canEdit && (
-          <button type="button" className="btn-sm btn-ghost" onClick={() => { setDDate(""); setDMotif(""); enregistrerDepart("", ""); }} style={{ width: "auto", padding: "2px 8px", fontSize: 12 }} title="Retirer le départ prévu">Retirer</button>
-        )}
-        <span style={{ fontSize: 12, fontWeight: 600, color: departEtat === "error" ? "var(--danger)" : "var(--ok)" }}>
-          {departEtat === "saving" ? "…" : departEtat === "saved" ? "Enregistré ✓" : departEtat === "error" ? "Échec" : ""}
-        </span>
-      </div>
 
       {conflit && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setConflit(null)}>

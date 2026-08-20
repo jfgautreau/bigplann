@@ -9,12 +9,13 @@ import { isoDate, mondayOf } from "@/lib/week";
 import { getRotationRefsC } from "@/lib/refdata";
 import { rotationForWeek, equipesParQuart } from "@/lib/rotation";
 import { addMonthsIso } from "@/lib/habilitations";
+import { estAuTravailLe } from "@/lib/personne-statut";
 import PlacementBoard from "./PlacementBoard";
 
 type Atelier = { id: string; nom: string };
 type Equipe = { id: string; nom: string; couleur: string | null; quart_fixe?: string | null };
 type Quart = { code: string; libelle: string; ordre: number };
-type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null; type_contrat: string };
+type Personne = { id: string; nom: string; prenom: string; equipe_id: string | null; atelier_id: string | null; type_contrat: string; date_arrivee: string | null; date_depart_prevu: string | null };
 type PosteRow = { id: string; nom: string; nom_court: string | null; actif: boolean; effectif_requis: number; niveau_min_requis: number; ordre_affichage: number; numero_rotation: string | null };
 type LigneRow = { id: string; nom: string; ordre_affichage: number; atelier_id: string; poste: PosteRow[] };
 type Placement = { personne_id: string; poste_id: string | null; motif_absence_id: string | null; non_travaille: boolean; quart_code: string | null; numero_rotation: string | null };
@@ -42,7 +43,7 @@ export default async function PlacementPage({
     supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
     supabase.from("equipe").select("id, nom, couleur, quart_fixe").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase.from("quart").select("code, libelle, ordre").order("ordre").returns<Quart[]>(),
-    supabase.from("personne").select("id, nom, prenom, equipe_id, atelier_id, type_contrat").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
+    supabase.from("personne").select("id, nom, prenom, equipe_id, atelier_id, type_contrat, date_arrivee, date_depart_prevu").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
     supabase.from("motif_absence").select("id, code_court, libelle, couleur").eq("actif", true).order("libelle").returns<Motif[]>(),
   ]);
 
@@ -50,7 +51,33 @@ export default async function PlacementPage({
   const equipes = equipesD ?? [];
   const quarts = quartsD ?? [];
   const quartCodes = quarts.map((q) => q.code);
-  const personnes = persD ?? [];
+  // Cycle de vie (0049) : on masque du placement les personnes qui ne sont pas
+  // effectivement au travail le jour choisi — hors fenetre arrivee/depart, ou
+  // dans un trou entre deux contrats. Les personnes A_VENIR / PARTI sont deja
+  // ecartees par .eq("statut","ACTIF") ; ce filtre supplementaire attrape les
+  // ACTIF-en-fenetre-mais-sans-contrat-le-jour-J.
+  const personnesActives = persD ?? [];
+  const idsPourContrat = personnesActives.map((p) => p.id);
+  const contratsMap = new Map<string, { date_debut: string | null; date_fin: string | null }[]>();
+  if (idsPourContrat.length) {
+    const { data: cpD } = await supabase
+      .from("contrat_periode")
+      .select("personne_id, date_debut, date_fin")
+      .in("personne_id", idsPourContrat)
+      .returns<{ personne_id: string; date_debut: string | null; date_fin: string | null }[]>();
+    for (const r of cpD ?? []) {
+      const arr = contratsMap.get(r.personne_id) ?? [];
+      arr.push({ date_debut: r.date_debut, date_fin: r.date_fin });
+      contratsMap.set(r.personne_id, arr);
+    }
+  }
+  const personnes = personnesActives.filter((p) =>
+    estAuTravailLe(
+      { date_arrivee: p.date_arrivee, date_depart_prevu: p.date_depart_prevu },
+      contratsMap.get(p.id) ?? [],
+      jour,
+    ),
+  );
   const motifs = motifsD ?? [];
 
   const quart = sp.quart && quartCodes.includes(sp.quart) ? sp.quart : quartParDefaut(quarts);

@@ -1,19 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import ToggleSwitch from "@/components/ToggleSwitch";
 import PageTitle from "@/components/PageTitle";
 import ConfirmForm from "@/components/ConfirmForm";
 import TempsPartielModal from "./TempsPartielModal";
-import ContratsModal from "./ContratsModal";
+import CycleDeVieModal from "./CycleDeVieModal";
 import { anonymiserPersonne, supprimerPersonne } from "./actions";
 import BandeauErreur from "@/components/BandeauErreur";
 import { normaliseNom, normalisePrenom } from "@/lib/noms";
 import AbsencesModal from "./AbsencesModal";
-import { AbsenceIcon, SearchIcon, InfoIcon, GearIcon } from "@/components/icons";
+import { AbsenceIcon, InfoIcon, GearIcon } from "@/components/icons";
 import { etatDepart } from "@/lib/absences-periodes";
+import { statutALaDate, libelleStatut, couleurStatut, type StatutPersonne } from "@/lib/personne-statut";
 
 type HMap = Record<string, { debut: string; fin: string }>;
 type TpConfig = { demi?: { mode: string; source: string; matin?: HMap; aprem?: HMap }; off?: Record<string, string[]>; horaires?: HMap };
@@ -28,6 +28,7 @@ type Row = {
   numero_badge: string | null;
   date_livret_accueil: string | null;
   type_contrat: string;
+  date_arrivee: string | null;
   date_debut: string | null;
   date_fin: string | null;
   contrat_debut: string | null;
@@ -174,7 +175,10 @@ export default function PersonnelEditor({
   const [dup, setDup] = useState<Row[] | null>(null);
   const [contratFilter, setContratFilter] = useState("");
   const [tpFor, setTpFor] = useState<Row | null>(null);
-  const [contratsFor, setContratsFor] = useState<Row | null>(null);
+  // Modale « Cycle de vie » : rassemble Arrivee + Contrats + Depart. Ouverte
+  // au clic sur la colonne Contrat OU sur la colonne Statut d'une ligne. Les
+  // deux colonnes deviennent des resultantes non editables directement.
+  const [cycleFor, setCycleFor] = useState<Row | null>(null);
   const [absFor, setAbsFor] = useState<Row | null>(null);
   const [infoFor, setInfoFor] = useState<Row | null>(null);
   const [rgpdFor, setRgpdFor] = useState<Row | null>(null);
@@ -184,10 +188,10 @@ export default function PersonnelEditor({
   const [merging, setMerging] = useState(false);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showCreate, setShowCreate] = useState(false);
-  // Defaut ACTIF a l'ouverture : la liste montre l'effectif au travail (~228 sur 268)
-  // au lieu de tout melanger. Un clic sur « Tous » ou « Parti » reste possible, mais
-  // le choix ne persiste pas d'une visite a l'autre : au retour, on repart sur Actif.
-  const [statutFilter, setStatutFilter] = useState<"" | "ACTIF" | "PARTI">("ACTIF");
+  // Defaut ACTIF a l'ouverture : la liste montre l'effectif au travail au lieu
+  // de tout melanger. Un clic sur « Tous », « A venir » ou « Parti » reste
+  // possible, sans persister d'une visite a l'autre.
+  const [statutFilter, setStatutFilter] = useState<"" | "A_VENIR" | "ACTIF" | "PARTI">("ACTIF");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const today = todayStr();
@@ -203,6 +207,9 @@ export default function PersonnelEditor({
   const [contrat, setContrat] = useState("INTERIM");
   const [livret, setLivret] = useState("");
   const [pointure, setPointure] = useState("");
+  // Date d'arrivee saisie a la creation. Defaut = aujourd'hui, editable pour
+  // anticiper une embauche (la personne restera A_VENIR jusqu'au jour J).
+  const [dateArrivee, setDateArrivee] = useState(todayStr());
 
   const equipeNom = (id: string | null) => (id ? equipes.find((e) => e.id === id)?.nom ?? "" : "");
   const atelierNom = (id: string | null) => (id ? ateliers.find((a) => a.id === id)?.nom ?? "" : "");
@@ -253,11 +260,22 @@ export default function PersonnelEditor({
     setRow(id, (r) => ({ ...r, [key]: value }));
     schedule(`${id}:${key}`, () => post("update", { id, patch: { [key]: value } }), instant ? 0 : 500);
   }
-  function toggleStatut(id: string, actif: boolean) {
-    const statut = actif ? "ACTIF" : "PARTI";
-    setRow(id, (r) => ({ ...r, statut }));
-    post("toggle-statut", { id, statut });
-  }
+  // Rafraichissement initial du cache statut : rattrape les bascules
+  // automatiques du jour (A_VENIR -> ACTIF a l'arrivee, ACTIF -> PARTI le
+  // lendemain du depart). Idempotent, no-op si tout est deja a jour.
+  useEffect(() => {
+    fetch("/api/personnel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "refresh-statuts" }),
+    })
+      .then((r) => r.json().catch(() => ({})))
+      .then((j) => {
+        if ((j as { changes?: number })?.changes) router.refresh();
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fusion de doublons : selection de 2 lignes max.
   function toggleSel(id: string) {
@@ -285,19 +303,26 @@ export default function PersonnelEditor({
 
   async function doCreate() {
     setDup(null);
+    // La 1re periode de contrat prend la date d'arrivee comme date_debut, pour
+    // que l'historique de contrats et la vraie date d'entree partent du meme point.
+    const dateDebutContrat = dateArrivee || today;
     const j = await post("create", {
       nom: nom.trim(), prenom: prenom.trim(), sexe, matricule, numero_badge: badge,
-      equipe_id: eq, atelier_id: at, type_contrat: contrat, date_debut: today,
+      equipe_id: eq, atelier_id: at, type_contrat: contrat,
+      date_arrivee: dateArrivee || today,
+      date_debut: dateDebutContrat,
       date_livret_accueil: livret, pointure,
     });
     if (j?.row) {
       const created: Row = {
         ...(j.row as Row), atelier_id: at || null, sexe: sexe || null, numero_badge: badge || null,
-        date_livret_accueil: livret || null, date_debut: today, contrat_debut: today,
+        date_livret_accueil: livret || null,
+        date_arrivee: dateArrivee || today,
+        date_debut: dateDebutContrat, contrat_debut: dateDebutContrat,
       };
       setRows((rs) => [...rs, created].sort(sortRows));
       setNom(""); setPrenom(""); setSexe(""); setMatricule(""); setBadge("");
-      setEq(""); setAt(""); setContrat("INTERIM"); setLivret(""); setPointure("");
+      setEq(""); setAt(""); setContrat("INTERIM"); setLivret(""); setPointure(""); setDateArrivee(todayStr());
       setShowCreate(false);
       // Purge du cache RSC : sans ca, une navigation puis un retour sur
       // /personnel repartait des donnees serveur mises en cache et le nouveau
@@ -325,14 +350,19 @@ export default function PersonnelEditor({
       case "equipe": return equipeNom(r.equipe_id).toLowerCase();
       case "atelier": return atelierNom(r.atelier_id).toLowerCase();
       case "pointure": return (r.pointure ?? "").toLowerCase();
-      case "statut": return (r.statut === "ACTIF" ? "actif" : "parti");
+      case "statut": {
+        const s = statutALaDate(r, today);
+        return s === "ACTIF" ? "actif" : s === "A_VENIR" ? "a venir" : "parti";
+      }
       default: return "";
     }
   };
   const searchCols = COLS.filter((c) => c.search);
   const gTerms = gq.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const filtered = rows.filter((r) => {
-    if (statutFilter && r.statut !== statutFilter) return false;
+    // On compare au statut CALCULE (source de verite), pas au cache : evite
+    // toute divergence quand la bascule quotidienne n'a pas encore ete faite.
+    if (statutFilter && statutALaDate(r, today) !== statutFilter) return false;
     if (contratFilter && r.type_contrat !== contratFilter) return false;
     // Recherche globale : tous les mots doivent apparaitre dans une colonne cherchable.
     if (gTerms.length) {
@@ -356,6 +386,53 @@ export default function PersonnelEditor({
     </colgroup>
   );
   const tableStyle: React.CSSProperties = { width: "100%", tableLayout: "fixed", margin: 0, borderCollapse: "collapse" };
+
+  // Libelle FR d'un code de contrat (respecte le parametrage Param. RH).
+  const typeLabel = (code: string): string =>
+    types.find((t) => t.code === code)?.libelle ?? (code === "INTERIM" ? "Intérim" : code);
+  // Colonnes Contrat + Statut : chips cliquables qui ouvrent la modale Cycle
+  // de vie. Plus de select / toggle direct — les valeurs sont des resultantes.
+  const chipBase: React.CSSProperties = {
+    display: "inline-block",
+    width: "auto",
+    margin: 0,
+    padding: "3px 10px",
+    border: "1px solid transparent",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: canEdit ? "pointer" : "default",
+    lineHeight: 1.5,
+    whiteSpace: "nowrap",
+  };
+  const contratChip = (r: Row) => {
+    const bg = r.type_contrat === "INTERIM" ? "#fde68a" : "#e0e7ff";
+    const fg = r.type_contrat === "INTERIM" ? "#92400e" : "#3730a3";
+    return (
+      <button
+        type="button"
+        onClick={() => canEdit && setCycleFor(r)}
+        style={{ ...chipBase, background: bg, color: fg, borderColor: bg }}
+        title={canEdit ? "Ouvrir le cycle de vie (contrats, arrivée, départ)" : typeLabel(r.type_contrat)}
+      >
+        {typeLabel(r.type_contrat)}
+      </button>
+    );
+  };
+  const statutChip = (r: Row) => {
+    const s = statutALaDate(r, today) as StatutPersonne;
+    const c = couleurStatut(s);
+    return (
+      <button
+        type="button"
+        onClick={() => canEdit && setCycleFor(r)}
+        style={{ ...chipBase, background: c.bg, color: c.fg, borderColor: c.bg }}
+        title={canEdit ? "Ouvrir le cycle de vie (contrats, arrivée, départ)" : libelleStatut(s)}
+      >
+        {libelleStatut(s)}
+      </button>
+    );
+  };
 
   return (
     <>
@@ -404,6 +481,7 @@ export default function PersonnelEditor({
               <span className="muted" style={{ fontWeight: 600, fontSize: 13 }}>Statut</span>
               <div className="segments">
                 <button type="button" className={statutFilter === "" ? "seg active" : "seg"} onClick={() => setStatutFilter("")}>Tous</button>
+                <button type="button" className={statutFilter === "A_VENIR" ? "seg active" : "seg"} onClick={() => setStatutFilter("A_VENIR")}>À venir</button>
                 <button type="button" className={statutFilter === "ACTIF" ? "seg active" : "seg"} onClick={() => setStatutFilter("ACTIF")}>Actif</button>
                 <button type="button" className={statutFilter === "PARTI" ? "seg active" : "seg"} onClick={() => setStatutFilter("PARTI")}>Parti</button>
               </div>
@@ -446,10 +524,10 @@ export default function PersonnelEditor({
             {filtered.map((r) => {
               const a18 = alerte18(r);
               return (
-                <tr key={r.id} style={{ opacity: r.statut === "ACTIF" ? 1 : 0.55 }}>
+                <tr key={r.id} style={{ opacity: statutALaDate(r, today) === "ACTIF" ? 1 : 0.55 }}>
                   {canEdit ? (
                     <>
-                      <td><select value={r.type_contrat} onChange={(e) => field(r.id, "type_contrat", e.target.value, true)} style={{ ...inp, ...C("type_contrat"), ...interimStyle(r.type_contrat) }}>{types.map((c) => (<option key={c.code} value={c.code}>{c.libelle}</option>))}{r.type_contrat && !types.some((c) => c.code === r.type_contrat) && (<option value={r.type_contrat}>{r.type_contrat}</option>)}</select></td>
+                      <td style={{ textAlign: "center" }}>{contratChip(r)}</td>
                       <td><input value={r.matricule ?? ""} onChange={(e) => field(r.id, "matricule", e.target.value)} style={{ ...inp, ...C("matricule") }} /></td>
                       <td><input value={r.numero_badge ?? ""} onChange={(e) => field(r.id, "numero_badge", e.target.value)} style={{ ...inp, ...C("numero_badge") }} /></td>
                       <td><input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={inp} /></td>
@@ -468,17 +546,16 @@ export default function PersonnelEditor({
                           <button type="button" className="btn-sm btn-ghost" onClick={() => setTpFor(r)} style={{ padding: "2px 6px" }} title="Activer le temps partiel">TP…</button>
                         )}
                       </td>
-                      <td><ToggleSwitch on={r.statut === "ACTIF"} onChange={(v) => toggleStatut(r.id, v)} onLabel="Actif" offLabel="Parti" title="Actif / Parti" /></td>
+                      <td style={{ textAlign: "center" }}>{statutChip(r)}</td>
                       <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                         <input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleSel(r.id)} disabled={!sel.has(r.id) && sel.size >= 2} title="Sélectionner pour fusionner (2 max)" style={{ width: "auto", marginRight: 6, verticalAlign: "middle" }} />
-                        <button type="button" className="iconbtn" title="Périodes de contrat" onClick={() => setContratsFor(r)}><SearchIcon /></button>
                         <button type="button" className="iconbtn" title="Informations (commentaire)" onClick={() => setInfoFor(r)}><InfoIcon /></button>
                         <button type="button" className="iconbtn" title="RGPD (export / anonymiser / supprimer)" onClick={() => setRgpdFor(r)}><GearIcon /></button>
                       </td>
                     </>
                   ) : (
                     <>
-                      <td style={{ textAlign: "center" }}>{r.type_contrat === "INTERIM" ? <span className="sexe-pill" style={{ background: "#fde68a", color: "#92400e" }}>Intérim</span> : r.type_contrat}</td>
+                      <td style={{ textAlign: "center" }}>{contratChip(r)}</td>
                       <td style={{ textAlign: "center" }}>{r.matricule || "-"}</td>
                       <td style={{ textAlign: "center" }}>{r.numero_badge || "-"}</td>
                       <td>{r.nom}</td>
@@ -491,7 +568,7 @@ export default function PersonnelEditor({
                       <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Livret d'accueil remis il y a ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
                       <td style={{ textAlign: "center" }}>{r.pointure || "-"}</td>
                       <td style={{ textAlign: "center" }}>{r.temps_partiel ? <span className="sexe-pill" style={{ background: "#e0e7ff", color: "#3730a3" }}>TP</span> : <span className="muted">—</span>}</td>
-                      <td><span className={r.statut === "ACTIF" ? "tag" : "tag tag-off"}>{r.statut === "ACTIF" ? "Actif" : "Parti"}</span></td>
+                      <td style={{ textAlign: "center" }}>{statutChip(r)}</td>
                     </>
                   )}
                 </tr>
@@ -519,31 +596,39 @@ export default function PersonnelEditor({
         <AbsencesModal
           personne={{ id: absFor.id, label: `${absFor.nom} ${absFor.prenom}` }}
           motifs={motifs}
-          depart={{ date: absFor.date_depart_prevu, motif: absFor.motif_depart }}
           canEdit={canEdit}
           onClose={() => setAbsFor(null)}
-          onDepartChange={(d) =>
-            setRow(absFor.id, (r) => ({ ...r, date_depart_prevu: d.date, motif_depart: d.motif }))
-          }
         />
       )}
 
-      {contratsFor && (
-        <ContratsModal
-          personne={{ id: contratsFor.id, label: `${contratsFor.nom} ${contratsFor.prenom}` }}
-          onClose={() => setContratsFor(null)}
-          onSync={(reflet) =>
+      {cycleFor && (
+        <CycleDeVieModal
+          personne={{
+            id: cycleFor.id,
+            label: `${cycleFor.nom} ${cycleFor.prenom}`,
+            date_arrivee: cycleFor.date_arrivee,
+            date_depart_prevu: cycleFor.date_depart_prevu,
+            motif_depart: cycleFor.motif_depart,
+            statut: cycleFor.statut,
+          }}
+          canEdit={canEdit}
+          onClose={() => setCycleFor(null)}
+          onSync={(u) =>
             setRows((rs) =>
               rs.map((r) =>
-                r.id === contratsFor.id
+                r.id === cycleFor.id
                   ? {
                       ...r,
-                      type_contrat: reflet.type_contrat,
-                      date_fin: reflet.date_fin,
-                      contrat_debut: reflet.contrat_debut,
+                      ...(u.date_arrivee !== undefined ? { date_arrivee: u.date_arrivee } : {}),
+                      ...(u.date_depart_prevu !== undefined ? { date_depart_prevu: u.date_depart_prevu } : {}),
+                      ...(u.motif_depart !== undefined ? { motif_depart: u.motif_depart } : {}),
+                      ...(u.statut !== undefined ? { statut: u.statut } : {}),
+                      ...(u.type_contrat !== undefined ? { type_contrat: u.type_contrat } : {}),
+                      ...(u.date_fin !== undefined ? { date_fin: u.date_fin } : {}),
+                      ...(u.contrat_debut !== undefined ? { contrat_debut: u.contrat_debut } : {}),
                     }
-                  : r
-              )
+                  : r,
+              ),
             )
           }
         />
@@ -690,6 +775,10 @@ export default function PersonnelEditor({
                 <select value={at} onChange={(e) => setAt(e.target.value)}>
                   <option value="">-</option>{ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}
                 </select>
+              </div>
+              <div className="field">
+                <span>Date d&apos;arrivée</span>
+                <input type="date" value={dateArrivee} onChange={(e) => setDateArrivee(e.target.value)} title="Date d'entrée dans l'effectif. Peut être dans le futur (À venir jusqu'au jour J)." />
               </div>
               <div className="field">
                 <span>Livret accueil</span>

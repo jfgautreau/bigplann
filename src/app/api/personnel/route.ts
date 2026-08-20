@@ -7,9 +7,13 @@ import { normaliseNom, normalisePrenom } from "@/lib/noms";
 
 // POST /api/personnel { op, ... }
 // Saisie inline du personnel. Ecriture admin (RLS personne).
-// Ops : create | update | toggle-statut
+// Ops : create | update | refresh-statuts
 //       | periode-list | periode-create | periode-update | periode-delete
-const COLS = "id, matricule, nom, prenom, equipe_id, type_contrat, date_fin, pointure, statut";
+//
+// NOTE cycle de vie (migration 0049) : le champ `statut` n'est plus editable
+// directement. Un trigger DB le recalcule a chaque INSERT/UPDATE a partir de
+// (date_arrivee, date_depart_prevu). L'op `toggle-statut` a donc ete retiree.
+const COLS = "id, matricule, nom, prenom, equipe_id, type_contrat, date_arrivee, date_fin, pointure, statut";
 const PERIODE_COLS = "id, personne_id, type_contrat, agence_interim, date_debut, date_fin, commentaire, motif";
 // Codes de contrat historiques (fallback si la table `type_contrat` de la
 // migration 0040 n'existe pas encore) : on garde le comportement d'origine.
@@ -122,6 +126,10 @@ export async function POST(req: NextRequest) {
       // desormais de vraies erreurs, laissant une personne a moitie creee.
       // Tout part maintenant dans le MEME insert.
       const sexe = s(body.sexe);
+      // Date d'arrivee : celle explicitement saisie, sinon celle du 1er contrat,
+      // sinon la date du jour. Le trigger `statut_auto` deduit A_VENIR / ACTIF
+      // a partir de cette date : une arrivee dans le futur donne A_VENIR d'office.
+      const dateArrivee = orNull(s(body.date_arrivee)) ?? orNull(s(body.date_debut)) ?? new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("personne")
         .insert({
@@ -132,6 +140,7 @@ export async function POST(req: NextRequest) {
           type_contrat,
           matricule,
           agence_interim: type_contrat === "INTERIM" ? orNull(s(body.agence_interim)) : null,
+          date_arrivee: dateArrivee,
           date_debut: orNull(s(body.date_debut)),
           date_fin: orNull(s(body.date_fin)),
           pointure: orNull(s(body.pointure)),
@@ -188,9 +197,13 @@ export async function POST(req: NextRequest) {
           case "commentaire":
           // Départ prévu : date à laquelle la personne quitte l'effectif.
           // Distinct de `date_fin`, qui est le reflet — réécrit automatiquement —
-          // de la période de contrat la plus récente (cf. migration 0039).
+          // de la période de contrat la plus récente (cf. migration 0039). Le
+          // trigger 0049 en deduit le statut PARTI a partir de cette date.
           case "date_depart_prevu":
           case "motif_depart":
+          // Date d'arrivee dans l'effectif (0049). Peut etre dans le futur : le
+          // trigger passe la personne A_VENIR et la basculera ACTIF le jour J.
+          case "date_arrivee":
             patch[k] = orNull(s(v));
             break;
           case "type_contrat":
@@ -207,12 +220,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    if (op === "toggle-statut") {
-      const id = s(body.id);
-      const statut = s(body.statut) === "PARTI" ? "PARTI" : "ACTIF";
-      const { error } = await supabase.from("personne").update({ statut }).eq("id", id);
+    // Rafraichit le cache statut de toutes les personnes du site : appelable au
+    // chargement de /personnel pour rattraper les bascules automatiques du jour
+    // (A_VENIR -> ACTIF au jour d'arrivee, ACTIF -> PARTI le lendemain du depart).
+    // Idempotent, no-op si tous les caches sont a jour.
+    if (op === "refresh-statuts") {
+      const { data, error } = await supabase.rpc("rafraichir_statuts_personnes", {
+        p_site: profile.siteId,
+      });
       if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, changes: data ?? 0 });
     }
 
     // Agences d'interim actives, pour le menu deroulant des periodes de contrat.

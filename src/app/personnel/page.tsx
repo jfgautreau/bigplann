@@ -19,6 +19,7 @@ type Row = {
   numero_badge: string | null;
   date_livret_accueil: string | null;
   type_contrat: string;
+  date_arrivee: string | null;
   date_debut: string | null;
   date_fin: string | null;
   date_depart_prevu: string | null;
@@ -36,7 +37,7 @@ type TpConfig = { demi?: { mode: string; source: string; matin?: HMap; aprem?: H
 
 const COLS_PERSONNE =
   "id, matricule, nom, prenom, equipe_id, atelier_id, sexe, numero_badge, date_livret_accueil, " +
-  "type_contrat, date_debut, date_fin, pointure, commentaire, statut, temps_partiel, tp_type, tp_config, " +
+  "type_contrat, date_arrivee, date_debut, date_fin, pointure, commentaire, statut, temps_partiel, tp_type, tp_config, " +
   // Départ prévu (migration 0039) : distinct de `date_fin`, qui est le reflet
   // automatique de la période de contrat la plus récente.
   "date_depart_prevu, motif_depart";
