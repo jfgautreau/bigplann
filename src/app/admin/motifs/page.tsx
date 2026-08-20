@@ -41,7 +41,7 @@ export default async function MotifsPage({
     supabase.from("motif_absence").select("id, libelle, code_court, couleur, actif").order("libelle").returns<Motif[]>(),
     supabase.from("agence_interim").select("id, nom, actif").order("nom").returns<Agence[]>(),
     supabase.from("type_contrat").select("code, libelle, actif, ordre").order("ordre").returns<TypeContrat[]>(),
-    supabase.from("parametre_affichage").select("jours_avant, jours_apres").eq("id", 1).maybeSingle<FenetreAffichage>(),
+    supabase.from("parametre_affichage").select("jours_avant, jours_apres").maybeSingle<FenetreAffichage>(),
   ]);
   const motifs = data ?? [];
   const agences = agencesR.data ?? [];

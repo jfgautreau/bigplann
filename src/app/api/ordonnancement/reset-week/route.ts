@@ -15,6 +15,12 @@ export async function POST(req: NextRequest) {
   const garde = await moduleWriteGuard("ordonnancement");
   if (!garde.ok) return NextResponse.json({ error: garde.error }, { status: garde.status });
   const supabase = garde.supabase;
+  // Multi-site : le client admin (service_role) n'a pas d'auth.uid(), donc
+  // le trigger set_site_id_from_context tombe en fallback sur le site
+  // « Lebignon » code en dur (0043 ligne 602). On force le site du profil
+  // pour que les ecritures partent dans le bon site — meme correctif que
+  // creer_absence en 0044.
+  const site_id = garde.profile.siteId;
 
   const body = (await req.json().catch(() => null)) as { isos?: string[]; profil_id?: string } | null;
   const isos = (body?.isos ?? []).filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s));
@@ -51,25 +57,31 @@ export async function POST(req: NextRequest) {
 
   // 1) Quarts actifs <- gabarit.
   const rows = isos.flatMap((iso) =>
-    quarts.map((code) => ({ jour: iso, quart_code: code, actif: typeQuartActif(type, iso, code) }))
+    quarts.map((code) => ({ jour: iso, quart_code: code, actif: typeQuartActif(type, iso, code), site_id }))
   );
   const { error: e1 } = await supabase
     .from("jour_quart")
     .upsert(rows, { onConflict: "jour,quart_code" });
   if (e1) return NextResponse.json({ error: e1.message }, { status: 403 });
 
-  // 2) Ouverture des lignes : on efface les exceptions de ces jours...
-  const { error: e2 } = await supabase.from("ouverture_quart").delete().in("jour", isos);
+  // 2) Ouverture des lignes : on efface les exceptions de ces jours du site
+  //    courant (le filtre site_id evite d'emporter les fermetures d'autres sites
+  //    en cas d'usage service_role).
+  const { error: e2 } = await supabase
+    .from("ouverture_quart")
+    .delete()
+    .in("jour", isos)
+    .eq("site_id", site_id);
   if (e2) return NextResponse.json({ error: e2.message }, { status: 403 });
 
   // ...puis on re-pose les fermetures definies par le gabarit (absence = ouvert).
-  const fermetures: { jour: string; quart_code: string; ligne_id: string; ouverte: boolean }[] = [];
+  const fermetures: { jour: string; quart_code: string; ligne_id: string; ouverte: boolean; site_id: string }[] = [];
   for (const iso of isos) {
     const dow = dowMon(iso);
     for (const [key, ouverte] of Object.entries(ouvType)) {
       if (ouverte) continue; // ouvert = defaut, rien a ecrire
       const [quart_code, ligne_id, j] = key.split(":");
-      if (Number(j) === dow) fermetures.push({ jour: iso, quart_code, ligne_id, ouverte: false });
+      if (Number(j) === dow) fermetures.push({ jour: iso, quart_code, ligne_id, ouverte: false, site_id });
     }
   }
   if (fermetures.length > 0) {

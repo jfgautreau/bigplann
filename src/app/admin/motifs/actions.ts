@@ -115,16 +115,21 @@ export async function toggleTypeContrat(fd: FormData) {
   done(error);
 }
 
-// ----- Fenetre d'affichage du planning (migration 0040) -----
-// Reglage global : deux entiers (jours_avant, jours_apres) partages par toute
-// l'appli. Upsert sur le singleton `id = 1`.
+// ----- Fenetre d'affichage du planning (migration 0040, PK site_id depuis 0051) -----
+// Un enregistrement par site. Le client admin bypass la RLS : on passe site_id
+// explicitement pour ne pas ecrire dans la ligne d'un autre site.
 
 export async function updateFenetreAffichage(fd: FormData) {
+  const { getCurrentSite } = await import("@/lib/current-site");
+  const site = await getCurrentSite();
   const supabase = await requireModuleWrite("motifs");
   const avant = Math.max(0, Math.min(14, Number(s(fd, "jours_avant") || "1")));
   const apres = Math.max(0, Math.min(30, Number(s(fd, "jours_apres") || "4")));
   const { error } = await supabase
     .from("parametre_affichage")
-    .upsert({ id: 1, jours_avant: avant, jours_apres: apres, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    .upsert(
+      { site_id: site.id, jours_avant: avant, jours_apres: apres, updated_at: new Date().toISOString() },
+      { onConflict: "site_id" },
+    );
   done(error);
 }

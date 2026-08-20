@@ -90,7 +90,21 @@ export async function createSite(fd: FormData): Promise<void> {
     }
   }
 
-  // 4) Génère le lien de mot de passe à transmettre
+  // 4) Seed les données de base du site
+  //    - parametre_affichage : fenêtre d'affichage TV (J-1 → J+4 par défaut)
+  //    Les quarts sont globaux (table partagée) → pas besoin de seeder.
+  //    Les motifs / types de contrat / rôles sont visibles via site_id IS NULL.
+  //    Le référentiel local (ateliers, lignes, postes, équipes) est propre à
+  //    chaque usine et sera saisi par l'admin local.
+  const { error: seedErr } = await admin
+    .from("parametre_affichage")
+    .insert({ site_id: site.id, jours_avant: 1, jours_apres: 4 });
+  if (seedErr) {
+    console.error("[createSite] seed parametre_affichage :", seedErr.message);
+    // Non bloquant : le site fonctionne avec les valeurs par défaut.
+  }
+
+  // 5) Génère le lien de mot de passe à transmettre
   let lien = "";
   try {
     const h = await headers();

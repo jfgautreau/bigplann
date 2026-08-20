@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek?: boolean };
 type Item = { id: string; label: string };
@@ -34,6 +35,7 @@ export default function OrdoGrid({
   profils?: Profil[];
   canEdit?: boolean;
 }) {
+  const router = useRouter();
   const [jq, setJq] = useState<Record<string, boolean>>(jourQuartState);
   const [ov, setOv] = useState<Record<string, boolean>>(ouvertureState);
   const [saving, setSaving] = useState(false);
@@ -88,6 +90,10 @@ export default function OrdoGrid({
           for (const key of j.fermetures ?? []) n[key] = false;
           return n;
         });
+        // Invalide le cache RSC : sans ca, une navigation « menu autre puis
+        // retour » servait la page mise en cache AVANT l'initialisation, et
+        // l'ecran redemarrait vide alors que la base etait bien ecrite.
+        router.refresh();
       } else {
         setErreur(j.error ?? "Échec.");
       }
@@ -113,6 +119,10 @@ export default function OrdoGrid({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         rollback();
         setErreur(j.error ?? "Échec.");
+      } else {
+        // Meme raison qu'apres applyProfil : invalide le cache RSC pour
+        // qu'un aller-retour de menu revoie l'etat frais depuis la base.
+        router.refresh();
       }
     } finally {
       setSaving(false);

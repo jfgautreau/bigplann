@@ -1,10 +1,11 @@
 import { getServerClient } from "@/lib/supabase-server";
 
 // Parametres d'affichage du planning (fenetre glissante autour d'aujourd'hui).
-// Un seul enregistrement partage par toute l'appli (cf. migration 0040).
+// Une ligne par site (PK site_id depuis la migration 0051). La RLS filtre
+// automatiquement sur le site courant.
 export type FenetreAffichage = { jours_avant: number; jours_apres: number };
 
-const DEFAUT: FenetreAffichage = { jours_avant: 1, jours_apres: 4 };
+export const FENETRE_DEFAUT: FenetreAffichage = { jours_avant: 1, jours_apres: 4 };
 
 export async function getFenetreAffichage(): Promise<FenetreAffichage> {
   try {
@@ -12,12 +13,10 @@ export async function getFenetreAffichage(): Promise<FenetreAffichage> {
     const { data, error } = await supabase
       .from("parametre_affichage")
       .select("jours_avant, jours_apres")
-      .eq("id", 1)
       .maybeSingle<FenetreAffichage>();
-    if (error || !data) return DEFAUT;
+    if (error || !data) return FENETRE_DEFAUT;
     return { jours_avant: data.jours_avant, jours_apres: data.jours_apres };
   } catch {
-    // Migration 0040 non appliquee : on retombe sur J-1 / J+4 pour ne pas casser.
-    return DEFAUT;
+    return FENETRE_DEFAUT;
   }
 }

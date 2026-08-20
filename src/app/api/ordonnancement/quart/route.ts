@@ -10,6 +10,9 @@ export async function POST(req: NextRequest) {
   const garde = await moduleWriteGuard("ordonnancement");
   if (!garde.ok) return NextResponse.json({ error: garde.error }, { status: garde.status });
   const supabase = garde.supabase;
+  // Multi-site : voir /api/ordonnancement/reset-week pour la meme raison.
+  // Force le site_id du profil sur toute ligne inseree via service_role.
+  const site_id = garde.profile.siteId;
 
   const body = (await req.json().catch(() => null)) as {
     type?: string;
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
     ({ error } = await supabase
       .from("jour_quart")
-      .upsert({ jour, quart_code, actif: value }, { onConflict: "jour,quart_code" }));
+      .upsert({ jour, quart_code, actif: value, site_id }, { onConflict: "jour,quart_code" }));
   } else if (type === "ligne") {
     if (!ligne_id) return NextResponse.json({ error: "Ligne requise" }, { status: 400 });
     // Blocage symetrique pour la fermeture d'une ligne : on regarde s'il y a
@@ -77,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
     ({ error } = await supabase
       .from("ouverture_quart")
-      .upsert({ jour, ligne_id, quart_code, ouverte: value }, { onConflict: "jour,ligne_id,quart_code" }));
+      .upsert({ jour, ligne_id, quart_code, ouverte: value, site_id }, { onConflict: "jour,ligne_id,quart_code" }));
   } else {
     return NextResponse.json({ error: "Type invalide" }, { status: 400 });
   }
