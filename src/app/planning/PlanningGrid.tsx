@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { dowMon } from "@/lib/week";
 import { habValable } from "@/lib/habilitations";
 import { INTERIM_BG } from "@/lib/interim";
@@ -85,7 +84,6 @@ export default function PlanningGrid({
   formationMotifId?: string | null; // motif "Formation" -> pendule active (horaires + sujet)
   weekNav?: React.ReactNode;
 }) {
-  const router = useRouter();
   const [vals, setVals] = useState<Record<string, string>>(initial);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   // Surlignage d'un type d'anomalie pour un jour donne (clic sur une puce d'en-tete).
@@ -199,15 +197,6 @@ export default function PlanningGrid({
     });
     return arr;
   }, [days]);
-
-  // Indices de colonnes par bloc-semaine
-  const blockDayIndices = useMemo(() => {
-    const m: number[][] = [];
-    days.forEach((_, i) => {
-      (m[weekIdx[i]] ??= []).push(i);
-    });
-    return m;
-  }, [days, weekIdx]);
 
   const { niveauMin, effectif } = useMemo(() => {
     const nm: Record<string, number> = {};
@@ -418,78 +407,6 @@ export default function PlanningGrid({
     setTimeout(() => setSaving("idle"), 1200);
   }
 
-  // Option B : recopie le bloc-semaine precedent (par jour de la semaine) dans le bloc cible.
-  async function copyPrevWeek(targetBlock: number) {
-    const src = blockDayIndices[targetBlock - 1] ?? [];
-    const tgt = blockDayIndices[targetBlock] ?? [];
-    if (!src.length || !tgt.length) return;
-
-    const srcByDow: Record<string, number> = {};
-    for (const j of src) srcByDow[days[j].nom] = j;
-
-    const existing = shown.some(
-      (p) => p.editable && tgt.some((j) => (vals[key(p.id, days[j].iso)] ?? "") !== "")
-    );
-    if (existing && !window.confirm("Des affectations existent déjà sur cette semaine. Les écraser avec la semaine précédente ?")) {
-      return;
-    }
-
-    const updates: { pid: string; iso: string; eq: string | null; value: string }[] = [];
-    const next = { ...vals };
-    for (const p of shown) {
-      if (!p.editable) continue;
-      for (const j of tgt) {
-        if (otherByCell[key(p.id, days[j].iso)]) continue; // place sur un autre quart : on ne touche pas
-        const s = srcByDow[days[j].nom];
-        if (s === undefined) continue;
-        const value = vals[key(p.id, days[s].iso)] ?? "";
-        next[key(p.id, days[j].iso)] = value;
-        updates.push({ pid: p.id, iso: days[j].iso, eq: p.equipe_id, value });
-      }
-    }
-    setVals(next);
-    setSaving("saving");
-    try {
-      // `forcer` : meme raison qu'a la recopie de semaine, on duplique un plan
-      // deja valide. Sans cela, un seul poste en manque d'habilitation ferait
-      // echouer toute la copie.
-      await Promise.all(updates.map((u) => postCell(u.pid, u.iso, u.eq, u.value, true)));
-      setSaving("saved");
-    } catch {
-      setSaving("error");
-    }
-    setTimeout(() => setSaving("idle"), 1200);
-  }
-
-  // Reinitialise (vide) tous les placements de la semaine pour les personnes editables affichees.
-  async function resetWeek(block: number) {
-    const isos = (blockDayIndices[block] ?? []).map((idx) => days[idx].iso);
-    const pids = shown.filter((p) => p.editable).map((p) => p.id);
-    if (!isos.length || !pids.length) return;
-    if (!window.confirm("Vider les affectations sur lignes de cette semaine pour les personnes affichées ?\nLes absences et le temps partiel sont conservés.")) {
-      return;
-    }
-    setVals((s) => {
-      const n = { ...s };
-      // On ne retire localement que les affectations sur poste (les absences/NT restent).
-      for (const p of pids) for (const iso of isos) { const k = `${p}:${iso}`; if (isPoste(n[k] ?? "")) delete n[k]; }
-      return n;
-    });
-    setSaving("saving");
-    try {
-      const res = await fetch("/api/placement/reset-week", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personne_ids: pids, jours: isos }),
-      });
-      setSaving(res.ok ? "saved" : "error");
-      if (res.ok) router.refresh();
-    } catch {
-      setSaving("error");
-    }
-    setTimeout(() => setSaving("idle"), 1200);
-  }
-
   const deltaColor = (d: number) => (d < 0 ? "var(--danger)" : d > 0 ? "#9a3412" : "var(--ok)");
   const sep = (d: Jour): React.CSSProperties => (d.firstOfWeek ? { borderLeft: "3px solid #94a3b8" } : {});
   const isToday = (d: Jour) => d.iso === todayIso;
@@ -580,26 +497,6 @@ export default function PlanningGrid({
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: w.isCurrent ? 700 : undefined }}>
                   {w.year} · Semaine {w.num}
                   {w.isCurrent && <span className="muted" style={{ fontWeight: 400 }}>(en cours)</span>}
-                  {i >= 1 && (
-                    <button
-                      type="button"
-                      className="btn-sm btn-ghost"
-                      style={{ padding: "2px 6px", fontSize: 11 }}
-                      onClick={() => copyPrevWeek(i)}
-                      title="Recopier la semaine précédente dans celle-ci"
-                    >
-                      &larr; S-1
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="btn-sm btn-ghost"
-                    style={{ padding: "2px 6px", fontSize: 11 }}
-                    onClick={() => resetWeek(i)}
-                    title="Vider les affectations sur lignes (absences et TP conservés)"
-                  >
-                    Vider
-                  </button>
                 </span>
               </th>
             ))}
