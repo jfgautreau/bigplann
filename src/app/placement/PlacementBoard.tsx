@@ -53,6 +53,7 @@ export default function PlacementBoard({
   vueAbsences = false,
   numeroInit = {},
   quartOuvert = true,
+  siteNom = "",
 }: {
   title?: ReactNode;
   jour: string;
@@ -76,6 +77,7 @@ export default function PlacementBoard({
   vueAbsences?: boolean; // pseudo-atelier « Absences » : photo transverse, pas de plan
   numeroInit?: Record<string, string>; // personne -> numero de rotation occupe
   quartOuvert?: boolean; // le quart est-il ouvert ce jour-la (Ordonnancement) ?
+  siteNom?: string; // multi-tenant : nom d'usine dans le pied de page du PDF
 }) {
   const router = useRouter();
   const [place, setPlace] = useState<Record<string, string>>(placeInit);
@@ -937,6 +939,23 @@ export default function PlacementBoard({
             {absPrint.length === 0 && <div className={s.printVide}>Aucun absent.</div>}
           </div>
         </div>
+        {siteNom && (
+          // Multi-tenant : le nom d'usine paraît en pied de page pour qu'une
+          // feuille imprimée d'un site ne puisse pas être confondue avec celle
+          // d'un autre.
+          <div
+            style={{
+              marginTop: 8,
+              paddingTop: 4,
+              borderTop: "1px solid #d9dce1",
+              fontSize: 11,
+              color: "#6b7280",
+              textAlign: "right",
+            }}
+          >
+            {siteNom}
+          </div>
+        )}
       </div>
       </div>
       )}

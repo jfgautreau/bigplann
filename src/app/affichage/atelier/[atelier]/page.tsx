@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getAdminClient } from "@/lib/supabase-server";
+import { getCurrentSite } from "@/lib/current-site";
 import { fetchAll } from "@/lib/fetch-all";
 import { getQuartsC } from "@/lib/refdata";
 import { quartOuDefaut } from "@/lib/quarts";
@@ -48,6 +49,9 @@ export default async function AffichageAtelier({
   const todayIso = isoDate(new Date());
 
   const admin = getAdminClient();
+  // Multi-tenant : nom d'usine affiche en haut a droite pour qu'un ecran
+  // couloir d'un site ne puisse pas etre confondu avec celui d'un autre.
+  const site = await getCurrentSite();
   // Liste des quarts du parametrage : sert de repli aux placements historiques
   // sans `quart_code` (cf. src/lib/quarts.ts).
   const quarts = await getQuartsC();
@@ -311,7 +315,10 @@ export default async function AffichageAtelier({
       <AutoRefresh seconds={300} />
       <div id="affichage-contenu" style={{ transformOrigin: "top left" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <h1 style={{ fontSize: 30, margin: 0 }}>{atelier.nom}</h1>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+          <h1 style={{ fontSize: 30, margin: 0 }}>{atelier.nom}</h1>
+          <span style={{ fontSize: 16, color: "#6b7280", fontWeight: 500 }}>{site.nom}</span>
+        </div>
         <AffichageBarre cadreId="affichage-feuille" contenuId="affichage-contenu" />
       </div>
 

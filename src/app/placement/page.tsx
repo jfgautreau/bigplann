@@ -1,4 +1,5 @@
 import { getServerClient } from "@/lib/supabase-server";
+import { getCurrentSite } from "@/lib/current-site";
 import AppHeader from "@/components/AppHeader";
 import PageTitle from "@/components/PageTitle";
 import { requireModule, canWritePlacementData } from "@/lib/permissions";
@@ -31,6 +32,7 @@ export default async function PlacementPage({
   searchParams: Promise<{ atelier?: string; date?: string; quart?: string; vue?: string }>;
 }) {
   const { profile } = await requireModule("placement", "write");
+  const site = await getCurrentSite();
   const sp = await searchParams;
 
   const supabase = await getServerClient();
@@ -246,6 +248,7 @@ export default async function PlacementPage({
         habComp={habComp}
         habPers={habPers}
         quartOuvert={quartOuvert}
+        siteNom={site.nom}
       />
     </div>
   );

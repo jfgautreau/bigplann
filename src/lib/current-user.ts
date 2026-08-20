@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { getServerClient } from "@/lib/supabase-server";
+import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { SITE_LEBIGNON_ID } from "@/lib/current-site";
 
 export type CurrentProfile = {
@@ -71,13 +71,36 @@ export const getCurrentProfile = cache(async function getCurrentProfile(): Promi
   // Auth, ce qui masquait le trou. On ferme ici, a la source du profil : plus de
   // profil, donc redirection vers /login par requireModule.
   if (!row || !row.is_active) return null;
+
+  const siteId = row.site_id ?? SITE_LEBIGNON_ID;
+  const estSuperAdmin = row.est_super_admin ?? false;
+
+  // MULTI-TENANT — refus de session si le site est suspendu ou archivé.
+  // Le super_admin conserve l'accès (il est au-dessus du cycle de vie des
+  // sites, cf. tasks/multi-site.md §7). Requête faite via getAdminClient
+  // pour contourner la RLS de `site` (qui n'expose qu'un site à la fois
+  // depuis la session utilisateur). Erreur silencieuse (statut inconnu) →
+  // on laisse passer pour ne pas casser en fenêtre pré-0043.
+  if (!estSuperAdmin) {
+    try {
+      const { data: siteRow } = await getAdminClient()
+        .from("site")
+        .select("statut")
+        .eq("id", siteId)
+        .single<{ statut: string }>();
+      if (siteRow && siteRow.statut !== "actif") return null;
+    } catch {
+      // Table `site` absente (pré-0043) : on ne bloque pas.
+    }
+  }
+
   return {
     authId: userId,
     email: row.email,
     name: row.name,
     role: row.role,
-    siteId: row.site_id ?? SITE_LEBIGNON_ID,
-    estSuperAdmin: row.est_super_admin ?? false,
+    siteId,
+    estSuperAdmin,
   };
 });
 
