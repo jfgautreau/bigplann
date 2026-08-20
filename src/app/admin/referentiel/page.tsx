@@ -27,7 +27,29 @@ export default async function ReferentielPage() {
   const { profile, perms } = await requireModule("referentiel", "read");
 
   const supabase = await getServerClient();
-  const [{ data }, { data: quartsD }, { data: pqD }, { data: compsD }, pcrD] = await Promise.all([
+
+  // DEBUG multi-site : trace ce que Supabase renvoie pour Referentiel — a
+  // retirer sitot le probleme diagnostique (commit temporaire).
+  const debugAtelierBrut = await supabase
+    .from("atelier")
+    .select("id, nom, actif")
+    .order("nom");
+  console.log("[DEBUG referentiel] atelier bare:",
+    "err=", debugAtelierBrut.error?.message ?? "none",
+    "count=", debugAtelierBrut.data?.length ?? -1,
+    "sample=", JSON.stringify(debugAtelierBrut.data?.slice(0, 2) ?? []));
+
+  const debugAtelierEmbed = await supabase
+    .from("atelier")
+    .select("id, nom, ligne(id, nom)")
+    .order("nom")
+    .limit(2);
+  console.log("[DEBUG referentiel] atelier+ligne:",
+    "err=", debugAtelierEmbed.error?.message ?? "none",
+    "count=", debugAtelierEmbed.data?.length ?? -1,
+    "sample=", JSON.stringify(debugAtelierEmbed.data ?? []));
+
+  const [{ data, error: dataErr }, { data: quartsD }, { data: pqD }, { data: compsD }, pcrD] = await Promise.all([
     supabase
       .from("atelier")
       .select(
@@ -51,6 +73,10 @@ export default async function ReferentielPage() {
         .returns<{ poste_id: string; competence_id: string }[]>()
     ),
   ]);
+
+  console.log("[DEBUG referentiel] final query:",
+    "err=", dataErr?.message ?? "none",
+    "count=", data?.length ?? -1);
 
   const ateliers = (data ?? []).map((a) => ({
     ...a,
