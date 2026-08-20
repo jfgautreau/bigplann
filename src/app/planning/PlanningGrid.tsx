@@ -53,6 +53,7 @@ export default function PlanningGrid({
   otherByCell = {},
   otherPosteByCell = {},
   tpBlocked = {},
+  horsEffectif = {},
   quartLabel = {},
   posteLabelAll = {},
   exceptions = {},
@@ -82,6 +83,10 @@ export default function PlanningGrid({
   otherByCell?: Record<string, string>;
   otherPosteByCell?: Record<string, string>; // nom complet du poste occupe sur cet autre quart
   tpBlocked?: Record<string, boolean>;
+  // Case ou la personne n'est pas dans l'effectif ce jour-la (avant arrivee,
+  // apres depart, trou entre deux contrats — cf. cycle de vie 0049/0050).
+  // Meme desactivation que tpBlocked, mais rendu vide (pas de « TP »).
+  horsEffectif?: Record<string, boolean>;
   quartLabel?: Record<string, string>;
   posteLabelAll?: Record<string, string>;
   exceptions?: Record<string, { debut: string; fin: string; motif: string }>;
@@ -652,7 +657,11 @@ export default function PlanningGrid({
                 // Bouton de recopie aussi sur une case vide : permet de propager le
                 // « non-affecte » sur la semaine. Masque seulement si placee sur un autre quart.
                 const tpb = !!tpBlocked[key(pers.id, d.iso)];
-                const showFill = pers.editable && !otherByCell[key(pers.id, d.iso)] && !tpb;
+                const hors = !!horsEffectif[key(pers.id, d.iso)];
+                // Case bloquee : soit temps partiel, soit hors effectif ce jour-la.
+                // Meme desactivation (pas de bouton +, pas de saisie) mais rendu distinct.
+                const bloque = tpb || hors;
+                const showFill = pers.editable && !otherByCell[key(pers.id, d.iso)] && !bloque;
                 const other = v === "" ? otherByCell[key(pers.id, d.iso)] : undefined;
                 // Surlignage : cette case correspond-elle au type d'anomalie selectionne ce jour-la ?
                 const hiActive = highlight?.iso === d.iso;
@@ -665,9 +674,12 @@ export default function PlanningGrid({
                     style={{
                       textAlign: "center",
                       // Priorite des fonds, alignee sur le Placement :
-                      // temps partiel > motif d'absence > rouge (competence ou
-                      // habilitation) > jaune (sureffectif) > aujourd'hui.
-                      background: tpb
+                      // hors effectif > temps partiel > motif d'absence >
+                      // rouge (competence ou habilitation) > jaune (sureffectif)
+                      // > aujourd'hui.
+                      background: hors
+                        ? "#f1f5f9"
+                        : tpb
                         ? "#e0e7ff"
                         : motifColor[v]
                         ? motifColor[v]
@@ -683,12 +695,17 @@ export default function PlanningGrid({
                       ...sep(d),
                     }}
                     title={[
+                      hors ? "Hors effectif ce jour-là (avant arrivée, après départ ou entre deux contrats)" : "",
                       restricted ? "⛔ Restriction médicale/physique sur ce poste" : alert ? "Hors compétence" : "",
                       manque.length ? `⚠ Placement forcé — habilitation manquante : ${manque.join(", ")}` : "",
                       over ? `Sur-effectif (${perDay[i].counts[v]}/${effectif[v] ?? 0})` : "",
                     ].filter(Boolean).join(" · ") || undefined}
                   >
-                    {tpb ? (
+                    {hors ? (
+                      // Case grisee, aucun label : la personne n'est pas dans
+                      // l'effectif ce jour-la. Distincte du TP (fond violet).
+                      <div className="cell-other" style={{ color: "#94a3b8" }} aria-hidden="true">·</div>
+                    ) : tpb ? (
                       <div className="cell-other" style={{ color: "#3730a3" }} title="Temps partiel — journée entière non travaillée">TP</div>
                     ) : other ? (
                       <div

@@ -420,10 +420,14 @@ export default async function PlanningPage({
 
   // Cycle de vie (0049 + 0050) : on masque les cellules OU la personne n'est
   // pas effectivement au travail — hors fenetre d'activite (avant l'arrivee /
-  // apres le depart) ou dans un trou entre deux contrats. On reutilise le
-  // mecanisme tpBlocked (case grisee, non cliquable) plutot qu'un canal
-  // separe : meme comportement visuel. Les dates d'arrivee/depart sont
-  // DERIVEES des contrats (0050) — plus stockees sur personne.
+  // apres le depart) ou dans un trou entre deux contrats. Les dates
+  // d'arrivee/depart sont DERIVEES des contrats (0050).
+  //
+  // ⚠️ On avait initialement recycle `tpBlocked` : meme comportement (case
+  // grisee, non cliquable), mais l'ecran l'interpretait comme TEMPS PARTIEL
+  // et affichait « TP » partout, y compris pour des personnes sans TP.
+  // Canal separe `horsEffectif` : meme desactivation, rendu vide (pas de « TP »).
+  const horsEffectif: Record<string, boolean> = {};
   if (allIds.length && visIsos.length) {
     const contratsData = await fetchAll<{ personne_id: string; date_debut: string | null; date_fin: string | null }>(() =>
       supabase
@@ -444,7 +448,7 @@ export default async function PlanningPage({
       const dates = deriverArriveeDepart(contrats);
       for (const d of visible) {
         if (!estAuTravailLe(dates, contrats, d.iso)) {
-          tpBlocked[`${p.id}:${d.iso}`] = true;
+          horsEffectif[`${p.id}:${d.iso}`] = true;
         }
       }
     }
@@ -586,6 +590,7 @@ export default async function PlanningPage({
           otherByCell={otherByCell}
           otherPosteByCell={otherPosteByCell}
           tpBlocked={tpBlocked}
+          horsEffectif={horsEffectif}
           quartLabel={quartLabel}
           posteLabelAll={posteLabelAll}
           exceptions={exceptions}

@@ -123,6 +123,13 @@ seuls. Leçon `L25`, doc `multi-site.md §3.4` ·
 `/platform`), mais SEULEMENT si l'appelant est `est_super_admin` (défense
 en profondeur). Permet au super_admin d'« entrer dans le site » d'une usine
 pour du support, avec bandeau rouge permanent + journal.
+`0049` **cycle de vie du personnel** : `personne.date_arrivee` +
+`statut_calcule()` + trigger `statut_auto_personne` — le statut (A_VENIR /
+ACTIF / PARTI) est une résultante des dates, plus un toggle manuel ·
+`0050` **contrats = source de vérité** du cycle de vie (dates dérivées
+des contrats, plus stockées directement sur `personne`) ·
+`0051` **`parametre_affichage` multi-site** : PK passe de `id=1` (singleton)
+à `site_id` (une ligne par site). **Pas encore jouée.**
 
 ## Écran Placement (`/placement`) — V1
 Saisie « un jour / un quart » par glisser-déposer. ⚠️ **Placement est désormais un module

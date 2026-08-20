@@ -98,6 +98,12 @@ export default async function OrdonnancementPage({
         </div>
 
         <OrdoGrid
+          // `key` sur le mois : OrdoMonthNav navigue en soft (router.push),
+          // le composant client garde alors son useState initialise sur le
+          // MOIS PRECEDENT — l'ecran affiche octobre vide alors que la base
+          // porte les donnees. Le `key` force React a le remonter pour que
+          // useState relise les props fraiches.
+          key={`${year}-${month0}`}
           days={days}
           weekBlocks={weekBlocks}
           todayIso={isoDate(new Date())}

@@ -1,8 +1,6 @@
 # Polaris multi-site — analyse et proposition d'architecture
 
-> **Statut : STANDBY (2026-08-20).** Le socle et le back-office sont en prod. On
-> attend un vrai 2e site pour attaquer PR 4 (onboarding) et PR 5 (tests
-> statiques). Reprise à froid → voir « Où on en est » ci-dessous avant tout.
+> **Statut : EN COURS (2026-08-20).** PR 1–3 en prod, PR 4 (onboarding) commencée.
 >
 > ---
 >
@@ -17,15 +15,22 @@
 > | **PR 2** | `site.nom` en pastille du logo (AppHeader), en pied du PDF placement, à côté du titre atelier sur la TV ; refus de session si `site.statut != 'actif'` (sauf super_admin) | — |
 > | **PR 3** | Back-office `/platform` : liste sites, création (avec 1er admin + lien mdp), suspendre/réactiver/archiver, impersonation super_admin via cookie signé HMAC-SHA256 + header PostgREST + bandeau rouge permanent + journal `audit_impersonation` ; layout `/platform` réservé aux super_admin | `0048` (current_site_id lit `x-impersonate-site`) |
 >
-> **⏸️ STANDBY — décisions et code à faire quand un vrai 2e site sera en vue** :
+> **🔧 PR 4 — Onboarding (en cours)** :
 >
-> - **PR 4 — Onboarding automatique** : à la création d'un site depuis `/platform`,
->   copier les référentiels partagés (motifs d'absence groupe → visibles automatiquement
->   via `site_id IS NULL` déjà, donc rien à copier ; types de contrat idem ; rôles
->   idem). Le socle est déjà multi-tenant, la création marche → PR 4 concerne
->   surtout les *contenus initiaux propres au site* (semaine-type par défaut,
->   quart-code disponible, agences intérim locales à seeder ou à laisser vide).
->   Cf. §8 pour le plan détaillé.
+> - `0051` (`parametre_affichage` : PK `site_id` au lieu du singleton `id=1`) —
+>   **écrite, pas encore jouée**. Sans elle un 2e site ne peut pas créer sa ligne
+>   de paramètre d'affichage.
+> - `createSite` enrichi : seed automatique de `parametre_affichage` (J-1/J+4).
+> - Code adapté : toutes les lectures/écritures de `parametre_affichage` passent
+>   par `site_id` (plus de `id=1`).
+> - Les quarts sont **globaux** (partagés entre sites, pas de `site_id`) → pas
+>   de seeding nécessaire.
+> - Motifs / types de contrat / rôles : visibles via `site_id IS NULL` → rien à
+>   copier.
+> - Référentiel local (ateliers, lignes, postes, équipes) : saisi par l'admin
+>   local, pas seedé.
+>
+> **⏸️ Reste à faire** :
 >
 > - **PR 5 — Tests statiques cross-site** :
 >   - `routes-multi-site.test.ts` : toute route API écrivant une table
