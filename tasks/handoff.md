@@ -4,9 +4,34 @@
 > tiennent dans **`CLAUDE.md`** (chargé automatiquement). Ce fichier est la couche de
 > détail : à consulter quand on touche précisément un des sujets ci-dessous.
 >
-> État au 2026-07-25 · migrations appliquées jusqu'à **0042** · **189** tests Vitest.
+> État au 2026-08-20 · migrations appliquées jusqu'à **0048** · **189** tests Vitest.
 >
-> **Session récente (juillet–août 2026)** — grosse passe UX autour des absences, du
+> **Session 2026-08-19/20 — CHANTIER MULTI-SITE (SaaS multi-tenant)** :
+> polaris devient une plateforme, capable d'accueillir plusieurs usines sur la
+> même base Supabase. Le socle et le back-office sont livrés en prod, on est en
+> **standby** jusqu'à ce qu'un vrai 2e site soit en vue. Le doc complet vit
+> dans `tasks/multi-site.md` (« Où on en est » en haut). Résumé :
+> - PR 1 (`0043`) : `site` + `site_id` sur 33 tables + RLS via
+>   `current_site_id()` + trigger auto-fill + `app_user.est_super_admin`.
+> - PR 1b (`0044-0047`) : correctifs le même jour — `p_site` explicite pour
+>   les fonctions SQL en service_role ; `audit_trigger` tolérant aux PK
+>   non-`id` (bug 0043 §K) ; FKs simples restaurées pour PostgREST ; composite
+>   FKs retirées à cause de l'ambiguïté d'embed (leçon `L25`).
+> - PR 2 : `site.nom` en pastille (AppHeader), pied du PDF placement, TV ;
+>   refus de session si site suspendu/archivé (sauf super_admin).
+> - PR 3 (`0048`) : back-office `/platform` (liste/create/suspendre/archiver
+>   sites), impersonation super_admin via cookie signé HMAC + header
+>   PostgREST `x-impersonate-site` + bandeau rouge permanent + journal
+>   `audit_impersonation`. Le layout `/platform` refuse tout non super_admin
+>   (défense en profondeur en plus du middleware).
+> - Reste à faire (PR 4 onboarding, PR 5 tests statiques) : détaillé dans
+>   `tasks/multi-site.md` §12.
+>
+> Repo GitHub renommé `bigplann → polaris` le même jour, remote local mis à
+> jour. URL Vercel reste `bigplann.vercel.app` (pas de domaine custom pour
+> l'instant).
+>
+> **Session précédente (juillet–août 2026)** — grosse passe UX autour des absences, du
 > temps partiel et des écrans de paramétrage :
 > - Modale Absences (Personnel) refondue en édition inline avec palette motif,
 >   calendrier 2 mois, commentaire, `ModaleDeplacable`, `InfoBulle` fixed ;
@@ -69,7 +94,35 @@ du planning (`parametre_affichage`, singleton `id=1`) ·
 `0041` retrait du CHECK `type_contrat in ('CDI','CDD','INTERIM')` sur `personne`
 et `contrat_periode` — la validation passe côté application (cf. `lessons.md` L23) ·
 `0042` **rôles personnalisés** (`role_custom` : `code`, `libelle`) + retrait du
-CHECK sur `app_user.role` — validation côté application (intégrés + `role_custom`).
+CHECK sur `app_user.role` — validation côté application (intégrés + `role_custom`) ·
+`0043` **socle multi-site** : table `site` + lebignon inséré, `site_id NOT NULL`
+sur 26 tables métier locales + `site_id NULL` sur 4 tables partagées
+(motif_absence, type_contrat, role_custom, role_permission), unicités
+réécrites en `(site_id, code)`, RLS entièrement réécrite via nouvelle
+fonction `current_site_id()`, trigger `set_site_id_from_context` qui
+auto-remplit `site_id` sur INSERT depuis le contexte utilisateur (fallback
+lebignon en V1a), table `audit_impersonation`, `app_user.est_super_admin`
+(hors matrice des rôles). Cf. `tasks/multi-site.md` ·
+`0044` fonctions SQL `creer_absence` / `maj_absence` / `set_rotation_reference`
+gagnent un paramètre `p_site uuid default null` (fix : `getAdminClient` en
+service_role a `auth.uid()=NULL` donc `current_site_id()=NULL`) ·
+`0045` `audit_trigger` reprend le pattern tolérant de la 0036
+(`to_jsonb(...)->>id` avec coalesce sur `user_id` et clé composite), perdu
+par erreur en 0043 §K — sinon toute écriture sur `app_user` / `role_permission`
+échouait avec « column `id` not found in data type app_user » ·
+`0046` **FKs simples restaurées** en plus des composites, sinon PostgREST
+ne trouve pas la relation et rejette les embeds automatiques
+(`SELECT "personne:personne_id(...)"`) ·
+`0047` **composite FKs (id, site_id) retirées** — coexistence avec les FKs
+simples provoquait un « more than one relationship » silencieux (Supabase JS
+ne throw pas, retourne `data: null`, écrans vides sans erreur). L'intégrité
+inter-sites est désormais portée par RLS + trigger `set_site_id_from_context`
+seuls. Leçon `L25`, doc `multi-site.md §3.4` ·
+`0048` `current_site_id()` lit un header `x-impersonate-site` en priorité
+(propagé par le middleware depuis un cookie signé HMAC-SHA256 posé par
+`/platform`), mais SEULEMENT si l'appelant est `est_super_admin` (défense
+en profondeur). Permet au super_admin d'« entrer dans le site » d'une usine
+pour du support, avec bandeau rouge permanent + journal.
 
 ## Écran Placement (`/placement`) — V1
 Saisie « un jour / un quart » par glisser-déposer. ⚠️ **Placement est désormais un module
@@ -206,6 +259,41 @@ Priorité d'affichage de l'horaire (TV) :
 - **Engrenage** (`SettingsMenu`) : Équipes, Compétences, Param. Habilitation, Motifs,
   Horaires, Affichage, Journal, RGPD, Rotation des équipes, Droits.
 - 🔔 cloche = habilitations à recycler (compteur ≤ 90 j).
+
+## Multi-tenant (`/platform` back-office)
+Réservé aux `app_user.est_super_admin = true`. Doc complète :
+`tasks/multi-site.md`. Layout dédié (fond gris, header noir, sans AppHeader),
+défense en profondeur (middleware + revalidation dans le layout).
+- `/platform` — liste des sites (nom, slug, statut, nb users actifs, nb
+  personnes actives, date création). Bouton « Nouveau site ». Utilise
+  `getAdminClient()` pour voir TOUS les sites (la RLS de `site` ne
+  laisserait passer que le sien depuis une session normale).
+- `/platform/nouveau` — form (nom, slug avec pattern regex + blacklist
+  `platform/api/auth/admin/app/www`, email + nom du 1er admin local).
+  Server action `createSite` crée la ligne `site`, l'auth user, force son
+  role=admin/site_id=nouveau/is_active=true, génère le lien mdp. Rollback
+  si createUser échoue.
+- `/platform/[id]` — détail : 3 KPI, boutons Suspendre/Réactiver/Archiver,
+  bouton « Entrer dans le site » (interdit sur archive), 10 dernières
+  sessions impersonation. Server actions `changerStatut`,
+  `entrerDansLeSite`, `sortirDuMode`.
+- **Impersonation** : cookie signé HMAC (`polaris-impersonate`, TTL 60 min)
+  contenant `{siteId, auditId, expiresAt}`. Le middleware valide la
+  signature + TTL, pose le header `x-impersonate-site` sur la requête.
+  `getServerClient()` propage ce header vers Supabase via
+  `global.headers`, et `current_site_id()` (0048) le lit via
+  `current_setting('request.headers')` — mais uniquement si l'appelant est
+  `est_super_admin=true`. `getCurrentSite()` préfère aussi le header sur
+  `app_user.site_id`, donc l'AppHeader / le PDF / la TV affichent bien le
+  site cible. Bandeau rouge sticky en haut de toute page tant que le
+  cookie est actif, avec bouton « Sortir ». Trace complète dans
+  `audit_impersonation` (entrée avec IP/UA/raison, sortie updated).
+- **Ne pas exposer `est_super_admin` dans `/admin/users`** : c'est un
+  champ dédié, jamais lu par `getAllRoles()`, invisible aux admins locaux.
+  Un admin d'une usine ne peut pas se voir accorder le super_admin.
+- **Backup obligatoire** avant toute nouvelle migration multi-site : les
+  0043 et suivantes touchent aux RLS et FKs de tables critiques. Cf.
+  `tasks/lessons.md L25` pour le piège des composite FKs vs embeds PostgREST.
 
 ## Bilans CODIR (`/bilans`)
 `/bilans` = **Cockpit** (KPIs + cartes). Catégories : `/bilans/personnel`,

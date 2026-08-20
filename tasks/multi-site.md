@@ -1,9 +1,63 @@
 # Polaris multi-site — analyse et proposition d'architecture
 
-> **Statut : proposition (2026-08-19).** Doc de conception avant chantier. Aucune
-> migration n'a encore été écrite. À valider avec l'utilisateur avant `0043`.
+> **Statut : STANDBY (2026-08-20).** Le socle et le back-office sont en prod. On
+> attend un vrai 2e site pour attaquer PR 4 (onboarding) et PR 5 (tests
+> statiques). Reprise à froid → voir « Où on en est » ci-dessous avant tout.
 >
-> **Décisions cadrantes arrêtées** (session du 2026-08-19) :
+> ---
+>
+> ## Où on en est (2026-08-20)
+>
+> **✅ FAIT — livré en prod (Vercel bigplann.vercel.app)** :
+>
+> | PR | Contenu | Migrations |
+> |----|---------|------------|
+> | **PR 1** | Socle : table `site` + `lebignon`, `site_id` sur 33 tables, RLS réécrite via `current_site_id()`, trigger `set_site_id_from_context`, helpers app (`getCurrentSite`, `refdata` sitisé, pastille site dans AppHeader), `app_user.est_super_admin` | `0043` |
+> | **PR 1b** | Fixes : fonctions SQL prennent `p_site` explicite (`0044`) ; `audit_trigger` tolérant aux PK non-`id` (`0045`) ; FKs simples restaurées (`0046`) ; composite FKs retirées à cause de l'ambiguïté d'embed PostgREST (`0047`) — cf. `tasks/lessons.md L25` | `0044-0047` |
+> | **PR 2** | `site.nom` en pastille du logo (AppHeader), en pied du PDF placement, à côté du titre atelier sur la TV ; refus de session si `site.statut != 'actif'` (sauf super_admin) | — |
+> | **PR 3** | Back-office `/platform` : liste sites, création (avec 1er admin + lien mdp), suspendre/réactiver/archiver, impersonation super_admin via cookie signé HMAC-SHA256 + header PostgREST + bandeau rouge permanent + journal `audit_impersonation` ; layout `/platform` réservé aux super_admin | `0048` (current_site_id lit `x-impersonate-site`) |
+>
+> **⏸️ STANDBY — décisions et code à faire quand un vrai 2e site sera en vue** :
+>
+> - **PR 4 — Onboarding automatique** : à la création d'un site depuis `/platform`,
+>   copier les référentiels partagés (motifs d'absence groupe → visibles automatiquement
+>   via `site_id IS NULL` déjà, donc rien à copier ; types de contrat idem ; rôles
+>   idem). Le socle est déjà multi-tenant, la création marche → PR 4 concerne
+>   surtout les *contenus initiaux propres au site* (semaine-type par défaut,
+>   quart-code disponible, agences intérim locales à seeder ou à laisser vide).
+>   Cf. §8 pour le plan détaillé.
+>
+> - **PR 5 — Tests statiques cross-site** :
+>   - `routes-multi-site.test.ts` : toute route API écrivant une table
+>     site-scopée doit poser `.eq("site_id", …)` ou passer par une fonction SQL
+>     avec `p_site`.
+>   - `refdata-cache.test.ts` : tout `unstable_cache(...)` sur donnée site-scopée
+>     doit inclure `siteId` dans sa clé.
+>   - `admin-client.test.ts` : `getAdminClient()` recensé dans un test qui vérifie
+>     qu'aucun appel n'oublie de borner par site. Whitelist manuellement les
+>     rares cas légitimes (`/platform`, refdata partagée).
+>
+> - **PR 6+ — Reporting groupe, quotas, custom domains** : reporté à V2, cf. §10.
+>
+> **Points ouverts à trancher quand on reprend** :
+>
+> 1. **Domaine `polaris.app`** : pas acheté, on tourne toujours sur
+>    `bigplann.vercel.app`. Le middleware ne résout pas de sous-domaine, il
+>    hardcode le site `lebignon`. Quand `polaris.app` sera là, ouvrir wildcard
+>    DNS + adapter `src/proxy.ts` pour lire le slug du host, et migrer les URLs
+>    en pointant chaque site sur son sous-domaine.
+> 2. **Multi-appartenance utilisateur** : refusée en V1 (choix round 1). Si un
+>    besoin remonte (CODIR groupe, personne détachée), voir dans les échanges
+>    du 2026-08-20 : la contrainte `auth.users.email` unique global oblige à
+>    passer par des alias `+` Gmail ou à réformer app_user vers une table de
+>    jointure `app_user_site`.
+> 3. **Composite FKs** — retirées en 0047 par nécessité PostgREST. Si un jour on
+>    voulait remettre la garantie base, il faudra ajouter des hints explicites
+>    partout : `.select("ligne!ligne_atelier_id_fkey(...)")`. Cf. §3.4.
+>
+> ---
+>
+> **Décisions cadrantes arrêtées** (session du 2026-08-19, toutes toujours valides) :
 > 1. **Isolation** — shared DB Supabase + `site_id` sur toutes les tables métier + RLS.
 > 2. **Utilisateur × site** — 1 compte = 1 site (pas de multi-appartenance).
 > 3. **Référentiels** — postes / ateliers / lignes / équipes / quarts / compétences
