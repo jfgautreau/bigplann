@@ -186,29 +186,52 @@ ligne groupe, visible partout) :
   module)`, la ligne prise est celle de `site_id = :site` si elle existe, sinon
   la ligne `site_id IS NULL`, sinon le défaut applicatif (`defaultsFor()`).
 
-### 3.4 Cohérence référentielle multi-site (le vrai piège)
+### 3.4 Cohérence référentielle multi-site (le vrai piège) — CHOIX RÉVISÉ 2026-08-20
 
-RLS ne protège pas des mauvais FK inter-sites : rien n'empêche un bug applicatif de
-poser un `placement` qui pointe vers un `poste` du site A et une `personne` du
-site B. Deux parades :
+RLS ne protège pas des mauvais FK inter-sites : rien n'empêche un bug applicatif
+de poser un `placement` qui pointe vers un `poste` du site A et une `personne`
+du site B.
 
-1. **Composite FKs** (recommandé pour les tables sensibles) :
-   ```sql
-   alter table poste     add unique (id, site_id);
-   alter table personne  add unique (id, site_id);
-   alter table placement add foreign key (poste_id, site_id)    references poste    (id, site_id);
-   alter table placement add foreign key (personne_id, site_id) references personne (id, site_id);
-   ```
-   Postgres refuse alors, à la base, tout placement mélangeant deux sites.
-2. **Trigger** de vérification pour les cas où le composite FK devient verbeux
-   (ex. `personne_competence` qui joint une personne site-scopée à une compétence
-   éventuellement groupe : trigger qui accepte `competence.site_id IS NULL OR
-   competence.site_id = personne.site_id`).
+**Choix initial (0043 §G) : composite FKs** `(child_id, site_id) →
+parent(id, site_id)`. Postgres refuse alors, à la base, tout enfant qui pointe
+vers un parent d'un autre site. Ceinture idéale.
 
-Tables concernées : `placement`, `ouverture_quart`, `jour_quart`, `poste_quart`,
-`poste_competence_requise`, `personne_competence`, `absence`, `contrat`,
-`personne_horaire_*`, `semaine_type_*`, `equipe_quart_semaine`,
-`rotation_reference`.
+**Retour d'expérience (0046, 0047)** : les composite FKs sont **incompatibles
+avec les embeds implicites de PostgREST**. Toute requête du type
+`.select("id, ligne(id)")` échoue avec
+`Could not find a relationship` (ou, si on ajoute les FKs simples en parallèle,
+`more than one relationship was found`). Supabase JS ne throw pas — la page
+s'affiche vide sans erreur. Cf. `tasks/lessons.md L25`.
+
+**Décision retenue en V1a (migration 0047)** : les composite FKs sont **retirées**.
+Seules les FKs simples `(child.parent_id) → parent(id)` restent — PostgREST
+peut embed sans hint. La garantie « aucun mélange inter-sites » est portée
+par les **bretelles** :
+- **RLS** : chaque policy exige `site_id = current_site_id()`. Un chef d'équipe
+  du site A ne peut pas voir ni écrire une ligne du site B.
+- **Trigger `set_site_id_from_context`** : à chaque INSERT, `site_id` est
+  posé automatiquement depuis le contexte utilisateur (fallback lebignon en
+  V1a). Un bug applicatif qui « oublie » `site_id` ne crée pas d'orphelin.
+- **Tests cross-site (PR 5, à venir)** : intégration Supabase avec deux sites
+  et deux comptes, chaque `select` ne rend que les lignes du site courant.
+
+**Trade-off assumé** : un bug applicatif qui poserait explicitement un
+`placement.poste_id` d'un poste d'un autre site n'est plus refusé à la base —
+seul la RLS le bloque. Vu l'archi 1 compte = 1 site (round 1), c'est
+acceptable en V1a. En V2, quand plusieurs sites tourneront ensemble, on pourra :
+1. Remettre les composite FKs **en parallèle** des simples,
+2. Réécrire toutes les queries d'embed avec des hints explicites
+   (`.select("ligne!ligne_atelier_id_fkey(...)")`) pour désambiguïser
+   PostgREST,
+3. Ajouter un test statique qui échoue si une query utilise l'embed implicite
+   sans hint.
+
+Tables où la question se pose (toutes les FKs enfants site-scopées) :
+`placement`, `ouverture_quart`, `jour_quart`, `poste_quart`,
+`poste_competence_requise`, `personne_competence`, `absence`, `contrat_periode`,
+`horaire_poste`, `horaire_exception`, `semaine_type_*`, `equipe_quart_semaine`,
+`rotation_reference`, `ligne_ouverture`, `jour_equipe`, `matrice`, `equipe_chef`,
+`ligne`, `poste`, `personne`, `equipe_chef`.
 
 ### 3.5 RLS — remplacement systématique
 

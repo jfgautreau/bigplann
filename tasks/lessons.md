@@ -257,3 +257,32 @@ ne peuvent vivre que dans un composant `"use client"`.
 (cf. `ActifCheckbox`, generalisé pour accepter une PK sous un autre nom via
 `keyName`). Le server component ne fait que la mise en page ; il passe le
 server action en prop au client — Next.js sait le sérialiser.
+
+## L25 — Composite FKs incompatibles avec les embeds PostgREST
+
+Chantier multi-site (2026-08-20) : la migration 0043 §G a posé des composite
+FKs `(child.parent_id, site_id) → parent(id, site_id)` pour interdire à la
+base tout mélange inter-sites. Effet immédiat : PostgREST ne trouvait plus la
+relation « simple » que ses embeds implicites attendent
+(`.select("id, ligne(id, nom)")`), et rejetait la requête avec
+`Could not find a relationship between X and Y in the schema cache`.
+La 0046 a restauré les FKs simples EN PLUS des composites — nouveau bug :
+PostgREST voyait alors DEUX relations et refusait avec
+`Could not embed because more than one relationship was found`. **Sans
+throw** — Supabase JS retourne juste `data: null`, les pages s'affichent
+vides sans erreur. Perdu ~2 h à diagnostiquer parce qu'aucune stack ne
+remontait.
+**Règle** :
+- Ne pas mélanger composite FK et FK simple sur la même colonne. PostgREST
+  ne sait pas trancher.
+- Choix retenu (0047) : DROP les composite FKs, garder les FKs simples. La
+  garantie « aucun mélange inter-sites » est portée par RLS
+  (`site_id = current_site_id()`) + trigger `set_site_id_from_context` qui
+  auto-remplit `site_id`. Ceinture (composite FK) enlevée, bretelles (RLS +
+  trigger) suffisent en V1a.
+- **Toujours** vérifier `error` sur un retour Supabase JS, même sur un
+  `data ?? []` : un `data: null` avec `error: {...}` est silencieux à
+  l'exécution. Pattern : `if (error) throw error;` en amont du `.map()`.
+- Pour un jour remettre les composite FKs (V2 multi-sites), il faudra
+  ajouter des hints explicites partout : `.select("ligne!ligne_atelier_id_fkey(...)")`.
+  Documenté dans `tasks/multi-site.md §3.4`.
