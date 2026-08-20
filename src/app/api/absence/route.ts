@@ -53,6 +53,11 @@ export async function POST(req: NextRequest) {
         p_fin: date_fin,
         p_commentaire: commentaire,
         p_auteur: profile.authId,
+        // Multi-site : la fonction SQL exige un site_id. En service_role
+        // (getAdminClient), auth.uid() est NULL donc current_site_id()
+        // ne peut pas le trouver — on le passe explicitement depuis le
+        // profil de l'utilisateur (cf. 0044).
+        p_site: profile.siteId,
       });
       if (error) throw error;
       return NextResponse.json({ ok: true, row: { id, personne_id, motif_absence_id, date_debut, date_fin, commentaire } });
@@ -89,6 +94,8 @@ export async function POST(req: NextRequest) {
         p_fin: date_fin,
         p_commentaire: commentaire,
         p_auteur: profile.authId,
+        // Idem creer_absence : contexte site explicite en service_role.
+        p_site: profile.siteId,
       });
       if (error) throw error;
       return NextResponse.json({ ok: true });

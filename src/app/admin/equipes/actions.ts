@@ -116,6 +116,10 @@ export async function saveQuartHoraires(fd: FormData) {
 // decalait en silence.
 export async function saveRotationReference(fd: FormData) {
   const supabase = await requireOrdoWrite();
+  // Le profile est deja resolu (cache() de React) — on relit juste son
+  // siteId pour le passer a la fonction SQL (getAdminClient est en
+  // service_role, current_site_id() renvoie NULL, cf. migration 0044).
+  const profile = await getCurrentProfile();
   const semaine = isoDate(parseMonday(s(fd, "semaine")));
   const valides = await codesQuarts(supabase);
 
@@ -127,7 +131,11 @@ export async function saveRotationReference(fd: FormData) {
     if (equipe_id && valides.includes(quart)) rows.push({ equipe_id, quart_code: quart });
   }
 
-  const { error } = await supabase.rpc("set_rotation_reference", { p_semaine: semaine, p_rows: rows });
+  const { error } = await supabase.rpc("set_rotation_reference", {
+    p_semaine: semaine,
+    p_rows: rows,
+    p_site: profile?.siteId ?? null,
+  });
   if (!error) updateTag(ROTATION_TAG);
   done(error);
 }
@@ -135,9 +143,14 @@ export async function saveRotationReference(fd: FormData) {
 // Supprime entierement la reference d'une semaine (un bloc vide efface tout).
 export async function deleteRotationReference(fd: FormData) {
   const supabase = await requireOrdoWrite();
+  const profile = await getCurrentProfile();
   const semaine = s(fd, "semaine");
   if (!semaine) done();
-  const { error } = await supabase.rpc("set_rotation_reference", { p_semaine: semaine, p_rows: [] });
+  const { error } = await supabase.rpc("set_rotation_reference", {
+    p_semaine: semaine,
+    p_rows: [],
+    p_site: profile?.siteId ?? null,
+  });
   if (!error) updateTag(ROTATION_TAG);
   done(error);
 }
