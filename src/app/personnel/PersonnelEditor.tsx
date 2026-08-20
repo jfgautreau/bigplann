@@ -184,7 +184,10 @@ export default function PersonnelEditor({
   const [merging, setMerging] = useState(false);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showCreate, setShowCreate] = useState(false);
-  const [statutFilter, setStatutFilter] = useState<"" | "ACTIF" | "PARTI">("");
+  // Defaut ACTIF a l'ouverture : la liste montre l'effectif au travail (~228 sur 268)
+  // au lieu de tout melanger. Un clic sur « Tous » ou « Parti » reste possible, mais
+  // le choix ne persiste pas d'une visite a l'autre : au retour, on repart sur Actif.
+  const [statutFilter, setStatutFilter] = useState<"" | "ACTIF" | "PARTI">("ACTIF");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const today = todayStr();
