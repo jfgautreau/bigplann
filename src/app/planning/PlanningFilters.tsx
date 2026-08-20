@@ -5,6 +5,12 @@ import { useTransition } from "react";
 
 type Opt = { id: string; label: string; couleur?: string };
 
+// Filtre Equipe a trois modes, portes par ?equipe :
+//   • absent        -> "Auto"   : equipes du quart cette semaine (rotation + fixe).
+//   • ?equipe=all   -> "Toutes" : aucune equipe filtree.
+//   • ?equipe=<id>  -> une equipe precise.
+// Auto est le defaut a l'ouverture ; l'utilisateur force en cliquant Toutes ou une
+// equipe. Le calcul de l'ensemble « Auto » vit cote serveur (page.tsx).
 export default function PlanningFilters({
   equipes = [],
   equipe = "",
@@ -31,11 +37,26 @@ export default function PlanningFilters({
     start(() => router.push(qs ? `/planning?${qs}` : "/planning"));
   }
 
+  const isAuto = equipe === "";
+  const isAll = equipe === "all";
+
   return (
     <div className="filterrow" style={{ opacity: pending ? 0.5 : 1, transition: "opacity .1s" }}>
       <span className="lbl">Équipe</span>
       <div className="segments">
-        <button type="button" className={equipe === "" ? "seg active" : "seg"} onClick={() => go("")}>
+        <button
+          type="button"
+          className={isAuto ? "seg active" : "seg"}
+          onClick={() => go("")}
+          title="Equipes qui travaillent sur ce quart cette semaine (rotation + quart fixe)"
+        >
+          Auto
+        </button>
+        <button
+          type="button"
+          className={isAll ? "seg active" : "seg"}
+          onClick={() => go("all")}
+        >
           Toutes
         </button>
         {equipes.map((e) => (

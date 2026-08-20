@@ -38,6 +38,7 @@ export default function PlanningGrid({
   weekBlocks = [],
   todayIso = "",
   personnes = [],
+  displayedIds = null,
   statIds = [],
   groups = [],
   openByIso = {},
@@ -63,6 +64,10 @@ export default function PlanningGrid({
   weekBlocks?: WeekBlock[];
   todayIso?: string;
   personnes?: Personne[];
+  // Sous-ensemble affiche par defaut (filtre equipe/atelier serveur). `null` =
+  // toutes les personnes. La recherche par nom (client) filtre dans le TOTAL,
+  // ce qui permet de retrouver quelqu'un hors filtre courant.
+  displayedIds?: string[] | null;
   statIds?: string[];
   groups?: Group[];
   openByIso?: Record<string, string[]>;
@@ -129,11 +134,19 @@ export default function PlanningGrid({
   // Demande de forcage en attente : le poste vise exige une habilitation absente.
   const [askHab, setAskHab] = useState<{ pid: string; iso: string; eq: string | null; value: string; manquantes: string[] } | null>(null);
   // Recherche par nom : filtre uniquement les lignes affichees (indicateurs inchanges).
+  // Cas particulier : la recherche IGNORE les filtres equipe/atelier (elle balaie
+  // l'effectif complet passe en prop) pour toujours retrouver quelqu'un ; hors
+  // recherche, on se limite au sous-ensemble `displayedIds` calcule par le serveur.
   const [search, setSearch] = useState("");
-  const shown = useMemo(
-    () => (search.trim() ? personnes.filter((p) => norm(p.label).includes(norm(search))) : personnes),
-    [personnes, search]
+  const displayedSet = useMemo(
+    () => (displayedIds ? new Set(displayedIds) : null),
+    [displayedIds],
   );
+  const shown = useMemo(() => {
+    if (search.trim()) return personnes.filter((p) => norm(p.label).includes(norm(search)));
+    if (!displayedSet) return personnes;
+    return personnes.filter((p) => displayedSet.has(p.id));
+  }, [personnes, search, displayedSet]);
   const [exc, setExc] = useState(exceptions);
   const [excAt, setExcAt] = useState<string | null>(null); // cle "pid:iso"
   const [draft, setDraft] = useState<{ debut: string; fin: string; motif: string }>({ debut: "", fin: "", motif: "" });
@@ -783,7 +796,13 @@ export default function PlanningGrid({
           ))}
           {shown.length === 0 && (
             <tr>
-              <td colSpan={days.length + 1} className="muted">{personnes.length === 0 ? "Aucune personne (choisissez une équipe)." : "Aucun résultat pour cette recherche."}</td>
+              <td colSpan={days.length + 1} className="muted">
+                {personnes.length === 0
+                  ? "Aucune personne."
+                  : search.trim()
+                    ? "Aucun résultat pour cette recherche."
+                    : "Aucune personne dans le filtre courant (bascule sur « Toutes » ou une autre équipe, ou tape un nom)."}
+              </td>
             </tr>
           )}
         </tbody>

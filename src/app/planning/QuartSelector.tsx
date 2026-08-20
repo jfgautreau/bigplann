@@ -5,27 +5,28 @@ import { useTransition } from "react";
 
 type Quart = { code: string; libelle: string };
 
+// Selecteur de quart : preserve le mode Equipe (auto / all / id) tel quel dans
+// l'URL. Le mode « Auto » (equipe absente) recalcule automatiquement l'ensemble
+// des equipes affichees pour le nouveau quart cote serveur — pas besoin de forcer
+// une equipe ici comme on le faisait auparavant.
 export default function QuartSelector({
   quarts,
   current,
   semaine,
   atelier = "",
-  quartToEquipe = {},
+  equipe = "",
 }: {
   quarts: Quart[];
   current: string;
   semaine: string;
   atelier?: string;
-  quartToEquipe?: Record<string, string>;
+  equipe?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   function go(code: string) {
     const p = new URLSearchParams();
-    // Auto-sélection de l'équipe par défaut du quart (rotation de la semaine) ;
-    // l'utilisateur peut ensuite forcer une autre équipe via le filtre Équipe.
-    const eq = quartToEquipe[code] ?? "";
-    if (eq) p.set("equipe", eq);
+    if (equipe) p.set("equipe", equipe);
     if (atelier) p.set("atelier", atelier);
     if (semaine) p.set("semaine", semaine);
     p.set("quart", code);

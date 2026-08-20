@@ -61,7 +61,16 @@ export default async function PlanningPage({
   const sp = await searchParams;
   const center = parseMonday(sp.semaine);
   const centerIso = isoDate(center);
-  const equipe = sp.equipe ?? "";
+  // Filtre equipe a 3 etats, portes par ?equipe :
+  //   • absent  -> "auto" : equipes du quart cette semaine (rotation) + fixe sur ce quart.
+  //   • "all"   -> aucune filtre (toutes les equipes).
+  //   • <id>    -> une equipe precise.
+  // Auto est la valeur par defaut a l'ouverture (on regarde le quart d'apres, pas
+  // toutes les equipes). Les autres filtres (atelier, recherche) restent orthogonaux.
+  const spEquipe = sp.equipe ?? "";
+  const equipeMode: "auto" | "all" | "id" =
+    spEquipe === "" ? "auto" : spEquipe === "all" ? "all" : "id";
+  const equipeIdSel = equipeMode === "id" ? spEquipe : "";
   const atelier = sp.atelier ?? "";
 
   const weekMondays = [addDays(center, -7), center, addDays(center, 7)];
@@ -115,26 +124,25 @@ export default async function PlanningPage({
   const rotWeek = rotationForWeek(rotRefs, centerIso);
   const rotByWeek = weekMondays.map((wm) => rotationForWeek(rotRefs, isoDate(wm)));
 
-  // Quart selectionne : ?quart, sinon quart fixe de l'equipe, sinon rotation de la
-  // semaine, sinon "matin".
+  // Quart selectionne : ?quart, sinon quart fixe de l'equipe choisie, sinon
+  // rotation de la semaine pour cette equipe, sinon "matin".
   let quart = sp.quart && quartCodes.includes(sp.quart) ? sp.quart : "";
-  if (!quart && equipe) {
-    const eqRow = (equipesD ?? []).find((e) => e.id === equipe);
+  if (!quart && equipeIdSel) {
+    const eqRow = (equipesD ?? []).find((e) => e.id === equipeIdSel);
     if (eqRow?.quart_fixe && quartCodes.includes(eqRow.quart_fixe)) {
       quart = eqRow.quart_fixe;
-    } else if (rotWeek[equipe] && quartCodes.includes(rotWeek[equipe])) {
-      quart = rotWeek[equipe];
+    } else if (rotWeek[equipeIdSel] && quartCodes.includes(rotWeek[equipeIdSel])) {
+      quart = rotWeek[equipeIdSel];
     }
   }
   if (!quart) quart = quartParDefaut(quarts);
 
-  // Équipe par défaut de chaque quart cette semaine (rotation + quart fixe) : sert
-  // à auto-sélectionner l'équipe quand on clique un quart (forçage possible ensuite).
-  const quartToEquipe: Record<string, string> = {};
-  for (const [equipeId, quartCode] of Object.entries(rotWeek)) {
-    if (!(quartCode in quartToEquipe)) quartToEquipe[quartCode] = equipeId;
-  }
-  for (const e of equipesD ?? []) if (e.quart_fixe && !(e.quart_fixe in quartToEquipe)) quartToEquipe[e.quart_fixe] = e.id;
+  // Ensemble des equipes AUTO pour le quart courant : celles que la rotation de la
+  // semaine place sur ce quart + celles dont `quart_fixe` vaut ce quart. Union, pas
+  // ecrasement : une equipe fixe matin ET une equipe tournante au matin cohabitent.
+  const equipesAuto = new Set<string>();
+  for (const [eid, qc] of Object.entries(rotWeek)) if (qc === quart) equipesAuto.add(eid);
+  for (const e of equipesD ?? []) if (e.quart_fixe === quart) equipesAuto.add(e.id);
 
   // Ordre du referentiel : ateliers regroupes, lignes puis postes par ordre_affichage
   // (fallback alphabetique). Le meme ordre sert a la grille et au panneau d'affectation.
@@ -272,8 +280,17 @@ export default async function PlanningPage({
     if (!paErr) for (const r of paData ?? []) persAtelier.set(r.id, r.atelier_id);
   }
 
+  // Predicat d'appartenance au filtre courant (equipe + atelier). Sert a determiner
+  // les lignes affichees PAR DEFAUT ; la recherche par nom (client) passe outre pour
+  // toujours retrouver quelqu'un.
+  const passeEquipe = (eqid: string | null): boolean => {
+    if (equipeMode === "all") return true;
+    if (equipeMode === "id") return eqid === equipeIdSel;
+    // auto : appartient a une equipe de l'ensemble AUTO.
+    return !!eqid && equipesAuto.has(eqid);
+  };
   const displayed = allActive.filter(
-    (p) => (!equipe || p.equipe_id === equipe) && (!atelier || persAtelier.get(p.id) === atelier)
+    (p) => passeEquipe(p.equipe_id) && (!atelier || persAtelier.get(p.id) === atelier),
   );
   const displayedSet = new Set(displayed.map((p) => p.id));
 
@@ -329,7 +346,10 @@ export default async function PlanningPage({
       if (r.non_travaille) initial[k] = "X";
       else if (r.motif_absence_id) initial[k] = `m:${r.motif_absence_id}`;
       else if (r.poste_id && matchQuart(r.quart_code)) initial[k] = r.poste_id;
-      else if (r.poste_id && displayedSet.has(r.personne_id)) {
+      else if (r.poste_id) {
+        // Toutes les personnes actives, pas seulement l'ensemble affiche par
+        // defaut : une recherche par nom peut faire apparaitre quelqu'un hors
+        // filtre, et l'infobulle « place sur un autre quart » doit s'afficher.
         otherByCell[k] = quartOuDefaut(r.quart_code, quarts);
         // Poste desactive depuis : absent de posteNomAll -> l'infobulle se limite au quart.
         if (posteNomAll[r.poste_id]) otherPosteByCell[k] = posteNomAll[r.poste_id];
@@ -368,7 +388,9 @@ export default async function PlanningPage({
       const quartFixe = new Map((equipesD ?? []).map((e) => [e.id, e.quart_fixe]));
       const creneauDe = (q?: string | null) => (q === "matin" ? "matin" : q === "apres_midi" ? "aprem" : null);
       for (const r of tpData ?? []) {
-        if (!r.temps_partiel || !displayedSet.has(r.id)) continue;
+        // Toutes les personnes actives : la recherche peut faire apparaitre une
+        // personne hors filtre par defaut, son marquage TP doit rester correct.
+        if (!r.temps_partiel) continue;
         const off = r.tp_config?.off ?? {};
         const eq = equipeDe.get(r.id) ?? null;
         for (const d of visible) {
@@ -395,7 +417,11 @@ export default async function PlanningPage({
   const equipeColor: Record<string, string> = {};
   for (const e of equipesD ?? []) equipeColor[e.id] = e.couleur;
 
-  const gridPersonnes = displayed.map((p) => ({
+  // On passe TOUTES les personnes actives a la grille (avec `displayedIds` a cote
+  // pour ne rendre que le sous-ensemble filtre par defaut). La recherche par nom,
+  // cote client, filtre alors dans l'effectif complet et retrouve quelqu'un meme
+  // hors atelier/equipe courants.
+  const gridPersonnes = allActive.map((p) => ({
     id: p.id,
     label: `${p.nom} ${p.prenom}`,
     equipe_id: p.equipe_id,
@@ -403,6 +429,7 @@ export default async function PlanningPage({
     color: p.equipe_id ? equipeColor[p.equipe_id] : undefined,
     editable: canEditPlanningFull || (p.equipe_id != null && chefEquipes.has(p.equipe_id)),
   }));
+  const displayedIds = displayed.map((p) => p.id);
 
   const gridGroups = groups.map((g) => ({
     ligneNom: g.ligneNom,
@@ -460,7 +487,7 @@ export default async function PlanningPage({
   for (const q of quarts) quartLabel[q.code] = q.libelle.slice(0, 3);
 
   const extra: Record<string, string> = { quart };
-  if (equipe) extra.equipe = equipe;
+  if (spEquipe) extra.equipe = spEquipe;
   if (atelier) extra.atelier = atelier;
 
   return (
@@ -474,11 +501,11 @@ export default async function PlanningPage({
           <PlanningNav base="/planning" semaine={centerIso} extra={extra} />
           {/* Partie centrale : Equipe / Atelier / Quart (alignes sur les memes lignes) */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <QuartSelector quarts={quarts} current={quart} semaine={centerIso} atelier={atelier} quartToEquipe={quartToEquipe} />
-            <AtelierFilter ateliers={ateliers} atelier={atelier} equipe={equipe} quart={quart} semaine={centerIso} />
+            <QuartSelector quarts={quarts} current={quart} semaine={centerIso} atelier={atelier} equipe={spEquipe} />
+            <AtelierFilter ateliers={ateliers} atelier={atelier} equipe={spEquipe} quart={quart} semaine={centerIso} />
             <PlanningFilters
               equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom, couleur: e.couleur }))}
-              equipe={equipe}
+              equipe={spEquipe}
               semaine={centerIso}
               quart={quart}
               atelier={atelier}
@@ -499,11 +526,12 @@ export default async function PlanningPage({
         {/* La grille prend toute la largeur de la fenetre. */}
         <div className="gridband" style={{ paddingBottom: 12 }}>
         <PlanningGrid
-          key={`${equipe}|${atelier}|${quart}|${centerIso}`}
+          key={`${spEquipe}|${atelier}|${quart}|${centerIso}`}
           days={days}
           weekBlocks={weekBlocks}
           todayIso={isoDate(new Date())}
           personnes={gridPersonnes}
+          displayedIds={displayedIds}
           statIds={allIds}
           groups={gridGroups}
           openByIso={openByIso}
