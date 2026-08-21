@@ -24,9 +24,11 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = (await canWritePlacementData(profile.role)) ? getAdminClient() : await getServerClient();
+  // MULTI-SITE : borne par site_id (service_role bypass la RLS).
   const { error } = await supabase
     .from("placement")
     .delete()
+    .eq("site_id", profile.siteId)
     .in("personne_id", ids)
     .in("jour", jours)
     .not("poste_id", "is", null); // ne supprime que les affectations sur poste

@@ -467,9 +467,10 @@ export async function POST(req: NextRequest) {
         return date_debut <= pFin && nFin >= p.date_debut;
       });
       if (overlap) return NextResponse.json({ error: "Chevauchement avec une période existante" }, { status: 409 });
+      // MULTI-SITE : site_id explicite pour le cas admin client (service_role).
       const { data, error } = await supabase
         .from("tp_periode")
-        .insert({ personne_id, date_debut, date_fin, tp_config })
+        .insert({ personne_id, date_debut, date_fin, tp_config, site_id })
         .select("id, personne_id, date_debut, date_fin, tp_config, created_at")
         .single();
       if (error) throw error;

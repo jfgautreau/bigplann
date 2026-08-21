@@ -16,10 +16,12 @@ export async function POST(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id manquant" }, { status: 400 });
 
   const supabase = (await canWriteModule(profile.role, "habilitations")) ? getAdminClient() : await getServerClient();
+  // MULTI-SITE : borne par site_id (défense en profondeur avec service_role).
   const { error } = await supabase
     .from("personne_competence")
     .update({ commentaire })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("site_id", profile.siteId);
   if (error) return NextResponse.json({ error: error.message }, { status: 403 });
   return NextResponse.json({ ok: true });
 }

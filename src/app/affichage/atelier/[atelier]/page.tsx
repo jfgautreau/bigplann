@@ -57,7 +57,14 @@ export default async function AffichageAtelier({
   // sans `quart_code` (cf. src/lib/quarts.ts).
   const quarts = await getQuartsC();
 
-  const { data: ateliers } = await admin.from("atelier").select("id, nom").returns<Atelier[]>();
+  // MULTI-SITE : borne par site_id (service_role bypass la RLS). Sans
+  // cela un atelier d'un autre site pourrait être matché par nom
+  // identique et son placement affiché ici.
+  const { data: ateliers } = await admin
+    .from("atelier")
+    .select("id, nom")
+    .eq("site_id", site.id)
+    .returns<Atelier[]>();
   const decoded = decodeURIComponent(param).toLowerCase();
   const atelier = (ateliers ?? []).find((a) => a.id === param || a.nom.toLowerCase() === decoded);
 
@@ -136,15 +143,20 @@ export default async function AffichageAtelier({
           .order("poste_id").order("quart_code").order("jour")
           .returns<HoraireRow[]>()
       ),
+      // MULTI-SITE : jour_quart, ouverture_quart, horaire_exception et
+      // la liste des personnes TP sont bornés par site_id — le
+      // service_role bypass la RLS.
       admin
         .from("jour_quart")
         .select("jour, quart_code, actif")
+        .eq("site_id", site.id)
         .in("jour", isos)
         .returns<{ jour: string; quart_code: string; actif: boolean }[]>(),
       fetchAll<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }>(() =>
         admin
           .from("ouverture_quart")
           .select("jour, ligne_id, quart_code, ouverte")
+          .eq("site_id", site.id)
           .in("jour", isos)
           .order("jour").order("ligne_id").order("quart_code")
           .returns<{ jour: string; ligne_id: string; quart_code: string; ouverte: boolean }[]>()
@@ -152,11 +164,13 @@ export default async function AffichageAtelier({
       admin
         .from("horaire_exception")
         .select("personne_id, jour, debut, fin, motif")
+        .eq("site_id", site.id)
         .in("jour", isos)
         .returns<{ personne_id: string; jour: string; debut: string | null; fin: string | null; motif: string | null }[]>(),
       admin
         .from("personne")
         .select("id, tp_config, equipe_id")
+        .eq("site_id", site.id)
         .eq("temps_partiel", true)
         .returns<{ id: string; tp_config: TpCfg | null; equipe_id: string | null }[]>(),
     ]);
@@ -171,6 +185,7 @@ export default async function AffichageAtelier({
       const { data: tpPeriodes } = await admin
         .from("tp_periode")
         .select("personne_id, date_debut, date_fin, tp_config, personne:personne_id(equipe_id)")
+        .eq("site_id", site.id)
         .lte("date_debut", maxIso)
         .or(`date_fin.is.null,date_fin.gte.${minIso}`)
         .order("date_debut")
@@ -192,7 +207,12 @@ export default async function AffichageAtelier({
       }
 
       const rotRefs = await getRotationRefsC();
-      const { data: equipesD } = await admin.from("equipe").select("id, quart_fixe").eq("actif", true).returns<{ id: string; quart_fixe: string | null }[]>();
+      const { data: equipesD } = await admin
+        .from("equipe")
+        .select("id, quart_fixe")
+        .eq("site_id", site.id)
+        .eq("actif", true)
+        .returns<{ id: string; quart_fixe: string | null }[]>();
       const quartFixe = new Map((equipesD ?? []).map((e) => [e.id, e.quart_fixe]));
       const mondaySet = new Set(isos.map((iso) => isoDate(mondayOf(new Date(iso + "T00:00")))));
       const rotByMonday = new Map<string, Record<string, string>>();
@@ -273,6 +293,7 @@ export default async function AffichageAtelier({
       admin
         .from("placement")
         .select("personne_id, jour, personne:personne_id(nom, prenom, type_contrat, atelier_id)")
+        .eq("site_id", site.id)
         .in("jour", isos)
         .not("motif_absence_id", "is", null)
         .order("id")

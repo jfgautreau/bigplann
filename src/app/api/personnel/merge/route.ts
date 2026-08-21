@@ -62,8 +62,19 @@ export async function POST(req: NextRequest) {
   // l'equipe) refuserait a un rh/codir. Le garde ci-dessus l'a deja restreint a
   // l'ecriture complete — canWriteModule exclut le chef d'equipe par construction.
   const sb = getAdminClient();
+  // MULTI-SITE : borne le SELECT initial par site_id. Le service_role
+  // bypass la RLS, sans cette borne on pourrait fusionner deux
+  // personnes de deux sites différents. Les tables filles étant
+  // repointées par personne_id (UUID unique global), la garde ici
+  // suffit : si l'un des deux ids appartient à un autre site, le
+  // SELECT renvoie < 2 lignes et on refuse.
   const cols = "id, nom, prenom, " + IDENT.join(", ") + ", temps_partiel, tp_type, tp_config, type_contrat";
-  const { data: pair } = await sb.from("personne").select(cols).in("id", [keep, dup]).returns<Record<string, unknown>[]>();
+  const { data: pair } = await sb
+    .from("personne")
+    .select(cols)
+    .in("id", [keep, dup])
+    .eq("site_id", profile.siteId)
+    .returns<Record<string, unknown>[]>();
   const K = (pair ?? []).find((p) => p.id === keep);
   const D = (pair ?? []).find((p) => p.id === dup);
   if (!K || !D) return NextResponse.json({ error: "Personne introuvable." }, { status: 404 });

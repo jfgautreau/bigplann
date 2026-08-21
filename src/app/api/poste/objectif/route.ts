@@ -24,10 +24,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
   const supabase = getAdminClient();
+  // MULTI-SITE : borne par site_id (service_role bypass la RLS).
   const { error } = await supabase
     .from("poste")
     .update({ [col]: objectif })
-    .eq("id", poste_id);
+    .eq("id", poste_id)
+    .eq("site_id", profile.siteId);
   if (error) return NextResponse.json({ error: error.message }, { status: 403 });
   return NextResponse.json({ ok: true });
 }

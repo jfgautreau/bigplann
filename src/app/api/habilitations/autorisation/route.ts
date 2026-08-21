@@ -20,6 +20,10 @@ export async function POST(req: NextRequest) {
 
   const supabase = (await canWriteModule(profile.role, "habilitations")) ? getAdminClient() : await getServerClient();
 
+  // MULTI-SITE : borne par site_id (défense en profondeur — l'id UUID
+  // est unique global, mais avec service_role la RLS ne filtre pas).
+  const site_id = profile.siteId;
+
   // Lire la date d'obtention pour l'utiliser comme date d'autorisation.
   // Sans date d'obtention (cas theorique : ligne existant mais vide), on refuse :
   // la « date d'autorisation » n'aurait rien a pointer.
@@ -27,6 +31,7 @@ export async function POST(req: NextRequest) {
     .from("personne_competence")
     .select("date_obtention")
     .eq("id", id)
+    .eq("site_id", site_id)
     .single<{ date_obtention: string | null }>();
   if (readErr) return NextResponse.json({ error: readErr.message }, { status: 403 });
   if (remise && !rec?.date_obtention) {
@@ -36,7 +41,8 @@ export async function POST(req: NextRequest) {
   const { error } = await supabase
     .from("personne_competence")
     .update({ date_autorisation_conduite: remise ? rec!.date_obtention : null })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("site_id", site_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 403 });
   return NextResponse.json({ ok: true });
 }

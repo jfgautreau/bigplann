@@ -1,7 +1,7 @@
 # Polaris multi-site — analyse et proposition d'architecture
 
-> **Statut : EN COURS (2026-08-21).** PR 1–5 en prod (0053 appliquée),
-> lenteurs constatées à surveiller.
+> **Statut : EN COURS (2026-08-21).** PR 1–6 en prod (0053 appliquée,
+> tests statiques cross-site en place), lenteurs constatées à surveiller.
 >
 > ---
 >
@@ -53,15 +53,14 @@
 >   round-trip DB de plus (à mesurer, `cache()` de React devrait dédupliquer),
 >   (3) invalidations de cache Next après la vague de RLS/PK/FK.
 >
-> - **PR 6 — Tests statiques cross-site** (durcissement, indépendant de 0053) :
->   - `routes-multi-site.test.ts` : toute route API écrivant une table
->     site-scopée doit poser `.eq("site_id", …)` ou passer par une fonction SQL
->     avec `p_site`.
->   - `refdata-cache.test.ts` : tout `unstable_cache(...)` sur donnée site-scopée
->     doit inclure `siteId` dans sa clé.
->   - `admin-client.test.ts` : `getAdminClient()` recensé dans un test qui vérifie
->     qu'aucun appel n'oublie de borner par site. Whitelist manuellement les
->     rares cas légitimes (`/platform`, refdata partagée).
+> **✅ Fait aussi (PR 6, 2026-08-21)** — trois tests statiques cross-site
+> livrés en prod, verrouillent la migration :
+>
+> | Test | Ce qu'il vérifie | Fautes corrigées à la volée |
+> |------|------------------|------------------------------|
+> | `routes-multi-site.test.ts` | Tout `.from("<site-scoped>").insert/.upsert` pose `site_id` (objet inline OU fichier contient site_id) | `tp_periode` insert sans site_id dans `/api/personnel` |
+> | `refdata-cache.test.ts` | Tout `unstable_cache(...)` reçoit `site: string` comme premier param (segmentation par site) | RAS — 6 usages, tous conformes depuis 0053 |
+> | `admin-client.test.ts` | Tout fichier utilisant `getAdminClient()` mentionne `site_id` quelque part (whitelist : /platform, current-*, password-link, supabase-server) | 7 fichiers : `habilitations/{autorisation,commentaire}`, `personnel/merge`, `placement/reset-week`, `poste/objectif`, `affichage/page`, `affichage/atelier/[atelier]` (bordage massif : 6 lectures via admin) |
 >
 > - **PR 7+ — Reporting groupe, quotas, custom domains** : reporté à V2, cf. §10.
 >

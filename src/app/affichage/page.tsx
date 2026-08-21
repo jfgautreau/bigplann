@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getAdminClient } from "@/lib/supabase-server";
 import { requireModule } from "@/lib/permissions";
+import { getCurrentSite } from "@/lib/current-site";
 
 // Index des affichages couloir (un par atelier). Reserve aux droits "affichage".
 export const dynamic = "force-dynamic";
@@ -9,11 +10,14 @@ type Atelier = { id: string; nom: string };
 
 export default async function AffichageIndex() {
   await requireModule("affichage", "read");
+  const site = await getCurrentSite();
   const admin = getAdminClient();
+  // MULTI-SITE : borne par site_id (service_role bypass la RLS).
   const { data } = await admin
     .from("atelier")
     .select("id, nom")
     .eq("actif", true)
+    .eq("site_id", site.id)
     .order("nom")
     .returns<Atelier[]>();
   const ateliers = data ?? [];
