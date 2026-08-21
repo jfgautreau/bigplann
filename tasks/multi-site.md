@@ -4,7 +4,7 @@
 >
 > ---
 >
-> ## Où on en est (2026-08-20)
+> ## Où on en est (2026-08-21)
 >
 > **✅ FAIT — livré en prod (Vercel bigplann.vercel.app)** :
 >
@@ -14,12 +14,12 @@
 > | **PR 1b** | Fixes : fonctions SQL prennent `p_site` explicite (`0044`) ; `audit_trigger` tolérant aux PK non-`id` (`0045`) ; FKs simples restaurées (`0046`) ; composite FKs retirées à cause de l'ambiguïté d'embed PostgREST (`0047`) — cf. `tasks/lessons.md L25` | `0044-0047` |
 > | **PR 2** | `site.nom` en pastille du logo (AppHeader), en pied du PDF placement, à côté du titre atelier sur la TV ; refus de session si `site.statut != 'actif'` (sauf super_admin) | — |
 > | **PR 3** | Back-office `/platform` : liste sites, création (avec 1er admin + lien mdp), suspendre/réactiver/archiver, impersonation super_admin via cookie signé HMAC-SHA256 + header PostgREST + bandeau rouge permanent + journal `audit_impersonation` ; layout `/platform` réservé aux super_admin | `0048` (current_site_id lit `x-impersonate-site`) |
+> | **PR 4** | Onboarding : `parametre_affichage` PK→`site_id`, seed auto dans `createSite`, `site_id` explicite sur **toutes** les routes API (14 fichiers, 10 routes + 4 server actions) | `0051` |
 >
-> **✅ PR 4 — Onboarding (terminée 2026-08-21)** :
+> **Détail PR 4 (terminée 2026-08-21)** :
 >
 > - `0051` (`parametre_affichage` : PK `site_id` au lieu du singleton `id=1`) —
->   **écrite, pas encore jouée**. Sans elle un 2e site ne peut pas créer sa ligne
->   de paramètre d'affichage.
+>   **appliquée le 2026-08-21**.
 > - `createSite` enrichi : seed automatique de `parametre_affichage` (J-1/J+4).
 > - Code adapté : toutes les lectures/écritures de `parametre_affichage` passent
 >   par `site_id` (plus de `id=1`).
