@@ -247,12 +247,8 @@ begin
     foreign key (quart_code, site_id) references public.quart (code, site_id);
 exception when duplicate_object then null; end $$;
 
-do $$
-begin
-  alter table public.horaire_exception
-    add constraint horaire_exception_quart_fkey
-    foreign key (quart_code, site_id) references public.quart (code, site_id);
-exception when duplicate_object then null; end $$;
+-- horaire_exception : PAS de colonne quart_code (exception par
+-- personne+jour+horaires libres, cf. 0021). Aucune FK à recréer.
 
 -- placement.quart_code est NULLABLE (absences historiques sans quart) :
 -- la composite FK doit tolérer NULL côté enfant. Postgres l'accepte
