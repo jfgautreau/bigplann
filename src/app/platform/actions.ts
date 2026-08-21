@@ -34,21 +34,31 @@ function validerSlug(s: string): string | null {
 }
 
 // -------------------- Création d'un site --------------------
-// Crée le site + son 1er compte admin local (email + role='admin' +
-// site_id=<nouveau>). Renvoie un lien de mot de passe à transmettre.
-// TODO PR 4 : copier les référentiels partagés (motifs groupe →
-// override local si demandé, rôles groupe → visibles, etc.).
+// Crée le site + copie des référentiels depuis un site SOURCE choisi
+// (motifs, types de contrat, agences, compétences, échelle niveaux,
+// quarts, rôles personnalisés, matrice des droits) + 1er compte admin
+// local (email + role='admin' + site_id=<nouveau>). Renvoie un lien de
+// mot de passe à transmettre.
+//
+// Migration 0053 : plus aucune ligne partagée. Chaque nouveau site part
+// d'une COPIE de son site source — sinon il démarrerait sans motifs,
+// sans compétences, sans quarts, sans droits. Le site source doit être
+// choisi par le super_admin dans le formulaire.
 export async function createSite(fd: FormData): Promise<void> {
   const { admin } = await requireSuperAdmin();
 
   const slug = String(fd.get("slug") ?? "").trim().toLowerCase();
   const nom = String(fd.get("nom") ?? "").trim();
+  const siteSourceId = String(fd.get("site_source_id") ?? "").trim();
   const emailAdmin = String(fd.get("email_admin") ?? "").trim().toLowerCase();
   const nomAdmin = String(fd.get("nom_admin") ?? "").trim();
 
   const slugErr = validerSlug(slug);
   if (slugErr) redirect(`/platform/nouveau?err=${encodeURIComponent(slugErr)}`);
   if (!nom) redirect(`/platform/nouveau?err=${encodeURIComponent("Nom du site requis")}`);
+  if (!siteSourceId) {
+    redirect(`/platform/nouveau?err=${encodeURIComponent("Site source requis (référentiels copiés)")}`);
+  }
   if (!emailAdmin || !/^\S+@\S+\.\S+$/.test(emailAdmin)) {
     redirect(`/platform/nouveau?err=${encodeURIComponent("Email admin invalide")}`);
   }
@@ -90,21 +100,22 @@ export async function createSite(fd: FormData): Promise<void> {
     }
   }
 
-  // 4) Seed les données de base du site
-  //    - parametre_affichage : fenêtre d'affichage TV (J-1 → J+4 par défaut)
-  //    Les quarts sont globaux (table partagée) → pas besoin de seeder.
-  //    Les motifs / types de contrat / rôles sont visibles via site_id IS NULL.
-  //    Le référentiel local (ateliers, lignes, postes, équipes) est propre à
-  //    chaque usine et sera saisi par l'admin local.
+  // 4) Seed : parametre_affichage (fenêtre TV J-1 → J+4).
   const { error: seedErr } = await admin
     .from("parametre_affichage")
     .insert({ site_id: site.id, jours_avant: 1, jours_apres: 4 });
   if (seedErr) {
     console.error("[createSite] seed parametre_affichage :", seedErr.message);
-    // Non bloquant : le site fonctionne avec les valeurs par défaut.
+    // Non bloquant : la fenêtre TV a des valeurs par défaut applicatives.
   }
 
-  // 5) Génère le lien de mot de passe à transmettre
+  // 5) COPIE DES RÉFÉRENTIELS depuis le site source (migration 0053).
+  //    Chaque référentiel est copié en une passe. Un échec sur l'un des
+  //    référentiels n'annule pas le site (les données manquantes se
+  //    ressaisissent depuis les écrans /admin/*), mais on trace.
+  await copierReferentiels(admin, siteSourceId, site.id);
+
+  // 6) Génère le lien de mot de passe à transmettre
   let lien = "";
   try {
     const h = await headers();
@@ -116,6 +127,128 @@ export async function createSite(fd: FormData): Promise<void> {
 
   revalidatePath("/platform");
   redirect(`/platform/${site.id}?created=1&lien=${encodeURIComponent(lien)}`);
+}
+
+// Copie les référentiels site-scopés d'un site source vers un site cible
+// (migration 0053). Ordre volontaire :
+//   1. motif_absence, agence_interim, type_contrat, competence,
+//      competence_niveau_libelle, quart — indépendants entre eux.
+//   2. role_custom (avant role_permission qui peut le référencer).
+//   3. role_permission — pose la matrice des droits comme sur le source.
+//
+// Toutes les insertions passent par le client admin (service_role), avec
+// site_id explicite pour ne pas retomber sur le fallback lebignon du
+// trigger set_site_id_from_context. Les erreurs sont journalisées sans
+// interrompre la chaîne : l'écran de détail affiche le lien admin même
+// si un référentiel a partiellement échoué.
+type AdminClient = Awaited<ReturnType<typeof import("@/lib/supabase-server").getAdminClient>>;
+async function copierReferentiels(admin: AdminClient, sourceId: string, cibleId: string): Promise<void> {
+  // --- Motifs d'absence ---
+  {
+    const { data } = await admin
+      .from("motif_absence")
+      .select("libelle, code_court, couleur, actif")
+      .eq("site_id", sourceId);
+    if (data && data.length > 0) {
+      const rows = data.map((r) => ({ ...r, site_id: cibleId }));
+      const { error } = await admin.from("motif_absence").insert(rows);
+      if (error) console.error("[createSite] copie motifs :", error.message);
+    }
+  }
+
+  // --- Agences d'intérim ---
+  {
+    const { data } = await admin
+      .from("agence_interim")
+      .select("nom, actif")
+      .eq("site_id", sourceId);
+    if (data && data.length > 0) {
+      const rows = data.map((r) => ({ ...r, site_id: cibleId }));
+      const { error } = await admin.from("agence_interim").insert(rows);
+      if (error) console.error("[createSite] copie agences :", error.message);
+    }
+  }
+
+  // --- Types de contrat ---
+  {
+    const { data } = await admin
+      .from("type_contrat")
+      .select("code, libelle, actif, ordre")
+      .eq("site_id", sourceId);
+    if (data && data.length > 0) {
+      const rows = data.map((r) => ({ ...r, site_id: cibleId }));
+      const { error } = await admin.from("type_contrat").insert(rows);
+      if (error) console.error("[createSite] copie types de contrat :", error.message);
+    }
+  }
+
+  // --- Compétences (catalogue) ---
+  {
+    const { data } = await admin
+      .from("competence")
+      .select("nom, type, a_recycler, duree_validite_mois, actif, categorie, groupe, ordre, a_autorisation_conduite")
+      .eq("site_id", sourceId);
+    if (data && data.length > 0) {
+      const rows = data.map((r) => ({ ...r, site_id: cibleId }));
+      const { error } = await admin.from("competence").insert(rows);
+      if (error) console.error("[createSite] copie compétences :", error.message);
+    }
+  }
+
+  // --- Échelle des niveaux (0..4) ---
+  {
+    const { data } = await admin
+      .from("competence_niveau_libelle")
+      .select("niveau, libelle")
+      .eq("site_id", sourceId);
+    if (data && data.length > 0) {
+      const rows = data.map((r) => ({ ...r, site_id: cibleId }));
+      const { error } = await admin.from("competence_niveau_libelle").insert(rows);
+      if (error) console.error("[createSite] copie échelle niveaux :", error.message);
+    }
+  }
+
+  // --- Quarts (code, libelle, ordre, debut, fin) ---
+  //    La PK est composite (code, site_id) : recopier sous le nouveau
+  //    site_id ne crée aucun conflit.
+  {
+    const { data } = await admin
+      .from("quart")
+      .select("code, libelle, ordre, debut, fin")
+      .eq("site_id", sourceId);
+    if (data && data.length > 0) {
+      const rows = data.map((r) => ({ ...r, site_id: cibleId }));
+      const { error } = await admin.from("quart").insert(rows);
+      if (error) console.error("[createSite] copie quarts :", error.message);
+    }
+  }
+
+  // --- Rôles personnalisés (role_custom) ---
+  {
+    const { data } = await admin
+      .from("role_custom")
+      .select("code, libelle")
+      .eq("site_id", sourceId);
+    if (data && data.length > 0) {
+      const rows = data.map((r) => ({ ...r, site_id: cibleId }));
+      const { error } = await admin.from("role_custom").insert(rows);
+      if (error) console.error("[createSite] copie rôles custom :", error.message);
+    }
+  }
+
+  // --- Matrice des droits (role_permission) ---
+  //    Copié APRÈS role_custom : la matrice peut nommer un rôle custom.
+  {
+    const { data } = await admin
+      .from("role_permission")
+      .select("role, module, niveau")
+      .eq("site_id", sourceId);
+    if (data && data.length > 0) {
+      const rows = data.map((r) => ({ ...r, site_id: cibleId }));
+      const { error } = await admin.from("role_permission").insert(rows);
+      if (error) console.error("[createSite] copie matrice droits :", error.message);
+    }
+  }
 }
 
 // -------------------- Suspendre / Réactiver / Archiver --------------------

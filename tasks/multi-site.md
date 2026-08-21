@@ -1,6 +1,6 @@
 # Polaris multi-site — analyse et proposition d'architecture
 
-> **Statut : EN COURS (2026-08-21).** PR 1–4 en prod, PR 5 (tests statiques) à faire.
+> **Statut : EN COURS (2026-08-21).** PR 1–5 code fini, PR 5 SQL à jouer.
 >
 > ---
 >
@@ -15,6 +15,7 @@
 > | **PR 2** | `site.nom` en pastille du logo (AppHeader), en pied du PDF placement, à côté du titre atelier sur la TV ; refus de session si `site.statut != 'actif'` (sauf super_admin) | — |
 > | **PR 3** | Back-office `/platform` : liste sites, création (avec 1er admin + lien mdp), suspendre/réactiver/archiver, impersonation super_admin via cookie signé HMAC-SHA256 + header PostgREST + bandeau rouge permanent + journal `audit_impersonation` ; layout `/platform` réservé aux super_admin | `0048` (current_site_id lit `x-impersonate-site`) |
 > | **PR 4** | Onboarding : `parametre_affichage` PK→`site_id`, seed auto dans `createSite`, `site_id` explicite sur **toutes** les routes API (14 fichiers, 10 routes + 4 server actions) | `0051` |
+> | **PR 5 (code)** | **Séparation totale des référentiels par site.** Les 7 dernières tables partagées (motif_absence, type_contrat, role_custom, role_permission, competence, competence_niveau_libelle, quart) passent en `site_id NOT NULL`. Plus AUCUNE ligne partagée entre sites. `createSite` copie les référentiels du site source choisi au formulaire (motifs, contrats, agences, compétences, échelle niveaux, quarts, rôles custom, matrice des droits). `refdata`, `roles-server`, `permissions` site-scopés (retrait du `or(site_id.is.null,…)`). Actions & API adaptées. Composite FKs `(quart_code, site_id) → quart(code, site_id)` sur 10 tables enfants (PostgREST-safe car aucun embed implicite). PK `jour_quart` corrigée en `(site_id, jour, quart_code)`. | **`0053` à jouer** |
 >
 > **Détail PR 4 (terminée 2026-08-21)** :
 >
@@ -42,7 +43,12 @@
 >
 > **⏸️ Reste à faire** :
 >
-> - **PR 5 — Tests statiques cross-site** :
+> - **PR 5 SQL — jouer `0053_tables_par_site.sql`** dans le SQL Editor
+>   Supabase. Prérequis : supprimer d'abord tout site tiers déjà créé
+>   (« La Vraie Croix » notamment) — sinon ses lignes NULL restantes
+>   seraient rebasculées vers Lebignon. Sauvegarde `pg_dump` obligatoire.
+>
+> - **PR 6 — Tests statiques cross-site** (durcissement, indépendant de 0053) :
 >   - `routes-multi-site.test.ts` : toute route API écrivant une table
 >     site-scopée doit poser `.eq("site_id", …)` ou passer par une fonction SQL
 >     avec `p_site`.
@@ -52,7 +58,7 @@
 >     qu'aucun appel n'oublie de borner par site. Whitelist manuellement les
 >     rares cas légitimes (`/platform`, refdata partagée).
 >
-> - **PR 6+ — Reporting groupe, quotas, custom domains** : reporté à V2, cf. §10.
+> - **PR 7+ — Reporting groupe, quotas, custom domains** : reporté à V2, cf. §10.
 >
 > **Points ouverts à trancher quand on reprend** :
 >

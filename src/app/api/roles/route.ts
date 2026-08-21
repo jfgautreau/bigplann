@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { moduleWriteGuard } from "@/lib/permissions";
+import { getCurrentSite } from "@/lib/current-site";
 import { ROLES, ROLE_LABELS, slugifyRole } from "@/lib/roles";
 
 // POST /api/roles { libelle }
@@ -31,7 +32,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ce rôle existe déjà." }, { status: 409 });
   }
 
-  const { error } = await supabase.from("role_custom").insert({ code, libelle });
+  const site = await getCurrentSite();
+  // MULTI-SITE (0053) : role_custom.site_id NOT NULL. Le service_role
+  // bypass la RLS, donc site_id doit être posé explicitement — sans quoi
+  // le trigger fallback retomberait sur lebignon.
+  const { error } = await supabase.from("role_custom").insert({ code, libelle, site_id: site.id });
   if (error) {
     // 23505 = violation d'unicité (code déjà présent, ou libellé via l'index).
     const dup = (error as { code?: string }).code === "23505";

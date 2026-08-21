@@ -11,40 +11,28 @@ import { getCurrentSite } from "@/lib/current-site";
 // des fonctions cachées ; Next.js l'inclut dans la clé de cache, donc deux sites
 // n'écrasent JAMAIS le cache l'un de l'autre. Ne jamais retirer cet argument :
 // sans lui, on servirait les ateliers du site A à un utilisateur du site B.
+//
+// ⚠️ MIGRATION 0053 : plus AUCUNE ligne partagée (site_id NULL). Chaque
+// nouveau site part d'un référentiel copié depuis un site source (voir
+// /platform). L'ancien fallback `siteFilteredOrLegacy` et la clause
+// `.or(site_id.is.null,…)` ont donc été retirés.
 const OPTS = { revalidate: 30 };
 
 async function siteId(): Promise<string> {
   return (await getCurrentSite()).id;
 }
 
-// Helper : applique un filtre .eq("site_id", ...) et retente sans le
-// filtre si la colonne n'existe pas encore (fenêtre pré-migration 0043).
-// Retirer ces fallbacks une fois la 0043 en prod.
-async function siteFilteredOrLegacy<T>(
-  build: () => {
-    modern: () => PromiseLike<{ data: T[] | null; error: unknown }>;
-    legacy: () => PromiseLike<{ data: T[] | null; error: unknown }>;
-  }
-): Promise<T[]> {
-  const { modern, legacy } = build();
-  const mres = await modern();
-  if (!mres.error) return (mres.data ?? []) as T[];
-  const lres = await legacy();
-  return (lres.data ?? []) as T[];
-}
-
 // -------- Ateliers -------------------------------------------------
 
 const getAteliersBySite = unstable_cache(
   async (site: string) => {
-    return siteFilteredOrLegacy<{ id: string; nom: string }>(() => {
-      const base = () =>
-        getAdminClient().from("atelier").select("id, nom").eq("actif", true);
-      return {
-        modern: () => base().eq("site_id", site).order("nom"),
-        legacy: () => base().order("nom"),
-      };
-    });
+    const { data } = await getAdminClient()
+      .from("atelier")
+      .select("id, nom")
+      .eq("actif", true)
+      .eq("site_id", site)
+      .order("nom");
+    return (data ?? []) as { id: string; nom: string }[];
   },
   ["refdata-ateliers"],
   OPTS
@@ -64,17 +52,13 @@ type EquipeRow = {
 
 const getEquipesBySite = unstable_cache(
   async (site: string) => {
-    return siteFilteredOrLegacy<EquipeRow>(() => {
-      const base = () =>
-        getAdminClient()
-          .from("equipe")
-          .select("id, nom, couleur, quart_fixe")
-          .eq("actif", true);
-      return {
-        modern: () => base().eq("site_id", site).order("nom"),
-        legacy: () => base().order("nom"),
-      };
-    });
+    const { data } = await getAdminClient()
+      .from("equipe")
+      .select("id, nom, couleur, quart_fixe")
+      .eq("actif", true)
+      .eq("site_id", site)
+      .order("nom");
+    return (data ?? []) as EquipeRow[];
   },
   ["refdata-equipes"],
   OPTS
@@ -84,61 +68,46 @@ export async function getEquipesC() {
 }
 
 // -------- Quarts ---------------------------------------------------
-// Table `quart` reste globale en V1 (référentiel commun à toutes les
-// usines). Pas de siteId ici. Si un site veut ses propres codes, on
-// site-scopera plus tard.
+// Depuis la migration 0053, `quart` est site-scopé (PK composite
+// (code, site_id)). Chaque site a son propre jeu de quarts, seedé à la
+// création (copie depuis le site source).
 
-export const getQuartsC = unstable_cache(
-  async () => {
+const getQuartsBySite = unstable_cache(
+  async (site: string) => {
     const { data } = await getAdminClient()
       .from("quart")
       .select("code, libelle, ordre")
+      .eq("site_id", site)
       .order("ordre");
     return (data ?? []) as { code: string; libelle: string; ordre: number }[];
   },
   ["refdata-quarts"],
   OPTS
 );
+export async function getQuartsC() {
+  return getQuartsBySite(await siteId());
+}
 
 // -------- Motifs d'absence -----------------------------------------
-// Table partagée : lignes groupe (site_id NULL) + surcharges locales
-// (site_id = site courant). La RLS renvoie l'union ; le tri place les
-// codes locaux en premier pour qu'une surcharge éclipse une valeur groupe
-// portant le même code_court (résolu applicativement au premier tombé).
+// Depuis la 0053, `motif_absence.site_id` est NOT NULL : chaque site a ses
+// motifs. Plus de branche « ligne groupe (NULL) » à agréger.
 
 type MotifRow = {
   id: string;
   code_court: string;
   libelle: string;
   couleur: string;
-  site_id: string | null;
 };
 
 const getMotifsBySite = unstable_cache(
   async (site: string) => {
-    return siteFilteredOrLegacy<MotifRow>(() => {
-      const modern = () =>
-        getAdminClient()
-          .from("motif_absence")
-          .select("id, code_court, libelle, couleur, site_id")
-          .eq("actif", true)
-          .or(`site_id.is.null,site_id.eq.${site}`)
-          .order("libelle");
-      const legacy = () =>
-        getAdminClient()
-          .from("motif_absence")
-          .select("id, code_court, libelle, couleur")
-          .eq("actif", true)
-          .order("libelle")
-          .then((r) => ({
-            data: (r.data ?? []).map((x) => ({
-              ...(x as Omit<MotifRow, "site_id">),
-              site_id: null,
-            })) as MotifRow[],
-            error: r.error,
-          }));
-      return { modern, legacy };
-    });
+    const { data } = await getAdminClient()
+      .from("motif_absence")
+      .select("id, code_court, libelle, couleur")
+      .eq("actif", true)
+      .eq("site_id", site)
+      .order("libelle");
+    return (data ?? []) as MotifRow[];
   },
   ["refdata-motifs"],
   OPTS
@@ -148,22 +117,26 @@ export async function getMotifsC() {
 }
 
 // -------- Echelle des niveaux (0..4) -------------------------------
-// Globale à toute la plateforme (échelle standard des matrices de
-// polyvalence). Tag dédié pour invalidation immédiate depuis l'écran
+// Depuis la 0053, `competence_niveau_libelle` est site-scopée. La PK est
+// (site_id, niveau). Tag dédié pour invalidation immédiate depuis l'écran
 // des libellés.
 export const NIVEAUX_TAG = "refdata-niveaux";
 
-export const getNiveauxC = unstable_cache(
-  async () => {
+const getNiveauxBySite = unstable_cache(
+  async (site: string) => {
     const { data } = await getAdminClient()
       .from("competence_niveau_libelle")
       .select("niveau, libelle")
+      .eq("site_id", site)
       .order("niveau");
     return (data ?? []) as { niveau: number; libelle: string }[];
   },
   ["refdata-niveaux"],
   { ...OPTS, tags: [NIVEAUX_TAG] }
 );
+export async function getNiveauxC() {
+  return getNiveauxBySite(await siteId());
+}
 
 // -------- Références de rotation -----------------------------------
 // Site-scopées : la rotation des équipes d'un site n'est pas celle d'un
@@ -178,16 +151,12 @@ type RotationRefRow = {
 
 const getRotationRefsBySite = unstable_cache(
   async (site: string) => {
-    return siteFilteredOrLegacy<RotationRefRow>(() => {
-      const base = () =>
-        getAdminClient()
-          .from("rotation_reference")
-          .select("semaine, equipe_id, quart_code");
-      return {
-        modern: () => base().eq("site_id", site).order("semaine"),
-        legacy: () => base().order("semaine"),
-      };
-    });
+    const { data } = await getAdminClient()
+      .from("rotation_reference")
+      .select("semaine, equipe_id, quart_code")
+      .eq("site_id", site)
+      .order("semaine");
+    return (data ?? []) as RotationRefRow[];
   },
   ["refdata-rotation"],
   { ...OPTS, tags: [ROTATION_TAG] }

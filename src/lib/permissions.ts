@@ -161,14 +161,20 @@ export async function canWritePlacementData(role: string): Promise<boolean> {
 
 // Droits effectifs d'un role = defauts surchargés par la table role_permission.
 // `cache()` : dedupe la requete role_permission par role sur toute la requete HTTP.
+//
+// MULTI-SITE : depuis 0053, role_permission.site_id est NOT NULL. La RLS filtre
+// déjà par site_id = current_site_id(), mais on ajoute `.eq('site_id', siteId)`
+// explicite (défense en profondeur + planner Postgres qui touche l'index composite).
 export const getPermissions = cache(async function getPermissions(role: string): Promise<Perms> {
   const p = defaultsFor(role);
   try {
-    const supabase = await getServerClient();
+    const { getCurrentSite } = await import("@/lib/current-site");
+    const [supabase, site] = await Promise.all([getServerClient(), getCurrentSite()]);
     const { data } = await supabase
       .from("role_permission")
       .select("module, niveau")
       .eq("role", role)
+      .eq("site_id", site.id)
       .returns<{ module: string; niveau: Niveau }[]>();
     for (const r of data ?? []) if (r.module in p) p[r.module] = r.niveau;
   } catch {
@@ -181,15 +187,20 @@ export const getPermissions = cache(async function getPermissions(role: string):
 // `rolesSupplementaires` : codes des roles personnalises (role_custom) a inclure
 // en plus des roles integres. Ils partent de defaultsFor(code)=NONE, puis les
 // lignes role_permission les surchargent comme les autres.
+//
+// MULTI-SITE : filtre explicite par site (RLS le fait déjà, on ajoute .eq
+// pour l'indice au planner et défense en profondeur).
 export async function getAllPermissions(rolesSupplementaires: string[] = []): Promise<Record<string, Perms>> {
   const all: Record<string, Perms> = {};
   for (const r of ROLES) all[r] = defaultsFor(r);
   for (const r of rolesSupplementaires) if (!all[r]) all[r] = defaultsFor(r);
   try {
-    const supabase = await getServerClient();
+    const { getCurrentSite } = await import("@/lib/current-site");
+    const [supabase, site] = await Promise.all([getServerClient(), getCurrentSite()]);
     const { data } = await supabase
       .from("role_permission")
       .select("role, module, niveau")
+      .eq("site_id", site.id)
       .returns<{ role: string; module: string; niveau: Niveau }[]>();
     for (const row of data ?? []) {
       if (all[row.role] && row.module in all[row.role]) all[row.role][row.module] = row.niveau;

@@ -24,9 +24,15 @@ const CONTRATS_FALLBACK = ["CDI", "CDD", "INTERIM"];
 // Liste des codes de type de contrat autorises : union du fallback historique
 // et des types actifs saisis en Param. RH. Ne rejette jamais un code deja
 // present dans la table (meme desactive), pour ne pas casser une mise a jour.
-async function codesContratAutorises(supabase: SupabaseClient): Promise<string[]> {
+async function codesContratAutorises(supabase: SupabaseClient, siteId: string): Promise<string[]> {
   try {
-    const { data, error } = await supabase.from("type_contrat").select("code").returns<{ code: string }[]>();
+    // MULTI-SITE (0053) : type_contrat est site-scopé. On borne pour ne
+    // pas lister les codes d'un autre site (le service_role bypass RLS).
+    const { data, error } = await supabase
+      .from("type_contrat")
+      .select("code")
+      .eq("site_id", siteId)
+      .returns<{ code: string }[]>();
     if (error) return CONTRATS_FALLBACK;
     const set = new Set<string>(CONTRATS_FALLBACK);
     for (const r of data ?? []) set.add(r.code);
@@ -161,7 +167,7 @@ export async function POST(req: NextRequest) {
   const supabase = getAdminClient();
   // MULTI-SITE : site_id explicite pour le cas admin client (service_role).
   const site_id = profile.siteId;
-  const CONTRATS = await codesContratAutorises(supabase);
+  const CONTRATS = await codesContratAutorises(supabase, site_id);
 
   try {
     if (op === "create") {
@@ -298,10 +304,12 @@ export async function POST(req: NextRequest) {
     // table n'existe pas encore.
     if (op === "types-contrat") {
       try {
+        // MULTI-SITE (0053) : borne par site_id (service_role bypass RLS).
         const { data, error } = await supabase
           .from("type_contrat")
           .select("code, libelle")
           .eq("actif", true)
+          .eq("site_id", site_id)
           .order("ordre")
           .returns<{ code: string; libelle: string }[]>();
         if (error) throw error;
@@ -319,10 +327,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (op === "agences") {
+      // MULTI-SITE : agence_interim est site-scopée. Borne pour ne pas
+      // renvoyer les agences d'un autre site.
       const { data, error } = await supabase
         .from("agence_interim")
         .select("nom")
         .eq("actif", true)
+        .eq("site_id", site_id)
         .order("nom")
         .returns<{ nom: string }[]>();
       return NextResponse.json({ ok: true, agences: error ? [] : (data ?? []).map((a) => a.nom) });

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireModuleWrite } from "@/lib/permissions";
+import { getCurrentSite } from "@/lib/current-site";
 import { messageErreur, urlAvecErreur, type ErreurPg } from "@/lib/erreurs";
 
 const PATH = "/admin/motifs";
@@ -17,8 +18,14 @@ function done(err: ErreurPg = null): never {
   redirect(urlAvecErreur(PATH, msg));
 }
 
+// MULTI-SITE (0053) : motif_absence, agence_interim, type_contrat sont
+// site-scopés (site_id NOT NULL). Le service_role bypass la RLS, on pose
+// donc site_id explicitement pour ne pas atterrir dans un autre site
+// (le trigger set_site_id_from_context retomberait sur lebignon).
+
 export async function createMotif(fd: FormData) {
   const supabase = await requireModuleWrite("motifs");
+  const site = await getCurrentSite();
   const libelle = s(fd, "libelle");
   const code_court = s(fd, "code_court");
   if (!libelle || !code_court) done();
@@ -26,6 +33,7 @@ export async function createMotif(fd: FormData) {
     libelle,
     code_court,
     couleur: s(fd, "couleur") || "#e5e7eb",
+    site_id: site.id,
   });
   done(error);
 }
@@ -59,9 +67,10 @@ export async function toggleMotif(fd: FormData) {
 
 export async function createAgence(fd: FormData) {
   const supabase = await requireModuleWrite("motifs");
+  const site = await getCurrentSite();
   const nom = s(fd, "nom");
   if (!nom) done();
-  const { error } = await supabase.from("agence_interim").insert({ nom });
+  const { error } = await supabase.from("agence_interim").insert({ nom, site_id: site.id });
   done(error);
 }
 
@@ -89,29 +98,35 @@ export async function toggleAgence(fd: FormData) {
 
 export async function createTypeContrat(fd: FormData) {
   const supabase = await requireModuleWrite("motifs");
+  const site = await getCurrentSite();
   const code = s(fd, "code").toUpperCase();
   const libelle = s(fd, "libelle");
   const ordre = Number(s(fd, "ordre") || "0");
   if (!code || !libelle) done();
-  const { error } = await supabase.from("type_contrat").insert({ code, libelle, ordre });
+  const { error } = await supabase.from("type_contrat").insert({ code, libelle, ordre, site_id: site.id });
   done(error);
 }
 
+// La PK depuis 0053 est (code, site_id) : on ajoute le filtre site.
 export async function updateTypeContrat(fd: FormData) {
   const supabase = await requireModuleWrite("motifs");
+  const site = await getCurrentSite();
   const { error } = await supabase
     .from("type_contrat")
     .update({ libelle: s(fd, "libelle"), ordre: Number(s(fd, "ordre") || "0") })
-    .eq("code", s(fd, "code"));
+    .eq("code", s(fd, "code"))
+    .eq("site_id", site.id);
   done(error);
 }
 
 export async function toggleTypeContrat(fd: FormData) {
   const supabase = await requireModuleWrite("motifs");
+  const site = await getCurrentSite();
   const { error } = await supabase
     .from("type_contrat")
     .update({ actif: fd.get("actif") === "true" })
-    .eq("code", s(fd, "code"));
+    .eq("code", s(fd, "code"))
+    .eq("site_id", site.id);
   done(error);
 }
 

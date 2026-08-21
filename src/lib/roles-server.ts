@@ -1,18 +1,23 @@
 import { cache } from "react";
 import { getServerClient } from "@/lib/supabase-server";
+import { getCurrentSite } from "@/lib/current-site";
 import { ROLES, ROLE_LABELS } from "@/lib/roles";
 
 export type RoleOption = { code: string; libelle: string };
 
-// Rôles personnalisés (table role_custom, migration 0042). Best-effort : si la
-// table n'existe pas encore, on renvoie une liste vide et l'appli retombe sur
-// les seuls rôles intégrés.
+// Rôles personnalisés (table role_custom, migration 0042). Depuis la 0053,
+// `role_custom.site_id` est NOT NULL : chaque site a ses propres rôles
+// custom. Ici on lit uniquement ceux du site courant.
+//
+// Best-effort : si la table n'existe pas encore (fenêtre pré-0042), on
+// renvoie une liste vide et l'appli retombe sur les seuls rôles intégrés.
 export const getCustomRoles = cache(async function getCustomRoles(): Promise<RoleOption[]> {
   try {
-    const supabase = await getServerClient();
+    const [supabase, site] = await Promise.all([getServerClient(), getCurrentSite()]);
     const { data, error } = await supabase
       .from("role_custom")
       .select("code, libelle")
+      .eq("site_id", site.id)
       .order("libelle")
       .returns<RoleOption[]>();
     if (error) return [];

@@ -1,14 +1,33 @@
 import Link from "next/link";
 import { createSite } from "../actions";
+import { getAdminClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
+
+// Liste minimale des sites actifs, pour peupler le sélecteur de « site
+// source ». Le nouveau site copiera les référentiels partageables
+// (motifs, contrats, compétences, échelle niveaux, quarts, rôles custom,
+// droits) depuis ce site source — ainsi une usine ne repart pas de zéro.
+async function listerSitesSources(): Promise<{ id: string; nom: string }[]> {
+  try {
+    const { data } = await getAdminClient()
+      .from("site")
+      .select("id, nom, statut")
+      .in("statut", ["actif", "suspendu"])
+      .order("nom")
+      .returns<{ id: string; nom: string; statut: string }[]>();
+    return (data ?? []).map((s) => ({ id: s.id, nom: s.nom }));
+  } catch {
+    return [];
+  }
+}
 
 export default async function NouveauSitePage({
   searchParams,
 }: {
   searchParams: Promise<{ err?: string }>;
 }) {
-  const sp = await searchParams;
+  const [sp, sources] = await Promise.all([searchParams, listerSitesSources()]);
 
   return (
     <div style={{ maxWidth: 560 }}>
@@ -32,6 +51,22 @@ export default async function NouveauSitePage({
             Slug <span style={{ fontWeight: 400, color: "#64748b" }}>(lettres/chiffres/tirets, ex. « usine-xy »)</span>
           </span>
           <input name="slug" required placeholder="usine-xy" pattern="^[a-z][a-z0-9-]{1,30}[a-z0-9]$" style={inp} />
+        </label>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>
+            Site source <span style={{ fontWeight: 400, color: "#64748b" }}>(les référentiels seront copiés)</span>
+          </span>
+          <select name="site_source_id" required style={inp} defaultValue="">
+            <option value="" disabled>— choisir un site source —</option>
+            {sources.map((s) => (
+              <option key={s.id} value={s.id}>{s.nom}</option>
+            ))}
+          </select>
+          <span style={{ fontSize: 12, color: "#64748b" }}>
+            Copie : motifs d&apos;absence, types de contrat, agences d&apos;intérim, compétences,
+            échelle des niveaux, quarts, rôles personnalisés et matrice des droits.
+          </span>
         </label>
 
         <hr style={{ border: 0, borderTop: "1px solid #e2e8f0", margin: "8px 0" }} />

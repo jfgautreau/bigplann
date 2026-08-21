@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { MODULE_KEYS, moduleWriteGuard, verifierChangementDroit, type Niveau } from "@/lib/permissions";
+import { getCurrentSite } from "@/lib/current-site";
 import { ROLES } from "@/lib/roles";
 
 // POST /api/droits { role, module, niveau }
@@ -33,9 +34,12 @@ export async function POST(req: NextRequest) {
   const verdict = await verifierChangementDroit(garde.profile.role, role, module, niveau);
   if (!verdict.ok) return NextResponse.json({ error: verdict.error }, { status: verdict.status });
 
+  // MULTI-SITE (0053) : PK composite (role, module, site_id). L'upsert
+  // cible ce triplet ; site_id vient du contexte, jamais du body.
+  const site = await getCurrentSite();
   const { error } = await garde.supabase
     .from("role_permission")
-    .upsert({ role, module, niveau }, { onConflict: "role,module" });
+    .upsert({ role, module, niveau, site_id: site.id }, { onConflict: "role,module,site_id" });
   if (error) return NextResponse.json({ error: error.message }, { status: 403 });
   return NextResponse.json({ ok: true });
 }

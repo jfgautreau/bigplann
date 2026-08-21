@@ -35,9 +35,12 @@ export async function POST(req: NextRequest) {
     // avertissement. Les absences ne comptent pas. Les autres quarts non plus
     // (une personne sur le matin ne bloque pas la fermeture de l'apres-midi).
     if (!value) {
+      // MULTI-SITE : borne par site_id — le service_role verrait sinon
+      // les placements des autres sites.
       const { data: conf, error: eConf } = await supabase
         .from("placement")
         .select("id")
+        .eq("site_id", site_id)
         .eq("jour", jour)
         .eq("quart_code", quart_code)
         .not("poste_id", "is", null)
@@ -53,7 +56,7 @@ export async function POST(req: NextRequest) {
     }
     ({ error } = await supabase
       .from("jour_quart")
-      .upsert({ jour, quart_code, actif: value, site_id }, { onConflict: "jour,quart_code" }));
+      .upsert({ jour, quart_code, actif: value, site_id }, { onConflict: "site_id,jour,quart_code" }));
   } else if (type === "ligne") {
     if (!ligne_id) return NextResponse.json({ error: "Ligne requise" }, { status: 400 });
     // Blocage symetrique pour la fermeture d'une ligne : on regarde s'il y a
@@ -64,6 +67,7 @@ export async function POST(req: NextRequest) {
       const { data: conf, error: eConf } = await supabase
         .from("placement")
         .select("id, poste:poste_id!inner(ligne_id)")
+        .eq("site_id", site_id)
         .eq("jour", jour)
         .eq("quart_code", quart_code)
         .eq("poste.ligne_id", ligne_id)

@@ -34,7 +34,7 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `supabase/migrations/` et **demande à l'utilisateur de l'exécuter** dans le SQL Editor.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
-   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0052`** (socle multi-site : `0043`–`0048` ; cycle de vie : `0049`–`0050` ; `parametre_affichage` multi-site : `0051` ; TP périodes : `0052`). Cf. `tasks/multi-site.md` pour l'état complet.
+   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0052`** (socle multi-site : `0043`–`0048` ; cycle de vie : `0049`–`0050` ; `parametre_affichage` multi-site : `0051` ; TP périodes : `0052`). **Migration `0053` écrite mais pas encore appliquée** — séparation totale des référentiels par site : `motif_absence`, `type_contrat`, `role_custom`, `role_permission`, `competence`, `competence_niveau_libelle`, `quart` passent tous à `site_id NOT NULL`, plus aucune ligne partagée entre sites. À jouer avant le prochain déploiement. Cf. `tasks/multi-site.md` pour l'état complet.
 6. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
 7. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**

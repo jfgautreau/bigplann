@@ -86,20 +86,38 @@ export async function removeChef(fd: FormData) {
 // PARAMETRAGE, ajouter un quart ne suffisait pas : il fallait aussi modifier ce
 // fichier, sans quoi le nouveau quart etait ignore par les horaires et par la
 // rotation. On lit desormais la liste reelle.
-async function codesQuarts(supabase: Awaited<ReturnType<typeof requireOrdoWrite>>): Promise<string[]> {
-  const { data } = await supabase.from("quart").select("code").order("ordre").returns<{ code: string }[]>();
+//
+// MULTI-SITE (0053) : quart est site-scopé (PK composite (code, site_id)).
+// On filtre par site pour ne lire que les codes du site courant.
+async function codesQuarts(
+  supabase: Awaited<ReturnType<typeof requireOrdoWrite>>,
+  siteId: string
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("quart")
+    .select("code")
+    .eq("site_id", siteId)
+    .order("ordre")
+    .returns<{ code: string }[]>();
   return (data ?? []).map((q) => q.code);
 }
 
 // Horaires des quarts (libelle + debut/fin).
+// MULTI-SITE : chaque UPDATE filtre par (code, site_id) — la nouvelle PK.
 export async function saveQuartHoraires(fd: FormData) {
   const supabase = await requireOrdoWrite();
-  for (const code of await codesQuarts(supabase)) {
+  const profile = await getCurrentProfile();
+  const siteId = profile!.siteId;
+  for (const code of await codesQuarts(supabase, siteId)) {
     const libelle = s(fd, `lib_${code}`);
     const debut = s(fd, `debut_${code}`) || null;
     const fin = s(fd, `fin_${code}`) || null;
     if (libelle) {
-      const { error } = await supabase.from("quart").update({ libelle, debut, fin }).eq("code", code);
+      const { error } = await supabase
+        .from("quart")
+        .update({ libelle, debut, fin })
+        .eq("code", code)
+        .eq("site_id", siteId);
       if (error) done(error);
     }
   }
@@ -124,7 +142,7 @@ export async function saveRotationReference(fd: FormData) {
   // service_role, current_site_id() renvoie NULL, cf. migration 0044).
   const profile = await getCurrentProfile();
   const semaine = isoDate(parseMonday(s(fd, "semaine")));
-  const valides = await codesQuarts(supabase);
+  const valides = await codesQuarts(supabase, profile!.siteId);
 
   const rows: { equipe_id: string; quart_code: string }[] = [];
   for (const [k, v] of fd.entries()) {

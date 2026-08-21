@@ -23,14 +23,20 @@ function done(err: ErreurPg = null): never {
 }
 
 // Echelle de niveaux (0..4)
+// MULTI-SITE (0053) : competence_niveau_libelle.PK est (site_id, niveau).
+// L'upsert cible ce couple, et pose site_id explicitement.
 export async function saveEchelle(fd: FormData) {
   const supabase = await requireModuleWrite("competences");
+  const profile = await getCurrentProfile();
   for (let n = 0; n <= 4; n++) {
     const libelle = s(fd, `niveau_${n}`);
     if (libelle) {
       const { error } = await supabase
         .from("competence_niveau_libelle")
-        .upsert({ niveau: n, libelle }, { onConflict: "niveau" });
+        .upsert(
+          { niveau: n, libelle, site_id: profile!.siteId },
+          { onConflict: "site_id,niveau" }
+        );
       // On s'arrete au premier echec : poursuivre laisserait une echelle
       // partiellement enregistree sans que personne ne le sache.
       if (error) done(error);

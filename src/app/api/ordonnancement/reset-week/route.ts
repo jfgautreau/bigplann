@@ -31,9 +31,11 @@ export async function POST(req: NextRequest) {
   // (poste_id renseigne) ecraserait les fermetures/ouvertures decidees en
   // Placement, potentiellement laissant des personnes sur des lignes qui vont
   // se refermer. Les jours d'absence ne comptent pas.
+  // MULTI-SITE : borne par site_id (le service_role bypass la RLS).
   const { data: conf, error: eConf } = await supabase
     .from("placement")
     .select("jour")
+    .eq("site_id", site_id)
     .in("jour", isos)
     .not("poste_id", "is", null)
     .is("motif_absence_id", null)
@@ -46,9 +48,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Multi-site : quart est site-scopé depuis 0053. On borne par site_id
+  // pour ne pas lire les codes d'autres sites via service_role.
   const { data: quartsD } = await supabase
     .from("quart")
     .select("code")
+    .eq("site_id", site_id)
     .returns<{ code: string }[]>();
   const quarts = (quartsD ?? []).map((q) => q.code);
   if (quarts.length === 0) return NextResponse.json({ error: "Aucun quart" }, { status: 400 });
@@ -59,9 +64,12 @@ export async function POST(req: NextRequest) {
   const rows = isos.flatMap((iso) =>
     quarts.map((code) => ({ jour: iso, quart_code: code, actif: typeQuartActif(type, iso, code), site_id }))
   );
+  // onConflict inclut site_id : nouvelle PK (site_id, jour, quart_code)
+  // depuis 0053. Sans site_id, un même (jour, quart_code) sur un autre
+  // site déclencherait un conflit de PK côté service_role.
   const { error: e1 } = await supabase
     .from("jour_quart")
-    .upsert(rows, { onConflict: "jour,quart_code" });
+    .upsert(rows, { onConflict: "site_id,jour,quart_code" });
   if (e1) return NextResponse.json({ error: e1.message }, { status: 403 });
 
   // 2) Ouverture des lignes : on efface les exceptions de ces jours du site
