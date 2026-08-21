@@ -269,12 +269,23 @@ export async function userAdminGuard(opts: { cibleUserId?: string; roleVise?: st
   }
 
   // On ne touche pas a un compte qui nous domine (promotion comme retrogradation).
+  //
+  // MULTI-SITE : on ne touche pas non plus a un compte d'un AUTRE site (a
+  // l'exception du super_admin qui gere le parc entier). Sans cette borne,
+  // un admin du site A modifiait potentiellement les comptes du site B
+  // via leur user_id UUID (unique global). La lecture est deja bornee par
+  // site via la RLS d'app_user, mais garde.supabase est un client admin
+  // (service_role) : il bypass la RLS, d'ou le .eq("site_id", ...) explicite
+  // ci-dessous.
   if (opts.cibleUserId && opts.cibleUserId !== garde.profile.authId) {
-    const { data: cible } = await garde.supabase
+    let query = garde.supabase
       .from("app_user")
-      .select("role")
-      .eq("user_id", opts.cibleUserId)
-      .maybeSingle<{ role: string }>();
+      .select("role, site_id")
+      .eq("user_id", opts.cibleUserId);
+    if (!garde.profile.estSuperAdmin) {
+      query = query.eq("site_id", garde.profile.siteId);
+    }
+    const { data: cible } = await query.maybeSingle<{ role: string; site_id: string }>();
     if (!cible) return { ok: false, status: 404, error: "Compte introuvable" };
     if (!(await droitsCouvertsPar(cible.role, garde.profile.role))) {
       return { ok: false, status: 403, error: "Ce compte détient des droits que vous n'avez pas vous-même." };

@@ -35,11 +35,18 @@ export async function POST(req: NextRequest) {
   if (!garde.ok) return NextResponse.json({ error: garde.error }, { status: garde.status });
   const admin = garde.supabase;
 
+  // MULTI-SITE : passe le site de l'appelant dans les metadata pour que
+  // le trigger `handle_new_user` (0043) rattache la ligne app_user au
+  // bon site des la creation. Sans cela, le trigger tombe sur son
+  // fallback lebignon — un admin d'un autre site creerait des comptes
+  // rattaches a Lebignon en silence.
+  const siteId = garde.profile.siteId;
+
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password: motDePasseAleatoire(),
     email_confirm: true,
-    user_metadata: { name },
+    user_metadata: { name, site_id: siteId },
   });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
@@ -47,10 +54,12 @@ export async function POST(req: NextRequest) {
 
   // Positionne role + nom et ACTIVE le compte : le trigger `handle_new_user` cree
   // desormais la ligne inactive (fermeture par defaut, cf. migration 0036).
+  // On repositionne site_id explicitement en plus du metadata : ceinture +
+  // bretelles au cas ou le trigger echouerait a le lire depuis raw_user_meta_data.
   if (data.user) {
     const { error: majErr } = await admin
       .from("app_user")
-      .update({ role, name, is_active: true })
+      .update({ role, name, is_active: true, site_id: siteId })
       .eq("user_id", data.user.id);
     if (majErr) {
       return NextResponse.json({ error: `Compte cree mais non active : ${majErr.message}` }, { status: 500 });
