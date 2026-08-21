@@ -3,26 +3,39 @@ import { getServerClient, getAdminClient } from "@/lib/supabase-server";
 import { getCurrentProfile } from "@/lib/current-user";
 import { canWriteModule } from "@/lib/permissions";
 
-// POST /api/habilitations/autorisation { id, date_autorisation_conduite }
-// Met a jour la seule date de remise de l'autorisation de conduite d'un
-// enregistrement personne_competence (edition inline, apres coup). Perimetre :
-// admin -> client admin ; chef d'equipe -> client RLS (can_edit_personne).
-const isIso = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
-
+// POST /api/habilitations/autorisation { id, remise: boolean }
+// Toggle « autorisation remise » sur un enregistrement personne_competence
+// (edition inline, apres coup). L'UI n'expose plus qu'une case a cocher : cochee
+// on inscrit la date d'obtention dans date_autorisation_conduite, decochee on
+// remet a null. Perimetre : admin -> client admin ; chef d'equipe -> client RLS
+// (can_edit_personne).
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
-  const body = (await req.json().catch(() => null)) as { id?: string; date_autorisation_conduite?: string } | null;
+  const body = (await req.json().catch(() => null)) as { id?: string; remise?: boolean } | null;
   const id = String(body?.id ?? "");
-  const raw = String(body?.date_autorisation_conduite ?? "").trim();
+  const remise = body?.remise === true;
   if (!id) return NextResponse.json({ error: "id manquant" }, { status: 400 });
-  if (raw && !isIso(raw)) return NextResponse.json({ error: "date invalide" }, { status: 400 });
 
   const supabase = (await canWriteModule(profile.role, "habilitations")) ? getAdminClient() : await getServerClient();
+
+  // Lire la date d'obtention pour l'utiliser comme date d'autorisation.
+  // Sans date d'obtention (cas theorique : ligne existant mais vide), on refuse :
+  // la « date d'autorisation » n'aurait rien a pointer.
+  const { data: rec, error: readErr } = await supabase
+    .from("personne_competence")
+    .select("date_obtention")
+    .eq("id", id)
+    .single<{ date_obtention: string | null }>();
+  if (readErr) return NextResponse.json({ error: readErr.message }, { status: 403 });
+  if (remise && !rec?.date_obtention) {
+    return NextResponse.json({ error: "Date d'obtention manquante." }, { status: 400 });
+  }
+
   const { error } = await supabase
     .from("personne_competence")
-    .update({ date_autorisation_conduite: raw || null })
+    .update({ date_autorisation_conduite: remise ? rec!.date_obtention : null })
     .eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 403 });
   return NextResponse.json({ ok: true });

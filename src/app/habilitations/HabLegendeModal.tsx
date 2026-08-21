@@ -6,8 +6,8 @@ import AutorisationMark from "./AutorisationMark";
 
 const LIGNES: { statut: "vert" | "orange" | "rouge" | "aucun"; titre: string; texte: string }[] = [
   { statut: "vert", titre: "Valable", texte: "plus de 90 jours avant échéance, ou formation sans date de validité." },
-  { statut: "orange", titre: "Bientôt dépassée", texte: "entre 30 et 90 jours avant échéance : à replanifier." },
-  { statut: "rouge", titre: "Plus valide", texte: "moins de 30 jours avant échéance, ou déjà expirée." },
+  { statut: "orange", titre: "Bientôt dépassée", texte: "moins de 90 jours avant échéance : à replanifier." },
+  { statut: "rouge", titre: "Plus valide", texte: "échéance dépassée." },
   { statut: "aucun", titre: "Non habilité", texte: "aucune formation enregistrée pour cette personne sur ce poste." },
 ];
 

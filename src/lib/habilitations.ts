@@ -24,10 +24,13 @@ export const fmtDateFr = (iso: string | null) => (iso ? iso.split("-").reverse()
 
 export type HabStatut = "vert" | "orange" | "rouge";
 
-// Vert > 90 j ; Orange 30-90 j ; Rouge < 30 j ou expire.
+// Rouge = deja expire (jours < 0). Orange = echeance sous 90 j (0 a 90).
+// Vert = plus de 90 j. Deux couleurs seulement avant expiration : on ne veut plus
+// une phase « rouge » avant l'echeance, ca prete a confusion avec une habilitation
+// vraiment perimee. Sans jours (formation sans validite) : pas de statut.
 export function habStatut(jours: number | null): HabStatut | null {
   if (jours === null) return null;
-  if (jours < 30) return "rouge";
+  if (jours < 0) return "rouge";
   if (jours <= 90) return "orange";
   return "vert";
 }

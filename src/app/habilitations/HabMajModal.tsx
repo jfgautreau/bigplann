@@ -21,7 +21,7 @@ export default function HabMajModal({
 }: {
   personnes: Personne[];
   comps: Comp[];
-  initial: { personneId: string; competenceId: string; dateObtention: string | null; dateAutorisation: string | null };
+  initial: { personneId: string; competenceId: string; dateObtention: string | null; autorisationRemise: boolean; commentaire: string | null };
   dateJour: string;
   onClose: () => void;
 }) {
@@ -31,7 +31,10 @@ export default function HabMajModal({
   // Toujours la date du jour : on saisit une habilitation le jour ou on l'apprend.
   // L'eventuel passage precedent n'est rappele qu'a titre indicatif.
   const [dateObtention, setDateObtention] = useState(dateJour);
-  const [dateAutor, setDateAutor] = useState(initial.dateAutorisation ?? "");
+  // Autorisation : simple booleen ; la date d'autorisation vaut date_obtention
+  // (sous-entendu de l'UI, cf. CLAUDE.md et /api/habilitations).
+  const [autorRemise, setAutorRemise] = useState<boolean>(initial.autorisationRemise);
+  const [commentaire, setCommentaire] = useState<string>(initial.commentaire ?? "");
   const [state, setState] = useState<"idle" | "saving" | "error">("idle");
   const [err, setErr] = useState<string | null>(null);
   // Suppression : confirmation en deux temps, dans la modale plutot qu'en
@@ -60,7 +63,8 @@ export default function HabMajModal({
           personne_id: personneId,
           competence_id: competenceId,
           date_obtention: dateObtention,
-          date_autorisation_conduite: dateAutor || null,
+          autorisation_remise: autorRemise,
+          commentaire: commentaire || null,
         }),
       });
       if (!res.ok) {
@@ -141,9 +145,27 @@ export default function HabMajModal({
             {comp?.a_autorisation_conduite && (
               <div className="field">
                 <span>Autorisation</span>
-                <input type="date" value={dateAutor} onChange={(e) => setDateAutor(e.target.value)} />
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={autorRemise}
+                    onChange={(e) => setAutorRemise(e.target.checked)}
+                    style={{ width: "auto" }}
+                  />
+                  <span>remise (date = date de passage)</span>
+                </label>
               </div>
             )}
+            <div className="field">
+              <span>Commentaire</span>
+              <textarea
+                value={commentaire}
+                onChange={(e) => setCommentaire(e.target.value)}
+                rows={2}
+                placeholder="Optionnel : n° d'autorisation, réserve du formateur…"
+                style={{ resize: "vertical", minHeight: 44, fontFamily: "inherit" }}
+              />
+            </div>
             <button type="submit" className="btn-sm" disabled={state === "saving"}>
               {state === "saving" ? "Enregistrement…" : "Enregistrer"}
             </button>

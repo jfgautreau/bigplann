@@ -21,6 +21,7 @@ type Row = {
   date_obtention: string | null;
   date_expiration: string | null;
   date_autorisation_conduite: string | null;
+  commentaire: string | null;
   personne: { nom: string; prenom: string } | null;
   competence: { nom: string; a_recycler: boolean; a_autorisation_conduite: boolean } | null;
 };
@@ -40,9 +41,48 @@ const catOf = (c: string | null) => (c === "interne" ? "interne" : "reglementair
 // Echeance effective : date stockee, sinon recalculee (obtention + duree de validite).
 const effExp = (rec: Row, comp?: Comp) => rec.date_expiration ?? addMonthsIso(rec.date_obtention, comp?.duree_validite_mois);
 
-// Date de remise de l'autorisation, editable en direct (auto-save).
-// Permet de la renseigner apres coup, une fois la formation validee.
-function AutorisationCell({ id, initial }: { id: string; initial: string | null }) {
+// Case a cocher « autorisation remise », editable en direct (auto-save immediat).
+// La date d'autorisation vaut date d'obtention de l'habilitation ; le back-end
+// s'en charge. Ici on ne manipule qu'un booleen.
+function AutorisationCell({ id, initial }: { id: string; initial: boolean }) {
+  const [val, setVal] = useState<boolean>(initial);
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  async function onChange(v: boolean) {
+    setVal(v);
+    setState("saving");
+    try {
+      const res = await fetch("/api/habilitations/autorisation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, remise: v }),
+      });
+      setState(res.ok ? "saved" : "error");
+      if (!res.ok) setVal(!v); // rollback visuel
+    } catch {
+      setState("error");
+      setVal(!v);
+    }
+    setTimeout(() => setState("idle"), 1500);
+  }
+
+  return (
+    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", cursor: "pointer" }}>
+      <input
+        type="checkbox"
+        checked={val}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ width: "auto", margin: 0 }}
+      />
+      <span style={{ fontSize: 12, width: 14, color: state === "error" ? "var(--danger)" : "var(--ok)" }}>
+        {state === "saving" ? "…" : state === "saved" ? "✓" : state === "error" ? "!" : ""}
+      </span>
+    </label>
+  );
+}
+
+// Cellule commentaire de la vue liste : input auto-sauvegarde.
+function CommentaireCell({ id, initial }: { id: string; initial: string | null }) {
   const [val, setVal] = useState(initial ?? "");
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -53,10 +93,10 @@ function AutorisationCell({ id, initial }: { id: string; initial: string | null 
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       try {
-        const res = await fetch("/api/habilitations/autorisation", {
+        const res = await fetch("/api/habilitations/commentaire", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, date_autorisation_conduite: v }),
+          body: JSON.stringify({ id, commentaire: v }),
         });
         setState(res.ok ? "saved" : "error");
       } catch {
@@ -67,9 +107,15 @@ function AutorisationCell({ id, initial }: { id: string; initial: string | null 
   }
 
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-      <input type="date" value={val} onChange={(e) => onChange(e.target.value)} style={{ width: 148, fontSize: 12, padding: "2px 4px" }} />
-      <span style={{ fontSize: 12, width: 14, color: state === "error" ? "var(--danger)" : "var(--ok)" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, width: "100%" }}>
+      <input
+        type="text"
+        value={val}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="—"
+        style={{ width: "100%", fontSize: 12, padding: "2px 4px" }}
+      />
+      <span style={{ fontSize: 12, width: 14, color: state === "error" ? "var(--danger)" : "var(--ok)", flexShrink: 0 }}>
         {state === "saving" ? "…" : state === "saved" ? "✓" : state === "error" ? "!" : ""}
       </span>
     </span>

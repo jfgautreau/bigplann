@@ -14,6 +14,7 @@ type Row = {
   date_obtention: string | null;
   date_expiration: string | null;
   date_autorisation_conduite: string | null;
+  commentaire: string | null;
   personne: { nom: string; prenom: string } | null;
   competence: { nom: string; a_recycler: boolean; a_autorisation_conduite: boolean } | null;
 };
@@ -46,7 +47,7 @@ export default async function HabilitationsPage({
     fetchAll<Row>(() =>
       supabase
         .from("personne_competence")
-        .select("id, personne_id, competence_id, date_obtention, date_expiration, date_autorisation_conduite, personne:personne_id(nom, prenom), competence:competence_id(nom, a_recycler, a_autorisation_conduite)")
+        .select("id, personne_id, competence_id, date_obtention, date_expiration, date_autorisation_conduite, commentaire, personne:personne_id(nom, prenom), competence:competence_id(nom, a_recycler, a_autorisation_conduite)")
         .order("id")
         .returns<Row[]>()
     ),

@@ -101,6 +101,11 @@ alter table public.quart                     alter column site_id drop default;
 
 -- =====================================================================
 -- E. RÉÉCRITURE DES PKs ET UNICITÉS
+--
+-- Toutes les ADD PRIMARY KEY sont gardées par un DO tolérant à
+-- `duplicate_table` (SQLSTATE 42P07 : la PK existe déjà). Ainsi un
+-- rerun après un échec partiel plus loin (§F par ex.) ne crashe pas
+-- sur les tables déjà migrées.
 -- =====================================================================
 
 -- role_permission : PK (role, module) — devenue insuffisante depuis 0043
@@ -109,17 +114,23 @@ alter table public.quart                     alter column site_id drop default;
 drop index if exists role_permission_defaut_unique;
 drop index if exists role_permission_site_unique;
 alter table public.role_permission drop constraint if exists role_permission_pkey;
-alter table public.role_permission add primary key (role, module, site_id);
+do $$ begin
+  alter table public.role_permission add primary key (role, module, site_id);
+exception when duplicate_table then null; end $$;
 
 -- type_contrat : PK (code) → (code, site_id). Le CHECK de 0041 (sur code)
 -- reste valide, il ne dépend pas de la PK.
 alter table public.type_contrat drop constraint if exists type_contrat_pkey;
-alter table public.type_contrat add primary key (code, site_id);
+do $$ begin
+  alter table public.type_contrat add primary key (code, site_id);
+exception when duplicate_table then null; end $$;
 
 -- role_custom : PK (code) → (code, site_id). Le libellé unique de 0042
 -- devient site-scopé (deux sites peuvent avoir chacun un rôle « Chef »).
 alter table public.role_custom drop constraint if exists role_custom_pkey;
-alter table public.role_custom add primary key (code, site_id);
+do $$ begin
+  alter table public.role_custom add primary key (code, site_id);
+exception when duplicate_table then null; end $$;
 
 drop index if exists role_custom_libelle_unique;
 create unique index if not exists role_custom_site_libelle_unique
@@ -127,7 +138,9 @@ create unique index if not exists role_custom_site_libelle_unique
 
 -- competence_niveau_libelle : PK (niveau) → (site_id, niveau).
 alter table public.competence_niveau_libelle drop constraint if exists competence_niveau_libelle_pkey;
-alter table public.competence_niveau_libelle add primary key (site_id, niveau);
+do $$ begin
+  alter table public.competence_niveau_libelle add primary key (site_id, niveau);
+exception when duplicate_table then null; end $$;
 
 -- motif_absence : l'index unique (site_id, code_court) créé par 0043
 -- reste bon (site_id est simplement passé NOT NULL, l'unicité tient).
@@ -150,67 +163,132 @@ alter table public.competence_niveau_libelle add primary key (site_id, niveau);
 -- =====================================================================
 
 -- 1) Drop des FKs simples. Nom généré par Postgres : `<table>_<colonne>_fkey`.
-alter table public.jour_quart              drop constraint if exists jour_quart_quart_code_fkey;
-alter table public.ouverture_quart         drop constraint if exists ouverture_quart_quart_code_fkey;
-alter table public.poste_quart             drop constraint if exists poste_quart_quart_code_fkey;
-alter table public.semaine_type_quart      drop constraint if exists semaine_type_quart_quart_code_fkey;
-alter table public.semaine_type_ouverture  drop constraint if exists semaine_type_ouverture_quart_code_fkey;
-alter table public.rotation_reference      drop constraint if exists rotation_reference_quart_code_fkey;
-alter table public.horaire_poste           drop constraint if exists horaire_poste_quart_code_fkey;
-alter table public.horaire_exception       drop constraint if exists horaire_exception_quart_code_fkey;
-alter table public.placement               drop constraint if exists placement_quart_code_fkey;
-alter table public.equipe                  drop constraint if exists equipe_quart_fixe_fkey;
+--    Bloc dynamique : on parcourt toutes les FKs qui référencent
+--    encore aujourd'hui quart(code) — insensible aux tables ajoutées
+--    entre-temps (equipe_quart_semaine, oubliée du plan initial), aux
+--    renommages, ou aux tables résiduelles de 0038.
+do $$
+declare
+  fk record;
+begin
+  for fk in
+    select tc.constraint_name, tc.table_name
+      from information_schema.table_constraints tc
+      join information_schema.constraint_column_usage ccu
+        on ccu.constraint_name = tc.constraint_name
+       and ccu.table_schema    = tc.table_schema
+     where tc.constraint_type = 'FOREIGN KEY'
+       and tc.table_schema    = 'public'
+       and ccu.table_name     = 'quart'
+       and ccu.column_name    = 'code'
+  loop
+    execute format('alter table public.%I drop constraint %I;',
+                   fk.table_name, fk.constraint_name);
+    raise notice '§F drop FK % on %', fk.constraint_name, fk.table_name;
+  end loop;
+end $$;
 
--- 2) Nouvelle PK composite.
+-- 2) Nouvelle PK composite. Idempotent : tolère un rerun quand la PK
+--    composite est déjà en place (SQLSTATE 42P07 duplicate_table).
 alter table public.quart drop constraint if exists quart_pkey;
-alter table public.quart add primary key (code, site_id);
+do $$ begin
+  alter table public.quart add primary key (code, site_id);
+exception when duplicate_table then null; end $$;
 
--- 3) Recréation des FKs enfants en composite.
-alter table public.jour_quart
-  add constraint jour_quart_quart_fkey
-  foreign key (quart_code, site_id) references public.quart (code, site_id);
+-- 3) Recréation des FKs enfants en composite. Chaque ADD CONSTRAINT est
+--    encapsulé dans un DO tolérant `duplicate_object` (42710) — rerun
+--    safe : les FKs déjà posées sont laissées telles quelles.
+do $$
+begin
+  alter table public.jour_quart
+    add constraint jour_quart_quart_fkey
+    foreign key (quart_code, site_id) references public.quart (code, site_id);
+exception when duplicate_object then null; end $$;
 
-alter table public.ouverture_quart
-  add constraint ouverture_quart_quart_fkey
-  foreign key (quart_code, site_id) references public.quart (code, site_id);
+do $$
+begin
+  alter table public.ouverture_quart
+    add constraint ouverture_quart_quart_fkey
+    foreign key (quart_code, site_id) references public.quart (code, site_id);
+exception when duplicate_object then null; end $$;
 
-alter table public.poste_quart
-  add constraint poste_quart_quart_fkey
-  foreign key (quart_code, site_id) references public.quart (code, site_id);
+do $$
+begin
+  alter table public.poste_quart
+    add constraint poste_quart_quart_fkey
+    foreign key (quart_code, site_id) references public.quart (code, site_id);
+exception when duplicate_object then null; end $$;
 
-alter table public.semaine_type_quart
-  add constraint semaine_type_quart_quart_fkey
-  foreign key (quart_code, site_id) references public.quart (code, site_id) on delete cascade;
+do $$
+begin
+  alter table public.semaine_type_quart
+    add constraint semaine_type_quart_quart_fkey
+    foreign key (quart_code, site_id) references public.quart (code, site_id) on delete cascade;
+exception when duplicate_object then null; end $$;
 
-alter table public.semaine_type_ouverture
-  add constraint semaine_type_ouverture_quart_fkey
-  foreign key (quart_code, site_id) references public.quart (code, site_id) on delete cascade;
+do $$
+begin
+  alter table public.semaine_type_ouverture
+    add constraint semaine_type_ouverture_quart_fkey
+    foreign key (quart_code, site_id) references public.quart (code, site_id) on delete cascade;
+exception when duplicate_object then null; end $$;
 
-alter table public.rotation_reference
-  add constraint rotation_reference_quart_fkey
-  foreign key (quart_code, site_id) references public.quart (code, site_id);
+do $$
+begin
+  alter table public.rotation_reference
+    add constraint rotation_reference_quart_fkey
+    foreign key (quart_code, site_id) references public.quart (code, site_id);
+exception when duplicate_object then null; end $$;
 
-alter table public.horaire_poste
-  add constraint horaire_poste_quart_fkey
-  foreign key (quart_code, site_id) references public.quart (code, site_id);
+do $$
+begin
+  alter table public.horaire_poste
+    add constraint horaire_poste_quart_fkey
+    foreign key (quart_code, site_id) references public.quart (code, site_id);
+exception when duplicate_object then null; end $$;
 
-alter table public.horaire_exception
-  add constraint horaire_exception_quart_fkey
-  foreign key (quart_code, site_id) references public.quart (code, site_id);
+do $$
+begin
+  alter table public.horaire_exception
+    add constraint horaire_exception_quart_fkey
+    foreign key (quart_code, site_id) references public.quart (code, site_id);
+exception when duplicate_object then null; end $$;
 
 -- placement.quart_code est NULLABLE (absences historiques sans quart) :
 -- la composite FK doit tolérer NULL côté enfant. Postgres l'accepte
 -- naturellement : une ligne dont l'UNE des colonnes de la FK est NULL
 -- n'est pas contrôlée (MATCH SIMPLE, comportement par défaut).
-alter table public.placement
-  add constraint placement_quart_fkey
-  foreign key (quart_code, site_id) references public.quart (code, site_id);
+do $$
+begin
+  alter table public.placement
+    add constraint placement_quart_fkey
+    foreign key (quart_code, site_id) references public.quart (code, site_id);
+exception when duplicate_object then null; end $$;
 
 -- equipe.quart_fixe est NULLABLE aussi (une équipe non tournante n'a pas
 -- de quart fixe).
-alter table public.equipe
-  add constraint equipe_quart_fixe_fkey
-  foreign key (quart_fixe, site_id) references public.quart (code, site_id);
+do $$
+begin
+  alter table public.equipe
+    add constraint equipe_quart_fixe_fkey
+    foreign key (quart_fixe, site_id) references public.quart (code, site_id);
+exception when duplicate_object then null; end $$;
+
+-- equipe_quart_semaine : table résiduelle (droppée conditionnellement par
+-- 0038, encore présente dans certaines bases). Recrée sa FK composite
+-- seulement si la table existe — sinon on saute silencieusement.
+do $$
+begin
+  if to_regclass('public.equipe_quart_semaine') is not null then
+    begin
+      execute 'alter table public.equipe_quart_semaine
+               add constraint equipe_quart_semaine_quart_fkey
+               foreign key (quart_code, site_id) references public.quart (code, site_id);';
+      raise notice '§F FK composite recréée sur equipe_quart_semaine';
+    exception when duplicate_object then null;
+    end;
+  end if;
+end $$;
 
 
 -- =====================================================================
@@ -231,7 +309,9 @@ alter table public.equipe
 -- =====================================================================
 
 alter table public.jour_quart drop constraint if exists jour_quart_pkey;
-alter table public.jour_quart add primary key (site_id, jour, quart_code);
+do $$ begin
+  alter table public.jour_quart add primary key (site_id, jour, quart_code);
+exception when duplicate_table then null; end $$;
 
 
 -- =====================================================================

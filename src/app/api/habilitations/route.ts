@@ -18,13 +18,18 @@ export async function POST(req: NextRequest) {
     personne_id?: string;
     competence_id?: string;
     date_obtention?: string;
-    date_autorisation_conduite?: string | null;
+    // Autorisation « remise » : boolean cote client. On stocke la date d'obtention
+    // dans date_autorisation_conduite quand coche, null sinon (cf. CLAUDE.md :
+    // pas de migration de schema pour un besoin qui tient dans le vieux champ).
+    autorisation_remise?: boolean;
+    commentaire?: string | null;
   } | null;
 
   const personne_id = String(body?.personne_id ?? "").trim();
   const competence_id = String(body?.competence_id ?? "").trim();
   const date_obtention = String(body?.date_obtention ?? "").trim();
-  const date_autorisation_conduite = String(body?.date_autorisation_conduite ?? "").trim() || null;
+  const autorisation_remise = body?.autorisation_remise === true;
+  const commentaire = (body?.commentaire ?? "").toString().trim() || null;
   if (!personne_id || !competence_id || !date_obtention) {
     return NextResponse.json({ error: "Personne, formation et date de passage sont requises." }, { status: 400 });
   }
@@ -49,7 +54,10 @@ export async function POST(req: NextRequest) {
       competence_id,
       date_obtention,
       date_expiration,
-      date_autorisation_conduite,
+      // Case cochee = on inscrit la date d'obtention comme date d'autorisation ;
+      // decochee = null. Aucun champ date propre a l'autorisation cote UI.
+      date_autorisation_conduite: autorisation_remise ? date_obtention : null,
+      commentaire,
       acquis: comp?.type === "ACQUIS" ? true : null,
       auteur_app_user_id: profile.authId,
       date_maj: new Date().toISOString(),
