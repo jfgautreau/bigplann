@@ -1,6 +1,6 @@
 # Polaris multi-site — analyse et proposition d'architecture
 
-> **Statut : EN COURS (2026-08-20).** PR 1–3 en prod, PR 4 (onboarding) commencée.
+> **Statut : EN COURS (2026-08-21).** PR 1–4 en prod, PR 5 (tests statiques) à faire.
 >
 > ---
 >
@@ -15,7 +15,7 @@
 > | **PR 2** | `site.nom` en pastille du logo (AppHeader), en pied du PDF placement, à côté du titre atelier sur la TV ; refus de session si `site.statut != 'actif'` (sauf super_admin) | — |
 > | **PR 3** | Back-office `/platform` : liste sites, création (avec 1er admin + lien mdp), suspendre/réactiver/archiver, impersonation super_admin via cookie signé HMAC-SHA256 + header PostgREST + bandeau rouge permanent + journal `audit_impersonation` ; layout `/platform` réservé aux super_admin | `0048` (current_site_id lit `x-impersonate-site`) |
 >
-> **🔧 PR 4 — Onboarding (en cours)** :
+> **✅ PR 4 — Onboarding (terminée 2026-08-21)** :
 >
 > - `0051` (`parametre_affichage` : PK `site_id` au lieu du singleton `id=1`) —
 >   **écrite, pas encore jouée**. Sans elle un 2e site ne peut pas créer sa ligne
@@ -29,6 +29,16 @@
 >   copier.
 > - Référentiel local (ateliers, lignes, postes, équipes) : saisi par l'admin
 >   local, pas seedé.
+> - **`site_id` explicite sur toutes les routes API** (14 fichiers) : chaque
+>   INSERT/UPSERT via `getAdminClient()` passe `site_id: profile.siteId`. Sans
+>   cela le trigger `set_site_id_from_context` retombe sur le UUID Lebignon codé
+>   en dur (0043 l.602) et les données d'un 2e site atterrissent au mauvais
+>   endroit. Routes couvertes : referentiel, matrice, habilitations, placement
+>   (cell + copy), horaires, horaire-exception, ordonnancement (semaine-type ×3),
+>   personnel (personne + contrat_periode), habilitations-param (competence),
+>   equipes (createEquipe + addChef), competences (createCompetence). Les tables
+>   partagées (role_permission, role_custom, motif_absence, type_contrat) ne sont
+>   pas touchées (site_id nullable, NULL = groupe).
 >
 > **⏸️ Reste à faire** :
 >
