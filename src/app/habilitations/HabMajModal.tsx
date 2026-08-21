@@ -102,7 +102,7 @@ export default function HabMajModal({
   }
 
   return (
-    <ModaleDeplacable onClose={onClose} largeur={520} zIndex={80}>
+    <ModaleDeplacable onClose={onClose} largeur={720} zIndex={80}>
           <div className="mdd-drag" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, cursor: "grab" }}>
             <h2 style={{ margin: 0, fontSize: 19 }}>{recyclage ? "Recycler une habilitation" : "Enregistrer une habilitation"}</h2>
             <button type="button" onClick={onClose} title="Fermer" style={{ width: "auto", margin: 0, padding: "2px 10px", fontSize: 16 }}>
@@ -143,7 +143,7 @@ export default function HabMajModal({
               <input type="date" value={dateObtention} onChange={(e) => setDateObtention(e.target.value)} required />
             </div>
             {comp?.a_autorisation_conduite && (
-              <div className="field">
+              <div className="field" style={{ flex: "1 1 100%" }}>
                 <span>Autorisation</span>
                 <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
                   <input
@@ -156,19 +156,20 @@ export default function HabMajModal({
                 </label>
               </div>
             )}
-            <div className="field">
+            <div className="field" style={{ flex: "1 1 100%" }}>
               <span>Commentaire</span>
               <textarea
                 value={commentaire}
                 onChange={(e) => setCommentaire(e.target.value)}
                 rows={2}
                 placeholder="Optionnel : n° d'autorisation, réserve du formateur…"
-                style={{ resize: "vertical", minHeight: 44, fontFamily: "inherit" }}
+                style={{ resize: "vertical", minHeight: 44, fontFamily: "inherit", width: "100%" }}
               />
             </div>
-            <button type="submit" className="btn-sm" disabled={state === "saving"}>
-              {state === "saving" ? "Enregistrement…" : "Enregistrer"}
-            </button>
+            <div style={{ flex: "1 1 100%", display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="submit" className="btn-sm" disabled={state === "saving"}>
+                {state === "saving" ? "Enregistrement…" : "Enregistrer"}
+              </button>
 
             {peutSupprimer && !confirmDel && (
               <button
@@ -216,6 +217,7 @@ export default function HabMajModal({
                 </button>
               </>
             )}
+            </div>
           </form>
 
           {peutSupprimer && confirmDel && (

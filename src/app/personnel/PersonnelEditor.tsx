@@ -785,10 +785,10 @@ export default function PersonnelEditor({
 
       {/* Modale Informations : commentaire (enregistrement auto, reflété sur la ligne). */}
       {infoFor && (
-        <ModaleDeplacable onClose={() => setInfoFor(null)} largeur={520}>
-            <div className="toolbar mdd-drag" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6, cursor: "grab" }}>
-              <h2 style={{ margin: 0 }}>Informations — {infoFor.nom} {infoFor.prenom}</h2>
-              <button type="button" className="btn-sm btn-ghost" onClick={() => setInfoFor(null)} style={{ width: "auto" }}>✕</button>
+        <ModaleDeplacable onClose={() => setInfoFor(null)} largeur={720}>
+            <div className="mdd-drag" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, cursor: "grab" }}>
+              <h2 style={{ margin: 0, fontSize: 19 }}>Informations — {infoFor.nom} {infoFor.prenom}</h2>
+              <button type="button" onClick={() => setInfoFor(null)} title="Fermer" style={{ width: "auto", margin: 0, padding: "2px 10px", fontSize: 16 }}>✕</button>
             </div>
             <label htmlFor="pers-commentaire" style={{ fontWeight: 600 }}>Commentaire</label>
             <textarea
