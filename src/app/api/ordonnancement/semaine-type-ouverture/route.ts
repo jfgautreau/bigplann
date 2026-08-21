@@ -29,9 +29,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Parametres manquants" }, { status: 400 });
   }
 
+  // MULTI-SITE : site_id explicite pour le cas admin client (service_role).
   const { error } = await supabase
     .from("semaine_type_ouverture")
-    .upsert({ profil_id, quart_code, ligne_id, jour_semaine, ouverte: value }, { onConflict: "profil_id,quart_code,ligne_id,jour_semaine" });
+    .upsert({ profil_id, quart_code, ligne_id, jour_semaine, ouverte: value, site_id: garde.profile.siteId }, { onConflict: "profil_id,quart_code,ligne_id,jour_semaine" });
   if (error) return NextResponse.json({ error: error.message }, { status: 403 });
   return NextResponse.json({ ok: true });
 }

@@ -17,7 +17,11 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as { cells?: Cell[] } | null;
   const cells = body?.cells ?? [];
 
-  const ups: { poste_id: string; quart_code: string; jour: number; debut: string | null; fin: string | null }[] = [];
+  const supabase = getAdminClient();
+  // MULTI-SITE : site_id explicite pour le cas admin client (service_role).
+  const site_id = profile!.siteId;
+
+  const ups: { poste_id: string; quart_code: string; jour: number; debut: string | null; fin: string | null; site_id: string }[] = [];
   const dels: { poste_id: string; quart_code: string; jour: number }[] = [];
   for (const c of cells) {
     const poste_id = String(c.poste_id ?? "");
@@ -26,11 +30,9 @@ export async function POST(req: NextRequest) {
     if (!poste_id || !quart_code || !Number.isInteger(jour) || jour < 0 || jour > 6) continue;
     const debut = String(c.debut ?? "").trim();
     const fin = String(c.fin ?? "").trim();
-    if (debut || fin) ups.push({ poste_id, quart_code, jour, debut: debut || null, fin: fin || null });
+    if (debut || fin) ups.push({ poste_id, quart_code, jour, debut: debut || null, fin: fin || null, site_id });
     else dels.push({ poste_id, quart_code, jour });
   }
-
-  const supabase = getAdminClient();
   if (ups.length) {
     const { error } = await supabase.from("horaire_poste").upsert(ups, { onConflict: "poste_id,quart_code,jour" });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

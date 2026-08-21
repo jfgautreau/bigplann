@@ -170,6 +170,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Habilitation manquante", manquantes }, { status: 428 });
   }
 
+  // MULTI-SITE : site_id explicite pour le cas admin client (service_role).
   const { error } = await supabase.from("placement").upsert(
     {
       personne_id,
@@ -185,6 +186,7 @@ export async function POST(req: NextRequest) {
       forcage_habilitation: manquantes.length > 0,
       forcage_auteur_app_user_id: manquantes.length ? profile.authId : null,
       forcage_le: manquantes.length ? new Date().toISOString() : null,
+      site_id: profile.siteId,
     },
     { onConflict: "personne_id,jour" }
   );

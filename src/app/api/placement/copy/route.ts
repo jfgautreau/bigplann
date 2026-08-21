@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
       motif_absence_id: null,
       non_travaille: false,
       created_by: profile.authId,
+      site_id: profile.siteId,
     }));
 
   if (!rows.length) return NextResponse.json({ ok: true, copied: 0, ignores: dejaSaisi.size });

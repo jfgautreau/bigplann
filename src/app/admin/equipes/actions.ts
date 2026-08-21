@@ -37,9 +37,11 @@ async function requireOrdoWrite() {
 
 export async function createEquipe(fd: FormData) {
   const supabase = await requireEquipesWrite();
+  // MULTI-SITE : getCurrentProfile est cache() — pas de requete supplementaire.
+  const profile = await getCurrentProfile();
   const nom = s(fd, "nom");
   if (!nom) done();
-  const { error } = await supabase.from("equipe").insert({ nom, couleur: s(fd, "couleur") || "#64748b" });
+  const { error } = await supabase.from("equipe").insert({ nom, couleur: s(fd, "couleur") || "#64748b", site_id: profile!.siteId });
   done(error);
 }
 export async function renameEquipe(fd: FormData) {
@@ -64,10 +66,11 @@ export async function toggleEquipe(fd: FormData) {
 }
 export async function addChef(fd: FormData) {
   const supabase = await requireEquipesWrite();
+  const profile = await getCurrentProfile();
   const equipe_id = s(fd, "equipe_id");
   const app_user_id = s(fd, "app_user_id");
   if (!equipe_id || !app_user_id) done();
-  const { error } = await supabase.from("equipe_chef").insert({ equipe_id, app_user_id });
+  const { error } = await supabase.from("equipe_chef").insert({ equipe_id, app_user_id, site_id: profile!.siteId });
   done(error);
 }
 export async function removeChef(fd: FormData) {

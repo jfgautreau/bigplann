@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
   // la duree de validite en vigueur au moment ou l'on enregistre.
   const date_expiration = addMonthsIso(date_obtention, comp?.duree_validite_mois);
 
+  // MULTI-SITE : site_id explicite pour le cas admin client (service_role).
   const { error } = await supabase.from("personne_competence").upsert(
     {
       personne_id,
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
       acquis: comp?.type === "ACQUIS" ? true : null,
       auteur_app_user_id: profile.authId,
       date_maj: new Date().toISOString(),
+      site_id: profile.siteId,
     },
     { onConflict: "personne_id,competence_id" }
   );

@@ -58,7 +58,11 @@ export async function POST(req: NextRequest) {
   // Client admin : les tables de parametrage sont protegees par une RLS
   // `is_admin()`. Le droit de module a deja ete verifie ci-dessus, et
   // canWriteModule exclut le chef d'equipe par construction.
+  // MULTI-SITE : le client admin bypass RLS (service_role, auth.uid()=NULL).
+  // On passe site_id explicitement dans chaque INSERT/UPSERT pour que les
+  // données atterrissent dans le bon site.
   const supabase = getAdminClient();
+  const site_id = profile.siteId;
 
   try {
     switch (op) {
@@ -67,7 +71,7 @@ export async function POST(req: NextRequest) {
         if (!nom) return NextResponse.json({ error: "Nom requis" }, { status: 400 });
         const { data, error } = await supabase
           .from("atelier")
-          .insert({ nom })
+          .insert({ nom, site_id })
           .select("id, nom, actif")
           .single();
         if (error) throw error;
@@ -79,7 +83,7 @@ export async function POST(req: NextRequest) {
         if (!nom || !atelier_id) return NextResponse.json({ error: "Champs requis" }, { status: 400 });
         const { data, error } = await supabase
           .from("ligne")
-          .insert({ nom, atelier_id })
+          .insert({ nom, atelier_id, site_id })
           .select("id, nom, actif, ordre_affichage")
           .single();
         if (error) throw error;
@@ -93,7 +97,7 @@ export async function POST(req: NextRequest) {
         if (!ligne_id) return NextResponse.json({ error: "Champs requis" }, { status: 400 });
         const { data, error } = await supabase
           .from("poste")
-          .insert({ ligne_id, nom })
+          .insert({ ligne_id, nom, site_id })
           .select(POSTE_COLS)
           .single();
         if (error) throw error;
@@ -142,7 +146,7 @@ export async function POST(req: NextRequest) {
         } else {
           const { error } = await supabase
             .from("poste_quart")
-            .upsert({ poste_id, quart_code, actif: false }, { onConflict: "poste_id,quart_code" });
+            .upsert({ poste_id, quart_code, actif: false, site_id }, { onConflict: "poste_id,quart_code" });
           if (error) throw error;
         }
         return NextResponse.json({ ok: true });
@@ -156,7 +160,7 @@ export async function POST(req: NextRequest) {
         if (requis) {
           const { error } = await supabase
             .from("poste_competence_requise")
-            .upsert({ poste_id, competence_id }, { onConflict: "poste_id,competence_id" });
+            .upsert({ poste_id, competence_id, site_id }, { onConflict: "poste_id,competence_id" });
           if (error) throw error;
         } else {
           const { error } = await supabase

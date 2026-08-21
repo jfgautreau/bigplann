@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
   // `is_admin()`. Le droit de module a deja ete verifie ci-dessus, et
   // canWriteModule exclut le chef d'equipe par construction.
   const supabase = getAdminClient();
+  // MULTI-SITE : site_id explicite pour le cas admin client (service_role).
+  const site_id = profile.siteId;
 
   try {
     if (op === "create") {
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
       const nom = s(body.nom) || "Nouvelle formation";
       const { data, error } = await supabase
         .from("competence")
-        .insert({ nom, type: "ACQUIS", a_recycler: true, actif: true, categorie, groupe })
+        .insert({ nom, type: "ACQUIS", a_recycler: true, actif: true, categorie, groupe, site_id })
         .select(COLS)
         .single();
       if (error) throw error;

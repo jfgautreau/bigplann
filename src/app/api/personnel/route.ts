@@ -124,6 +124,8 @@ export async function POST(req: NextRequest) {
   if (!body || !op) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
 
   const supabase = getAdminClient();
+  // MULTI-SITE : site_id explicite pour le cas admin client (service_role).
+  const site_id = profile.siteId;
   const CONTRATS = await codesContratAutorises(supabase);
 
   try {
@@ -170,6 +172,7 @@ export async function POST(req: NextRequest) {
           sexe: sexe === "H" || sexe === "F" ? sexe : null,
           numero_badge: orNull(s(body.numero_badge)),
           date_livret_accueil: orNull(s(body.date_livret_accueil)),
+          site_id,
         })
         .select(COLS)
         .single();
@@ -185,6 +188,7 @@ export async function POST(req: NextRequest) {
         agence_interim: type_contrat === "INTERIM" ? orNull(s(body.agence_interim)) : null,
         date_debut: dateDebutContrat,
         date_fin: orNull(s(body.date_fin)),
+        site_id,
       });
       if (periodeErr) throw periodeErr;
       return NextResponse.json({ ok: true, row: data });
@@ -320,6 +324,7 @@ export async function POST(req: NextRequest) {
           commentaire: orNull(s(body.commentaire)),
           motif: orNull(s(body.motif)),
           motif_fin: orNull(s(body.motif_fin)),
+          site_id,
         })
         .select(PERIODE_COLS)
         .single();

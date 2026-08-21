@@ -49,8 +49,9 @@ export async function POST(req: NextRequest) {
       if (error) return NextResponse.json({ error: error.message }, { status: 403 });
       return NextResponse.json({ ok: true, cleared: true });
     }
+    // MULTI-SITE : site_id explicite pour le cas admin client (service_role).
     const { error } = await supabase.from("horaire_exception").upsert(
-      { personne_id, jour, debut, fin, motif, created_by: profile.authId },
+      { personne_id, jour, debut, fin, motif, created_by: profile.authId, site_id: profile.siteId },
       { onConflict: "personne_id,jour" }
     );
     if (error) return NextResponse.json({ error: error.message }, { status: 403 });

@@ -3,6 +3,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireModuleWrite } from "@/lib/permissions";
+import { getCurrentProfile } from "@/lib/current-user";
 import { NIVEAUX_TAG } from "@/lib/refdata";
 import { messageErreur, urlAvecErreur, type ErreurPg } from "@/lib/erreurs";
 
@@ -42,6 +43,8 @@ export async function saveEchelle(fd: FormData) {
 // Competences transverses / habilitations
 export async function createCompetence(fd: FormData) {
   const supabase = await requireModuleWrite("competences");
+  // MULTI-SITE : getCurrentProfile est cache() — pas de requete supplementaire.
+  const profile = await getCurrentProfile();
   const nom = s(fd, "nom");
   if (!nom) done();
   const a_recycler = bool(fd, "a_recycler");
@@ -50,6 +53,7 @@ export async function createCompetence(fd: FormData) {
     type: s(fd, "type") === "ACQUIS" ? "ACQUIS" : "NIVEAU",
     a_recycler,
     duree_validite_mois: a_recycler ? intOrNull(fd, "duree_validite_mois") : null,
+    site_id: profile!.siteId,
   });
   done(error);
 }

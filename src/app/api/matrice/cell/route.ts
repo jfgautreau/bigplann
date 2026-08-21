@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
 
   // Droit "matrice: write" (hors chef) -> client admin (édite tout le monde).
   // Sinon RLS : admin ou chef de l'équipe de la personne (périmètre).
+  // MULTI-SITE : site_id explicite pour le cas admin client (service_role).
   const supabase = (await canWriteModule(profile.role, "matrice")) ? getAdminClient() : await getServerClient();
   const { error } = await supabase.from("matrice").upsert(
     {
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
       niveau_cible,
       auteur_app_user_id: profile.authId,
       date_maj: new Date().toISOString(),
+      site_id: profile.siteId,
     },
     { onConflict: "personne_id,poste_id" }
   );

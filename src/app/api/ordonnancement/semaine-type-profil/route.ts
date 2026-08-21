@@ -24,9 +24,10 @@ export async function POST(req: NextRequest) {
   try {
     if (op === "create") {
       const nom = s(body?.nom) || "Nouveau profil";
+      // MULTI-SITE : site_id explicite pour le cas admin client (service_role).
       const { data, error } = await supabase
         .from("semaine_type_profil")
-        .insert({ nom })
+        .insert({ nom, site_id: garde.profile.siteId })
         .select("id, nom, par_defaut")
         .single();
       if (error) throw error;
