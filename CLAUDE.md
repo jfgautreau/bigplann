@@ -82,6 +82,14 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
   ⚠️ Conséquence assumée : déléguer `utilisateurs: write` à un rôle ne lui permet de
   gérer que les comptes dont le rôle est **entièrement couvert** par le sien. C'est le
   prix de « pas d'escalade » : le lien de mot de passe donne la session du compte visé.
+  ⚠️ **Multi-site (PR 6)** : `userAdminGuard` borne aussi le SELECT de la
+  cible par `site_id = appelant.siteId` (sauf super_admin). Sans cette borne,
+  un admin du site A modifiait potentiellement les comptes du site B via
+  leur user_id UUID (unique global) — la lecture app_user via `garde.supabase`
+  est en service_role, donc bypass la RLS. `/api/users/create` pose aussi
+  `user_metadata.site_id` sur `auth.admin.createUser()` : sans ça, le trigger
+  `handle_new_user` retombait sur son fallback lebignon codé en dur et un
+  admin d'un autre site créait ses utilisateurs chez Lebignon en silence.
 - **`/api/droits` (matrice des droits)** obéit à `verifierChangementDroit()`, testée,
   avec trois verrous et **aucun rôle littéral** :
   1. **anti-verrou** — on ne modifie pas les droits de **son propre** rôle (sinon on se

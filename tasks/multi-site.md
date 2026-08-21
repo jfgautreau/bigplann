@@ -16,31 +16,25 @@
 > | **PR 2** | `site.nom` en pastille du logo (AppHeader), en pied du PDF placement, à côté du titre atelier sur la TV ; refus de session si `site.statut != 'actif'` (sauf super_admin) | — |
 > | **PR 3** | Back-office `/platform` : liste sites, création (avec 1er admin + lien mdp), suspendre/réactiver/archiver, impersonation super_admin via cookie signé HMAC-SHA256 + header PostgREST + bandeau rouge permanent + journal `audit_impersonation` ; layout `/platform` réservé aux super_admin | `0048` (current_site_id lit `x-impersonate-site`) |
 > | **PR 4** | Onboarding : `parametre_affichage` PK→`site_id`, seed auto dans `createSite`, `site_id` explicite sur **toutes** les routes API (14 fichiers, 10 routes + 4 server actions) | `0051` |
-> | **PR 5 (code)** | **Séparation totale des référentiels par site.** Les 7 dernières tables partagées (motif_absence, type_contrat, role_custom, role_permission, competence, competence_niveau_libelle, quart) passent en `site_id NOT NULL`. Plus AUCUNE ligne partagée entre sites. `createSite` copie les référentiels du site source choisi au formulaire (motifs, contrats, agences, compétences, échelle niveaux, quarts, rôles custom, matrice des droits). `refdata`, `roles-server`, `permissions` site-scopés (retrait du `or(site_id.is.null,…)`). Actions & API adaptées. Composite FKs `(quart_code, site_id) → quart(code, site_id)` sur 10 tables enfants (PostgREST-safe car aucun embed implicite). PK `jour_quart` corrigée en `(site_id, jour, quart_code)`. | **`0053` à jouer** |
+> | **PR 5** | **Séparation totale des référentiels par site.** Les 7 dernières tables partagées (motif_absence, type_contrat, role_custom, role_permission, competence, competence_niveau_libelle, quart) passent en `site_id NOT NULL`. Plus AUCUNE ligne partagée entre sites. `createSite` copie les référentiels du site source choisi au formulaire (motifs, contrats, agences, compétences, échelle niveaux, quarts, rôles custom, matrice des droits). `refdata`, `roles-server`, `permissions` site-scopés (retrait du `or(site_id.is.null,…)`). Actions & API adaptées. Composite FKs `(quart_code, site_id) → quart(code, site_id)` sur 10 tables enfants (PostgREST-safe car aucun embed implicite). PK `jour_quart` corrigée en `(site_id, jour, quart_code)`. | `0053` |
+> | **PR 6** | **Tests statiques cross-site + fix `userAdminGuard`/`create user`.** Trois tests statiques (`routes-multi-site`, `refdata-cache`, `admin-client`) verrouillent la migration. 8 fautes corrigées à la volée (tp_periode sans site_id, 7 fichiers admin sans borne site — dont l'affichage TV public). En plus : `userAdminGuard` borne désormais la lecture de la cible par `site_id` (sauf super_admin) — sans quoi un admin du site A pouvait toucher un compte du site B via son user_id UUID. `/api/users/create` passe `site_id` dans `user_metadata` + repose la colonne au UPDATE — sans quoi le trigger `handle_new_user` retombait sur son fallback lebignon en dur, créant les users d'un autre site chez Lebignon en silence. | — |
 >
-> **Détail PR 4 (terminée 2026-08-21)** :
+> **Détail PR 4** (obsolète depuis PR 5 sur le point « tables partagées ») :
 >
 > - `0051` (`parametre_affichage` : PK `site_id` au lieu du singleton `id=1`) —
->   **appliquée le 2026-08-21**.
-> - `createSite` enrichi : seed automatique de `parametre_affichage` (J-1/J+4).
-> - Code adapté : toutes les lectures/écritures de `parametre_affichage` passent
->   par `site_id` (plus de `id=1`).
-> - Les quarts sont **globaux** (partagés entre sites, pas de `site_id`) → pas
->   de seeding nécessaire.
-> - Motifs / types de contrat / rôles : visibles via `site_id IS NULL` → rien à
->   copier.
-> - Référentiel local (ateliers, lignes, postes, équipes) : saisi par l'admin
->   local, pas seedé.
+>   appliquée. `createSite` enrichi : seed automatique (J-1/J+4).
+> - Toutes les lectures/écritures de `parametre_affichage` passent par
+>   `site_id` (plus de `id=1`).
 > - **`site_id` explicite sur toutes les routes API** (14 fichiers) : chaque
 >   INSERT/UPSERT via `getAdminClient()` passe `site_id: profile.siteId`. Sans
 >   cela le trigger `set_site_id_from_context` retombe sur le UUID Lebignon codé
->   en dur (0043 l.602) et les données d'un 2e site atterrissent au mauvais
->   endroit. Routes couvertes : referentiel, matrice, habilitations, placement
->   (cell + copy), horaires, horaire-exception, ordonnancement (semaine-type ×3),
->   personnel (personne + contrat_periode), habilitations-param (competence),
->   equipes (createEquipe + addChef), competences (createCompetence). Les tables
->   partagées (role_permission, role_custom, motif_absence, type_contrat) ne sont
->   pas touchées (site_id nullable, NULL = groupe).
+>   en dur (0043 l.602). Routes couvertes : referentiel, matrice, habilitations,
+>   placement (cell + copy), horaires, horaire-exception, ordonnancement
+>   (semaine-type ×3), personnel (personne + contrat_periode), habilitations-param
+>   (competence), equipes (createEquipe + addChef), competences (createCompetence).
+> - ⚠️ **Depuis la PR 5 (0053)** les 7 tables auparavant partagées sont
+>   elles aussi site-scopées (`site_id NOT NULL`). Le tableau final est
+>   couvert par les tests statiques de PR 6.
 >
 > **⏸️ Reste à faire** :
 >
