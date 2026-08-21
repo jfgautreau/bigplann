@@ -34,7 +34,7 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `supabase/migrations/` et **demande à l'utilisateur de l'exécuter** dans le SQL Editor.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
-   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0052`** (socle multi-site : `0043`–`0048` ; cycle de vie : `0049`–`0050` ; TP périodes : `0052`). **Migration `0051` écrite, pas encore jouée** (`parametre_affichage` PK→`site_id` pour multi-site). Cf. `tasks/multi-site.md` pour l'état complet.
+   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0052`** (socle multi-site : `0043`–`0048` ; cycle de vie : `0049`–`0050` ; `parametre_affichage` multi-site : `0051` ; TP périodes : `0052`). Cf. `tasks/multi-site.md` pour l'état complet.
 6. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
 7. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
@@ -400,9 +400,10 @@ prochain gros chantier, pas une optimisation cosmétique.
   Contrats = seule source ; les dates arrivée/départ sont dérivées MIN/MAX. La bascule
   Intérim → CDD → CDI se fait en ajoutant un contrat. Motif de départ (retraite,
   démission…) = `contrat_periode.motif_fin` du dernier contrat.
-  **Fiche incomplète** : pastille orange `!` devant le nom si équipe/atelier/livret/sexe
-  manquent. Clic = focus sur le 1er champ vide de la ligne. Segment de filtre
-  « Fiche · Toutes / ⚠ Incomplètes » + badge d'alerte dans l'en-tête.
+  **Fiche incomplète** : pastille orange `!` devant le nom si la personne n'a
+  **aucun contrat** dans `contrat_periode`. Clic = ouvre la modale Cycle de vie.
+  Flag `hasContrat` calculé serveur (`page.tsx`) et propagé au client. Segment
+  de filtre « Fiche · Toutes / ⚠ Incomplètes » + badge d'alerte dans l'en-tête.
   Filtre Statut par défaut = **Actif** (avec segments « À venir / Actif / Parti »).
 - Référentiel : `src/app/admin/referentiel/*` + `src/app/api/referentiel/route.ts`
   (colonnes **N° Rot** et **Habil. requises**).
@@ -442,7 +443,7 @@ prochain gros chantier, pas une optimisation cosmétique.
   d'autorisation est inchangé). En deux requêtes applicatives, un échec de la seconde
   perdait la donnée en silence — la rotation n'est pas reconstituable. Le même test
   interdit le retour au `delete` + `insert` applicatif sur ces tables.
-- Tests (Vitest, **189** au 2026-07-25) : règles pures + `permissions.test.ts`
+- Tests (Vitest, **214** au 2026-08-21) : règles pures + `permissions.test.ts`
   (droits par défaut, périmètre du chef d'équipe, anti-escalade), `roles.test.ts`
   (slugifyRole), `routes-gardees.test.ts` (inventaire : **toute route API porte
   une garde** — le proxy exclut `api/`, une route nouvelle serait publique — et
