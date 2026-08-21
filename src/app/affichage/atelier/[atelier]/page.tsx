@@ -2,10 +2,11 @@ import Link from "next/link";
 import { getAdminClient } from "@/lib/supabase-server";
 import { getCurrentSite } from "@/lib/current-site";
 import { fetchAll } from "@/lib/fetch-all";
-import { getQuartsC } from "@/lib/refdata";
+import { getQuartsC, getRotationRefsC } from "@/lib/refdata";
+import { rotationForWeek } from "@/lib/rotation";
 import { quartOuDefaut } from "@/lib/quarts";
 import { INTERIM_BG } from "@/lib/interim";
-import { isoDate, joursAutour, parseJour } from "@/lib/week";
+import { isoDate, joursAutour, parseJour, mondayOf } from "@/lib/week";
 import { getFenetreAffichage } from "@/lib/parametres";
 import AutoRefresh from "@/components/AutoRefresh";
 import AffichageBarre from "./AffichageBarre";
@@ -103,6 +104,7 @@ export default async function AffichageAtelier({
   const byPerson = new Map<string, PlacementRow[]>(); // `${personne_id}:${iso}`
   const workedDays = new Set<string>(); // jours (iso) ou au moins une personne travaille
   const openDays = new Set<string>();   // jours (iso) ouverts par l Ordonnancement
+  const tpSet = new Set<string>();      // `${personne_id}:${iso}` bloque par temps partiel
 
   if (posteIds.length) {
     // Trois de ces lectures couvrent une SEMAINE ENTIERE, tous quarts confondus,
@@ -154,13 +156,71 @@ export default async function AffichageAtelier({
         .returns<{ personne_id: string; jour: string; debut: string | null; fin: string | null; motif: string | null }[]>(),
       admin
         .from("personne")
-        .select("id, tp_config")
+        .select("id, tp_config, equipe_id")
         .eq("temps_partiel", true)
-        .returns<{ id: string; tp_config: TpCfg | null }[]>(),
+        .returns<{ id: string; tp_config: TpCfg | null; equipe_id: string | null }[]>(),
     ]);
     for (const h of hor) horMap.set(`${h.poste_id}:${h.quart_code}:${h.jour}`, { debut: h.debut, fin: h.fin });
     for (const e of exc ?? []) excMap.set(`${e.personne_id}:${e.jour}`, { debut: e.debut, fin: e.fin, motif: e.motif });
     for (const r of tpH ?? []) if (r.tp_config) tpCfgMap.set(r.id, r.tp_config);
+    // TP bloque : periodes datees (tp_periode, 0052) avec repli sur personne.tp_config.
+    {
+      const minIso = isos[0];
+      const maxIso = isos[isos.length - 1];
+      type TpPRow = { personne_id: string; date_debut: string; date_fin: string | null; tp_config: TpCfg | null; equipe_id: string | null };
+      const { data: tpPeriodes } = await admin
+        .from("tp_periode")
+        .select("personne_id, date_debut, date_fin, tp_config, personne:personne_id(equipe_id)")
+        .lte("date_debut", maxIso)
+        .or(`date_fin.is.null,date_fin.gte.${minIso}`)
+        .order("date_debut")
+        .returns<(Omit<TpPRow, "equipe_id"> & { personne: { equipe_id: string | null } | null })[]>();
+      // Index par personne.
+      const periodesByPers = new Map<string, { date_debut: string; date_fin: string | null; tp_config: TpCfg | null }[]>();
+      const tpEquipe = new Map<string, string | null>();
+      for (const r of tpPeriodes ?? []) {
+        (periodesByPers.get(r.personne_id) ?? periodesByPers.set(r.personne_id, []).get(r.personne_id)!).push(r);
+        if (r.personne?.equipe_id) tpEquipe.set(r.personne_id, r.personne.equipe_id);
+      }
+      // Repli : personnes avec temps_partiel=true mais sans tp_periode.
+      for (const r of tpH ?? []) {
+        if (!periodesByPers.has(r.id) && r.tp_config) {
+          tpEquipe.set(r.id, r.equipe_id);
+          // Créer une fausse période couvrant toute la plage.
+          periodesByPers.set(r.id, [{ date_debut: "2000-01-01", date_fin: null, tp_config: r.tp_config }]);
+        }
+      }
+
+      const rotRefs = await getRotationRefsC();
+      const { data: equipesD } = await admin.from("equipe").select("id, quart_fixe").eq("actif", true).returns<{ id: string; quart_fixe: string | null }[]>();
+      const quartFixe = new Map((equipesD ?? []).map((e) => [e.id, e.quart_fixe]));
+      const mondaySet = new Set(isos.map((iso) => isoDate(mondayOf(new Date(iso + "T00:00")))));
+      const rotByMonday = new Map<string, Record<string, string>>();
+      for (const m of mondaySet) rotByMonday.set(m, rotationForWeek(rotRefs, m));
+      const creneauDe = (q?: string | null) => (q === "matin" ? "matin" : q === "apres_midi" ? "aprem" : null);
+
+      for (const [persId, periodes] of periodesByPers) {
+        const eq = tpEquipe.get(persId) ?? null;
+        for (const iso of isos) {
+          // Trouver la période applicable pour ce jour.
+          const per = periodes.find((p) => p.date_debut <= iso && (!p.date_fin || p.date_fin >= iso));
+          if (!per?.tp_config) continue;
+          const offCfg = (per.tp_config as { off?: Record<string, string[]> }).off ?? {};
+          const dayOff = offCfg[String(isoDow(iso))] ?? [];
+          if (!dayOff.length) continue;
+          const journee = dayOff.includes("matin") && dayOff.includes("aprem");
+          let equipeCreneau = false;
+          if (eq) {
+            const mon = isoDate(mondayOf(new Date(iso + "T00:00")));
+            const rot = rotByMonday.get(mon) ?? {};
+            const teamQuart = quartFixe.get(eq) ?? rot[eq] ?? null;
+            const cr = creneauDe(teamQuart);
+            equipeCreneau = !!cr && dayOff.includes(cr);
+          }
+          if (journee || equipeCreneau) tpSet.add(`${persId}:${iso}`);
+        }
+      }
+    }
     for (const r of jq ?? []) actMap.set(`${r.quart_code}:${r.jour}`, r.actif);
     for (const r of ov) ouvMap.set(`${r.quart_code}:${r.ligne_id}:${r.jour}`, r.ouverte);
 
@@ -226,6 +286,27 @@ export default async function AffichageAtelier({
     }
   }
 
+  // Personnes TP de cet atelier sans placement ni absence : elles doivent
+  // apparaitre dans la vue "par nom" pour qu'on voie les jours TP.
+  if (tpSet.size > 0) {
+    // Extraire les personne_id distincts du tpSet.
+    const tpPersonIds = new Set<string>();
+    for (const k of tpSet) tpPersonIds.add(k.split(":")[0]);
+    // Ne charger que ceux pas deja dans `persons`.
+    const missing = [...tpPersonIds].filter((id) => !persons.has(id));
+    if (missing.length) {
+      const { data: tpP } = await admin
+        .from("personne")
+        .select("id, nom, prenom, type_contrat, atelier_id")
+        .in("id", missing)
+        .eq("atelier_id", atelier.id)
+        .returns<{ id: string; nom: string; prenom: string; type_contrat: string; atelier_id: string | null }[]>();
+      for (const p of tpP ?? []) {
+        persons.set(p.id, { nom: p.nom, prenom: p.prenom, type_contrat: p.type_contrat });
+      }
+    }
+  }
+
   const horaireTxt = (personId: string, posteId: string, quartCode: string | null, iso: string) => {
     const q = quartOuDefaut(quartCode, quarts);
     const std = horMap.get(`${posteId}:${q}:${dow(iso)}`);
@@ -277,10 +358,12 @@ export default async function AffichageAtelier({
   const cellNom = (personId: string, iso: string) => {
     const rows = byPerson.get(`${personId}:${iso}`) ?? [];
     if (!rows.length) {
-      // Aucune affectation poste : si la personne est en absence ce jour-la, on
-      // affiche un simple "Absence" (sans detail du motif).
+      // Aucune affectation poste : priorite absence > TP > vide.
       if (absByPerson.get(personId)?.has(iso)) {
         return <span style={{ color: "#b91c1c" }}>Absence</span>;
+      }
+      if (tpSet.has(`${personId}:${iso}`)) {
+        return <span style={{ color: "#3730a3" }}>TP</span>;
       }
       return <span style={{ color: "#cbd5e1" }}>—</span>;
     }
@@ -382,6 +465,7 @@ export default async function AffichageAtelier({
         Légende : <span style={{ background: INTERIM_BG, padding: "0 6px" }}>Intérimaire</span>{" "}
         · <span style={{ background: AUJOURDHUI, padding: "0 6px" }}>Aujourd&apos;hui</span> · horaires en bleu ·{" "}
         <span style={{ color: "#b91c1c" }}>Absence</span>{" "}
+        · <span style={{ color: "#3730a3" }}>TP</span> (temps partiel){" "}
         · mise à jour auto toutes les 5 min.
       </div>
       </div>

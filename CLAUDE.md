@@ -34,7 +34,7 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
    `supabase/migrations/` et **demande à l'utilisateur de l'exécuter** dans le SQL Editor.
    Pour de la *donnée* seulement, un script Node lisant `SUPABASE_SERVICE_ROLE_KEY`
    de `.env.local` est acceptable.
-   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0050`** (socle multi-site : `0043`–`0048` ; cycle de vie : `0049`–`0050`). **Migration `0051` écrite, pas encore jouée** (`parametre_affichage` PK→`site_id` pour multi-site). Cf. `tasks/multi-site.md` pour l'état complet.
+   Projet Supabase : ref `stcxlsmmnplxpirrnefm`, eu-west-3. **Dernière migration appliquée : `0052`** (socle multi-site : `0043`–`0048` ; cycle de vie : `0049`–`0050` ; TP périodes : `0052`). **Migration `0051` écrite, pas encore jouée** (`parametre_affichage` PK→`site_id` pour multi-site). Cf. `tasks/multi-site.md` pour l'état complet.
 6. **PowerShell 5.1** : pour un message de commit multi-lignes, here-string `@'…'@`
    (le `'@` final en colonne 0), ou `git commit -F fichier`. Pas de `"` inline.
 7. ⚠️ **Toute lecture Supabase pouvant dépasser 1000 lignes passe par `fetchAll()`**
@@ -164,8 +164,29 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
   après coup, l'échéance stockée reste fausse (ou nulle). À l'affichage, passer par
   `addMonthsIso(date_obtention, duree)` en repli — cf. `src/lib/habilitations.ts`.
   Statut : rouge < 30 j · orange 30-90 j · vert > 90 j.
+- **Alerte 18 mois** (colonne « ⚠ 18 mois (livret) » sur `/personnel`) : basée sur
+  `date_livret_accueil + 18 mois`, non-CDI uniquement. Livret non renseigné → pas
+  d'alerte (`src/app/personnel/PersonnelEditor.tsx` fonction `alerte18`).
 - **Absences longues** (`absence`) : matérialisées en `placement` (un par jour), liés par
   `placement.absence_id` (cascade).
+- **Cycle de vie du personnel** (migrations 0049 + 0050) : `personne.statut` ∈
+  `A_VENIR | ACTIF | PARTI` est un **cache calculé automatiquement** par trigger DB
+  à partir des contrats. Plus de toggle manuel. Sources de vérité :
+  `MIN(contrat_periode.date_debut)` = arrivée ; `MAX(contrat_periode.date_fin)` si
+  aucun contrat ouvert = départ prévu ; `motif_fin` du dernier contrat = motif de
+  départ. Anciens champs `personne.date_arrivee` / `date_depart_prevu` /
+  `motif_depart` **supprimés** en 0050. Les 12 requêtes `.eq("statut","ACTIF")` en
+  dur continuent à filtrer correctement (le cache est frais). Helper client
+  `src/lib/personne-statut.ts` (statutALaDate / estAuTravailLe / contratCouvreLe /
+  deriverArriveeDepart, 25 tests) sert de source pour le rendu et le masquage
+  jour par jour dans le Planning.
+- **Planning : deux canaux de masquage de cellule distincts** (`src/app/planning/`).
+  ⚠️ `tpBlocked` = temps partiel (fond violet, label « TP ») ; `horsEffectif` =
+  personne pas dans l'effectif ce jour-là — avant arrivée, dans un trou de contrat,
+  après départ (fond gris clair, point discret, tooltip « Hors effectif »).
+  **Ne jamais recycler l'un pour l'autre** : le rendu client interpréterait tout
+  `tpBlocked` comme « TP », y compris sur des personnes sans temps partiel réel.
+  Cf. `tasks/lessons.md` L28.
 - **Temps partiel** : `personne.tp_config` (jsonb, options cumulables `demi`/`off`/`horaires`).
   Le planning calcule `tpBlocked` **côté serveur**. ⚠️ Règles métier (2026-07-24) —
   « TP » s'écrit dans le planning quand **l'une** des deux conditions est vraie :
@@ -292,11 +313,10 @@ hauteur de rangée constante : `.refpostes` sur la table des postes,
   reprend le même style en inline.
 - **Filtres** : `.filterrow` (label + segments), navigation en `useTransition`.
   Planning : ordre **Quart / Atelier / Équipe**.
-- **Modales** : overlay `position:fixed` + `.card` (`TempsPartielModal`, `LegendeModal`,
-  `HabLegendeModal`, modale MàJ des habilitations). Pour une modale **déplaçable**
-  (consulter le fond sans la fermer), utiliser `ModaleDeplacable` : la carte se
-  saisit par un élément portant la classe `.mdd-drag` (typiquement le bandeau
-  titre) et se repose ailleurs. Cf. `AbsencesModal`.
+- **Modales** : ⚠️ **TOUTE modale doit être déplaçable** via `<ModaleDeplacable>` —
+  l'utilisateur a besoin de consulter le fond sans fermer la modale. Le contenu
+  DOIT inclure un élément `.mdd-drag` (typiquement le bandeau titre) pour la
+  poignée. Ne jamais créer de modale avec un overlay `position: fixed` fait main.
 - **Info-bulle textuelle** : `<InfoBulle largeur={280}>…</InfoBulle>` pose une
   icône `i` qui déploie un tooltip en **`position: fixed`** ancré en haut à droite
   de l'icône. Le fixed est indispensable pour sortir d'un conteneur
@@ -368,13 +388,22 @@ prochain gros chantier, pas une optimisation cosmétique.
   `MatricePanel` ; `MatrixGrid` reçoit `search` en prop.
 - Personnel : `src/app/personnel/*` + `src/app/api/personnel/{route,merge/route,[id]/export/route,[id]/absences/route}.ts`.
   Colonne **Absences** (calendrier barré) : historique regroupé en périodes, déclaration
-  d'une absence, et **départ prévu**. Le regroupement vit dans `src/lib/absences-periodes.ts`
-  (testé) : il part des **jours** et non de la table `absence` — 401 des 421 jours sont
-  saisis au Planning sans période déclarée. Il enjambe les week-ends (écart ≤ 3 jours) et
-  ne réunit jamais deux motifs différents. `date_depart_prevu` ≠ `date_fin`, qui est le
-  reflet réécrit automatiquement du contrat le plus récent ; le statut n'est **pas**
-  basculé tout seul (aucune tâche planifiée sur ce projet).
-  L'en-tête complet est dans `PersonnelEditor` (la page ne rend que `AppHeader`).
+  d'une absence. Le regroupement vit dans `src/lib/absences-periodes.ts` (testé) : il
+  part des **jours** et non de la table `absence` — 401 des 421 jours sont saisis au
+  Planning sans période déclarée. Il enjambe les week-ends (écart ≤ 3 jours) et ne
+  réunit jamais deux motifs différents. L'en-tête complet est dans `PersonnelEditor`
+  (la page ne rend que `AppHeader`).
+  ⚠️ **Colonnes Contrat et Statut = résultantes** — plus de saisie directe. Un clic
+  ouvre la modale `CycleDeVieModal` qui unifie **Arrivée / Contrats / Départ prévu**
+  (auparavant éparpillés entre ContratsModal, AbsencesModal et le toggle Actif/Parti).
+  L'ancien `<ToggleSwitch>` + le bouton loupe « Contrats » ont disparu.
+  Contrats = seule source ; les dates arrivée/départ sont dérivées MIN/MAX. La bascule
+  Intérim → CDD → CDI se fait en ajoutant un contrat. Motif de départ (retraite,
+  démission…) = `contrat_periode.motif_fin` du dernier contrat.
+  **Fiche incomplète** : pastille orange `!` devant le nom si équipe/atelier/livret/sexe
+  manquent. Clic = focus sur le 1er champ vide de la ligne. Segment de filtre
+  « Fiche · Toutes / ⚠ Incomplètes » + badge d'alerte dans l'en-tête.
+  Filtre Statut par défaut = **Actif** (avec segments « À venir / Actif / Parti »).
 - Référentiel : `src/app/admin/referentiel/*` + `src/app/api/referentiel/route.ts`
   (colonnes **N° Rot** et **Habil. requises**).
 - Habilitations : `src/app/habilitations/{page,HabilitationsList,HabMark,HabLegendeModal,HabMajModal,AutorisationMark}.tsx`

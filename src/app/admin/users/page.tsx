@@ -62,10 +62,7 @@ export default async function AdminUsersPage() {
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
             <h2 style={{ margin: 0 }}>Comptes ({list.length})</h2>
-            <span style={{ display: "inline-flex", gap: 8 }}>
-              {peutEditerDroits && <NouveauRole />}
-              <NouvelUtilisateur roles={roles} />
-            </span>
+            <NouvelUtilisateur roles={roles} />
           </div>
           <p className="muted" style={{ marginTop: 0, marginBottom: 14 }}>
             Le rôle est <strong>enregistré dès que vous le changez</strong>. Le mot de passe n&apos;est
@@ -111,7 +108,10 @@ export default async function AdminUsersPage() {
 
         {peutEditerDroits && allPerms && (
           <div className="card" style={{ marginTop: 24 }}>
-            <h2>Droits d&apos;accès (rôle × module)</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <h2 style={{ margin: 0 }}>Droits d&apos;accès (rôle × module)</h2>
+              <NouveauRole />
+            </div>
             <p className="muted" style={{ marginBottom: 16 }}>
               Cliquez sur une case pour changer le droit :{" "}
               <span style={{ background: "#fff", border: "1px solid #cbd5e1", padding: "1px 8px", borderRadius: 5 }}>Aucun</span>{" "}

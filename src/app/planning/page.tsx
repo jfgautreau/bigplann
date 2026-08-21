@@ -59,7 +59,7 @@ type Motif = { id: string; code_court: string; libelle: string; couleur: string 
 export default async function PlanningPage({
   searchParams,
 }: {
-  searchParams: Promise<{ equipe?: string; semaine?: string; quart?: string; atelier?: string }>;
+  searchParams: Promise<{ equipe?: string; semaine?: string; quart?: string; atelier?: string; search?: string }>;
 }) {
   const { profile, perms } = await requireModule("planning", "read");
   // Droit "planning: write" (hors chef) : édition complète ; le chef garde son périmètre.
@@ -114,7 +114,7 @@ export default async function PlanningPage({
       .order("libelle")
       .returns<Motif[]>(),
     supabase.from("quart").select("code, libelle, ordre").order("ordre").returns<Quart[]>(),
-    supabase.from("personne").select("id, nom, prenom, equipe_id, type_contrat").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
+    supabase.from("personne").select("id, nom, prenom, equipe_id, type_contrat").in("statut", ["ACTIF", "A_VENIR"]).order("nom").returns<Personne[]>(),
     canEditPlanningFull
       ? Promise.resolve({ data: [] as { equipe_id: string }[] })
       : supabase.from("equipe_chef").select("equipe_id").eq("app_user_id", profile.authId).returns<{ equipe_id: string }[]>(),
@@ -380,40 +380,78 @@ export default async function PlanningPage({
   // Le créneau d'un quart : matin→"matin", apres_midi→"aprem" (journée/nuit :
   // pas de demi-journée, la personne est présente → pas de TP de ce chef).
   const tpBlocked: Record<string, boolean> = {};
-  if (allIds.length) {
-    const { data: tpData, error: tpErr } = await supabase
+  if (allIds.length && visIsos.length) {
+    // Périodes TP couvrant la plage visible (anticipation incluse).
+    // Repli sur personne.tp_config si tp_periode est vide (migration pas encore jouée,
+    // ou personne dont la période n'a pas encore été migrée).
+    type TpRow = { id: string; personne_id: string; date_debut: string; date_fin: string | null; tp_config: { off?: Record<string, string[]> } | null };
+    const minIso = visIsos[0];
+    const maxIso = visIsos[visIsos.length - 1];
+    const { data: tpPeriodes } = await supabase
+      .from("tp_periode")
+      .select("id, personne_id, date_debut, date_fin, tp_config")
+      .lte("date_debut", maxIso)
+      .or(`date_fin.is.null,date_fin.gte.${minIso}`)
+      .order("date_debut")
+      .returns<TpRow[]>();
+    // Index par personne.
+    const periodesByPers = new Map<string, TpRow[]>();
+    for (const p of tpPeriodes ?? []) {
+      (periodesByPers.get(p.personne_id) ?? periodesByPers.set(p.personne_id, []).get(p.personne_id)!).push(p);
+    }
+    // Repli : personnes avec temps_partiel=true mais sans ligne dans tp_periode
+    // (cas de transition, avant que l'utilisateur ait ouvert la modale).
+    const { data: tpFallback } = await supabase
       .from("personne")
-      .select("id, temps_partiel, tp_config")
+      .select("id, tp_config")
+      .eq("temps_partiel", true)
       .in("id", allIds)
-      .returns<{ id: string; temps_partiel: boolean; tp_config: { off?: Record<string, string[]> } | null }[]>();
-    if (!tpErr) {
-      const isoDow = (iso: string) => {
-        const d = new Date(iso + "T00:00").getDay();
-        return d === 0 ? 7 : d;
-      };
-      const equipeDe = new Map(allActive.map((p) => [p.id, p.equipe_id]));
-      const quartFixe = new Map((equipesD ?? []).map((e) => [e.id, e.quart_fixe]));
-      const creneauDe = (q?: string | null) => (q === "matin" ? "matin" : q === "apres_midi" ? "aprem" : null);
-      for (const r of tpData ?? []) {
-        // Toutes les personnes actives : la recherche peut faire apparaitre une
-        // personne hors filtre par defaut, son marquage TP doit rester correct.
-        if (!r.temps_partiel) continue;
-        const off = r.tp_config?.off ?? {};
-        const eq = equipeDe.get(r.id) ?? null;
-        for (const d of visible) {
-          const dayOff = off[String(isoDow(d.iso))] ?? [];
-          if (!dayOff.length) continue;
-          // Journée entière non travaillée.
-          const journee = dayOff.includes("matin") && dayOff.includes("aprem");
-          // Équipe sur le créneau NON travaillé cette semaine.
-          let equipeCreneau = false;
-          if (eq) {
-            const teamQuart = quartFixe.get(eq) ?? rotByWeek[d.wi]?.[eq] ?? null;
-            const cr = creneauDe(teamQuart);
-            equipeCreneau = !!cr && dayOff.includes(cr);
+      .returns<{ id: string; tp_config: { off?: Record<string, string[]> } | null }[]>();
+    const fallbackMap = new Map<string, { off?: Record<string, string[]> } | null>();
+    for (const r of tpFallback ?? []) {
+      if (!periodesByPers.has(r.id)) fallbackMap.set(r.id, r.tp_config);
+    }
+
+    const isoDow = (iso: string) => {
+      const d = new Date(iso + "T00:00").getDay();
+      return d === 0 ? 7 : d;
+    };
+    const equipeDe = new Map(allActive.map((p) => [p.id, p.equipe_id]));
+    const quartFixe = new Map((equipesD ?? []).map((e) => [e.id, e.quart_fixe]));
+    const creneauDe = (q?: string | null) => (q === "matin" ? "matin" : q === "apres_midi" ? "aprem" : null);
+
+    // Trouver la config TP applicable pour une personne à un jour donné.
+    const configPourJour = (persId: string, iso: string): { off?: Record<string, string[]> } | null => {
+      const periodes = periodesByPers.get(persId);
+      if (periodes) {
+        for (const p of periodes) {
+          if (p.date_debut <= iso && (!p.date_fin || p.date_fin >= iso)) {
+            return p.tp_config;
           }
-          if (journee || equipeCreneau) tpBlocked[`${r.id}:${d.iso}`] = true;
         }
+        return null; // Jour dans un trou = temps plein.
+      }
+      // Repli : personne.tp_config (pas de période migrée).
+      return fallbackMap.get(persId) ?? null;
+    };
+
+    // Calculer tpBlocked pour chaque personne × jour.
+    const personIds = new Set([...periodesByPers.keys(), ...fallbackMap.keys()]);
+    for (const persId of personIds) {
+      const eq = equipeDe.get(persId) ?? null;
+      for (const d of visible) {
+        const cfg = configPourJour(persId, d.iso);
+        if (!cfg) continue;
+        const dayOff = cfg.off?.[String(isoDow(d.iso))] ?? [];
+        if (!dayOff.length) continue;
+        const journee = dayOff.includes("matin") && dayOff.includes("aprem");
+        let equipeCreneau = false;
+        if (eq) {
+          const teamQuart = quartFixe.get(eq) ?? rotByWeek[d.wi]?.[eq] ?? null;
+          const cr = creneauDe(teamQuart);
+          equipeCreneau = !!cr && dayOff.includes(cr);
+        }
+        if (journee || equipeCreneau) tpBlocked[`${persId}:${d.iso}`] = true;
       }
     }
   }
@@ -529,9 +567,11 @@ export default async function PlanningPage({
   const quartLabel: Record<string, string> = {};
   for (const q of quarts) quartLabel[q.code] = q.libelle.slice(0, 3);
 
+  const searchParam = sp.search ?? "";
   const extra: Record<string, string> = { quart };
   if (spEquipe) extra.equipe = spEquipe;
   if (atelier) extra.atelier = atelier;
+  if (searchParam) extra.search = searchParam;
 
   return (
     <>
@@ -544,14 +584,15 @@ export default async function PlanningPage({
           <PlanningNav base="/planning" semaine={centerIso} extra={extra} />
           {/* Partie centrale : Equipe / Atelier / Quart (alignes sur les memes lignes) */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <QuartSelector quarts={quarts} current={quart} semaine={centerIso} atelier={atelier} equipe={spEquipe} />
-            <AtelierFilter ateliers={ateliers} atelier={atelier} equipe={spEquipe} quart={quart} semaine={centerIso} />
+            <QuartSelector quarts={quarts} current={quart} semaine={centerIso} atelier={atelier} equipe={spEquipe} search={searchParam} />
+            <AtelierFilter ateliers={ateliers} atelier={atelier} equipe={spEquipe} quart={quart} semaine={centerIso} search={searchParam} />
             <PlanningFilters
               equipes={(equipesD ?? []).map((e) => ({ id: e.id, label: e.nom, couleur: e.couleur }))}
               equipe={spEquipe}
               semaine={centerIso}
               quart={quart}
               atelier={atelier}
+              search={searchParam}
             />
           </div>
           {/* Partie droite : liens (occupent la hauteur des 3 lignes de filtres) */}
@@ -596,6 +637,7 @@ export default async function PlanningPage({
           exceptions={exceptions}
           horaireStd={horaireStd}
           weekNav={<WeekNav base="/planning" semaine={centerIso} extra={extra} />}
+          initialSearch={searchParam}
         />
         </div>
       </div>

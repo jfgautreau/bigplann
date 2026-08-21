@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageTitle from "@/components/PageTitle";
 import ConfirmForm from "@/components/ConfirmForm";
+import ModaleDeplacable from "@/components/ModaleDeplacable";
 import TempsPartielModal from "./TempsPartielModal";
 import CycleDeVieModal from "./CycleDeVieModal";
 import { anonymiserPersonne, supprimerPersonne } from "./actions";
@@ -735,9 +736,8 @@ export default function PersonnelEditor({
 
       {/* Modale Informations : commentaire (enregistrement auto, reflété sur la ligne). */}
       {infoFor && (
-        <div onClick={() => setInfoFor(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
-            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <ModaleDeplacable onClose={() => setInfoFor(null)} largeur={520}>
+            <div className="toolbar mdd-drag" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6, cursor: "grab" }}>
               <h2 style={{ margin: 0 }}>Informations — {infoFor.nom} {infoFor.prenom}</h2>
               <button type="button" className="btn-sm btn-ghost" onClick={() => setInfoFor(null)} style={{ width: "auto" }}>✕</button>
             </div>
@@ -752,15 +752,13 @@ export default function PersonnelEditor({
             <p className="muted" style={{ marginTop: 6, fontSize: 12 }}>
               Ne pas saisir d&apos;information médicale. Enregistrement automatique.
             </p>
-          </div>
-        </div>
+        </ModaleDeplacable>
       )}
 
       {/* Modale RGPD : export / anonymiser / supprimer (admin). */}
       {rgpdFor && (
-        <div onClick={() => setRgpdFor(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, width: "100%", maxHeight: "90vh", overflow: "auto", borderColor: "#fca5a5" }}>
-            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <ModaleDeplacable onClose={() => setRgpdFor(null)} largeur={560}>
+            <div className="toolbar mdd-drag" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6, cursor: "grab" }}>
               <h2 style={{ margin: 0 }}>RGPD — {rgpdFor.nom} {rgpdFor.prenom}</h2>
               <button type="button" className="btn-sm btn-ghost" onClick={() => setRgpdFor(null)} style={{ width: "auto" }}>✕</button>
             </div>
@@ -785,15 +783,13 @@ export default function PersonnelEditor({
             <p className="muted" style={{ marginTop: 8 }}>
               Anonymiser conserve l&apos;historique (bilans) en retirant l&apos;identité. Supprimer efface définitivement la personne et ses données liées.
             </p>
-          </div>
-        </div>
+        </ModaleDeplacable>
       )}
 
       {/* Modale de fusion de deux personnes. */}
       {merge && (
-        <div onClick={() => !merging && setMerge(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
-            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <ModaleDeplacable onClose={() => { if (!merging) setMerge(null); }} largeur={560}>
+            <div className="toolbar mdd-drag" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6, cursor: "grab" }}>
               <h2 style={{ margin: 0 }}>Fusionner deux personnes</h2>
               <button type="button" className="btn-sm btn-ghost" disabled={merging} onClick={() => setMerge(null)} style={{ width: "auto" }}>✕</button>
             </div>
@@ -819,15 +815,13 @@ export default function PersonnelEditor({
               <button type="button" className="btn-sm btn-ghost" disabled={merging} onClick={() => setMerge(null)} style={{ width: "auto" }}>Annuler</button>
               <button type="button" className="btn-sm" disabled={merging} onClick={doMerge} style={{ width: "auto" }}>{merging ? "Fusion…" : "Fusionner"}</button>
             </div>
-          </div>
-        </div>
+        </ModaleDeplacable>
       )}
 
       {/* Modale de création d'une nouvelle personne (centrée). */}
       {canEdit && showCreate && (
-        <div onClick={() => setShowCreate(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
-            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <ModaleDeplacable onClose={() => setShowCreate(false)} largeur={640}>
+            <div className="toolbar mdd-drag" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8, cursor: "grab" }}>
               <h2 style={{ margin: 0 }}>Nouvelle personne</h2>
               <button type="button" className="btn-sm btn-ghost" onClick={() => setShowCreate(false)} style={{ width: "auto" }}>✕</button>
             </div>
@@ -892,14 +886,12 @@ export default function PersonnelEditor({
               <button type="button" className="btn-sm btn-ghost" onClick={() => setShowCreate(false)} style={{ width: "auto" }}>Annuler</button>
               <button type="button" onClick={add} disabled={!nom.trim() || !prenom.trim()} className="btn-sm" style={{ width: "auto" }} title="Créer la personne">＋ Créer</button>
             </div>
-          </div>
-        </div>
+        </ModaleDeplacable>
       )}
 
       {dup && (
-        <div onClick={() => setDup(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 540, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
-            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <ModaleDeplacable onClose={() => setDup(null)} largeur={540}>
+            <div className="toolbar mdd-drag" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6, cursor: "grab" }}>
               <h2 style={{ margin: 0, color: "#92400e" }}>⚠ Doublon possible</h2>
               <button type="button" className="btn-sm btn-ghost" onClick={() => setDup(null)} style={{ width: "auto" }}>✕</button>
             </div>
@@ -926,8 +918,7 @@ export default function PersonnelEditor({
               <button type="button" className="btn-sm" onClick={() => setDup(null)} style={{ width: "auto" }}>Annuler (recommandé)</button>
               <button type="button" className="btn-sm btn-ghost" onClick={doCreate} style={{ width: "auto" }}>Créer quand même</button>
             </div>
-          </div>
-        </div>
+        </ModaleDeplacable>
       )}
     </>
   );

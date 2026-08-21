@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import ModaleDeplacable from "@/components/ModaleDeplacable";
 import ToggleSwitch from "@/components/ToggleSwitch";
 
 type Poste = {
@@ -448,13 +449,8 @@ export default function ReferentielEditor({
 
       {/* Modale : habilitations exigees par un poste (enregistrement immediat) */}
       {reqFor && (
-        <div
-          onClick={() => setReqFor(null)}
-          style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "8vh 16px", overflow: "auto" }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460 }}>
-            <div className="card" style={{ margin: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <ModaleDeplacable onClose={() => setReqFor(null)} largeur={460} zIndex={80}>
+              <div className="mdd-drag" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, cursor: "grab" }}>
                 <h2 style={{ margin: 0, fontSize: 18 }}>Habilitations requises</h2>
                 <button type="button" onClick={() => setReqFor(null)} title="Fermer" style={{ width: "auto", margin: 0, padding: "2px 10px", fontSize: 16 }}>
                   ✕
@@ -486,9 +482,7 @@ export default function ReferentielEditor({
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        </div>
+        </ModaleDeplacable>
       )}
     </div>
   );

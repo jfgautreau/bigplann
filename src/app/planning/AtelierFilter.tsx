@@ -11,12 +11,14 @@ export default function AtelierFilter({
   equipe = "",
   quart = "",
   semaine = "",
+  search = "",
 }: {
   ateliers?: Opt[];
   atelier?: string;
   equipe?: string;
   quart?: string;
   semaine?: string;
+  search?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -27,6 +29,7 @@ export default function AtelierFilter({
     if (at) p.set("atelier", at);
     if (semaine) p.set("semaine", semaine);
     if (quart) p.set("quart", quart);
+    if (search) p.set("search", search);
     const qs = p.toString();
     start(() => router.push(qs ? `/planning?${qs}` : "/planning"));
   }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ModaleDeplacable from "@/components/ModaleDeplacable";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek?: boolean };
 type Item = { id: string; label: string };
@@ -291,9 +292,8 @@ export default function OrdoGrid({
 
       {/* Modale : choix du profil de semaine type à appliquer. */}
       {initIsos && (
-        <div onClick={() => setInitIsos(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
-            <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <ModaleDeplacable onClose={() => setInitIsos(null)} largeur={460}>
+            <div className="toolbar mdd-drag" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6, cursor: "grab" }}>
               <h2 style={{ margin: 0 }}>Initialiser — choisir un profil</h2>
               <button type="button" className="btn-sm btn-ghost" onClick={() => setInitIsos(null)} style={{ width: "auto" }}>✕</button>
             </div>
@@ -314,8 +314,7 @@ export default function OrdoGrid({
             <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>
               La semaine sélectionnée sera (ré)initialisée avec le profil choisi.
             </p>
-          </div>
-        </div>
+        </ModaleDeplacable>
       )}
     </div>
   );

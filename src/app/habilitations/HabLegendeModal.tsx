@@ -1,5 +1,6 @@
 "use client";
 
+import ModaleDeplacable from "@/components/ModaleDeplacable";
 import HabMark from "./HabMark";
 import AutorisationMark from "./AutorisationMark";
 
@@ -12,12 +13,8 @@ const LIGNES: { statut: "vert" | "orange" | "rouge" | "aucun"; titre: string; te
 
 export default function HabLegendeModal({ onClose }: { onClose: () => void }) {
   return (
-    <div
-      onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
-    >
-      <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 720, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
-        <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+    <ModaleDeplacable onClose={onClose} largeur={720}>
+        <div className="toolbar mdd-drag" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6, cursor: "grab" }}>
           <h2 style={{ margin: 0, fontSize: 16 }}>Statut des habilitations</h2>
           <button type="button" className="btn-sm btn-ghost" onClick={onClose} style={{ width: "auto" }}>
             ✕
@@ -46,7 +43,6 @@ export default function HabLegendeModal({ onClose }: { onClose: () => void }) {
           Saisie : cliquez une pastille de la grille. L&apos;échéance est calculée depuis la date de
           passage et la durée de validité.
         </p>
-      </div>
-    </div>
+    </ModaleDeplacable>
   );
 }

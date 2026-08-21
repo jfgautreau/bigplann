@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ModaleDeplacable from "@/components/ModaleDeplacable";
 import { fmtDateFr } from "@/lib/habilitations";
 
 type Personne = { id: string; nom: string; prenom: string };
@@ -97,13 +98,8 @@ export default function HabMajModal({
   }
 
   return (
-    <div
-      onClick={onClose}
-      style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "8vh 16px", overflow: "auto" }}
-    >
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520 }}>
-        <div className="card" style={{ margin: 0 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+    <ModaleDeplacable onClose={onClose} largeur={520} zIndex={80}>
+          <div className="mdd-drag" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, cursor: "grab" }}>
             <h2 style={{ margin: 0, fontSize: 19 }}>{recyclage ? "Recycler une habilitation" : "Enregistrer une habilitation"}</h2>
             <button type="button" onClick={onClose} title="Fermer" style={{ width: "auto", margin: 0, padding: "2px 10px", fontSize: 16 }}>
               ✕
@@ -210,8 +206,6 @@ export default function HabMajModal({
           <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>
             L&apos;expiration est calculée automatiquement (passage + durée de validité).
           </p>
-        </div>
-      </div>
-    </div>
+    </ModaleDeplacable>
   );
 }

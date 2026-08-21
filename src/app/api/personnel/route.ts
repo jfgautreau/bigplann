@@ -111,6 +111,41 @@ async function syncPersonneFromPeriodes(
   }
 }
 
+// Synchronise personne.temps_partiel + tp_config avec la période TP active
+// (courante ou prochaine future). Appelé après chaque CRUD sur tp_periode.
+async function syncPersonneTP(supabase: SupabaseClient, personne_id: string) {
+  const today = new Date().toISOString().slice(0, 10);
+  // Période courante : date_debut ≤ today AND (date_fin IS NULL OR date_fin ≥ today).
+  const { data: courant } = await supabase
+    .from("tp_periode")
+    .select("tp_config")
+    .eq("personne_id", personne_id)
+    .lte("date_debut", today)
+    .or(`date_fin.is.null,date_fin.gte.${today}`)
+    .order("date_debut", { ascending: false })
+    .limit(1)
+    .single();
+  if (courant) {
+    const { error } = await supabase.from("personne").update({ temps_partiel: true, tp_config: courant.tp_config }).eq("id", personne_id);
+    if (error) throw error;
+  } else {
+    // Pas de période courante : vérifier s'il y a une période future.
+    const { data: future } = await supabase
+      .from("tp_periode")
+      .select("id")
+      .eq("personne_id", personne_id)
+      .gt("date_debut", today)
+      .limit(1);
+    if (!future?.length) {
+      // Aucune période courante ni future → temps plein.
+      const { error } = await supabase.from("personne").update({ temps_partiel: false, tp_config: null }).eq("id", personne_id);
+      if (error) throw error;
+    }
+    // Si période future seulement, on laisse le flag actuel (la personne est
+    // à temps plein maintenant, le flag passera à true quand la période débutera).
+  }
+}
+
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -386,6 +421,102 @@ export async function POST(req: NextRequest) {
       const tp_config = enabled ? (body.tp_config ?? {}) : null;
       const { error } = await supabase.from("personne").update({ temps_partiel: enabled, tp_type, tp_config }).eq("id", id);
       if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    // --- Périodes de temps partiel (table tp_periode, migration 0052) ---
+
+    if (op === "tp-periode-list") {
+      const personne_id = s(body.personne_id);
+      if (!personne_id) return NextResponse.json({ error: "personne_id manquant" }, { status: 400 });
+      const { data, error } = await supabase
+        .from("tp_periode")
+        .select("id, personne_id, date_debut, date_fin, tp_config, created_at")
+        .eq("personne_id", personne_id)
+        .order("date_debut", { ascending: false });
+      if (error) throw error;
+      return NextResponse.json({ periodes: data ?? [] });
+    }
+
+    if (op === "tp-periode-create") {
+      const personne_id = s(body.personne_id);
+      const date_debut = s(body.date_debut);
+      const date_fin = body.date_fin ? s(body.date_fin) : null;
+      const tp_config = body.tp_config ?? {};
+      if (!personne_id || !date_debut) return NextResponse.json({ error: "personne_id et date_debut requis" }, { status: 400 });
+      if (date_fin && date_fin < date_debut) return NextResponse.json({ error: "date_fin doit être ≥ date_debut" }, { status: 400 });
+      // Vérifier chevauchement.
+      const { data: existing } = await supabase
+        .from("tp_periode")
+        .select("id, date_debut, date_fin")
+        .eq("personne_id", personne_id);
+      const overlap = (existing ?? []).some((p) => {
+        const pFin = p.date_fin ?? "9999-12-31";
+        const nFin = date_fin ?? "9999-12-31";
+        return date_debut <= pFin && nFin >= p.date_debut;
+      });
+      if (overlap) return NextResponse.json({ error: "Chevauchement avec une période existante" }, { status: 409 });
+      const { data, error } = await supabase
+        .from("tp_periode")
+        .insert({ personne_id, date_debut, date_fin, tp_config })
+        .select("id, personne_id, date_debut, date_fin, tp_config, created_at")
+        .single();
+      if (error) throw error;
+      // Mettre à jour le flag personne.temps_partiel si nécessaire.
+      await syncPersonneTP(supabase, personne_id);
+      return NextResponse.json({ periode: data });
+    }
+
+    if (op === "tp-periode-update") {
+      const id = s(body.id);
+      const personne_id = s(body.personne_id);
+      if (!id) return NextResponse.json({ error: "id manquant" }, { status: 400 });
+      const updates: Record<string, unknown> = {};
+      if (body.date_fin !== undefined) updates.date_fin = body.date_fin ? s(body.date_fin as string) : null;
+      if (body.tp_config !== undefined) updates.tp_config = body.tp_config;
+      if (body.date_debut !== undefined) updates.date_debut = s(body.date_debut as string);
+      if (!Object.keys(updates).length) return NextResponse.json({ error: "Rien à modifier" }, { status: 400 });
+      // Vérification de chevauchement (sauf avec soi-même).
+      const newDebut = updates.date_debut ? String(updates.date_debut) : undefined;
+      const newFin = updates.date_fin !== undefined ? (updates.date_fin ? String(updates.date_fin) : null) : undefined;
+      if (newDebut !== undefined || newFin !== undefined) {
+        const { data: cur } = await supabase.from("tp_periode").select("date_debut, date_fin, personne_id").eq("id", id).single();
+        if (cur) {
+          const d = newDebut ?? cur.date_debut;
+          const f = newFin !== undefined ? newFin : cur.date_fin;
+          const pid = personne_id || cur.personne_id;
+          const { data: others } = await supabase
+            .from("tp_periode")
+            .select("id, date_debut, date_fin")
+            .eq("personne_id", pid)
+            .neq("id", id);
+          const overlap = (others ?? []).some((p) => {
+            const pFin = p.date_fin ?? "9999-12-31";
+            const nFin = f ?? "9999-12-31";
+            return d <= pFin && nFin >= p.date_debut;
+          });
+          if (overlap) return NextResponse.json({ error: "Chevauchement avec une période existante" }, { status: 409 });
+        }
+      }
+      const { data, error } = await supabase
+        .from("tp_periode")
+        .update(updates)
+        .eq("id", id)
+        .select("id, personne_id, date_debut, date_fin, tp_config, created_at")
+        .single();
+      if (error) throw error;
+      if (data) await syncPersonneTP(supabase, data.personne_id);
+      return NextResponse.json({ periode: data });
+    }
+
+    if (op === "tp-periode-delete") {
+      const id = s(body.id);
+      if (!id) return NextResponse.json({ error: "id manquant" }, { status: 400 });
+      // Récupérer l'id de la personne avant suppression.
+      const { data: before } = await supabase.from("tp_periode").select("personne_id").eq("id", id).single();
+      const { error } = await supabase.from("tp_periode").delete().eq("id", id);
+      if (error) throw error;
+      if (before) await syncPersonneTP(supabase, before.personne_id);
       return NextResponse.json({ ok: true });
     }
 

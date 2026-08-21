@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { dowMon } from "@/lib/week";
 import { habValable } from "@/lib/habilitations";
 import { INTERIM_BG } from "@/lib/interim";
+import ModaleDeplacable from "@/components/ModaleDeplacable";
 
 type Jour = { iso: string; nom: string; num: string; firstOfWeek: boolean };
 type WeekBlock = { num: number; span: number; year: number; isCurrent: boolean };
@@ -60,6 +62,7 @@ export default function PlanningGrid({
   horaireStd = {},
   formationMotifId = null,
   weekNav = null,
+  initialSearch,
 }: {
   days: Jour[];
   weekBlocks?: WeekBlock[];
@@ -93,6 +96,8 @@ export default function PlanningGrid({
   horaireStd?: Record<string, { debut: string; fin: string }>; // `${poste}:${dow}` -> horaire par defaut
   formationMotifId?: string | null; // motif "Formation" -> pendule active (horaires + sujet)
   weekNav?: React.ReactNode;
+  /** Recherche initiale (portee par l'URL, pour survivre a la navigation). */
+  initialSearch?: string;
 }) {
   const [vals, setVals] = useState<Record<string, string>>(initial);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -142,7 +147,47 @@ export default function PlanningGrid({
   // Cas particulier : la recherche IGNORE les filtres equipe/atelier (elle balaie
   // l'effectif complet passe en prop) pour toujours retrouver quelqu'un ; hors
   // recherche, on se limite au sous-ensemble `displayedIds` calcule par le serveur.
-  const [search, setSearch] = useState("");
+  const [search, setSearchRaw] = useState(initialSearch ?? "");
+  const router = useRouter();
+  const pathname = usePathname();
+  const urlParams = useSearchParams();
+
+  // Synchronise la recherche vers l'URL (debounce 400 ms) pour qu'elle survive
+  // a la navigation (changement de semaine / mois). On remplace l'URL sans
+  // navigation — pas de push, pas de revalidation serveur.
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setSearch = useCallback((v: string) => {
+    setSearchRaw(v);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      const p = new URLSearchParams(urlParams.toString());
+      if (v.trim()) p.set("search", v.trim());
+      else p.delete("search");
+      const qs = p.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }, 400);
+  }, [router, pathname, urlParams]);
+
+  // Restauration du scroll vertical : sauvegardé dans sessionStorage avant
+  // chaque navigation, restauré après le montage.
+  const gridScrollRef = useRef<HTMLDivElement>(null);
+  const SCROLL_KEY = "planning.scrollTop";
+  useEffect(() => {
+    const saved = sessionStorage.getItem(SCROLL_KEY);
+    if (saved && gridScrollRef.current) {
+      gridScrollRef.current.scrollTop = Number(saved);
+      sessionStorage.removeItem(SCROLL_KEY);
+    }
+  }, []);
+  // Sauvegarde continue du scroll pour que la prochaine navigation la retrouve.
+  useEffect(() => {
+    const el = gridScrollRef.current;
+    if (!el) return;
+    const handler = () => sessionStorage.setItem(SCROLL_KEY, String(el.scrollTop));
+    el.addEventListener("scroll", handler, { passive: true });
+    return () => el.removeEventListener("scroll", handler);
+  }, []);
+
   const displayedSet = useMemo(
     () => (displayedIds ? new Set(displayedIds) : null),
     [displayedIds],
@@ -624,7 +669,7 @@ export default function PlanningGrid({
       </div>
 
       {/* Tableau 2 : noms (defile, remplit le reste de la fenetre) */}
-      <div className="card" style={{ marginTop: 8, overflowX: "hidden", overflowY: "auto", scrollbarGutter: "stable", flex: 1, minHeight: 0, padding: "0 12px" }}>
+      <div ref={gridScrollRef} className="card" style={{ marginTop: 8, overflowX: "hidden", overflowY: "auto", scrollbarGutter: "stable", flex: 1, minHeight: 0, padding: "0 12px" }}>
       <table className="matrix" style={tStyle}>
         <Cols />
         <tbody>
@@ -658,9 +703,12 @@ export default function PlanningGrid({
                 // « non-affecte » sur la semaine. Masque seulement si placee sur un autre quart.
                 const tpb = !!tpBlocked[key(pers.id, d.iso)];
                 const hors = !!horsEffectif[key(pers.id, d.iso)];
-                // Case bloquee : soit temps partiel, soit hors effectif ce jour-la.
-                // Meme desactivation (pas de bouton +, pas de saisie) mais rendu distinct.
-                const bloque = tpb || hors;
+                // Case bloquee : soit temps partiel (sans motif d'absence), soit
+                // hors effectif ce jour-la. Quand le TP coexiste avec un motif
+                // d'absence, le motif prime : la case reste modifiable et affiche
+                // la couleur du motif au lieu de « TP ».
+                const tpAbsence = tpb && !!motifColor[v];
+                const bloque = (tpb && !tpAbsence) || hors;
                 const showFill = pers.editable && !otherByCell[key(pers.id, d.iso)] && !bloque;
                 const other = v === "" ? otherByCell[key(pers.id, d.iso)] : undefined;
                 // Surlignage : cette case correspond-elle au type d'anomalie selectionne ce jour-la ?
@@ -679,7 +727,7 @@ export default function PlanningGrid({
                       // > aujourd'hui.
                       background: hors
                         ? "#f1f5f9"
-                        : tpb
+                        : tpb && !tpAbsence
                         ? "#e0e7ff"
                         : motifColor[v]
                         ? motifColor[v]
@@ -705,7 +753,7 @@ export default function PlanningGrid({
                       // Case grisee, aucun label : la personne n'est pas dans
                       // l'effectif ce jour-la. Distincte du TP (fond violet).
                       <div className="cell-other" style={{ color: "#94a3b8" }} aria-hidden="true">·</div>
-                    ) : tpb ? (
+                    ) : tpb && !tpAbsence ? (
                       <div className="cell-other" style={{ color: "#3730a3" }} title="Temps partiel — journée entière non travaillée">TP</div>
                     ) : other ? (
                       <div
@@ -844,12 +892,8 @@ export default function PlanningGrid({
       {/* Habilitation manquante : confirmer ou renoncer. Meme geste qu'au Placement —
           sans cette fenetre, le Planning refusait le placement sans rien expliquer. */}
       {askHab && (
-        <div
-          onClick={() => setAskHab(null)}
-          style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
-        >
-          <div className="card" onClick={(e) => e.stopPropagation()} style={{ margin: 0, width: "100%", maxWidth: 440 }}>
-            <h2 style={{ margin: "0 0 8px", fontSize: 18, color: "#b91c1c" }}>⚠ Habilitation manquante</h2>
+        <ModaleDeplacable onClose={() => setAskHab(null)} largeur={440} zIndex={90}>
+            <h2 className="mdd-drag" style={{ margin: "0 0 8px", fontSize: 18, color: "#b91c1c", cursor: "grab" }}>⚠ Habilitation manquante</h2>
             <p style={{ margin: "0 0 6px", fontSize: 14 }}>
               <strong>{persById.get(askHab.pid)?.label ?? ""}</strong> n&apos;est pas habilité(e) pour le
               poste <strong>{posteLabel[askHab.value] ?? posteLabelAll[askHab.value] ?? "?"}</strong>.
@@ -880,8 +924,7 @@ export default function PlanningGrid({
                 Oui, je force
               </button>
             </div>
-          </div>
-        </div>
+        </ModaleDeplacable>
       )}
 
       {/* Panneau d'affectation (rendu une seule fois, position fixe -> pas de clipping). */}

@@ -1,5 +1,6 @@
 "use client";
 
+import ModaleDeplacable from "@/components/ModaleDeplacable";
 import { Pie, RestrictionMark } from "./Pie";
 
 const FALLBACK: Record<number, string> = {
@@ -19,9 +20,8 @@ export default function LegendeModal({
 }) {
   const label = (n: number) => niveauLibelles.find((x) => x.niveau === n)?.libelle || FALLBACK[n];
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 820, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
-        <div className="toolbar" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+    <ModaleDeplacable onClose={onClose} largeur={820}>
+        <div className="toolbar mdd-drag" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6, cursor: "grab" }}>
           <h2 style={{ margin: 0, fontSize: 16 }}>Niveaux de compétence</h2>
           <button type="button" className="btn-sm btn-ghost" onClick={onClose} style={{ width: "auto" }}>✕</button>
         </div>
@@ -43,7 +43,6 @@ export default function LegendeModal({
         <p className="muted" style={{ marginTop: 6, fontWeight: 600 }}>
           Saisie : clic = +1 · clic droit = −1 · enregistrement automatique.
         </p>
-      </div>
-    </div>
+    </ModaleDeplacable>
   );
 }

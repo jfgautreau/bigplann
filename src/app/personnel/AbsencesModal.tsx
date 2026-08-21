@@ -357,9 +357,8 @@ export default function AbsencesModal({
       </table>
 
       {conflit && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setConflit(null)}>
-          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440, width: "100%" }}>
-            <h3 style={{ margin: "0 0 8px", color: "#b91c1c" }}>⚠ Affectations existantes</h3>
+        <ModaleDeplacable onClose={() => setConflit(null)} largeur={440} zIndex={200}>
+            <h3 className="mdd-drag" style={{ margin: "0 0 8px", color: "#b91c1c", cursor: "grab" }}>⚠ Affectations existantes</h3>
             <p style={{ marginTop: 0, fontSize: 13 }}>
               Cette personne a déjà des affectations sur poste pour{" "}
               <strong>{conflit.jours.length} jour{conflit.jours.length > 1 ? "s" : ""}</strong>{" "}
@@ -375,8 +374,7 @@ export default function AbsencesModal({
               <button type="button" className="btn-sm btn-ghost" onClick={() => setConflit(null)} style={{ width: "auto" }}>Annuler</button>
               <button type="button" className="btn-sm" onClick={conflit.poursuivre} style={{ width: "auto", background: "#dc2626", border: "1px solid #dc2626" }}>Écraser</button>
             </div>
-          </div>
-        </div>
+        </ModaleDeplacable>
       )}
     </ModaleDeplacable>
   );

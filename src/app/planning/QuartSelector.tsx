@@ -15,12 +15,14 @@ export default function QuartSelector({
   semaine,
   atelier = "",
   equipe = "",
+  search = "",
 }: {
   quarts: Quart[];
   current: string;
   semaine: string;
   atelier?: string;
   equipe?: string;
+  search?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -29,6 +31,7 @@ export default function QuartSelector({
     if (equipe) p.set("equipe", equipe);
     if (atelier) p.set("atelier", atelier);
     if (semaine) p.set("semaine", semaine);
+    if (search) p.set("search", search);
     p.set("quart", code);
     start(() => router.push(`/planning?${p.toString()}`));
   }

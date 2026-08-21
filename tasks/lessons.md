@@ -258,6 +258,76 @@ ne peuvent vivre que dans un composant `"use client"`.
 `keyName`). Le server component ne fait que la mise en page ; il passe le
 server action en prop au client — Next.js sait le sérialiser.
 
+## L26 — `useState(prop)` ne se met pas à jour aux changements de props
+
+Bug ordonnancement (2026-08-20) : « j'initialise la semaine 40, je clique
+Octobre, les tableaux apparaissent vides ». L'`OrdoMonthNav` fait un
+`router.push()` (soft nav), le server component re-rend avec les nouvelles
+props, MAIS le client `OrdoGrid` garde son `useState(jourQuartState)`
+initialisé sur les props du **mois précédent** — `useState` ne relit son
+initialValue **qu'au mount**, jamais quand les props changent. La grille
+paraît vide car son état interne est celui d'un autre mois.
+**Règle** : dès qu'un composant client dérive son état d'une prop qui peut
+changer (URL param, filtre parent), poser un `key={valeur}` sur son
+utilisation dans le parent — React démonte/remonte quand la clé change,
+`useState` relit l'initialValue fraîche. Alternative : `useEffect` pour
+resynchroniser, mais le `key` est plus honnête et le pattern est déjà en
+place sur PlacementBoard (`key={atelier|jour|quart}`) et PlanningGrid.
+
+## L27 — Router cache RSC : sans `router.refresh()`, un retour de menu montre l'état pré-mutation
+
+Corollaire de L26. Bug de la même session : la navigation vers un autre
+menu puis retour sur `/ordonnancement` montrait un écran vide, alors que
+la base avait bien enregistré l'initialisation. Cause : `applyProfil()`
+mettait à jour l'état local (checkboxes visibles immédiatement) mais
+n'appelait jamais `router.refresh()`. Le router Next met la page en cache
+RSC lors du départ **avec les props d'avant l'écriture** ; au retour, il
+sert ce cache et `useState` s'initialise à nouveau vide.
+**Règle** : toute mutation applicative (POST vers une route API,
+`router.push`, etc.) qui doit se refléter au prochain rendu serveur du
+même URL exige `router.refresh()` en fin de handler. Le pattern est déjà
+en place dans PersonnelEditor / OrdoGrid désormais. Test naturel :
+« je fais l'action, je navigue ailleurs, je reviens — c'est là ? ».
+
+## L28 — Ne pas recycler un canal UI pour un sens différent
+
+Bug planning (2026-08-20) : après la refonte cycle de vie, l'écran
+affichait « TP » partout, y compris sur des personnes sans temps partiel.
+Cause : j'avais recyclé le map `tpBlocked` pour marquer aussi les jours
+« hors effectif » (avant arrivée, trou de contrat, après départ) — même
+mécanisme de désactivation (case grisée, non-cliquable), pratique. MAIS le
+rendu client, lui, interprète toujours `tpBlocked` comme « afficher le
+badge TP violet » → toute case marquée hors-effectif recevait le label.
+**Règle** : quand deux causes distinctes justifient le même comportement
+technique (désactiver une cellule), garder **deux canaux distincts** de
+bout en bout, même si le rendu commence identique. Renommer un canal
+existant est un piège : l'UI garde en tête l'ancien sens. Ici : canal
+`horsEffectif` séparé de `tpBlocked`, fond gris (pas violet), point
+discret (pas « TP »), tooltip explicite. Le comportement (case bloquée)
+converge côté UX ; le sens sémantique reste séparé.
+
+## L29 — `getAdminClient()` (service_role) : trigger `set_site_id_from_context` tombe en fallback Lebignon
+
+Continuation de L25. Chaque route API qui écrit via `getAdminClient()`
+(service_role) sur une table site-locale doit passer `site_id`
+explicitement dans la ligne insérée. Sinon le trigger
+`set_site_id_from_context` (0043 ligne 583) essaie 3 fallbacks : (1)
+`current_site_id()` — NULL car pas d'`auth.uid()` en service_role ; (2) GUC
+`app.site_id` — NULL sauf si posé explicitement ; (3) hardcoded Lebignon.
+Résultat : les écritures partent dans le site Lebignon quel que soit le
+site de l'utilisateur qui a déclenché l'action. Sur un site ≠ Lebignon,
+l'écran ne re-voit jamais ses propres écritures (RLS filtre sur son site).
+Bug corrigé en 0044 pour les 3 fonctions SQL `creer_absence` / `maj_absence`
+/ `set_rotation_reference` (paramètre `p_site`), corrigé en 2026-08-20
+pour `/api/ordonnancement/reset-week` + `/api/ordonnancement/quart`
+(rows portent `site_id: garde.profile.siteId` explicite, DELETE filtré
+sur `site_id`).
+**Règle** : audit périodique — `grep -rn "getAdminClient\|moduleWriteGuard" src/app/api/` puis
+vérifier que **chaque insert/upsert** sur une table locale porte
+`site_id: profile.siteId`. Ne pas se fier au trigger fallback : en V2
+multi-site il disparaît (§9 multi-site.md), et un site ≠ Lebignon
+révèlerait le bug immédiatement.
+
 ## L25 — Composite FKs incompatibles avec les embeds PostgREST
 
 Chantier multi-site (2026-08-20) : la migration 0043 §G a posé des composite

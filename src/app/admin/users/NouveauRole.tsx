@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ModaleDeplacable from "@/components/ModaleDeplacable";
 
 // Bouton « + Nouveau rôle » + petite modale. Le rôle créé apparaît aussitôt dans
 // la matrice des droits (aucun droit par défaut) et dans les listes de rôles.
@@ -53,13 +54,8 @@ export default function NouveauRole() {
       </button>
 
       {ouvert && (
-        <div
-          onClick={fermer}
-          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "10vh 16px", overflow: "auto" }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440 }}>
-            <div className="card" style={{ margin: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <ModaleDeplacable onClose={fermer} largeur={440}>
+              <div className="mdd-drag" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, cursor: "grab" }}>
                 <h2 style={{ margin: 0, fontSize: 19 }}>Nouveau rôle</h2>
                 <button type="button" onClick={fermer} title="Fermer" style={{ width: "auto", margin: 0, padding: "2px 10px", fontSize: 16 }}>✕</button>
               </div>
@@ -78,9 +74,7 @@ export default function NouveauRole() {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        </div>
+        </ModaleDeplacable>
       )}
     </>
   );

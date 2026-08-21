@@ -43,7 +43,7 @@ export default async function PlacementPage({
     supabase.from("atelier").select("id, nom").eq("actif", true).order("nom").returns<Atelier[]>(),
     supabase.from("equipe").select("id, nom, couleur, quart_fixe").eq("actif", true).order("nom").returns<Equipe[]>(),
     supabase.from("quart").select("code, libelle, ordre").order("ordre").returns<Quart[]>(),
-    supabase.from("personne").select("id, nom, prenom, equipe_id, atelier_id, type_contrat").eq("statut", "ACTIF").order("nom").returns<Personne[]>(),
+    supabase.from("personne").select("id, nom, prenom, equipe_id, atelier_id, type_contrat").in("statut", ["ACTIF", "A_VENIR"]).order("nom").returns<Personne[]>(),
     supabase.from("motif_absence").select("id, code_court, libelle, couleur").eq("actif", true).order("libelle").returns<Motif[]>(),
   ]);
 
@@ -53,10 +53,10 @@ export default async function PlacementPage({
   const quartCodes = quarts.map((q) => q.code);
   // Cycle de vie (0049 + 0050) : on masque du placement les personnes qui ne
   // sont pas effectivement au travail le jour choisi — hors fenetre d'activite
-  // ou dans un trou entre deux contrats. Les personnes A_VENIR / PARTI sont
-  // deja ecartees par .eq("statut","ACTIF") ; ce filtre attrape les
-  // ACTIF-en-fenetre-mais-sans-contrat-le-jour-J. Les dates d'arrivee/depart
-  // sont DERIVEES des contrats (0050), plus stockees sur personne.
+  // ou dans un trou entre deux contrats. Les A_VENIR sont incluses pour qu'on
+  // puisse les placer des qu'un contrat les couvre ; les PARTI restent exclues
+  // par le filtre .in("statut"). Les dates d'arrivee/depart sont DERIVEES des
+  // contrats (0050), plus stockees sur personne.
   const personnesActives = persD ?? [];
   const idsPourContrat = personnesActives.map((p) => p.id);
   const contratsMap = new Map<string, { date_debut: string | null; date_fin: string | null }[]>();

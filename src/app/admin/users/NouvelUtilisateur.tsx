@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ModaleDeplacable from "@/components/ModaleDeplacable";
 import LienMotDePasse from "./LienMotDePasse";
 
 type RoleOption = { code: string; libelle: string };
@@ -71,23 +72,8 @@ export default function NouvelUtilisateur({ roles }: { roles: RoleOption[] }) {
       </button>
 
       {ouvert && (
-        <div
-          onClick={fermer}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 80,
-            background: "rgba(15,23,42,0.45)",
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
-            padding: "8vh 16px",
-            overflow: "auto",
-          }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520 }}>
-            <div className="card" style={{ margin: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <ModaleDeplacable onClose={fermer} largeur={520} zIndex={80}>
+              <div className="mdd-drag" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, cursor: "grab" }}>
                 <h2 style={{ margin: 0, fontSize: 19 }}>Ajouter un utilisateur</h2>
                 <button type="button" onClick={fermer} title="Fermer" style={{ width: "auto", margin: 0, padding: "2px 10px", fontSize: 16 }}>
                   ✕
@@ -142,9 +128,7 @@ export default function NouvelUtilisateur({ roles }: { roles: RoleOption[] }) {
                   {error && <p className="error">{error}</p>}
                 </form>
               )}
-            </div>
-          </div>
-        </div>
+        </ModaleDeplacable>
       )}
     </>
   );
