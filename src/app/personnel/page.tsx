@@ -29,6 +29,7 @@ type Row = {
   date_depart_prevu: string | null;
   motif_depart: string | null;
   contrat_debut: string | null; // idem date_arrivee, garde pour compat
+  hasContrat: boolean; // true si au moins un contrat_periode existe
   pointure: string | null;
   commentaire: string | null;
   statut: string;
@@ -135,6 +136,7 @@ export default async function PersonnelPage({
       date_arrivee: d.arrivee,
       date_depart_prevu: d.depart,
       motif_depart: d.motifDepart,
+      hasContrat: periodesParPersonne.has(r.id),
     };
   });
 

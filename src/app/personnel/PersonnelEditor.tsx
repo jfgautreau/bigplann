@@ -33,6 +33,7 @@ type Row = {
   date_debut: string | null;
   date_fin: string | null;
   contrat_debut: string | null;
+  hasContrat: boolean;
   pointure: string | null;
   commentaire: string | null;
   statut: string;
@@ -368,7 +369,7 @@ export default function PersonnelEditor({
     // toute divergence quand la bascule quotidienne n'a pas encore ete faite.
     if (statutFilter && statutALaDate(r, today) !== statutFilter) return false;
     if (contratFilter && r.type_contrat !== contratFilter) return false;
-    if (incompletFilter && champsManquants(r).length === 0) return false;
+    if (incompletFilter && !ficheIncomplete(r)) return false;
     // Recherche globale : tous les mots doivent apparaitre dans une colonne cherchable.
     if (gTerms.length) {
       const hay = searchCols.map((c) => cellText(r, c.key)).join(" ");
@@ -396,19 +397,9 @@ export default function PersonnelEditor({
   const typeLabel = (code: string): string =>
     types.find((t) => t.code === code)?.libelle ?? (code === "INTERIM" ? "Intérim" : code);
 
-  // Fiche incomplete : 4 champs obligatoires pour une personne au travail.
-  // - equipe/atelier : sans, elle est invisible du planning / placement filtres.
-  // - livret : obligation legale + alerte 18 mois.
-  // - sexe : sert aux bilans (repartition H/F).
-  // Retourne la liste ordonnee des libelles manquants (vide = fiche complete).
-  const champsManquants = (r: Row): { key: "equipe_id" | "atelier_id" | "date_livret_accueil" | "sexe"; label: string }[] => {
-    const m: { key: "equipe_id" | "atelier_id" | "date_livret_accueil" | "sexe"; label: string }[] = [];
-    if (!r.equipe_id) m.push({ key: "equipe_id", label: "équipe" });
-    if (!r.atelier_id) m.push({ key: "atelier_id", label: "atelier" });
-    if (!r.date_livret_accueil) m.push({ key: "date_livret_accueil", label: "livret d'accueil" });
-    if (!r.sexe) m.push({ key: "sexe", label: "sexe" });
-    return m;
-  };
+  // Fiche incomplete : alerte quand une personne n'a aucun contrat dans Cycle
+  // de vie (contrat_periode). Un seul critere, derive cote serveur.
+  const ficheIncomplete = (r: Row): boolean => !r.hasContrat;
   const champId = (id: string, key: string) => `pers-${id}-${key}`;
   // Colonnes Contrat + Statut : chips cliquables qui ouvrent la modale Cycle
   // de vie. Plus de select / toggle direct — les valeurs sont des resultantes.
@@ -453,22 +444,16 @@ export default function PersonnelEditor({
       </button>
     );
   };
-  // Pastille « fiche incomplete » : petit rond orange devant le nom, cliquable
-  // pour poser le focus sur le 1er champ vide de la ligne. Rien affiche si tout
-  // est renseigne. Tooltip liste ce qui manque.
+  // Pastille « fiche incomplete » : petit rond orange devant le nom quand
+  // aucun contrat n'existe. Clic ouvre la modale Cycle de vie pour en saisir un.
   const pastilleIncomplet = (r: Row) => {
-    const manques = champsManquants(r);
-    if (manques.length === 0) return null;
-    const focus = () => {
-      const el = document.getElementById(champId(r.id, manques[0].key));
-      if (el && "focus" in el) (el as HTMLElement).focus();
-    };
+    if (!ficheIncomplete(r)) return null;
     return (
       <button
         type="button"
-        onClick={canEdit ? focus : undefined}
-        title={`Fiche incomplète : ${manques.map((m) => m.label).join(", ")}${canEdit ? " — cliquer pour compléter" : ""}`}
-        aria-label={`Fiche incomplète : ${manques.map((m) => m.label).join(", ")}`}
+        onClick={canEdit ? () => setCycleFor(r) : undefined}
+        title={`Pas de contrat dans Cycle de vie${canEdit ? " — cliquer pour en ajouter un" : ""}`}
+        aria-label="Pas de contrat"
         style={{
           width: 16,
           height: 16,
@@ -492,7 +477,7 @@ export default function PersonnelEditor({
   // Nombre de fiches incompletes parmi les ACTIVES (les A_VENIR peuvent
   // legitimement etre incompletes, on ne les compte pas ici).
   const nbIncompletActifs = rows.filter(
-    (r) => statutALaDate(r, today) === "ACTIF" && champsManquants(r).length > 0,
+    (r) => statutALaDate(r, today) === "ACTIF" && ficheIncomplete(r),
   ).length;
 
   return (
@@ -577,7 +562,7 @@ export default function PersonnelEditor({
                   type="button"
                   className={incompletFilter ? "seg active" : "seg"}
                   onClick={() => setIncompletFilter(true)}
-                  title="Fiches avec champs manquants (équipe, atelier, livret, sexe)"
+                  title="Fiches sans contrat dans Cycle de vie"
                 >
                   ⚠ Incomplètes
                 </button>
@@ -629,7 +614,7 @@ export default function PersonnelEditor({
                       <td><input value={r.numero_badge ?? ""} onChange={(e) => field(r.id, "numero_badge", e.target.value)} style={{ ...inp, ...C("numero_badge") }} /></td>
                       <td style={{ position: "relative" }}>
                         {pastilleIncomplet(r)}
-                        <input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={{ ...inp, width: `calc(100% - ${champsManquants(r).length ? 22 : 0}px)` }} />
+                        <input value={r.nom} onChange={(e) => field(r.id, "nom", e.target.value)} style={{ ...inp, width: `calc(100% - ${ficheIncomplete(r) ? 22 : 0}px)` }} />
                       </td>
                       <td><input value={r.prenom} onChange={(e) => field(r.id, "prenom", e.target.value)} style={inp} /></td>
                       <td><select id={champId(r.id, "sexe")} value={r.sexe ?? ""} onChange={(e) => field(r.id, "sexe", e.target.value, true)} style={{ ...inp, ...C("sexe"), background: sexeBg(r.sexe), color: sexeFg(r.sexe), fontWeight: 600 }}><option value="">-</option><option value="H">H</option><option value="F">F</option></select></td>
@@ -726,6 +711,7 @@ export default function PersonnelEditor({
                       ...(u.type_contrat !== undefined ? { type_contrat: u.type_contrat } : {}),
                       ...(u.date_fin !== undefined ? { date_fin: u.date_fin } : {}),
                       ...(u.contrat_debut !== undefined ? { contrat_debut: u.contrat_debut } : {}),
+                      hasContrat: true, // un onSync = un contrat existe
                     }
                   : r,
               ),
