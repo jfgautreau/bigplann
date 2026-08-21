@@ -88,7 +88,7 @@ export default function HabilitationsParamEditor({ initial }: { initial: Row[] }
                   <th style={{ width: "22%" }}>Groupe</th>
                   <th style={{ width: "34%" }}>Formation</th>
                   <th style={{ width: 110 }}>Validité (mois)</th>
-                  <th style={{ width: 150, textAlign: "center" }} title="La formation suit une autorisation de conduite (date par personne)">Autor. conduite</th>
+                  <th style={{ width: 150, textAlign: "center" }} title="La formation suit une autorisation (date par personne)">Autorisation</th>
                   <th style={{ width: 70 }}>N° aff.</th>
                   <th style={{ width: 70, textAlign: "center" }}>Actif</th>
                   <th style={{ width: 40 }}></th>
@@ -125,8 +125,8 @@ export default function HabilitationsParamEditor({ initial }: { initial: Row[] }
       })}
 
       <p className="muted" style={{ fontSize: 12 }}>
-        Modèle : <strong>Catégorie → Groupe → Formation</strong>. « Autor. conduite » = la
-        formation suit une <strong>date d&apos;autorisation de conduite sur site</strong>{" "}
+        Modèle : <strong>Catégorie → Groupe → Formation</strong>. « Autorisation » = la
+        formation suit une <strong>date d&apos;autorisation sur site</strong>{" "}
         par personne. La <strong>validité</strong>{" "}
         (mois) calcule automatiquement l&apos;échéance de recyclage. Enregistrement automatique.
       </p>

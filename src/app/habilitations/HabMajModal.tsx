@@ -140,7 +140,7 @@ export default function HabMajModal({
             </div>
             {comp?.a_autorisation_conduite && (
               <div className="field">
-                <span>Autorisation de conduite</span>
+                <span>Autorisation</span>
                 <input type="date" value={dateAutor} onChange={(e) => setDateAutor(e.target.value)} />
               </div>
             )}

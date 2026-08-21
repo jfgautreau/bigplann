@@ -35,7 +35,7 @@ export default function HabLegendeModal({ onClose }: { onClose: () => void }) {
         <p className="muted" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 7 }}>
           <AutorisationMark size={16} />
           <span>
-            en bas d&apos;une colonne = formation soumise à <strong>autorisation de conduite</strong>{" "}
+            en bas d&apos;une colonne = formation soumise à <strong>autorisation</strong>{" "}
             (date propre à chaque personne, visible dans l&apos;infobulle de la case).
           </span>
         </p>

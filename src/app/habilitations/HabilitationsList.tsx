@@ -40,7 +40,7 @@ const catOf = (c: string | null) => (c === "interne" ? "interne" : "reglementair
 // Echeance effective : date stockee, sinon recalculee (obtention + duree de validite).
 const effExp = (rec: Row, comp?: Comp) => rec.date_expiration ?? addMonthsIso(rec.date_obtention, comp?.duree_validite_mois);
 
-// Date de remise de l'autorisation de conduite, editable en direct (auto-save).
+// Date de remise de l'autorisation, editable en direct (auto-save).
 // Permet de la renseigner apres coup, une fois la formation validee.
 function AutorisationCell({ id, initial }: { id: string; initial: string | null }) {
   const [val, setVal] = useState(initial ?? "");
@@ -163,7 +163,7 @@ export default function HabilitationsList({
     const formeesSet = new Set<string>();
     let valables = 0;
     let expirees = 0;
-    let autorNonDelivrees = 0; // formation a autorisation de conduite, date de remise vide
+    let autorNonDelivrees = 0; // formation soumise a autorisation, date de remise vide
     const parComp = new Map<string, { formees: number; valables: number; expirees: number }>();
     for (const c of comps) parComp.set(c.id, { formees: 0, valables: 0, expirees: 0 });
     for (const rec of recMap.values()) {
@@ -365,7 +365,7 @@ export default function HabilitationsList({
                     {shownOrdered.map((c) => (
                       <th
                         key={c.id}
-                        title={c.a_autorisation_conduite ? `${c.nom}\nSoumise à autorisation de conduite` : c.nom}
+                        title={c.a_autorisation_conduite ? `${c.nom}\nSoumise à autorisation` : c.nom}
                         className={debutGroupe.has(c.id) ? `${g.colHead} ${g.groupStart}` : g.colHead}
                       >
                         <div className={g.colLabel}>
@@ -465,7 +465,7 @@ export default function HabilitationsList({
                     <th>Formation</th>
                     <th>Passage</th>
                     <th>Échéance</th>
-                    {anyAutor && <th>Autorisation conduite</th>}
+                    {anyAutor && <th>Autorisation</th>}
                     <th>Statut</th>
                   </tr>
                 </thead>
