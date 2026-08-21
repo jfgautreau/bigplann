@@ -92,7 +92,7 @@ const COLS: { key: ColKey; label: string; w: number; search?: boolean }[] = [
   { key: "atelier", label: "Atelier", w: 6, search: true },
   { key: "date_livret_accueil", label: "Livret accueil", w: 8.5 },
   { key: "absences", label: "Absences", w: 6 },
-  { key: "alerte", label: "⚠ 18 mois", w: 5 },
+  { key: "alerte", label: "⚠ 18 mois", w: 8 },
   { key: "pointure", label: "Pointure", w: 5, search: true },
   { key: "tp", label: "TP", w: 5 },
   { key: "statut", label: "Statut", w: 6.5, search: true },
@@ -223,14 +223,43 @@ export default function PersonnelEditor({
     return c ? { background: c, color: "#1e293b", fontWeight: 600 } : {};
   };
 
-  // Alerte « 18 mois » : ancre desormais la date de remise du livret d'accueil.
-  // Non-CDI uniquement (comme avant) : c'est la borne legale de l'interim et un
-  // reperage utile des CDD longs. Sans livret renseigne, pas d'alerte : la donnee
-  // n'a pas encore ete saisie.
-  const alerte18 = (r: Row): number | null => {
-    if (r.type_contrat === "CDI" || !r.date_livret_accueil) return null;
-    const m = monthsBetween(r.date_livret_accueil, today);
-    return m >= 18 ? m : null;
+  // Colonne « 18 mois » : borne legale de l'interim. On affiche la date de fin
+  // (livret + 18 mois) pour tous les INTERIMAIRES ACTIFS, teintee selon l'echeance :
+  //   - 3-4 mois d'anciennete du livret : jaune (pre-alerte)
+  //   - 17-18 mois : orange (imminent)
+  //   - > 18 mois  : rouge (deja depasse)
+  //   - reste      : date affichee sans code couleur.
+  // Sans livret renseigne, la date ne peut pas etre calculee -> rien.
+  const jauneBg = "#fef08a"; // yellow-200
+  const jauneFg = "#854d0e"; // yellow-900
+  const orangeBg = "#fed7aa"; // orange-200
+  const orangeFg = "#7c2d12"; // orange-900
+  const rougeBg = "#fecaca"; // red-200
+  const rougeFg = "#7f1d1d"; // red-900
+
+  type Alerte18 = { dateFin: string; anciennete: number; bg: string; fg: string; titre: string } | null;
+  const alerte18 = (r: Row): Alerte18 => {
+    if (r.type_contrat !== "INTERIM") return null;
+    if (statutALaDate(r, today) !== "ACTIF") return null;
+    if (!r.date_livret_accueil) return null;
+    const anciennete = monthsBetween(r.date_livret_accueil, today);
+    // Date de fin des 18 mois = livret + 18 mois (annee/mois, garde le jour).
+    const [y, mo, d] = r.date_livret_accueil.split("-").map(Number);
+    const dt = new Date(y, mo - 1 + 18, d);
+    const dateFin = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+
+    let bg = "transparent";
+    let fg = "inherit";
+    if (anciennete > 18) { bg = rougeBg; fg = rougeFg; }
+    else if (anciennete >= 17) { bg = orangeBg; fg = orangeFg; }
+    else if (anciennete >= 3 && anciennete < 5) { bg = jauneBg; fg = jauneFg; }
+
+    const titre =
+      anciennete > 18 ? `Dépassé de ${anciennete - 18} mois`
+      : anciennete >= 17 ? `Échéance dans ${18 - anciennete} mois`
+      : anciennete >= 3 && anciennete < 5 ? `Pré-alerte (${anciennete} mois d'ancienneté)`
+      : `${anciennete} mois d'ancienneté depuis le livret`;
+    return { dateFin, anciennete, bg, fg, titre };
   };
 
   async function post(op: string, payload: Record<string, unknown>) {
@@ -622,7 +651,24 @@ export default function PersonnelEditor({
                       <td><select id={champId(r.id, "atelier_id")} value={r.atelier_id ?? ""} onChange={(e) => field(r.id, "atelier_id", e.target.value, true)} style={{ ...inp, ...C("atelier") }}><option value="">-</option>{ateliers.map((x) => (<option key={x.id} value={x.id}>{x.nom}</option>))}</select></td>
                       <td><input id={champId(r.id, "date_livret_accueil")} type="date" value={r.date_livret_accueil ?? ""} onChange={(e) => field(r.id, "date_livret_accueil", e.target.value, true)} style={inp} /></td>
                       <td style={{ textAlign: "center" }}><BoutonAbsences row={r} onOpen={() => setAbsFor(r)} /></td>
-                      <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Livret d'accueil remis il y a ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
+                      <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                        {a18 && (
+                          <span
+                            title={a18.titre}
+                            style={{
+                              display: "inline-block",
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                              background: a18.bg,
+                              color: a18.fg,
+                              fontWeight: 600,
+                              fontSize: 12,
+                            }}
+                          >
+                            {fmtDate(a18.dateFin)}
+                          </span>
+                        )}
+                      </td>
                       <td><input value={r.pointure ?? ""} maxLength={5} onChange={(e) => field(r.id, "pointure", e.target.value)} style={{ ...inp, ...C("pointure") }} /></td>
                       <td style={{ textAlign: "center" }}>
                         {r.temps_partiel ? (
@@ -650,7 +696,24 @@ export default function PersonnelEditor({
                       <td style={{ textAlign: "center" }}>{atelierNom(r.atelier_id) || "-"}</td>
                       <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>{fmtDate(r.date_livret_accueil)}</td>
                       <td style={{ textAlign: "center" }}><BoutonAbsences row={r} onOpen={() => setAbsFor(r)} /></td>
-                      <td style={{ textAlign: "center" }}>{a18 != null && <span className="rbadge danger" title={`Livret d'accueil remis il y a ${a18} mois (> 18)`}>⚠ {a18} m</span>}</td>
+                      <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                        {a18 && (
+                          <span
+                            title={a18.titre}
+                            style={{
+                              display: "inline-block",
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                              background: a18.bg,
+                              color: a18.fg,
+                              fontWeight: 600,
+                              fontSize: 12,
+                            }}
+                          >
+                            {fmtDate(a18.dateFin)}
+                          </span>
+                        )}
+                      </td>
                       <td style={{ textAlign: "center" }}>{r.pointure || "-"}</td>
                       <td style={{ textAlign: "center" }}>{r.temps_partiel ? <span className="sexe-pill" style={{ background: "#e0e7ff", color: "#3730a3" }}>TP</span> : <span className="muted">—</span>}</td>
                       <td style={{ textAlign: "center" }}>{statutChip(r)}</td>

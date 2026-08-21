@@ -2,12 +2,13 @@ import { describe, it, expect } from "vitest";
 import { habStatut, joursRestants } from "./habilitations";
 
 describe("habStatut", () => {
-  it("rouge si < 30 jours ou expire", () => {
-    expect(habStatut(29)).toBe("rouge");
-    expect(habStatut(0)).toBe("rouge");
+  it("rouge uniquement quand echeance depassee", () => {
+    expect(habStatut(-1)).toBe("rouge");
     expect(habStatut(-5)).toBe("rouge");
   });
-  it("orange entre 30 et 90 jours", () => {
+  it("orange de 0 a 90 jours avant echeance", () => {
+    expect(habStatut(0)).toBe("orange");
+    expect(habStatut(29)).toBe("orange");
     expect(habStatut(30)).toBe("orange");
     expect(habStatut(90)).toBe("orange");
   });

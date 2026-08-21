@@ -182,7 +182,7 @@ export default function HabilitationsList({
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"grille" | "liste">("grille"); // grille par défaut
   // Saisie ouverte au clic sur une pastille, pre-remplie avec cette case.
-  const [maj, setMaj] = useState<{ personneId: string; competenceId: string; dateObtention: string | null; dateAutorisation: string | null } | null>(null);
+  const [maj, setMaj] = useState<{ personneId: string; competenceId: string; dateObtention: string | null; autorisationRemise: boolean; commentaire: string | null } | null>(null);
   const [showLegende, setShowLegende] = useState(false);
   const [showBilan, setShowBilan] = useState(false);
   const { headCardRef, headTableRef, rowsTableRef, rowsCardProps } = usePersonGrid(g.colHover, 3);
@@ -209,9 +209,9 @@ export default function HabilitationsList({
     const formeesSet = new Set<string>();
     let valables = 0;
     let expirees = 0;
-    let autorNonDelivrees = 0; // formation soumise a autorisation, date de remise vide
-    const parComp = new Map<string, { formees: number; valables: number; expirees: number }>();
-    for (const c of comps) parComp.set(c.id, { formees: 0, valables: 0, expirees: 0 });
+    let autorNonDelivrees = 0; // formation soumise a autorisation, case non cochee
+    const parComp = new Map<string, { formees: number; valables: number; expirees: number; autorNonDelivrees: number }>();
+    for (const c of comps) parComp.set(c.id, { formees: 0, valables: 0, expirees: 0, autorNonDelivrees: 0 });
     for (const rec of recMap.values()) {
       if (!actifs.has(rec.personne_id)) continue;
       const comp = compById.get(rec.competence_id);
@@ -227,7 +227,10 @@ export default function HabilitationsList({
         valables++;
         st.valables++;
       }
-      if (comp?.a_autorisation_conduite && !rec.date_autorisation_conduite) autorNonDelivrees++;
+      if (comp?.a_autorisation_conduite && !rec.date_autorisation_conduite) {
+        autorNonDelivrees++;
+        st.autorNonDelivrees++;
+      }
     }
     return { global: { formees: formeesSet.size, valables, expirees, autorNonDelivrees }, parComp };
   }, [recMap, personnes, comps, compById]);
@@ -293,12 +296,19 @@ export default function HabilitationsList({
   function cellOf(personId: string, c: Comp): { statut: HabStatut | "aucun"; title: string } {
     const rec = recMap.get(`${personId}:${c.id}`);
     if (!rec) return { statut: "aucun", title: `${c.nom} — non habilité` };
-    const auTxt = rec.date_autorisation_conduite ? ` · autorisation ${fmtDate(rec.date_autorisation_conduite)}` : "";
+    // Autorisation : « remise » (case cochee, date = date d'obtention) ou « à remettre ».
+    // Le champ date_autorisation_conduite tient lieu de booleen (non-null = remise).
+    const auTxt = c.a_autorisation_conduite
+      ? rec.date_autorisation_conduite
+        ? " · autorisation remise"
+        : " · autorisation à remettre"
+      : "";
+    const commTxt = rec.commentaire ? `\n« ${rec.commentaire} »` : "";
     const exp = effExp(rec, c);
-    if (!exp) return { statut: "vert", title: `${c.nom} — valable (pas de date de validité)${auTxt}` };
+    if (!exp) return { statut: "vert", title: `${c.nom} — valable (pas de date de validité)${auTxt}${commTxt}` };
     const j = joursRestants(exp);
     const st = habStatut(j) ?? "vert";
-    return { statut: st, title: `${c.nom} — ${j !== null && j < 0 ? `expirée (${-j} j)` : `${j} j`} (éch. ${fmtDate(exp)})${auTxt}` };
+    return { statut: st, title: `${c.nom} — ${j !== null && j < 0 ? `expirée (${-j} j)` : `${j} j`} (éch. ${fmtDate(exp)})${auTxt}${commTxt}` };
   }
 
   const anyAutor = rows.some((r) => r.competence?.a_autorisation_conduite);
@@ -433,10 +443,19 @@ export default function HabilitationsList({
                       ["Personnes formées", "#1d4ed8", "formees"],
                       ["Habilitations valables", "#16a34a", "valables"],
                       ["Habilitations expirées", "#dc2626", "expirees"],
+                      // Colonnes sans autorisation : la case reste vide (le compteur
+                      // n'a pas de sens hors formations « a autorisation »).
+                      ["Autorisations non remises", "#b45309", "autorNonDelivrees"],
                     ] as const).map(([label, color, field]) => (
                       <tr key={field} className={g.bilanRow}>
                         <td className={g.bilanLabel} style={{ color }}>{label}</td>
                         {shownOrdered.map((c) => {
+                          // « Autor. non remises » : afficher — sur les formations
+                          // sans autorisation, sinon on ne comprend pas pourquoi la
+                          // colonne reste toujours a 0.
+                          if (field === "autorNonDelivrees" && !c.a_autorisation_conduite) {
+                            return <td key={c.id} className={g.bilanCell} style={{ color: "#cbd5e1" }}>—</td>;
+                          }
                           const n = bilan.parComp.get(c.id)?.[field] ?? 0;
                           return (
                             <td key={c.id} className={g.bilanCell} style={{ color: n > 0 ? color : "#cbd5e1" }}>
@@ -477,7 +496,8 @@ export default function HabilitationsList({
                                         personneId: p.id,
                                         competenceId: c.id,
                                         dateObtention: rec?.date_obtention ?? null,
-                                        dateAutorisation: rec?.date_autorisation_conduite ?? null,
+                                        autorisationRemise: !!rec?.date_autorisation_conduite,
+                                        commentaire: rec?.commentaire ?? null,
                                       })
                                   : undefined
                               }
@@ -511,8 +531,9 @@ export default function HabilitationsList({
                     <th>Formation</th>
                     <th>Passage</th>
                     <th>Échéance</th>
-                    {anyAutor && <th>Autorisation</th>}
+                    {anyAutor && <th style={{ width: 110, textAlign: "center" }}>Autorisation</th>}
                     <th>Statut</th>
+                    <th>Commentaire</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -527,12 +548,12 @@ export default function HabilitationsList({
                         <td style={{ whiteSpace: "nowrap" }}>{fmtDate(r.date_obtention)}</td>
                         <td style={{ whiteSpace: "nowrap" }}>{exp ? fmtDate(exp) : <span className="muted">-</span>}</td>
                         {anyAutor && (
-                          <td style={{ whiteSpace: "nowrap" }}>
+                          <td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                             {r.competence?.a_autorisation_conduite ? (
                               canEdit ? (
-                                <AutorisationCell id={r.id} initial={r.date_autorisation_conduite} />
+                                <AutorisationCell id={r.id} initial={!!r.date_autorisation_conduite} />
                               ) : (
-                                fmtDate(r.date_autorisation_conduite)
+                                r.date_autorisation_conduite ? "✓" : <span className="muted">—</span>
                               )
                             ) : (
                               <span className="muted">—</span>
@@ -546,12 +567,19 @@ export default function HabilitationsList({
                             </span>
                           )}
                         </td>
+                        <td>
+                          {canEdit ? (
+                            <CommentaireCell id={r.id} initial={r.commentaire} />
+                          ) : (
+                            r.commentaire ? r.commentaire : <span className="muted">—</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
                   {shownRows.length === 0 && (
                     <tr>
-                      <td colSpan={anyAutor ? 6 : 5} className="muted">
+                      <td colSpan={anyAutor ? 7 : 6} className="muted">
                         {rows.length === 0 ? "Aucune habilitation enregistrée." : "Aucun résultat pour cette recherche."}
                       </td>
                     </tr>
