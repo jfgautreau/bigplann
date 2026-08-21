@@ -1,6 +1,7 @@
 # Polaris multi-site — analyse et proposition d'architecture
 
-> **Statut : EN COURS (2026-08-21).** PR 1–5 code fini, PR 5 SQL à jouer.
+> **Statut : EN COURS (2026-08-21).** PR 1–5 en prod (0053 appliquée),
+> lenteurs constatées à surveiller.
 >
 > ---
 >
@@ -43,10 +44,14 @@
 >
 > **⏸️ Reste à faire** :
 >
-> - **PR 5 SQL — jouer `0053_tables_par_site.sql`** dans le SQL Editor
->   Supabase. Prérequis : supprimer d'abord tout site tiers déjà créé
->   (« La Vraie Croix » notamment) — sinon ses lignes NULL restantes
->   seraient rebasculées vers Lebignon. Sauvegarde `pg_dump` obligatoire.
+> - **⚠️ Lenteurs à investiguer (2026-08-21)** — après application de la
+>   0053, chargement des pages perçu comme plus lent sur Lebignon. Pistes :
+>   (1) plans avec composite FK / composite PK sur `jour_quart` : vérifier
+>   que les index sont bien utilisés (EXPLAIN sur planning + placement),
+>   (2) `getPermissions` / `getAllPermissions` font désormais un
+>   `getCurrentSite()` supplémentaire par appel — potentiellement un
+>   round-trip DB de plus (à mesurer, `cache()` de React devrait dédupliquer),
+>   (3) invalidations de cache Next après la vague de RLS/PK/FK.
 >
 > - **PR 6 — Tests statiques cross-site** (durcissement, indépendant de 0053) :
 >   - `routes-multi-site.test.ts` : toute route API écrivant une table

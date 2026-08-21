@@ -110,6 +110,16 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
   les garde-fous se calculant sur la matrice, ils s'appliquent à lui automatiquement.
   Le CHECK sur `app_user.role` a été retiré (0042) ; la validation d'un code de rôle
   se fait côté application (intégrés + `role_custom`), plus par `isRole()` seul.
+- **Depuis 0053, toutes les tables de paramétrage sont site-scopées** (`site_id NOT
+  NULL`) : `motif_absence`, `type_contrat`, `role_custom`, `role_permission`,
+  `competence`, `competence_niveau_libelle`, `quart`. Chaque site a **sa propre
+  matrice des droits, ses propres rôles custom, ses propres motifs, contrats,
+  compétences, échelle et quarts** — plus aucune ligne partagée. Un nouveau site
+  démarre en dupliquant les référentiels du **site source** choisi au formulaire
+  `/platform/nouveau` (`copierReferentiels()` dans `src/app/platform/actions.ts`).
+  Conséquence pour toute nouvelle route qui écrit dans l'une de ces 7 tables :
+  poser `site_id` explicitement, même via `getAdminClient()` — le trigger
+  `set_site_id_from_context` retomberait sinon sur le fallback `lebignon`.
 - Routes publiques (`src/proxy.ts`) : `/login`, `/forgot`, `/reset`, `/auth/*`, `/affichage/*`.
 - **Mot de passe** : l'admin n'en choisit jamais. `/admin/users` génère un **lien**
   `{base}/reset?token_hash=…` à transmettre (aucun e-mail envoyé, le SMTP n'est pas
@@ -117,7 +127,11 @@ données, RLS), `tasks/handoff.md` (détail métier & patterns), `tasks/lessons.
   `action_link`, il ne marche pas ici.
 
 ## Modèle métier — les pièges
-- **Quart ≠ Équipe.** Quarts : `journee`/`matin`/`apres_midi`/`nuit` (table `quart`).
+- **Quart ≠ Équipe.** Quarts : `journee`/`matin`/`apres_midi`/`nuit` (table `quart`,
+  site-scopée depuis 0053 : PK composite `(code, site_id)`, FKs composites
+  `(quart_code, site_id) → quart(code, site_id)` sur les 10 tables enfants —
+  aucun code ne fait `.select("quart(...)")` en embed implicite, donc
+  PostgREST-safe, contrairement au retour d'expérience 0046/0047).
   Les équipes tournent sauf si `equipe.quart_fixe`. **Rotation par référence datée**
   (`rotation_reference`, cf. `src/lib/rotation.ts` ; écran fusionné dans `/admin/equipes`) :
   on saisit, pour **une** semaine (lundi),
